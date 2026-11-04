@@ -152,7 +152,7 @@ export class PortGame {
   }
   explodeDrum(d) {
     if (d.state === 'gone') return;
-    d.state = 'gone';
+    d.state = 'gone'; this._drumsDirty = true; // hide the intact drum instance
     if (d.box) this.col.remove(d.box);
     this.drumsBlown++;
     const P = d.pos.clone(); P.y += 0.5;
@@ -389,7 +389,6 @@ export class PortGame {
     if (this.hp <= 0 && !this.downed) {
       this.downed = true; this.hp = 1;
       this.slowmo(1.6, 0.25, true);
-      this.audio.play('radio_squelch', {});
       this.hud.subtitle('DRIVER', pick(["Get up! I'm not explaining this to your mom!", "Stay with me! Breathe! Shoot!", "You don't get to die on a Tuesday!"]), 3.5);
       this.fx.later(1.5, () => { this.hp = 100; this.downed = false; });
     }
@@ -525,6 +524,14 @@ export class PortGame {
       this.scene.environmentIntensity = 0.8 - this.dusk * 0.45;
     }
     this.world.update(dt, this.headPos, this.dusk);
+    // buddy in the wrecked pickup at the gate: idle looks, lip-sync on his radio lines (skipped once he's far behind)
+    const W = this.world;
+    if (W.buddy && W.pickup.root.position.distanceToSquared(this.headPos) < 60 * 60) {
+      const st = W.buddySt;
+      st.talking = this.hud.subT > 0.25 && this.hud.subSpeaker === 'DRIVER';
+      st.time = this.time;
+      W.buddy.update(dt, st);
+    }
     // grenade warning indicator
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);

@@ -57,7 +57,10 @@ export class DowntownGame {
     this.glass = new GlassSystem(this, world.panes);
     this.traffic = new Traffic(this, world.mods.carMod, world.fallbackCar);
     this.lasers = new LaserFX(this);
-    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320 });
+    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320, occlusion: !E.params.has('noocc'),
+      // dust overdraw cap, in screens' worth of puffs in front of you (?fill=N to tune, 0 = off)
+      fillBudget: E.params.has('fill') ? +E.params.get('fill') : E.isQuest ? 6 : 14 });
+    this._noSoldierCull = E.params.has('nosoldiercull');
     // dust veil over the (unfogged) sky dome: inside the dust there is no blue sky
     this.dustDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 12), new THREE.MeshBasicMaterial({ color: 0x6b5d4b, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
     this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
@@ -277,7 +280,6 @@ export class DowntownGame {
     if (this.hp <= 0 && !this.downed) {
       this.downed = true; this.hp = 1;
       this.slowmo(1.6, 0.25, true);
-      this.audio.play('radio_squelch', {});
       this.hud.subtitle('DRIVER', pick(["Get up! The city's not done with you!", 'Breathe! Shoot back! In that order!', "Don't you dare die before the tower does!"]), 3.5);
       this.fx.later(1.5, () => { this.hp = 100; this.downed = false; });
     }
@@ -434,6 +436,7 @@ export class DowntownGame {
     this.camera.getWorldDirection(this.playerFwd); this.playerFwd.y = 0; this.playerFwd.normalize();
 
     for (const s of this.soldiers) s.update(dt);
+    this._cullSoldiers();
     this._updateNades(dt);
     this.traffic.update(dt);
     this.glass.update(dt);
@@ -443,7 +446,7 @@ export class DowntownGame {
     this._updateBodies(dt);
     this._ambient(dt);
     this.clouds.material.uniforms.uDim.value = this.sunBlock || 0;
-    this.clouds.update(dt, this.headPos, 0.15);
+    this.clouds.update(dt, this.headPos, 0.15, this.playerFwd);
     // golden hour sinking into dusk as the level goes on
     if (Math.abs((this._appliedDusk ?? -1) - this.dusk) > 0.002) {
       this._appliedDusk = this.dusk;
@@ -480,13 +483,29 @@ export class DowntownGame {
     // sparks and smoke must sink into the dust too)
     if (F.k > 0.001 || this._fogDirty || this._bbFogK) {
       this._bbFogK = F.k > 0.001;
-      this._bbMats ||= (() => { const out = []; this.scene.traverse(o => { const u = o.material?.uniforms; if (u?.fogNear && u?.fogFar && !out.includes(o.material)) out.push(o.material); }); return out; })();
+      this._bbMats ||= (() => { const out = []; this.scene.traverse(o => { const u = o.material?.uniforms; if (u?.fogNear && u?.fogFar && !o.material.userData.noFogSync && !out.includes(o.material)) out.push(o.material); }); return out; })();
       for (const m of this._bbMats) { m.uniforms.fogNear.value = fog.near; m.uniforms.fogFar.value = fog.far; }
     }
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);
     return dt;
   }
+  // Gunmen ship with frustumCulled = false (a skinned mesh's bind-pose bounds don't follow the animation), so every
+  // soldier was skinned and drawn in both eyes and the shadow pass even behind you. While alive the body stays within
+  // a fixed sphere around the root, so cull against that; ragdolls keep the old behaviour. Past 40 m the sun shadow is
+  // a few texels and the contact blob carries it.
+  _cullSoldiers() {
+    const h = this.headPos;
+    for (const s of this.soldiers) {
+      const m = s.gm?.mesh; if (!m) continue;
+      if (s.alive && !this._noSoldierCull) {
+        if (!m.userData.cullSphere) { m.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.0, 0), 1.7); m.userData.cullSphere = true; }
+        m.frustumCulled = true;
+      } else m.frustumCulled = false;
+      m.castShadow = !s.alive || s.root.position.distanceToSquared(h) < 1600;
+    }
+  }
+
   _updateBodies(dt) {
     for (const r of this.ragdolls) {
       r.rd.update(dt, 0);

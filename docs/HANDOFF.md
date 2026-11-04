@@ -1,6 +1,6 @@
 # BAYHEM: handoff for the next levels
 
-BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model, texture or audio files.
+BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model or texture files, and the only audio files are the driver's voiced radio lines (`public/vo/`, see `tools/vo/README.md`).
 
 ## Status
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
@@ -19,6 +19,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 ## Decisions made (apply to all levels)
 - **Locomotion for the on-foot levels:** smooth thumbstick movement with a comfort vignette while moving, plus 45° snap turn.
 - **Each new level gets its own chat.**
+- **Driver voice (Nov 2026):** every DRIVER line is voiced with local AI TTS (Chatterbox cloned onto a Kokoro male voice, both free to ship) and a baked radio filter. Kenny picked it over a calmer TTS after listening to samples. A real voice actor is still an option for a final pass. Any new or reworded driver line needs `tools/vo` re-run, or it plays silent (subtitle + squelch only).
 - **Engine:** stay in WebXR with three.js. Keep the art pipeline: procedural geometry and canvas/shader textures, with no screen-space post-processing. Grade, rim light and glows live in material shaders or sprites so they're free on Quest.
 
 ## Reusable modules (src/)
@@ -26,6 +27,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **`locomotion.js`** (new): smooth stick/WASD movement relative to the head, comfort vignette, 45° snap turn around the head, ground following, no walking off ledges; room-scale intrusions into walls push the rig back.
 - **`settings.js`** (new): persisted player settings (`settings.comfortVignette`, `setSetting(k, v)`, localStorage with a private-mode fallback). The comfort vignette toggles from the menu button or by clicking the right stick in VR.
 - **`soundbus.js`**: the live/recording audio bus (was in main.js).
+- **`vo.js`** (new): wraps `hud.subtitle` so every `DRIVER` line with a clip in `vo-manifest.js` is spoken over the radio (keyed by a hash of the exact text, preloaded per level, ducks the score, ignores slow-mo, recorded for trailer renders). It also owns the radio squelch, so level code just calls `hud.subtitle('DRIVER', text)`.
 - **`atmosphere.js`:** sunset sky shader, sun-aware fog, PMREM environment. The global shader patches add the color grade (`bayGrade`), fog toward the sun, and a sun rim light on every lit material.
 - **`particles.js`:** a GPU-generated FX atlas with 64-frame fire and smoke flipbooks, plus an instanced billboard renderer that draws in one call and supports stretched sparks.
 - **`fx.js`:** layered explosions (flash, fireballs, mushroom, oily smoke, sparks, embers, debris, shockwave ring, scorch decal, pooled lights). Also tracers, muzzle flashes, casings, and `trailEmit` for continuous smoke trails.
@@ -106,6 +108,14 @@ Review status: five independent screenshot reviews went 5.5 → 5.5 → 5.5 → 
 - the desktop gun materials.
 
 Procedural art plateaued here. The next real jumps need shared-engine explosion work or authored fracture meshes.
+
+**Performance pass (branch `downtown-perf`).** Measured in the sandbox with a Quest user agent (Quest pools and shadow size), at fixed frames per beat; no headset frame times yet. Per VR frame (both eye passes + sun shadow) triangles fell 13–24% (intro 1.42M → 1.23M, avenue 1.44M → 1.19M, gunship 1.08M → 0.82M, collapse 1.02M → 0.81M); the shadow pass roughly halved everywhere; dust overdraw in front of the player during the collapse went from ~16 to ~9 screens; lobby simulation CPU ~30% lower. Screenshots before/after match.
+- `shadowlod.js`: car bodies cast the sun shadow from a vertex-clustered copy appended to their own geometry (draw range swapped in `onBeforeShadow`/`onAfterShadow`), so no extra draw calls. Cars were half the shadow pass. `?noshadowlod` turns it off.
+- `game._cullSoldiers`: gunmen ship with `frustumCulled = false`; while alive they now cull against a fixed 1.7 m sphere around the root (ragdolls keep the old behaviour) and stop casting sun shadows past 40 m. `?nosoldiercull`.
+- `dustfx.js`: puffs hidden by fog, by the near fade, or completely behind denser nearer puffs (angle grid around the eye, so it holds for both eyes) are skipped; a fill budget (`fillBudget`, Quest 6 / desktop 14, `?fill=N`) fades the farthest in-view puffs out first. `?noocc`.
+- `ai.js`: a soldier with no free cover rescanned all ~700 cover points every frame; a miss is now remembered for 0.33 s (17× fewer scans, same decisions). Port of Victory's `ai.js` (also used by the airport) has the same pattern and would take the same fix.
+- Tried and dropped: splitting the merged city/street/lobby meshes into ground cells (4% fewer triangles for ~20 more draw calls per pass).
+- Still heavy: the shared particle batch at the gunship crash and the dive (~14–25 screens of overdraw, `fx.main` pool full), and ~450–510k eye-pass triangles at the start and down the avenue (cars and soldiers ~9–11k tris each). Headset check: frame time during the collapse and the dive.
 Original brief:
 - **Setting:** a canyon of glass towers, abandoned traffic, and smoke columns from the earlier chaos.
 - **Beats:**
@@ -116,6 +126,17 @@ Original brief:
 
 ### Level 4: AIRPORT NO RETURN (on foot, ending in a vehicle) — DONE
 Built on top of Level 2's framework (branch `level-4-airport`). Code: `src/levels/airport-no-return/` (`layout.js` positions, `world.js` airfield / lights / collision, `aircraft.js` airliner + cargo plane, `gse.js` jeep / refuelers / tugs / carts / stairs, `game.js` combat, `setpieces.js` jets / cargo plane / jeep ride / chase SUVs / leap / credits, `director.js` beats, `auto.js` demo autopilot). Beats: hangar intro → apron fight (2 waves, exploding JET A-1 refuelers) → two jets taxi up and blow on the taxiway (break into burning pieces) → FOLLOW-ME jeep pulls up → rail chase down runway 27 (SUVs, ramp crew, drum pallets) → jump onto the ramp as the plane rotates → credits behind the ramp. Test any beat with `?level=airport-no-return&beat=<name>`; see `DESIGN.md` there. Soldier AI is imported from `port-of-victory/ai.js` (should move to `src/` once Level 2 lands). Shared-file changes: `src/audio.js` (jet / cargo loops, spool-up), `src/levels/index.js` (registry), `src/particles.js` (atlas edge fade), `src/fx.js` (debris trails). It went through nine independent screenshot reviews, ending at 8.0/10; the remaining issues are listed in the PR.
+
+**Polish pass (branch `airport-polish`).** The old 8.0 came from reviews that never saw the other levels; reviewed side by side with Level 2/3 frames it scored **4.5** (Port 7.0, Downtown 6.5 in that round). Four calibrated reviews went **4.5 → 6.0 → 6.3 → 6.5** (the last round put Port at 6.5 and Downtown at 6.0 on the same scale, so the airport is now level with them).
+- Midground: `terminal.js` (new) builds CONCOURSE B (glass gate lounges, jet bridges to two nose-in airliners, NORDAIR / AERO CORAL liveries), the HAVEN AIR CARGO shed on the south edge, four sheds down taxiway A for the chase and the far terminal across the runway. All buildings merge into one `StaticBatch` (draw calls at the getaway: 227 → 181).
+- Apron: catering high-loaders (SKYCHEF livery), crew buses, jersey barriers, per-vertex grime wash, gate / stand / service-road markings; masts and cones moved to a no-shadow batch (their 280 m low-sun shadows striped the whole apron).
+- Ground: calmer asphalt (no per-pixel grain in the normal map: it sparkled like sand), runway tyre streaks, shader-side grass patchwork + mowed stripes along the runway strip, field edge + approach lights past the far end.
+- Hangars: lamp light pools, grimy self-lit wall and door liners, mezzanine offices, clutter in hangar 2, matte floor.
+- FX: Level 2's dusk fire look (`fx.heat 0.86`, `fireHue 1`, lit debris) plus a level-local clamp that keeps every fire sprite orange; the fuel carpet is flames instead of 14 flash sprites (the white ground band); wreck columns use Level 3's `DustClouds` (imported from `downtown-haven/dustfx.js`, own pool) with a low flame sheet at the base instead of `fx.flame` (which shot beads 10 m up the column).
+- Staging: jets start in view (`TAXI.zStart` 60), the jeep arrives up the taxiway inside the view, the chase cuts across the infield onto the runway behind the plane (dust wake, bounce), the plane starts ~100 m ahead with jet-blast dust, the jeep is centred under the ramp for the leap, the hold side walls now reach the ramp rails.
+- Bug fix: the perch goons on the stair trucks spawned 1–4 m off the platforms (and rotated trucks inflated their AABB decks); perch trucks are axis-aligned and spawns come from `world.perches`.
+- Open issues from the last review: the chase ground and runway still read flat and empty; the taxi kill is a long shot unless you walk to the apron edge; props and buildings are too clean (no rust / grime gradients); the hold is a tunnel of identical rings; shared-engine items (callouts buried in smoke, hard blob shadows / scorch discs, enemy muzzle flash size). Procedural art is close to its plateau here too: the next real jump is authored meshes or engine-level ground / FX work.
+- Still needs a Quest 3 check: frame time at the jet kill (clouds + fire) and the getaway view (most buildings in frame).
 Original brief:
 - **Setting:** a sunset tarmac with hangars, jets and fuel trucks.
 - **Beats:**

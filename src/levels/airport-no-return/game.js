@@ -11,6 +11,8 @@ import { applyDusk, setSunElevation } from '../../atmosphere.js';
 // TODO(level-2 merge): move port-of-victory/ai.js to src/ once Level 2 lands — it's engine code now.
 import { Soldier, buildCoverPoints } from '../port-of-victory/ai.js';
 import { buildRefueler, gseMaterials } from './gse.js';
+// Level 3's lit volumetric puffs (own pool + draw call, never touches the shared big-sprite budget): the wreck columns
+import { DustClouds } from '../downtown-haven/dustfx.js';
 
 let _plumeTex = null;
 const SOOT_GLSL = /* glsl */`
@@ -87,6 +89,8 @@ export class AirportGame {
     this.events = [];
     this.bossInfo = null;
     this.smokeCols = [];   // persistent burning wrecks: { p, k, life }
+    this.isQuest = !!E.isQuest;
+    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 150 : 300 });
     this.fx.onSound = (n, p) => this.audio.play(n, p ? { x: p.x, y: p.y, z: p.z } : {});
     this.fx.setGround(world.fastGround);
     Ragdoll.world = this.col;
@@ -191,7 +195,7 @@ export class AirportGame {
   }
   explodeDrum(d) {
     if (d.state === 'gone') return;
-    d.state = 'gone';
+    d.state = 'gone'; this._drumsDirty = true; // hide the intact drum instance
     if (d.box) this.col.remove(d.box);
     this.drumsBlown++;
     const P = (d.obj ? d.obj.getWorldPosition(new THREE.Vector3()) : d.pos.clone()); P.y += 0.5;
@@ -257,7 +261,8 @@ export class AirportGame {
     this.fx.later(0.12, () => this.fx.explosion(t.root.localToWorld(new THREE.Vector3(0, 2.6, -2.4)), 1.4));
     this.fx.later(0.3, () => this.fx.explosion(t.root.localToWorld(new THREE.Vector3(0, 3.5, 4)), 1.2));
     // burning fuel carpet
-    for (let k = 0; k < 14; k++) this.fx.later(k * 0.05, () => { const a = rand() * 6.28, r = range(2, 9); this.fx.explosion(_v.set(P.x + Math.cos(a) * r, 0.4, P.z + Math.sin(a) * r).clone(), range(0.35, 0.6), { noRing: true }); });
+    // (flames + low rolling fireballs, no flash sprites: 14 mini-explosions on the ground read as a hard white band)
+    for (let k = 0; k < 18; k++) this.fx.later(k * 0.06, () => { const a = rand() * 6.28, r = range(2, 9), Q = _v.set(P.x + Math.cos(a) * r, 0.3, P.z + Math.sin(a) * r).clone(); this.fx.flame(Q, range(2.0, 3.2)); if (k % 2 === 0) this.fx.main.spawn({ x: Q.x, y: 1.2, z: Q.z, vx: range(-1.5, 1.5), vy: range(1.5, 3.5), vz: range(-1.5, 1.5), drag: 1.6, frameKind: 1, s0: range(2.2, 3.2), s1: range(5.5, 7.5), ease: 0.6, life: range(0.9, 1.4), rot: rand() * 6.28, vrot: range(-0.6, 0.6), r: 1.6, g: 0.75, b: 0.3, a: 1, fadeIn: 0.03, fadeOut: 0.8, r1: 0.14, g1: 0.11, b1: 0.09 }); });
     // the truck jumps and flips (rigid box), charred
     for (const bx of t.boxes) this.col.remove(bx);
     t.root.children.forEach(c => { if (c !== t.mesh) c.visible = false; });
@@ -459,7 +464,6 @@ export class AirportGame {
     if (this.hp <= 0 && !this.downed) {
       this.downed = true; this.hp = 1;
       this.slowmo(1.6, 0.25, true);
-      this.audio.play('radio_squelch', {});
       this.hud.subtitle('DRIVER', pick(["Get up! The plane's not gonna wait!", "Stay with me! Breathe! Shoot!", "Not today! Not on MY runway!"]), 3.5);
       this.fx.later(1.5, () => { this.hp = 100; this.downed = false; });
     }
@@ -591,6 +595,7 @@ export class AirportGame {
       { const n = Math.min(1, Math.max(0, (this.dusk - 0.35) / 0.27)); this.scene.fog.color.lerp(_nightHaze, n * n * (3 - 2 * n) * 0.8); }
     }
     this.world.update(dt, this.headPos, this.dusk);
+    this.clouds.update(dt, this.headPos, 0.1);
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);
     return dt;
@@ -634,13 +639,24 @@ export class AirportGame {
       const near = this.headPos.distanceTo(c.p) < 260;
       if (emit) {
         const k = c.k;
-        if (near || rand() < 0.6) this.fx.main.spawn({ x: c.p.x + range(-2, 2) * k, y: c.p.y + 2 * k, z: c.p.z + range(-2, 2) * k, vx: range(-0.5, 0.5) + 1.8, vy: range(3.5, 5.5), vz: range(-0.5, 0.5) + 0.6, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 4 * k, s1: range(16, 26) * k, ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.13, g: 0.11, b: 0.1, a: 0.82, fadeIn: 0.06, fadeOut: 0.55 });
-        if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire, c.follow ? _v2.copy(c.follow.vel).multiplyScalar(0.9) : null); // a tumbling wreck carries its fire
+        // a continuous column from the ground up (the shared smoke sprites hit the big-sprite budget and left one ball hanging in the sky)
+        c.ct = (c.ct ?? rand() * 0.3) - 0.12;
+        if (c.ct <= 0) {
+          c.ct = (this.isQuest ? 0.9 : 0.45) / Math.sqrt(k);
+          this.clouds.spawn({ x: c.p.x + range(-1.5, 1.5) * k, y: c.p.y + 1.2 * k, z: c.p.z + range(-1.5, 1.5) * k, vx: range(-0.4, 0.4) + 1.5, vy: range(4, 6) * Math.sqrt(k), vz: range(-0.4, 0.4) + 0.55, drag: 0.07, buoy: 0.12, s0: 6 * k, s1: range(19, 26) * k, life: range(13, 17), a: 0.93, fadeIn: 0.02, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.07, g: 0.062, b: 0.056, r1: 0.18, g1: 0.16, b1: 0.145, glow: 0 });
+          // the root: low, slow, fire-lit puffs that sit on the wreck (the column must visibly come out of something)
+          if (rand() < 0.7) this.clouds.spawn({ x: c.p.x + range(-2.5, 2.5) * k, y: c.p.y + 0.8 * k, z: c.p.z + range(-2.5, 2.5) * k, vx: range(-0.5, 0.5) + 0.6, vy: range(1.2, 2.2), vz: range(-0.5, 0.5), drag: 0.4, buoy: 0.3, s0: 4 * k, s1: range(9, 12) * k, life: range(4, 5.5), a: 0.95, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: c.fire ? 1.2 : 0, glowFade: 6 });
+        }
+        // low, wide flame sheet on the wreck (fx.flame scales its rise with size: big fires shot beads 10 m up the column)
+        if (c.fire && near && !(c.follow && c.follow.vel.lengthSq() > 16)) for (let i = 0; i < 3; i++) { // a wreck in flight trails its own fire (setpieces); timer flames on it beaded
+          const fs = range(1.4, 2.4) * Math.min(1.6, c.fire), fv = c.follow ? c.follow.vel : null;
+          this.fx.main.spawn({ x: c.p.x + range(-2.5, 2.5) * c.k, y: c.p.y + fs * 0.3, z: c.p.z + range(-2.5, 2.5) * c.k, vx: range(-0.6, 0.6) + (fv ? fv.x * 0.9 : 0), vy: range(1.2, 2.6), vz: range(-0.6, 0.6) + (fv ? fv.z * 0.9 : 0), anchored: !fv, drag: fv ? 0 : 1.2, frameKind: 1, s0: fs, s1: fs * 1.7, ease: 0.6, life: range(0.55, 0.85), rot: rand() * 6.28, vrot: range(-0.8, 0.8), r: 1.75, g: 0.85, b: 0.35, a: 1, fadeIn: 0.03, fadeOut: 0.55 });
+        }
       }
       // from far out a wreck's smoke reads as a black plume silhouetted on the sky (particles would fog into lavender)
       if (c.fire && c.k >= 1.2) this._plume(c);
       // from the air (credits) the burning airfield reads as fire glows under the smoke
-      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * (1 + 0 * fogK); /* fog-free batch */ this.world.addFarGlow(_v.set(c.p.x, c.p.y + 3 * c.k + d * 0.008, c.p.z), /* lifted with range: kilometres out the ground's depth precision (~20 m) would swallow it */ Math.max(7 * c.k, d * 0.065) * Math.min(1.2, f), 1.7 * f, 0.48 * f, 0.08 * f, 1); }
+      if (c.fire && !near && (this.dusk > 0.22 || this.headPos.y > 15)) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * (1 + 0 * fogK); /* fog-free batch */ this.world.addFarGlow(_v.set(c.p.x, c.p.y + 3 * c.k + d * 0.008, c.p.z), /* lifted with range: kilometres out the ground's depth precision (~20 m) would swallow it */ Math.max(7 * c.k, d * 0.065) * Math.min(1.2, f), 1.7 * f, 0.48 * f, 0.08 * f, 1); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
     }
   }

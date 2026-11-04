@@ -181,7 +181,7 @@ void main(){
   float soft = smoothstep(0.0, vSoft, vGroundY);
   gl_FragColor = vec4(rgb, al) * vColor.a * soft;
   #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  #include <bay_premul_colorspace>
 }`;
 
 export class BillboardBatch {

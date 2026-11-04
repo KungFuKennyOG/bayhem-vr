@@ -82,7 +82,7 @@ void main(){
   float a = uAlpha * smoothstep(0.05, 0.55, ndv) * smoothstep(0.1, 0.32, n + 0.1);
   gl_FragColor = vec4(col * a, a);
   #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  #include <bay_premul_colorspace>
 }`;
 
 function shellMat(o) {

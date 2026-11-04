@@ -210,6 +210,13 @@ export class GlassSystem {
         }
       }
       const fade = Math.min(1, s.life / Math.min(2, s.max * 0.3));
+      // settled shards don't move until they fade: compose once (hundreds lie in the street after the collapse)
+      if (s.rest && fade >= 1) {
+        if (!s.restM) { s.restM = new THREE.Matrix4(); s.restM.compose(s.p, s.q, _s.set(s.sx, s.sy, 1)); }
+        this.shardMesh.setMatrixAt(k++, s.restM);
+        continue;
+      }
+      s.restM = null;
       _m.compose(s.p, s.q, _s.set(s.sx * fade, s.sy * fade, 1));
       this.shardMesh.setMatrixAt(k++, _m);
     }

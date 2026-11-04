@@ -3,6 +3,7 @@ import { pick, range, clamp, damp } from '../../rng.js';
 import { CARGO } from './aircraft.js';
 import { CREDITS_X } from './setpieces.js';
 import { JEEP_STOP, START, TAXI } from './layout.js';
+import { arrivedAtMarker } from '../../beats.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -16,7 +17,7 @@ export class Director {
     this.stepIdx = -1; this.t = 0; this.total = 0; this.done = false;
     this.duskTarget = game.dusk;
     const g = game, T = trailer ? 0.7 : 1;
-    const say = (line, d = 3, who = 'DRIVER') => { audio.play('radio_squelch', { volume: 0.6 }); hud.subtitle(who, line, d); };
+    const say = (line, d = 3, who = 'DRIVER') => hud.subtitle(who, line, d); // src/vo.js adds the squelch + voice
     const later = (t, fn) => g.fx.later(t, fn);
     const alive = (f) => g.enemiesAlive(f);
     const pz = () => g.headPos.z, px = () => g.headPos.x;
@@ -35,18 +36,18 @@ export class Director {
           A?.go([ground(226, 352, { slow: 0.75 }), ground(228, 334, { slow: 0.8 })]);
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 6.0 : 8.0) },
-      { name: 'apronA', wp: V(212, 2.6, 288), hunt: true, music: 0.6, dusk: 0.03, enter: () => {
+      { name: 'apronA', wp: V(212, 2.6, 288), hunt: true, arrive: true, music: 0.6, dusk: 0.03, enter: () => {
           hud.objective('Cross the apron');
           S({ x: 214, z: 302, delay: 0.3, flanker: false });
           S({ x: 186, z: 312, delay: 0.8, flanker: true });
           S({ x: 246, z: 296, delay: 0.5 });
-          S({ x: 204 + 0, z: 316.5, y: 4.42, role: 'perch', delay: 0.6 });
+          S({ ...g.world.perches[0], role: 'perch', delay: 0.6 });
           S({ x: 264, z: 304, delay: 2.0, role: 'rusher' });
           S({ x: 196, z: 276, delay: 4.0, entry: V(200, 0, 296) });
           later(1.2, () => say('Welcoming committee, twelve o\'clock! Use the fuel trucks — JET A-1 really wants to explode.', 3.6));
           A?.go([ground(226, 324, { slow: 0.6 }), ground(220, 308, { slow: 0.55 })]);
         }, until: (t) => (t > 4 && alive() === 0) || t > 70 * T || (t > 10 && pz() < 278) },
-      { name: 'apronB', wp: V(186, 2.6, 214), hunt: true, music: 0.8, dusk: 0.06, enter: () => {
+      { name: 'apronB', wp: V(186, 2.6, 214), hunt: true, arrive: true, music: 0.8, dusk: 0.06, enter: () => {
           S({ x: 240, z: 254, delay: 0.4 });
           S({ x: 240, z: 226, delay: 0.8, flanker: true });
           S({ x: 214, z: 246, delay: 0.2 });
@@ -60,12 +61,12 @@ export class Director {
       { name: 'taxi', wp: null, music: 0.95, dusk: 0.09, enter: () => {
           hud.objective('Stop those jets!');
           setp.startJets();
-          S({ x: 176, z: 170.5, y: 4.42, role: 'perch', delay: 1.0 });
+          S({ ...g.world.perches[1], role: 'perch', delay: 1.0 });
           S({ x: 164, z: 186, delay: 1.5 });
           S({ x: 150, z: 160, delay: 2.5, flanker: true });
           later(0.6, () => say('Two jets on the taxiway — packed with his guys! They are NOT taking off!', 3.2));
           later(4.2, () => say('Shoot the engines! Grenades! Anything!', 2.4));
-          A?.go([ground(180, 214, { slow: 1.0 }), ground(150, 202, { slow: 0.9 })]); // get close to the taxiway: the jet kills are the level's money shot
+          A?.go([ground(176, 212, { slow: 1.0 }), ground(138, 200, { slow: 0.9 })]); // get close to the taxiway: the jet kills are the level's money shot
         }, update: (t) => {
           const j0 = setp.jets[0];
           g.bossInfo = j0.state === 'taxi' || j0.state === 'hurt' ? { frac: Math.max(0, (j0.eng[0].hp + j0.eng[1].hp) / 24), name: 'SUNWEST 27  —  ENGINES' } : null;
@@ -81,7 +82,7 @@ export class Director {
           for (const s of g.soldiers) if (s.alive && s.pos.distanceTo(g.headPos) > 45) s.alive = false, s.root.visible = false; // stragglers leave
           later(0.4, () => say('He\'s rolling! The cargo plane is ROLLING!', 2.4));
           later(1.6, () => setp.jeepArrive());
-          later(3.2, () => say('Look left! Checkered jeep! I borrowed it! Get in the back!', 3));
+          later(2.6, () => say('Checkered jeep, coming up the taxiway! I borrowed it! Get in the back!', 3));
           A?.go([ground(JEEP_STOP.x + 3.5, JEEP_STOP.z + 6, { sprint: true, tol: 1.0 })]);
         }, update: (t) => {
           if (setp.jeep.state === 'wait') {
@@ -213,7 +214,7 @@ export class Director {
     if (!this.done) {
       this.t += dt; this.total += dt;
       this.cur.update?.(this.t);
-      if (this.cur.until(this.t)) this.next();
+      if (this.cur.until(this.t) || arrivedAtMarker(this, dt)) this.next();
     }
     this.g.dusk = damp(this.g.dusk, this.duskTarget, 0.3, dt);
     this.g.events.length = 0;

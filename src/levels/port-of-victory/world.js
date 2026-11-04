@@ -6,6 +6,7 @@ import { BillboardBatch, CELL } from '../../particles.js';
 import { SUN_DIR } from '../../atmosphere.js';
 import { CollisionWorld, NavGrid } from '../../collision.js';
 import { buildPickup } from '../../vehicles.js';
+import { Driver, DRIVER_SEAT } from '../../characters.js';
 import { CW, CH, C40, C20, QUAY_Z, WATER_Y, DECK_Y, YARD, COLUMNS, MAIN_AISLE, MASTS, DRUMS, GATE_Z, RTG, buildContainerList } from './layout.js';
 import { buildWater } from './water.js';
 import { buildFar } from './far.js';
@@ -272,6 +273,12 @@ export class PortWorld {
     pk.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     grp.add(pk.root);
     this.pickup = pk;
+    // the buddy stays at the wheel ("I've got your back... from here"): swap the baked placeholder for the animated Driver
+    pk.driver.clear();
+    this.buddy = new Driver({ seed: 3 });
+    this.buddy.root.position.fromArray(DRIVER_SEAT.position);
+    pk.driver.add(this.buddy.root);
+    this.buddySt = { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 };
     this.col.add([-3.4, 0, 28.6], [0.6, 1.9, 34.6], { kind: 'truck', mat: 'metal' });
   }
 

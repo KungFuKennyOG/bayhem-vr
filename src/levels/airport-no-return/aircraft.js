@@ -88,6 +88,8 @@ export const LIVERIES = {
   haven: { name: 'HAVEN AIR', reg: 'N405BJ', base: '#f3f2ee', belly: '#c9ccd0', main: '#0f2c5c', accent: '#f08a1c', fin: '#0f2c5c', sun: '#f39a26', engine: '#0f2c5c' },
   sunwest: { name: 'SUNWEST', reg: 'N27BAY', base: '#f4f1ea', belly: '#f4f1ea', main: '#c4271b', accent: '#f5b521', fin: '#c4271b', sun: '#f5b521', engine: '#e9e6df' },
   pacifica: { name: 'PACIFICA', reg: 'N88PCF', base: '#e5e8ea', belly: '#9aa3aa', main: '#0e6f74', accent: '#7fd3c8', fin: '#0e6f74', sun: '#e8f3f1', engine: '#0e6f74' },
+  nordair: { name: 'NORDAIR', reg: 'C-GNRD', base: '#eceef0', belly: '#4a2160', main: '#4a2160', accent: '#d8b23a', fin: '#4a2160', sun: '#d8b23a', engine: '#4a2160' },
+  coral: { name: 'AERO CORAL', reg: 'N61AC', base: '#f1ece4', belly: '#f1ece4', main: '#d9482f', accent: '#24406e', fin: '#24406e', sun: '#e8a23a', engine: '#e9e4dc' },
 };
 
 // fuselage stations: [z, cy, rx, ry]
@@ -352,11 +354,17 @@ function cargoLivery() {
   const n = T.makeNoise(7310, 64), img = x.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
     const th = (1 - y / H) * TAU, low = Math.max(0, -Math.cos(th));
-    let v = 104 + (T.fbm(n, xx / W * 6, y / H * 1.5, 4, 3) - 0.5) * 18 - low * 14;
+    let v = 146 + (T.fbm(n, xx / W * 6, y / H * 1.5, 4, 3) - 0.5) * 20 + low * 18; // light grey with a paler belly: backlit at sunset the old 104 crushed to flat navy
     // exhaust soot streaks behind the engines along the upper sides
     const i = (y * W + xx) * 4; img.data[i] = v * 0.98; img.data[i + 1] = v * 1.02; img.data[i + 2] = v * 1.07; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);
+  // cheatline: a dark band with a red pinstripe down both sides (reads at range, gives the silhouette a value break)
+  for (const side of [1, -1]) {
+    const th = (t) => (side > 0 ? t : TAU - t);
+    x.fillStyle = '#2a3340'; x.fillRect(X(-23.5), Y(th(1.5)), X(24) - X(-23.5), Y(th(1.22)) - Y(th(1.5)));
+    x.fillStyle = '#9a1e16'; x.fillRect(X(-23.5), Y(th(1.6)), X(24) - X(-23.5), Y(th(1.53)) - Y(th(1.6)));
+  }
   x.strokeStyle = 'rgba(20,22,26,0.32)'; x.lineWidth = 1;
   for (let z = -24; z < 26; z += 1.4) { x.beginPath(); x.moveTo(X(z), 0); x.lineTo(X(z), H); x.stroke(); }
   for (const th of [0.5, 1.1, 1.9, 2.6, TAU - 0.5, TAU - 1.1, TAU - 1.9, TAU - 2.6]) { x.beginPath(); x.moveTo(0, Y(th)); x.lineTo(W, Y(th)); x.stroke(); }
@@ -457,10 +465,11 @@ function cargoMats() {
   const S = shared();
   const body = new THREE.MeshStandardMaterial({ map: cargoLivery(), roughness: 0.62, metalness: 0.35, envMapIntensity: 0.8 });
   const fin = new THREE.MeshStandardMaterial({ map: cargoFinTexture(), roughness: 0.6, metalness: 0.35 });
-  const grey = new THREE.MeshStandardMaterial({ color: 0x6a7077, map: S.panel, roughness: 0.62, metalness: 0.22 });
+  const grey = new THREE.MeshStandardMaterial({ color: 0x8e959c, map: S.panel, roughness: 0.62, metalness: 0.22 });
   const holdTex = holdTexture(), holdGlow = holdGlowTexture();
   // the hold is lit from inside: strip lamps in each rib bay (warm work lights; red at night)
   const hold = new THREE.MeshStandardMaterial({ map: holdTex, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffd2a0, emissiveMap: holdGlow, emissiveIntensity: 1.4 });
+  hold.color.setRGB(1.45, 1.35, 1.25); // warm bounce from the work lamps: the lining read as flat navy-black
   const floorT = floorTexture(); floorT.repeat.set(1, 3);
   const floor = new THREE.MeshStandardMaterial({ map: floorT, roughness: 0.55, metalness: 0.6 });
   const yellow = new THREE.MeshStandardMaterial({ color: 0xd8a51c, roughness: 0.6, metalness: 0.2 });
@@ -479,7 +488,7 @@ export function buildCargoPlane() {
   const [fwd, aftR] = splitRings(CF, C.holdZ1);
   P.push([loft(fwd.map(r => ({ ...r })), { segs: 44, zMin: CZ0, zMax: CZ1 }), 0]);
   // aft: open at the bottom over the ramp (lined inside), then a closed tail cone
-  const open = 1.45, OPEN_END = 20.5;
+  const open = 0.95, OPEN_END = 20.5; // side walls come down to the ramp rails (at 1.45 a strip of sky showed between ceiling and ramp from inside)
   const [aftOpen, tailCone] = splitRings(aftR, OPEN_END);
   P.push([loft(aftOpen, { segs: 40, theta0: -Math.PI + open, theta1: Math.PI - open, zMin: CZ0, zMax: CZ1 }), 0]);
   P.push([loft(aftOpen.map(r => ({ ...r, rx: r.rx - 0.12, ry: r.ry - 0.12 })), { segs: 32, theta0: -Math.PI + open, theta1: Math.PI - open, inside: true }), 7]);

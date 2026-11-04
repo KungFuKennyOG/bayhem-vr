@@ -353,6 +353,11 @@ export class SetPieces {
     if (c.state !== 'hold' && c.alt < 40) {
       for (const p of c.anchors.exhausts) if (rand() < dt * 18 * c.spool) { const w = c.root.localToWorld(_v.copy(p)); g.fx.main.spawn({ x: w.x, y: w.y, z: w.z, vx: range(-1, 1), vy: range(0, 1), vz: c.vel.z * 0.2 + 30, drag: 1.5, frame: CELL.WISP, s0: 1.2, s1: 4, life: 0.8, rot: rand() * 6, r: 0.5, g: 0.45, b: 0.4, a: 0.12, fadeOut: 0.6 }); }
       if (rand() < dt * 10 * c.spool) { const w = c.root.localToWorld(_v.set(range(-14, 14), 0, 8)); g.fx.main.spawn({ x: w.x, y: 0.3, z: w.z, vx: range(-2, 2), vy: range(0.1, 0.5), vz: 18, drag: 1.2, frame: CELL.DUST, s0: 1.5, s1: 6, life: 1.4, rot: rand() * 6, r: 0.7, g: 0.58, b: 0.46, a: 0.14, fadeOut: 0.6 }); }
+      // jet blast tearing up grit + sand off the runway behind the outboard engines: big lit dust rolls the jeep drives through
+      if (c.v > 8 && c.alt < 8 && rand() < dt * (g.isQuest ? 3 : 6) * c.spool) {
+        const w = c.root.localToWorld(_v.set(pick([-14.7, -7.4, 7.4, 14.7]) + range(-2, 2), 0, range(12, 20)));
+        g.clouds.spawn({ x: w.x, y: 1.2, z: w.z, vx: range(-3, 3), vy: range(0.6, 2), vz: range(6, 14), drag: 0.9, buoy: 0.05, s0: 3, s1: range(11, 16), life: range(2.6, 3.6), a: 0.3, fadeIn: 0.06, fadeOut: 0.6, vrot: range(-0.3, 0.3), r: 0.36, g: 0.3, b: 0.25 }); // dusty grey-brown (lit by the low sun the lighter tan read as cotton)
+      }
     }
     // ramp lip scraping the runway during rotation: sparks!
     if (c.state === 'rotate' || (c.state === 'climb' && c.alt < 1.5)) {
@@ -404,7 +409,7 @@ export class SetPieces {
     const J = this.jeep, g = this.g;
     J.state = 'arrive'; J.t = 0; J.root.visible = true;
     // comes up taxiway A from the west at speed, handbrake-turns, stops at the apron edge facing -z
-    J.arrive = new Path([[114, -70], [114, 40], [115, 108], [118, 128], [124, 138], [JEEP_STOP.x, JEEP_STOP.z]]);
+    J.arrive = new Path([[113, 40], [114, 80], [115, 108], [118, 128], [124, 138], [JEEP_STOP.x, JEEP_STOP.z]]); // starts inside the view up the taxiway (from z = -70 it was a speck when the driver called it)
     J.s = 0; J.v = 26;
     g.audio.play('tire_screech', { x: 114, y: 1, z: 90, volume: 0.6 });
   }
@@ -432,7 +437,8 @@ export class SetPieces {
     return Math.abs(L.x) < 0.95 && L.z > 0.3 && L.z < 2.4 ? this.jeep.pos.y + JEEP.bedY : 0;
   }
   // ride plan: taxiway -> high-speed exit -> runway centreline, then straight down runway 27
-  _ridePath() { return new Path([[JEEP_STOP.x, JEEP_STOP.z], [119, 110], [114, 40], [113, -90], [100, -170], [60, -250], [14, -320], [2, -380], [0, -460], [0, -3000]]); }
+  // the driver cuts straight across the infield onto the runway behind the plane (taxiway-first kept the plane 100 m off to the side)
+  _ridePath() { return new Path([[JEEP_STOP.x, JEEP_STOP.z], [118, 122], [100, 92], [64, 52], [28, 14], [6, -24], [0, -70], [0, -160], [0, -400], [0, -3000]]); } // extra centreline points: Catmull-Rom off the diagonal bowed the long runway leg 3 m off centre
   _updJeep(dt) {
     const J = this.jeep, g = this.g;
     J.t += dt;
@@ -447,6 +453,7 @@ export class SetPieces {
       // handbrake slide: the body over-rotates on the last curve
       if (remain < 28) { want = 0; J.slide = (J.slide || 0) + dt; }
       J.yaw = this._lerpAng(J.yaw, want, remain < 28 ? 5 : 6, dt);
+      if (remain < 32 && remain > 6 && rand() < 0.5) { const w = J.root.localToWorld(_v.set(0, 0.3, 2.4)); g.clouds.spawn({ x: w.x, y: 0.7, z: w.z, vx: range(-1, 1), vy: range(0.3, 1), vz: range(-1, 1), drag: 1.0, s0: 1.5, s1: range(5, 7), life: 2.2, a: 0.45, fadeIn: 0.05, fadeOut: 0.6, r: 0.42, g: 0.38, b: 0.34 }); }
       if (remain < 32 && remain > 6) for (const sx of [-0.98, 0.98]) if (rand() < 0.6) { const w = J.root.localToWorld(_v.set(sx, 0.2, 1.45)); g.fx.main.spawn({ x: w.x, y: 0.3, z: w.z, vx: range(-1, 1), vy: range(0.5, 1.5), vz: range(-1, 1), drag: 1.5, frame: CELL.DUST, s0: 0.8, s1: 3.4, life: 1.6, rot: rand() * 6, r: 0.8, g: 0.78, b: 0.76, a: 0.5, fadeOut: 0.5 }); }
       if (remain < 30 && !J.screech) { J.screech = true; g.audio.play('tire_screech', { x: J.pos.x, y: 1, z: J.pos.z, volume: 1 }); }
       if (remain < 0.4) { J.state = 'wait'; J.t = 0; J.v = 0; g.events.push({ type: 'jeepHere' }); }
@@ -467,14 +474,17 @@ export class SetPieces {
       J.s += J.v * dt;
       J.path.at(J.s, J.pos);
       // weave behind the plane on the runway (dodges, swerves set by the director)
-      const onRunway = J.pos.z < -420;
+      const onRunway = J.pos.z < -60;
       const swerve = (this.swerveT > 0 ? Math.sin(this.swerveT * 3.2) * this.swerveA : 0);
       this.swerveT = Math.max(0, (this.swerveT || 0) - dt);
-      J.lat = damp(J.lat || 0, onRunway ? (this.laneX ?? 0) + swerve : 0, 2.2, dt);
+      J.lat = damp(J.lat || 0, onRunway && !this.allowRotate ? (this.laneX ?? 0) + swerve : 0, 2.2, dt); // dead centre under the ramp for the leap
       J.pos.x += J.lat;
       const d = J.path.dir(J.s, _v);
       J.yaw = this._lerpAng(J.yaw, Math.atan2(-d.x, -d.z) - (J.lat - (J.prevLat ?? J.lat)) / Math.max(1, J.v * dt) * 0.5, 6, dt);
       J.prevLat = J.lat;
+      // across the infield: bounce + a brown dust wake (the speed cue the flat runway lacks)
+      J.onGrass = J.pos.x > 33 && J.pos.x < 100 && J.pos.z > -40;
+      if (J.onGrass && J.v > 6 && rand() < dt * 14) { const w = J.root.localToWorld(_v.set(range(-1, 1), 0.3, 2.6)); g.clouds.spawn({ x: w.x, y: 0.8, z: w.z, vx: range(-1.5, 1.5), vy: range(0.5, 1.5), vz: range(-1.5, 1.5), drag: 1.2, buoy: 0.05, s0: 1.6, s1: range(6, 9), life: range(2.2, 3.2), a: 0.55, fadeIn: 0.05, fadeOut: 0.6, vrot: range(-0.4, 0.4), r: 0.34, g: 0.27, b: 0.19 }); }
       // tire smoke on the launch
       if (R.t < 2.5) for (const sx of [-0.98, 0.98]) if (rand() < 0.8) { const w = J.root.localToWorld(_v.set(sx, 0.25, 1.6)); g.fx.main.spawn({ x: w.x, y: 0.35, z: w.z, vx: range(-1, 1), vy: range(0.5, 2), vz: range(-1, 1), drag: 1.2, frame: CELL.DUST, s0: 0.9, s1: 3.8, life: 1.8, rot: rand() * 6, r: 0.82, g: 0.8, b: 0.78, a: 0.55, fadeOut: 0.5 }); }
     } else if (J.state === 'crash') {
@@ -506,7 +516,7 @@ export class SetPieces {
       const accel = (J.v - (J.prevV ?? J.v)) / Math.max(1e-4, dt); J.prevV = J.v;
       J.pitch = damp(J.pitch, clamp(-accel * 0.004, -0.05, 0.05), 6, dt);
       J.roll = damp(J.roll, clamp((J.lat - (J.prevLat2 ?? J.lat)) / Math.max(1e-4, dt) * -0.02, -0.06, 0.06), 5, dt); J.prevLat2 = J.lat;
-      const bump = J.v > 3 ? Math.sin(g.time * 23) * 0.004 + Math.sin(g.time * 37.7) * 0.003 : 0;
+      const bump = J.v > 3 ? (Math.sin(g.time * 23) * 0.004 + Math.sin(g.time * 37.7) * 0.003) * (J.onGrass ? 6 : 1) : 0;
       J.root.position.copy(J.pos); J.root.position.y = bump;
       J.root.rotation.set(J.pitch + bump * 0.5, J.yaw, J.roll, 'YXZ');
     }
@@ -532,8 +542,8 @@ export class SetPieces {
       // (folded sign = beacons sit a metre from your face; headlights point away from you once you ride)
       if (J.sign.visible) this.w.addGlow(on ? bl : br, 0.7, 2.6, 1.3, 0.2, 0.9);
       if (!this.riding) {
-        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 1.4, 2.6, 2.5, 2.2, 0.9);
-        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 1.4, 2.6, 2.5, 2.2, 0.9);
+        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 0.75, 2.6, 2.5, 2.2, 0.6);
+        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 0.75, 2.6, 2.5, 2.2, 0.6);
       }
     }
     // engine audio
@@ -562,7 +572,7 @@ export class SetPieces {
   wantGap(t) {
     if (this.leapT !== undefined) return -2;
     if (this.allowRotate) return 4;
-    const k = [[0, 210], [10, 180], [22, 115], [32, 60], [40, 30], [48, 18]];
+    const k = [[0, 100], [8, 84], [18, 62], [28, 40], [38, 24], [46, 14]]; // the plane fills the view early (from 210 m it was a speck)
     for (let i = 0; i < k.length - 1; i++) if (t < k[i + 1][0]) return lerp(k[i][1], k[i + 1][1], smooth((t - k[i][0]) / (k[i + 1][0] - k[i][0])));
     return 6;
   }
