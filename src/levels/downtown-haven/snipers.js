@@ -44,16 +44,19 @@ export class LaserFX {
     this.g = game; this.max = max;
     const geo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true); geo.rotateX(Math.PI / 2); geo.translate(0, 0, 0.5);
     // additive beams that fade out right in front of the eye (a beam aimed at your face must not become a red wall)
-    const mk = (opacity) => {
+    // ...and that never go sub-pixel far away: the radius grows with eye distance along the beam (>= ~2 px)
+    const mk = (opacity, widen) => {
       const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false });
       m.onBeforeCompile = (sh) => {
-        sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying float vEyeD;\nvoid main() {').replace('#include <project_vertex>', '#include <project_vertex>\n vEyeD = -mvPosition.z;');
+        sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying float vEyeD;\nvoid main() {')
+          .replace('#include <begin_vertex>', `vec3 transformed = vec3(position);\n vec4 axisW = modelMatrix * instanceMatrix * vec4(0.0, 0.0, position.z, 1.0);\n float axD = -(viewMatrix * axisW).z;\n transformed.xy *= max(1.0, axD * ${widen.toFixed(3)});`)
+          .replace('#include <project_vertex>', '#include <project_vertex>\n vEyeD = -mvPosition.z;');
         sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'varying float vEyeD;\nvoid main() {').replace('#include <opaque_fragment>', '#include <opaque_fragment>\n gl_FragColor.rgb *= smoothstep(0.6, 4.0, vEyeD);');
       };
       return m;
     };
-    this.core = new THREE.InstancedMesh(geo, mk(1), max);
-    this.haze = new THREE.InstancedMesh(geo, mk(1), max);
+    this.core = new THREE.InstancedMesh(geo, mk(1, 0.55), max);
+    this.haze = new THREE.InstancedMesh(geo, mk(1, 0.3), max);
     for (const m of [this.core, this.haze]) { m.frustumCulled = false; m.count = 0; m.renderOrder = 18; m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3); game.scene.add(m); }
     this.dots = new BillboardBatch(max * 3 + 4, game.E.atlas, { boost: 1, renderOrder: 23, fog: game.scene.fog });
     game.scene.add(this.dots.mesh);
@@ -97,11 +100,11 @@ export class LaserFX {
       s.scope.lens.getWorldPosition(_b);
       _a.subVectors(head, _b).normalize();
       s.scope.lens.getWorldDirection(_d).negate(); // lens looks along the barrel (-z)
-      const facing = Math.pow(clamp(_a.dot(_d), 0, 1), 24);
-      const gl = facing * (0.5 + lockK * 1.8) * (L.state === 'cycle' ? 0.2 : 1) * (0.85 + 0.15 * Math.sin(g.time * 23 + s.pos.x));
+      const facing = Math.pow(clamp(_a.dot(_d), 0, 1), 8);
+      const gl = facing * (0.9 + lockK * 1.8) * (L.state === 'cycle' ? 0.2 : 1) * (0.85 + 0.15 * Math.sin(g.time * 23 + s.pos.x));
       L.glint = gl;
       if (gl > 0.02) {
-        const dist = _b.distanceTo(head), sz = clamp(dist * 0.06, 0.6, 3.2) * (0.6 + gl * 0.6);
+        const dist = _b.distanceTo(head), sz = clamp(dist * 0.075, 0.6, 4.5) * (0.7 + gl * 0.5) * (0.85 + 0.25 * Math.sin(g.time * 9 + s.pos.z));
         this.dots.set(d++, _b.x, _b.y, _b.z, sz * 2.6, sz * 2.6, g.time * 0.3, CELL.STAR2, 0, 3.0 * gl, 2.9 * gl, 2.6 * gl, 1);
         this.dots.set(d++, _b.x, _b.y, _b.z, sz, sz, 0, CELL.GLOW, 0, 3 * gl, 2.8 * gl, 2.4 * gl, 1);
       }

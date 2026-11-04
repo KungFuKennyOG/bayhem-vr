@@ -376,7 +376,9 @@ export class SetPieces {
     for (let k = 0; k < 120; k++) g.fx.sparks.spawn({ x: I.x + range(-12, 12), y: I.y + range(-6, 8), z: MERIDIAN.z1 + 1, vx: range(-3, 3), vy: range(-2, 4), vz: range(2, 10), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.15, life: range(2, 4), r: 2, g: 2.1, b: 2.3, a: 0.9, fadeOut: 0.5, ground: true });
     g.slowmo(1.8, 0.35, true);
     g.addScore(1500, 'RIGHT IN THE LOBBY!', I.clone().add(_v.set(0, 10, 10)), 'big');
-    this.megaFireball(I.clone().add(_v.set(0, 2, 6)), 1.0);
+    // the crash owns the big-sprite budget for a few seconds
+    g.fx.main.bigBudget += 90; g.fx.later(5, () => { g.fx.main.bigBudget -= 90; });
+    this.megaFireball(I.clone().add(_v.set(0, 2, 6)), 1.7);
     for (let k = 0; k < 12; k++) g.fx.later(0.25 + k * 0.13, () => {
       const P = new THREE.Vector3(I.x + range(-17, 17), I.y + (k % 2 ? 1 : -1) * range(2, 4 + k * 1.6), MERIDIAN.z1 + 0.8);
       g.fx.explosion(P, range(1.1, 1.6), { noRing: true });
@@ -503,6 +505,7 @@ export class SetPieces {
         C.phase = 'down';
       }
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.2;
+      if (rand() < dt * 6) g.fx.main.spawn({ x: range(-22, 22), y: range(30, 95), z: range(MERIDIAN.z0, MERIDIAN.z1), vx: range(-3, 3), vy: range(3, 7), vz: range(1, 5), drag: 0.3, frameKind: 2, frame: rand() * 40, frames: 16, s0: 22, s1: range(55, 75), ease: 0.6, life: range(9, 12), rot: rand() * 6, vrot: range(-0.08, 0.08), r: 0.45, g: 0.39, b: 0.32, a: 0.92, fadeIn: 0.08, fadeOut: 0.45 });
       if (rand() < dt * 6) g.audio.play('metal_groan', { x: 0, y: C.pivot.y + 20, z: -160, volume: 1, pitch: range(0.6, 0.9) });
     }
     // detached floors: ballistic, tumbling, then they hit the canyon floor
@@ -511,11 +514,11 @@ export class SetPieces {
       f.v.y -= 9.8 * dt * 0.85;
       f.o.position.addScaledVector(f.v, dt);
       _q.setFromAxisAngle(_v.copy(f.w).normalize(), f.w.length() * dt); f.o.quaternion.premultiply(_q);
-      g.fx.trailEmit(f, f.o.position, 4.5, (q) => { g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + range(-3, 5), z: q.z + range(-7, 7), vx: range(-1.5, 1.5), vy: range(0.5, 2.5), vz: range(-1, 1), drag: 0.8, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(26, 36), life: range(4, 6), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.5, g: 0.44, b: 0.36, a: 0.85, fadeIn: 0.05, fadeOut: 0.5 }); }, 0);
+      g.fx.trailEmit(f, f.o.position, 3.0, (q) => { g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + range(-3, 5), z: q.z + range(-7, 7), vx: range(-1.5, 1.5), vy: range(0.5, 2.5), vz: range(-1, 1), drag: 0.8, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(26, 36), life: range(4, 6), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.5, g: 0.44, b: 0.36, a: 0.85, fadeIn: 0.05, fadeOut: 0.5 }); }, 0);
       if (rand() < dt * 10) g.glass.burst(f.o.position, f.v.clone().normalize().multiplyScalar(0.3), 4, { spread: 6, speed: 3, size: 0.5, life: 10 });
       // the slab crumbles as it falls: concrete and facade chunks shed off its edges
       if (rand() < dt * 9) { const h = f.o.userData.half; _v.set(range(-h[0], h[0]), range(-h[1], h[1]), range(-h[2], h[2])).applyQuaternion(f.o.quaternion).add(f.o.position); this.rubble.spawn(_v, _v2.copy(f.v).multiplyScalar(range(0.7, 1)).add(_v3.set(range(-3, 3), range(-1, 2), range(-3, 3))), range(0.5, 1.8)); }
-      if (f.o.userData.fire) g.fx.trailEmit(f.fire ||= {}, _v.set(0, f.o.userData.half[1] * 0.6, f.o.userData.half[2] * 0.6).applyQuaternion(f.o.quaternion).add(f.o.position), 3, (q) => { g.fx.flame(q.clone().add(_v2.set(range(-5, 5), 0, range(-4, 4))), 3.2); if (rand() < 0.5) g.fx.smoke(q, 4, 0.1, 6, 3, 0.85); }, 0);
+      if (f.o.userData.fire) g.fx.trailEmit(f.fire ||= {}, _v.set(0, f.o.userData.half[1] * 0.6, f.o.userData.half[2] * 0.6).applyQuaternion(f.o.quaternion).add(f.o.position), 3, (q) => { g.fx.flame(q.clone().add(_v2.set(range(-6, 6), 0, range(-6, 6))), f.o.userData.idx >= this.world.meridian.chunks.length - 5 ? 3.4 : 2.2); }, 0);
       // lowest corner
       const h = f.o.userData.half; let lo = 1e9;
       f.o.updateMatrixWorld(true);
@@ -532,7 +535,7 @@ export class SetPieces {
     }
   }
   _detach(c) {
-    c.userData.fire = c.userData.idx >= this.world.meridian.chunks.length - 5; // top third burns
+    c.userData.fire = true; // every floor that lets go is burning
     const g = this.g, C = this.col;
     c.updateMatrixWorld(true);
     g.scene.attach(c);
@@ -593,6 +596,10 @@ export class SetPieces {
     this.col = { phase: 'done', t: 0, flying: [] };
     g.finale = true; g.fx.main.bigBudget = Math.round(g.fx.main.bigBudget * 1.9);
     this.startDust(g.headPos.z - 4);
+    // the street is buried in it: settled rubble, the ceiling already overhead
+    for (let i = 0; i < 70; i++) this.rubble.spawn(_v.set(range(-15, 15), 0.3, g.headPos.z - range(4, 60)), _v2.set(0, -1, 0), range(0.3, 1.6));
+    for (let i = 0; i < 30; i++) g.fx.main.spawn({ x: range(-24, 24), y: range(22, 60), z: g.headPos.z + range(-60, 20), vx: range(-1, 1), vz: range(0, 2), drag: 0.2, frameKind: 2, frame: rand() * 40, frames: 16, s0: 40, s1: range(60, 80), life: range(10, 14), rot: rand() * 6, r: 0.42, g: 0.36, b: 0.29, a: 0.9, fadeIn: 0.01, fadeOut: 0.4 });
+    g.fogMix.k = 0.75; g.fogMix.color.setRGB(0.42, 0.36, 0.29); g.fogMix.near = 1; g.fogMix.far = 40;
   }
 
   // ================================================================== DUST WALL
@@ -620,6 +627,12 @@ export class SetPieces {
       const x = range(-half, half), low = rand() < 0.55, y = low ? range(0, 7) : range(5, 34);
       g.fx.main.spawn({ x, y, z: zf + range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? Math.sign(x) * range(2, 6) : 0), vy: low ? range(0.5, 2.5) : range(-0.5, 1.5), vz: D.v * range(0.55, 0.95), drag: 0.35, frameKind: 2, frame: rand() * 40, frames: 16, s0: low ? 9 : 14, s1: low ? range(18, 26) : range(28, 44), ease: 0.55, life: range(4, 5.5), rot: rand() * 6, vrot: range(-0.3, 0.3), r: low ? 0.4 : 0.62, g: low ? 0.34 : 0.54, b: low ? 0.27 : 0.43, r1: low ? 0.33 : 0.48, g1: low ? 0.28 : 0.42, b1: low ? 0.22 : 0.34, a: 0.97, fadeIn: 0.04, fadeOut: 0.4 });
     }
+    // the leading edge: dense small puffs right at the front (big sprites fade near the eye; these don't)
+    const ne = Math.min(18, Math.round(dt * 110 + rand()));
+    for (let i = 0; i < ne; i++) {
+      const y = Math.pow(rand(), 1.6) * 16, top = y > 7;
+      g.fx.main.spawn({ x: range(-half, half), y, z: zf + range(-1, 3), vx: range(-2, 2), vy: range(-0.5, 2.5), vz: D.v * range(0.8, 1.1), drag: 0.6, frameKind: 2, frame: rand() * 40, frames: 16, s0: 2, s1: range(4, 5), ease: 0.5, life: range(1.6, 2.6), rot: rand() * 6, vrot: range(-1, 1), r: top ? 0.66 : 0.34, g: top ? 0.56 : 0.29, b: top ? 0.44 : 0.23, a: 0.95, fadeIn: 0.02, fadeOut: 0.4 });
+    }
     // debris and paper riding the front
     if (rand() < dt * 60) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + range(1, 7), vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
     // you, inside it: brown-out, choking, glass ticking off everything
@@ -628,6 +641,11 @@ export class SetPieces {
     g.fogMix.k = Math.max(g.fogMix.k * Math.exp(-dt * 0.2), k * (safe ? 0.85 : 1));
     g.fogMix.color.setRGB(0.42, 0.36, 0.29); g.fogMix.near = 1; g.fogMix.far = safe ? 30 : 26;
     if (dz < -1 && !safe) { D.inside = true; if (rand() < dt * 2) g.hurt(3, head); }
+    if (dz < 4 || safe) {
+      D.ceilT = (D.ceilT || 0) - dt;
+      if (D.ceilT <= 0) { D.ceilT = 0.12; g.fx.main.spawn({ x: range(-24, 24), y: range(22, 60), z: head.z + range(-50, 30), vx: range(-1, 1), vy: range(-0.2, 0.6), vz: range(0, 2), drag: 0.2, frameKind: 2, frame: rand() * 40, frames: 16, s0: 30, s1: range(55, 80), ease: 0.6, life: range(10, 14), rot: rand() * 6, vrot: range(-0.04, 0.04), r: 0.42, g: 0.36, b: 0.29, a: 0.9, fadeIn: 0.15, fadeOut: 0.4 }); }
+      if (rand() < dt * 30) g.fx.sparks.spawn({ x: head.x + range(-8, 8), y: head.y + range(2, 6), z: head.z + range(-8, 8), vx: range(-0.3, 0.3), vy: range(-1.2, -0.5), vz: range(-0.3, 0.3), grav: -0.4, drag: 0.4, frame: CELL.CHIP, s0: 1, w: 0.02, len: 0.03, life: 4, r: 0.8, g: 0.75, b: 0.65, a: 0.8, fadeOut: 0.4 });
+    }
     g.audio.setLoop('dust_roar', { x: head.x, y: 6, z: zf, volume: clamp(1.2 - dz / 60, 0.2, 1) });
     if (!safe) g.bossInfo = { frac: clamp((dz) / 30, 0, 1), name: 'DUST WALL  —  ' + Math.max(0, dz).toFixed(0) + ' m' };
     else if (g.bossInfo?.name?.startsWith('DUST')) g.bossInfo = null;

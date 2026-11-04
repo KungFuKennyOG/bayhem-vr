@@ -3,7 +3,7 @@ import { rand, range, pick, chance, clamp, lerp, damp } from '../../rng.js';
 import { Ragdoll } from '../../characters.js';
 import { RigidBox } from '../../physics.js';
 import { CELL } from '../../particles.js';
-import { bulletHoleTexture } from '../../textures.js';
+import { makeCanvas, canvasTex } from '../../textures.js';
 import { applyDusk, setSunElevation } from '../../atmosphere.js';
 import { Soldier, buildCoverPoints } from './ai.js';
 import { GlassSystem } from './glass.js';
@@ -66,7 +66,7 @@ export class DowntownGame {
   // ---------------------------------------------------------------- bullet holes (instanced decals on world surfaces)
   _initHoles() {
     const g = new THREE.PlaneGeometry(0.11, 0.11);
-    const m = new THREE.MeshBasicMaterial({ map: bulletHoleTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, color: 0xffffff });
+    const m = new THREE.MeshBasicMaterial({ map: holeTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, color: 0xffffff });
     this.holes = new THREE.InstancedMesh(g, m, 400); this.holes.count = 0; this.holes.frustumCulled = false; this.holes.renderOrder = 4;
     this.scene.add(this.holes); this.holeN = 0;
   }
@@ -540,3 +540,11 @@ export class DowntownGame {
   autoIdleLook(A, player) { return this.auto ? this.auto.idleLook(A, player) : null; }
 }
 const _hitOut = { hit: false, nx: 0, ny: 0, nz: 0 };
+function holeTexture() {
+  const S = 64, c = makeCanvas(S, S), x = c.getContext('2d');
+  const gr = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, 'rgba(5,5,6,1)'); gr.addColorStop(0.16, 'rgba(12,11,10,1)'); gr.addColorStop(0.22, 'rgba(120,118,112,0.55)');
+  gr.addColorStop(0.3, 'rgba(30,28,26,0.55)'); gr.addColorStop(0.7, 'rgba(25,22,20,0.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, S, S);
+  return canvasTex(c, { repeat: false });
+}
