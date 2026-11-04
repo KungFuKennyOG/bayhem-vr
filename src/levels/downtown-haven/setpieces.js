@@ -631,7 +631,7 @@ export class SetPieces {
     this.startDust(g.headPos.z - 4);
     // the street is buried in it: settled rubble, the ceiling already overhead
     for (let i = 0; i < 70; i++) this.rubble.spawn(_v.set(range(-15, 15), 0.3, g.headPos.z - range(4, 60)), _v2.set(0, -1, 0), range(0.3, 1.6));
-    for (let i = 0; i < 30; i++) g.fx.main.spawn({ x: range(-24, 24), y: range(22, 60), z: g.headPos.z + range(-60, 20), vx: range(-1, 1), vz: range(0, 2), drag: 0.2, frameKind: 2, frame: rand() * 40, frames: 16, s0: 40, s1: range(60, 80), life: range(10, 14), rot: rand() * 6, r: 0.42, g: 0.36, b: 0.29, a: 0.9, fadeIn: 0.01, fadeOut: 0.4 });
+    for (let i = 0; i < 40; i++) this.clouds.spawn({ x: range(-26, 26), y: range(16, 50), z: g.headPos.z + range(-70, 25), vx: range(-1, 1), vz: range(0, 2), drag: 0.2, s0: range(45, 60), s1: range(70, 90), life: range(10, 14), a: 0.75, fadeIn: 0.01, fadeOut: 0.4, vrot: range(-0.04, 0.04), r: 0.42, g: 0.36, b: 0.29 });
     g.fogMix.k = 0.75; g.fogMix.color.setRGB(0.42, 0.36, 0.29); g.fogMix.near = 1; g.fogMix.far = 40;
   }
 
@@ -696,7 +696,7 @@ export class SetPieces {
     if (dz < -1 && !safe) { D.inside = true; if (rand() < dt * 2) g.hurt(3, head); }
     if (dz < 0 || safe) {
       D.ceilT = (D.ceilT || 0) - dt;
-      if (D.ceilT <= 0) { D.ceilT = 0.2; this.clouds.spawn({ x: range(-24, 24), y: range(20, 50), z: Math.min(zf - 6, head.z + range(-40, 20)), vx: range(-1, 1), vy: range(-0.2, 0.6), vz: range(0, 2), drag: 0.2, s0: 30, s1: range(55, 80), life: range(10, 14), a: 0.9, fadeIn: 0.15, fadeOut: 0.4, vrot: range(-0.04, 0.04), r: 0.42, g: 0.36, b: 0.29 }); }
+      if (D.ceilT <= 0) { D.ceilT = 0.2; this.clouds.spawn({ x: range(-26, 26), y: range(18, 50), z: Math.min(zf - 6, head.z + range(-40, 20)), vx: range(-1, 1), vy: range(-0.2, 0.6), vz: range(0, 2), drag: 0.2, s0: range(45, 60), s1: range(70, 90), life: range(10, 14), a: 0.75, fadeIn: 0.15, fadeOut: 0.4, vrot: range(-0.04, 0.04), r: 0.42, g: 0.36, b: 0.29 }); }
       if (rand() < dt * 30) g.fx.sparks.spawn({ x: head.x + range(-8, 8), y: head.y + range(2, 6), z: head.z + range(-8, 8), vx: range(-0.3, 0.3), vy: range(-1.2, -0.5), vz: range(-0.3, 0.3), grav: -0.4, drag: 0.4, frame: CELL.CHIP, s0: 1, w: 0.02, len: 0.03, life: 4, r: 0.8, g: 0.75, b: 0.65, a: 0.8, fadeOut: 0.4 });
     }
     g.audio.setLoop('dust_roar', { x: head.x, y: 6, z: zf, volume: clamp(1.2 - dz / 60, 0.2, 1) });
