@@ -239,15 +239,22 @@ export class ParticleSystem {
     this.p = [];
     for (let i = 0; i < max; i++) this.p.push({ alive: false });
     this.cursor = 0;
+    this.free = []; for (let i = max - 1; i >= 0; i--) this.free.push(i);
+    this.bigAlive = 0; this.bigBudget = opts.bigBudget ?? 140;
+    this._dummy = {}; // returned when a big sprite is over budget (callers may write to it harmlessly)
     this.stretch = !!opts.stretch;
     this.high = 0;
   }
   spawn(o) {
-    // find a dead slot from cursor (ring); overwrite oldest if full
-    let i = this.cursor, tries = 0;
-    while (this.p[i].alive && tries < this.max) { i = (i + 1) % this.max; tries++; }
-    this.cursor = (i + 1) % this.max;
+    // O(1): pop a free slot; when the pool is full, recycle the oldest (ring cursor)
+    // Big sprites (fill-rate heavy) have their own budget so a huge blast can't flood the screen.
+    const big = (o.s1 ?? o.s0 ?? o.size ?? 1) > 5;
+    if (big && this.bigAlive >= this.bigBudget) return this._dummy;
+    let i;
+    if (this.free.length) i = this.free.pop();
+    else { i = this.cursor; this.cursor = (this.cursor + 1) % this.max; if (this.p[i].big) this.bigAlive--; }
     const q = this.p[i];
+    q.big = big; if (big) this.bigAlive++;
     q.alive = true;
     q.x = o.x; q.y = o.y; q.z = o.z;
     q.vx = o.vx || 0; q.vy = o.vy || 0; q.vz = o.vz || 0;
@@ -274,7 +281,7 @@ export class ParticleSystem {
       const q = this.p[i];
       if (!q.alive) { b.hide(i); continue; }
       q.age += dt;
-      if (q.age >= q.life) { q.alive = false; b.hide(i); continue; }
+      if (q.age >= q.life) { q.alive = false; b.hide(i); this.free.push(i); if (q.big) { this.bigAlive--; q.big = false; } continue; }
       const t = q.age / q.life;
       const dragK = Math.exp(-q.drag * dt);
       q.vx *= dragK; q.vy = q.vy * dragK + q.grav * dt; q.vz *= dragK;
