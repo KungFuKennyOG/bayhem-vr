@@ -21,9 +21,9 @@ const RECESS = 0.6;
 
 // facade atlas tiles: [tile metres wide, tall] (one texture repeat), grid (bays, floors)
 const TILE = {
-  glassBlue: 0, glassGold: 1, darkFins: 2, stone: 3, stoneGlass: 4, meridian: 5, precast: 6, swatch: 7,
+  glassBlue: 0, glassGold: 1, darkFins: 2, stone: 3, stoneGlass: 4, meridian: 5, precast: 6, swatch: 7, section: 8, soffit: 9,
 };
-const TM = [[6, 15.6], [6, 15.6], [6, 15.6], [7.2, 14.4], [6, 15.6], [7.6, 16.8], [6, 14.4]];
+const TM = [[6, 15.6], [6, 15.6], [6, 15.6], [7.2, 14.4], [6, 15.6], [7.6, 16.8], [6, 14.4], [1, 1], [8, 4.2], [4, 2]];
 // swatches (tile 7, 4 x 8 cells of flat material)
 const SW = {
   silver: 0, darkAlu: 1, gold: 2, bronze: 3, blackGlass: 4, lime: 5, concrete: 6, roof: 7, tar: 8, led: 9, red: 10, white: 11,
@@ -224,7 +224,7 @@ function facadeAtlas() {
   };
   const interior = (x, y, w, h, warm, opt = {}) => {
     if (r() < (opt.dark ?? 0.32)) return 'dark';
-    const base = warm ? [255, 186 + r() * 44, 104 + r() * 56] : (r() < 0.5 ? [196, 216, 255] : [232, 238, 226]);
+    const base = warm ? [255, 186 + r() * 44, 104 + r() * 56] : (r() < 0.5 ? [214, 222, 236] : [236, 236, 226]);
     const k = 0.45 + r() * 0.55;
     const E = (xx, yy, ww, hh, f) => R(xx, yy, ww, hh, null, null, base.map(v => Math.min(255, v * k * f)));
     const st = 7;
@@ -244,7 +244,7 @@ function facadeAtlas() {
     const bays = P.bays || 4, bw = 256 / bays, fh = 128;
     for (let j = 0; j < 4; j++) for (let i = 0; i < bays; i++) {
       const x = i * bw, y = j * fh, sp = P.spandrel;
-      R(x, y, bw, sp, jit(P.span, 0.05), [0, P.spRough, P.spMetal]);
+      R(x, y, bw, sp, jit(P.span, 0.05), [0, Math.max(0.3, P.spRough), 0.55]);
       if (P.spLine) R(x, y + sp - 3, bw, 2, P.spLine, [0, 0.3, 1]);
       const v = r();
       let gc = jit(P.glass, P.var || 0.1), orm = [1, P.rough + r() * 0.04, P.metal];
@@ -255,20 +255,19 @@ function facadeAtlas() {
         const by0 = vy + vh * (0.25 + r() * 0.5);
         R(x, by0, bw, vy + vh - by0, gc.map((g, k) => g * 0.5 + bl[k] * 0.45), [1, 0.32, 0.55]);
         for (let by = by0; by < vy + vh; by += 3) R(x, by, bw, 1, gc.map((g, k) => g * 0.3 + bl[k] * 0.3), null);
-      } else if (v < 0.27) R(x, vy, bw, vh, gc.map(g => g * 0.62), [1, P.rough, P.metal * 0.95]);
-      else if (v < 0.33) R(x, vy, bw, vh, gc.map(g => Math.min(255, g * 1.18)), null);
+      } else if (v < 0.24) R(x, vy, bw, vh, gc.map(g => g * 0.8), [1, P.rough, P.metal * 0.95]);
       interior(x + 1, vy + 1, bw - 2, vh - 2, r() < (P.warm ?? 0.75), { blinds: v < 0.13, dark: P.dark });
       if (P.transom) R(x, vy + vh * P.transom, bw, 2, P.mullion, [0, 0.35, 1], [0, 0, 0]);
       // mullions + slab line
-      R(x - P.mw / 2, y, P.mw, fh, P.mullion, [0, 0.35, 1], [0, 0, 0]);
-      R(x, vy - 1, bw, 2, P.mullion, [0, 0.35, 1], [0, 0, 0]);
+      R(x - P.mw / 2, y, P.mw, fh, P.mullion, [0, 0.4, 0.45], [0, 0, 0]);
+      R(x, vy - 1, bw, 2, P.mullion, [0, 0.4, 0.45], [0, 0, 0]);
       if (P.midMullion) R(x + bw / 2 - 1, vy, 2, vh, P.mullion, [0, 0.35, 1], [0, 0, 0]);
     }
   };
-  curtain(TILE.glassBlue, { spandrel: 32, span: [64, 92, 106], spRough: 0.2, spMetal: 1, glass: [118, 162, 176], rough: 0.035, metal: 1, mullion: [196, 200, 206], mw: 3, var: 0.09, warm: 0.6 });
-  curtain(TILE.glassGold, { spandrel: 30, span: [118, 80, 38], spRough: 0.22, spMetal: 1, glass: [222, 168, 98], rough: 0.045, metal: 1, mullion: [74, 52, 32], mw: 4, var: 0.1, transom: 0.72, warm: 0.85, spLine: [210, 160, 80] });
-  curtain(TILE.darkFins, { spandrel: 22, span: [20, 22, 26], spRough: 0.15, spMetal: 1, glass: [64, 74, 84], rough: 0.03, metal: 1, mullion: [36, 38, 42], mw: 2, var: 0.08, warm: 0.7 });
-  curtain(TILE.meridian, { spandrel: 28, span: [16, 17, 20], spRough: 0.1, spMetal: 1, glass: [56, 64, 76], rough: 0.03, metal: 1, mullion: [30, 30, 34], mw: 2, var: 0.07, warm: 0.45, dark: 0.7, spLine: [226, 172, 86] });
+  curtain(TILE.glassBlue, { spandrel: 32, span: [64, 92, 106], spRough: 0.2, spMetal: 1, glass: [118, 162, 176], rough: 0.035, metal: 1, mullion: [196, 200, 206], mw: 3, var: 0.05, warm: 0.6 });
+  curtain(TILE.glassGold, { spandrel: 30, span: [118, 80, 38], spRough: 0.22, spMetal: 1, glass: [222, 168, 98], rough: 0.045, metal: 1, mullion: [74, 52, 32], mw: 4, var: 0.05, transom: 0.72, warm: 0.85, spLine: [210, 160, 80] });
+  curtain(TILE.darkFins, { spandrel: 22, span: [70, 74, 80], spRough: 0.22, spMetal: 1, glass: [112, 126, 140], rough: 0.03, metal: 1, mullion: [124, 128, 134], mw: 3, var: 0.06, warm: 0.7, spLine: [104, 108, 114] });
+  curtain(TILE.meridian, { spandrel: 28, span: [44, 38, 34], spRough: 0.1, spMetal: 1, glass: [96, 104, 120], rough: 0.03, metal: 1, mullion: [74, 64, 52], mw: 2, var: 0.05, warm: 0.45, dark: 0.7, spLine: [226, 172, 86] });
   // stone (1920s limestone, punched windows)
   {
     tile(TILE.stone);
@@ -349,6 +348,33 @@ function facadeAtlas() {
   sw(SW.copper, [92, 150, 128], [0, 0.7, 0.25]); sw(SW.interior, [22, 20, 18], [0, 0.9, 0]); sw(SW.paint, [222, 220, 214], [0, 0.7, 0]);
   sw(SW.redPaint, [168, 40, 30], [0, 0.6, 0]); sw(SW.amber, [230, 170, 90], [0, 0.1, 0.9], [255, 170, 80]); sw(SW.cyanLed, [210, 240, 255], [0, 0.4, 0], [150, 220, 255]);
   sw(SW.char, [16, 13, 11], [0, 0.95, 0]);
+  // tile 8: a broken floor in section (8 m x 4.2 m): slab at the bottom, smoky gutted office above
+  {
+    const y0 = 384, H = 128;
+    for (let i = 0; i < 16; i++) { const t = i / 16; R(0, y0 + i * 8, 256, 8, [30 + 26 * (1 - t), 24 + 18 * (1 - t), 20 + 12 * (1 - t)], [0, 0.95, 0]); }
+    for (let k = 0; k < 400; k++) R(r() * 256, y0 + 16 + r() * 110, 1 + r() * 4, 1 + r() * 3, `rgba(${r() < 0.5 ? '0,0,0' : '120,90,60'},${r() * 0.25})`);
+    // slab (jagged top/bottom edges), cracks
+    for (let x = 0; x < 256; x += 4) { const a = r() * 3, b = r() * 4; R(x, y0 + a, 4, 15 - a + b, [104 + r() * 20, 88 + r() * 14, 72 + r() * 10], [0, 0.92, 0]); }
+    R(0, y0 + 14, 256, 2, 'rgba(0,0,0,0.5)');
+    for (let k = 0; k < 18; k++) R(r() * 256, y0 + r() * 12, 1, 3 + r() * 5, 'rgba(20,14,10,0.7)');
+    // ceiling (underside of the floor above) + hanging ceiling grid
+    R(0, y0 + H - 10, 256, 10, [48, 40, 34], [0, 0.95, 0]);
+    for (let x = 0; x < 256; x += 3 + r() * 10) R(x, y0 + H - 10 - r() * 24, 1 + r() * 2, 4 + r() * 20, [36 + r() * 30, 30 + r() * 20, 26 + r() * 14]);
+    // columns, rebar, debris on the floor
+    for (const cx of [40 + r() * 20, 170 + r() * 30]) { R(cx, y0 + 15, 13, H - 25, [76, 64, 54], [0, 0.9, 0]); R(cx + 9, y0 + 15, 4, H - 25, 'rgba(0,0,0,0.35)'); }
+    for (let k = 0; k < 14; k++) { const x = r() * 256, len = 6 + r() * 30; for (let j = 0; j < len; j++) R(x + j * (r() - 0.3), y0 + H - 12 - j, 1.5, 1.5, [88, 48, 26]); }
+    for (let k = 0; k < 30; k++) R(r() * 256, y0 + 15, 2 + r() * 10, 2 + r() * 8, [60 + r() * 50, 50 + r() * 40, 40 + r() * 30]);
+    for (let k = 0; k < 6; k++) { const x = r() * 240, y = y0 + 17 + r() * 30; for (let j = 0; j < 4; j++) R(x + r() * 12, y + r() * 6, 2 + r() * 3, 2, null, null, [255, 120 + r() * 80, 30]); }
+  }
+  // tile 9: warm cast concrete soffit (4 m x 2 m): formwork joints, stains, exposed rebar
+  {
+    const X0 = 128, y0 = 320;
+    R(X0, y0, 128, 64, [84, 72, 62], [0, 0.94, 0]);
+    for (let k = 0; k < 500; k++) R(X0 + r() * 128, y0 + r() * 64, 1 + r() * 3, 1 + r() * 3, `rgba(${r() < 0.6 ? '0,0,0' : '160,130,100'},${r() * 0.2})`);
+    for (let x = 0; x < 128; x += 32) R(X0 + x, y0, 1, 64, 'rgba(20,14,10,0.45)');
+    for (let y = 0; y < 64; y += 16) R(X0, y0 + y, 128, 1, 'rgba(20,14,10,0.35)');
+    for (let k = 0; k < 5; k++) { const x = X0 + r() * 110, y = y0 + r() * 54; R(x, y, 10 + r() * 14, 6 + r() * 6, [38, 30, 24]); R(x + 2, y + 3, 12, 1, [110, 60, 30]); }
+  }
   return { map: canvasTex(CC, { aniso: 8 }), orm: canvasTex(OC, { srgb: false, aniso: 8 }), em: canvasTex(EC, { aniso: 8 }) };
 }
 
@@ -537,10 +563,13 @@ function facadeMaterial(T) {
       .replace('#include <map_fragment>', /* glsl */`
         float tl = floor(vTile + 0.5);
         vec2 fUv = vMapUv;
-        vec2 tileO = vec2(mod(tl, 4.0), floor(tl / 4.0));
-        vec2 lf = clamp(fract(fUv), vec2(0.6 / 256.0, 0.6 / 512.0), vec2(1.0 - 0.6 / 256.0, 1.0 - 0.6 / 512.0));
+        float tt = tl; vec4 reg = vec4(0.0, 0.0, 1.0, 1.0);
+        if (tl > 7.5) { tt = 7.0; reg = tl < 8.5 ? vec4(0.0, 0.75, 1.0, 0.25) : vec4(0.5, 0.625, 0.5, 0.125); }
+        vec2 tileO = vec2(mod(tt, 4.0), floor(tt / 4.0));
+        vec2 eps = vec2(0.6 / 256.0, 0.6 / 512.0) / reg.zw;
+        vec2 lf = reg.xy + reg.zw * clamp(fract(fUv), eps, 1.0 - eps);
         vec2 aUv = (tileO + lf) * vec2(0.25, 0.5);
-        vec2 gdx = dFdx(fUv) * vec2(0.25, 0.5), gdy = dFdy(fUv) * vec2(0.25, 0.5);
+        vec2 gdx = dFdx(fUv) * reg.zw * vec2(0.25, 0.5), gdy = dFdy(fUv) * reg.zw * vec2(0.25, 0.5);
         vec4 texelColor = textureGrad(map, aUv, gdx, gdy);
         vec4 ormT = textureGrad(roughnessMap, aUv, gdx, gdy);
         vec3 emT = textureGrad(emissiveMap, aUv, gdx, gdy).rgb;
@@ -549,7 +578,7 @@ function facadeMaterial(T) {
         vec2 cell = floor(fUv * grid) + tl * 37.0;
         float glassM = ormT.r * (1.0 - isSw);
         float ph = fhash(cell);
-        texelColor.rgb *= mix(1.0, 0.8 + 0.38 * ph, glassM);
+        texelColor.rgb *= mix(1.0, 0.9 + 0.16 * ph, glassM);
         diffuseColor *= texelColor;`)
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = roughness * ormT.g;')
       .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = metalness * ormT.b;')
@@ -579,17 +608,23 @@ function facadeMaterial(T) {
           float farSil = 0.02 + 0.2 * n1 * n1;
           float sil = mix(farSil, nearSil, smoothstep(0.5, 0.95, across));
           float m = smoothstep(sil + 0.02, sil - 0.02, rw.y) * glassM;
-          float win = step(0.86, fhash(floor(vec2(az * 160.0, rw.y * 110.0))));
-          vec3 bc = radiance * 0.16 + vec3(0.022, 0.02, 0.026) + vec3(1.0, 0.6, 0.3) * win * (0.05 + 0.4 * uDusk);
+          // the reflected wall is a facade too: floor bands, a window grid, some lit offices (never a dead black slab)
+          vec2 wg = vec2(az * 160.0, rw.y * 60.0);
+          float wcell = fhash(floor(wg));
+          float frame = max(step(0.82, fract(wg.x)), step(0.78, fract(wg.y)));
+          float win = step(0.84, wcell) * (1.0 - frame);
+          vec3 wallC = mix(vec3(0.16, 0.13, 0.12), vec3(0.09, 0.1, 0.12), step(0.5, fhash(vec2(floor(az * 34.0), 3.1))));
+          wallC *= 2.2;
+          vec3 bc = radiance * 0.3 + wallC * (0.7 + 0.5 * wcell) * (1.0 - 0.45 * frame) + vec3(1.0, 0.62, 0.32) * win * (0.12 + 0.5 * uDusk);
           radiance = mix(radiance, bc, m * 0.85);
           // glass Fresnel: face-on the pane is dark and you see the office, at grazing angles it mirrors the sky
           float ndv = clamp(dot(geometryNormal, geometryViewDir), 0.0, 1.0);
           float frs = pow(1.0 - ndv, 3.0);
-          radiance *= mix(1.0, mix(0.32, 2.3, frs), glassM);
+          radiance *= mix(1.0, mix(0.5, 2.3, frs), glassM);
         }
         #endif`);
   };
-  m.customProgramCacheKey = () => 'bayhem-facade-v2';
+  m.customProgramCacheKey = () => 'bayhem-facade-v5';
   return m;
 }
 
@@ -905,6 +940,12 @@ export async function buildCity(ctx) {
       for (let z = z0 + 0.75; z < z1; z += 1.5) for (const [x, s] of [[x0, -1], [x1, 1]]) box(B.facade, x, y0, z - 0.07, x + s * 0.55, H + 5, z + 0.07, { sw: SW.silver, skip: 'y' });
       box(B.facade, x0 - 0.6, H + 4.4, z0 - 0.6, x1 + 0.6, H + 5.2, z1 + 0.6, { sw: SW.darkAlu, skip: 'y' });
       box(B.facade, x0 + 3, H, z0 + 3, x1 - 3, H + 3.5, z1 - 3, { sw: SW.darkAlu, skip: 'y', top: { sw: SW.tar } });
+      box(B.facade, x0 - 0.62, H + 3.6, z0 - 0.62, x1 + 0.62, H + 4.3, z1 + 0.62, { sw: SW.led, skip: 'yY' });
+      box(B.facade, x0 + 6, H + 3.5, z0 + 6, x1 - 6, H + 9, z1 - 6, { sw: SW.blackGlass, skip: 'y', top: { sw: SW.tar } });
+      for (const [mx, mz, mh] of [[x0 + 7, z0 + 7, 24], [x1 - 7, z1 - 7, 14]]) {
+        B.metal.geo(MAST, new THREE.Matrix4().compose(new THREE.Vector3(mx, H + 9 + mh / 2, mz), new THREE.Quaternion(), new THREE.Vector3(2, mh, 2)), { sw: SW.silver, c: COL.silver });
+        aviation(mx, H + 9 + mh + 0.3, mz);
+      }
       top.push([x0, H + 5.2, z0], [x1, H + 5.2, z1]);
     } else if (st === 'stone') {
       // wedding cake setbacks with cornices, copper pyramid and flagpole
@@ -1022,6 +1063,58 @@ export async function buildCity(ctx) {
 
   // ---------------- surrounding blocks ----------------
   // a cheap building: podium (+ optional tower) with facade walls, street-front treatment on chosen faces
+  // tower tops: crowns, lit bands, mechanical penthouses, masts, tanks, HVAC (so no silhouette is a flat box)
+  function roofKit(t, H, r, tt, tall) {
+    const [x0, z0, x1, z1] = t, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+    const stone = isStoneT(tt);
+    const kind = Math.floor(r() * 4);
+    // parapet coping + lit crown band
+    box(B.facade, x0 - 0.25, H, z0 - 0.25, x1 + 0.25, H + 1.1, z1 + 0.25, { sw: stone ? SW.lime : SW.darkAlu, skip: 'y', top: { sw: SW.tar } });
+    if (!stone || r() < 0.4) box(B.facade, x0 - 0.12, H - 1.6, z0 - 0.12, x1 + 0.12, H - 1.0, z1 + 0.12, { sw: r() < 0.7 ? SW.led : SW.cyanLed, skip: 'yY' });
+    let yTop = H + 1.1;
+    if (kind === 0) {
+      // mechanical penthouse behind a louvred fin screen
+      const a = [x0 + w * 0.2, z0 + d * 0.2, x1 - w * 0.2, z1 - d * 0.2], h = 6 + r() * 4;
+      box(B.facade, a[0], H, a[1], a[2], H + h, a[3], { sw: SW.darkAlu, skip: 'y', top: { sw: SW.tar } });
+      for (let x = a[0] + 0.6; x < a[2]; x += 1.2) for (const z of [a[1], a[3]]) box(B.facade, x - 0.07, H, z - 0.3, x + 0.07, H + h + 0.5, z + 0.3, { sw: SW.silver, skip: 'y' });
+      for (let z = a[1] + 0.6; z < a[3]; z += 1.2) for (const x of [a[0], a[2]]) box(B.facade, x - 0.3, H, z - 0.07, x + 0.3, H + h + 0.5, z + 0.07, { sw: SW.silver, skip: 'y' });
+      yTop = H + h + 0.5;
+    } else if (kind === 1) {
+      // stepped crown (two shrinking tiers + lantern)
+      let a = [x0 + 1.5, z0 + 1.5, x1 - 1.5, z1 - 1.5], y = H;
+      for (let k = 0; k < 3; k++) {
+        const h = k === 2 ? 5 : 3.5;
+        box(B.facade, a[0], y, a[1], a[2], y + h, a[3], { sw: k === 2 ? (stone ? SW.copper : SW.goldGlass) : (stone ? SW.lime : SW.darkAlu), skip: 'y', top: { sw: SW.tar } });
+        if (k < 2) box(B.facade, a[0] - 0.1, y + h - 0.45, a[1] - 0.1, a[2] + 0.1, y + h - 0.15, a[3] + 0.1, { sw: SW.led, skip: 'yY' });
+        y += h; const i = Math.min(a[2] - a[0], a[3] - a[1]) * 0.18; a = [a[0] + i, a[1] + i, a[2] - i, a[3] - i];
+      }
+      yTop = y;
+    } else if (kind === 2) {
+      // water tank + HVAC farm
+      waterTank(x0 + 3, H, z0 + 3, r);
+      for (let k = 0; k < 3; k++) { const ax = x0 + w * (0.4 + r() * 0.4), az = z0 + d * (0.3 + r() * 0.5); box(B.metal, ax - 1.1, H, az - 0.8, ax + 1.1, H + 1.4, az + 0.8, { c: COL.galv, skip: 'y' }); }
+      box(B.facade, x1 - 5, H, z1 - 5, x1 - 1.2, H + 3.2, z1 - 1.2, { sw: SW.concrete, skip: 'y', top: { sw: SW.tar } });
+      yTop = H + 8.4;
+    } else {
+      // slanted glass cap
+      const lo = H + 1, hi = H + 2 + Math.min(w, 16) * 0.5, u = swUV(tt === TILE.glassGold ? SW.goldGlass : SW.blueGlass);
+      const p = [[x0, lo, z0], [x1, lo, z0], [x1, hi, z1], [x0, hi, z1]];
+      B.facade.tri(p[0], p[1], p[2], [u, u, u], 7, WHITE, [0, 1, -0.5]); B.facade.tri(p[0], p[2], p[3], [u, u, u], 7, WHITE, [0, 1, -0.5]);
+      B.facade.tri([x0, lo, z1], [x1, lo, z1], [x1, hi, z1], [u, u, u], 7, WHITE, [0, 0, 1]); B.facade.tri([x0, lo, z1], [x1, hi, z1], [x0, hi, z1], [u, u, u], 7, WHITE, [0, 0, 1]);
+      for (const xx of [x0, x1]) B.facade.tri([xx, lo, z0], [xx, lo, z1], [xx, hi, z1], [u, u, u], 7, WHITE, [xx > cx ? 1 : -1, 0, 0]);
+      beam(B.facade, [x0, lo + 0.1, z0], [x0, hi + 0.1, z1], 0.3, 0.3, { sw: SW.led }); beam(B.facade, [x1, lo + 0.1, z0], [x1, hi + 0.1, z1], 0.3, 0.3, { sw: SW.led });
+      yTop = hi;
+    }
+    // masts
+    if (tall || r() < 0.5) {
+      const n = 1 + Math.floor(r() * 3);
+      for (let k = 0; k < n; k++) {
+        const mx = cx + (r() - 0.5) * w * 0.5, mz = cz + (r() - 0.5) * d * 0.5, mh = 6 + r() * (tall ? 22 : 10);
+        B.metal.geo(MAST, new THREE.Matrix4().compose(new THREE.Vector3(mx, yTop + mh / 2, mz), new THREE.Quaternion(), new THREE.Vector3(k ? 1 : 1.6, mh, k ? 1 : 1.6)), { sw: SW.silver, c: COL.silver });
+        if (k === 0) aviation(mx, yTop + mh + 0.3, mz);
+      }
+    } else if (tall) aviation(cx, yTop + 0.5, cz);
+  }
   const TILES_ANY = [TILE.glassBlue, TILE.glassGold, TILE.darkFins, TILE.stone, TILE.stoneGlass, TILE.precast, TILE.precast];
   function block(x0, z0, x1, z1, o) {
     const r = makeRng(o.seed);
@@ -1050,11 +1143,20 @@ export async function buildCity(ctx) {
     if (o.tower > P) {
       const ins = Math.min(4, (x1 - x0) * 0.15), t = [x0 + ins, z0 + ins, x1 - ins, z1 - ins];
       const tt = o.towerTile ?? tile, ox = { tile: tt, uo: uo + 0.25, yb: P, ...(isStoneT(tt) ? { ao: 2, aoK: 0.55, aoB: 1.5, aoBk: 0.6 } : {}) };
-      if (r() < 0.35 && tt !== TILE.stone) prism(B.facade, octPoly(...t, 2.5), P, o.tower, ox, { sw: SW.tar });
-      else prism(B.facade, rectPoly(...t), P, o.tower, ox, { sw: SW.tar });
-      box(B.facade, t[0] + 2, o.tower, t[1] + 2, t[2] - 2, o.tower + 3, t[3] - 2, { sw: SW.darkAlu, skip: 'y', top: { sw: SW.tar } });
+      const oct = r() < 0.35 && tt !== TILE.stone;
+      // main shaft, optionally with a setback tier at 70-85 %
+      const tiered = o.tower - P > 50 && r() < 0.55, yT = tiered ? P + (o.tower - P) * (0.7 + r() * 0.15) : o.tower;
+      const poly = (a, c) => (oct ? octPoly(...a, c) : rectPoly(...a));
+      prism(B.facade, poly(t, 2.5), P, yT, ox, { sw: SW.roof });
+      let top = t;
+      if (tiered) {
+        const i2 = Math.min(3.5, (t[2] - t[0]) * 0.14);
+        box(B.facade, t[0] - 0.3, yT - 0.6, t[1] - 0.3, t[2] + 0.3, yT + 0.5, t[3] + 0.3, { sw: isStoneT(tt) ? SW.lime : SW.darkAlu, skip: 'y' });
+        top = [t[0] + i2, t[1] + i2, t[2] - i2, t[3] - i2];
+        prism(B.facade, poly(top, 2), yT + 0.5, o.tower, { ...ox, uo: ox.uo + 0.5, yb: yT }, { sw: SW.roof });
+      }
       col([t[0], P, t[1]], [t[2], o.tower, t[3]]);
-      if (o.tower > 80) aviation((t[0] + t[2]) / 2, o.tower + 3.5, (t[1] + t[3]) / 2);
+      roofKit(top, o.tower, r, tt, o.tower > 80);
     } else if (o.clutter !== false) {
       clutter(x0, z0, x1, z1, P, o.seed + 1, { stair: true, tank: isStone && r() < 0.6, antenna: r() < 0.4 });
     }
@@ -1225,24 +1327,23 @@ export async function buildMeridian(a, b) {
     // (the parts inside the blast cavity go to `patch`, hidden while the hole shows)
     const DH = 9.5, inHoleY = patch && HOLE.y1 > y0 && HOLE.y0 < y1, hy0c = Math.max(y0, HOLE.y0), hy1c = Math.min(y1, HOLE.y1);
     if (inHoleY) {
-      w(cut, 0, ZB, ZF - DH, y0, y1, { sw: SW.char });
-      if (hy0c > y0) w(cut, 0, ZF - DH, ZF, y0, hy0c, { sw: SW.char });
-      if (y1 > hy1c) w(cut, 0, ZF - DH, ZF, hy1c, y1, { sw: SW.char });
-      const f2 = mkFace(cut, 0, ZF - DH, ZF); lwall(patch, f2, 0, f2.len, hy0c, hy1c, 0, { sw: SW.char });
-    } else w(cut, 0, ZB, ZF, y0, y1, { sw: SW.char });
-    for (let fy = Math.ceil(y0 / 4.2) * 4.2; fy < y1; fy += 4.2) lwall(inHoleY && fy > HOLE.y0 - 0.5 && fy < HOLE.y1 ? patch : Bm, mkFace(cut, s * -0.02, ZB, ZF), 0, ZF - ZB, fy, Math.min(y1, fy + 0.5), 0, { sw: SW.interior });
+      w(cut, 0, ZB, ZF - DH, y0, y1, { tile: TILE.section, yb: 0 });
+      if (hy0c > y0) w(cut, 0, ZF - DH, ZF, y0, hy0c, { tile: TILE.section, yb: 0 });
+      if (y1 > hy1c) w(cut, 0, ZF - DH, ZF, hy1c, y1, { tile: TILE.section, yb: 0 });
+      const f2 = mkFace(cut, 0, ZF - DH, ZF); lwall(patch, f2, 0, f2.len, hy0c, hy1c, 0, { tile: TILE.section, yb: 0, u0: (ZF - DH) / 8 });
+    } else w(cut, 0, ZB, ZF, y0, y1, { tile: TILE.section, yb: 0 });
     // caps (seen when chunks tumble)
     const xa = Math.min(0, xs(X)), xb = Math.max(0, xs(X));
     if (o.bottom !== false) {
       if (patch && y0 > HOLE.y0 && y0 < HOLE.y1) {
         const ha = Math.max(xa, HOLE.x0), hb = Math.min(xb, HOLE.x1);
-        q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - DH - ZB], { sw: SW.char });
-        if (ha > xa) q(Bm, [xa, y0, ZF - DH], [ha - xa, 0, 0], [0, 0, DH], { sw: SW.char });
-        if (xb > hb) q(Bm, [hb, y0, ZF - DH], [xb - hb, 0, 0], [0, 0, DH], { sw: SW.char });
-        if (hb > ha) q(patch, [ha, y0, ZF - DH], [hb - ha, 0, 0], [0, 0, DH], { sw: SW.char });
-      } else q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { sw: SW.char });
+        q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - DH - ZB], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
+        if (ha > xa) q(Bm, [xa, y0, ZF - DH], [ha - xa, 0, 0], [0, 0, DH], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
+        if (xb > hb) q(Bm, [hb, y0, ZF - DH], [xb - hb, 0, 0], [0, 0, DH], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
+        if (hb > ha) q(patch, [ha, y0, ZF - DH], [hb - ha, 0, 0], [0, 0, DH], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
+      } else q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
     }
-    if (o.top !== false) q(Bm, [xa, y1, ZF], [xb - xa, 0, 0], [0, 0, -(ZF - ZB)], { sw: o.topSw ?? SW.roof });
+    if (o.top !== false) q(Bm, [xa, y1, ZF], [xb - xa, 0, 0], [0, 0, -(ZF - ZB)], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
     // LED strip in the front notch
     box(Bm, xs(X - NT) - s * 0.05, y0, ZF - NT + 0.02, xs(X - NT) + s * 0.25, y1, ZF - NT + 0.3, { sw: SW.led, skip: 'yY' });
     // gold fins: front, back and the side
@@ -1262,13 +1363,13 @@ export async function buildMeridian(a, b) {
   // break damage: jagged slab noses + rebar on the cut face, hanging concrete under the chunk,
   // missing glass along the break line (warm-dark concrete, so tumbling chunks never read as clean blocks)
   const brk = makeRng(4040);
-  const CONC = [0.62, 0.52, 0.44], CONC_D = [0.34, 0.27, 0.22], REBAR = [0.32, 0.16, 0.08];
+  const CONC = [1.25, 1.12, 1.0], CONC_D = [0.8, 0.72, 0.64], REBAR = [0.32, 0.16, 0.08];
   function broken(Bm, s, y0, y1, { under = true, cut = true, top = false } = {}) {
     const r = brk, xs = (v) => s * v;
     if (cut) for (let fy = Math.ceil((y0 + 0.6) / 4.2) * 4.2; fy < y1 - 0.4; fy += 4.2) {
       for (let z = ZB + 0.5; z < ZF - 0.5;) {
         const len = 0.8 + r() * 3, reach = r() * 1.6, sag = r() < 0.25 ? r() * 0.5 : 0;
-        if (r() < 0.8) box(Bm, xs(0.02), fy - 0.45 - sag, z, xs(-reach - 0.1), fy + 0.05 - sag * 0.3, Math.min(ZF - 0.3, z + len), { sw: SW.concrete, c: r() < 0.5 ? CONC : CONC_D });
+        if (r() < 0.8) box(Bm, xs(0.02), fy - 0.45 - sag, z, xs(-reach - 0.1), fy + 0.05 - sag * 0.3, Math.min(ZF - 0.3, z + len), { tile: TILE.soffit, c: r() < 0.5 ? CONC : CONC_D });
         if (r() < 0.45) beam(Bm, [xs(-reach), fy - 0.2, z + len * 0.5], [xs(-reach - 0.5 - r() * 1.2), fy - 0.2 - r() * 0.9, z + len * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
         z += len + r() * 0.8;
       }
@@ -1277,7 +1378,7 @@ export async function buildMeridian(a, b) {
       for (let k = 0; k < 9; k++) {
         const x0 = r() * (X - 2), w = 1.2 + r() * 4, z0 = ZB + r() * (ZF - ZB - 4), d = 2 + r() * 8, h = 0.3 + r() * 1.4;
         const xa = xs(x0), xb = xs(Math.min(X - 0.3, x0 + w));
-        box(Bm, xa, y, z0, xb, y + dir * h, Math.min(ZF - 0.2, z0 + d), { sw: SW.concrete, c: r() < 0.5 ? CONC : CONC_D });
+        box(Bm, xa, y, z0, xb, y + dir * h, Math.min(ZF - 0.2, z0 + d), { tile: TILE.soffit, c: r() < 0.5 ? CONC : CONC_D });
         if (r() < 0.6) beam(Bm, [(xa + xb) / 2, y + dir * h, z0 + d * 0.5], [(xa + xb) / 2 + (r() - 0.5) * 1.2, y + dir * (h + 0.6 + r()), z0 + d * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
       }
     };
@@ -1297,7 +1398,7 @@ export async function buildMeridian(a, b) {
   }
   const lowerB = new Batch(), lowerPatch = new Batch(), lowerStore = new Batch();
   const LOBBY_H = 12;
-  for (const s of [-1, 1]) band(lowerB, lowerPatch, s, 0, M.breakY, { lobbyTop: LOBBY_H, finY0: LOBBY_H, bottom: false, top: false });
+  for (const s of [-1, 1]) band(lowerB, lowerPatch, s, 0, M.breakY, { lobbyTop: LOBBY_H, finY0: LOBBY_H, bottom: false });
   {
     // recessed lobby with lit backdrop, gold columns, canopy, steps
     const ZL = ZF - 4;
@@ -1382,12 +1483,13 @@ export async function buildMeridian(a, b) {
     const g = SWQ(SW.goldGlass), gu = [g[0], g[1]];
     const quad4 = (p0, p1, p2, p3, n, sw = SW.goldGlass) => { const u = swUV(sw); Bm.tri(p0, p1, p2, [u, u, u], 7, WHITE, n); Bm.tri(p0, p2, p3, [u, u, u], 7, WHITE, n); };
     // podium of the crown: the notched shaft top cap
-    q(Bm, [Math.min(0, sx(X)), CROWN0, ZF], [X, 0, 0], [0, 0, -(ZF - ZB)], { sw: SW.roof });
+    q(Bm, [Math.min(0, sx(X)), CROWN0, ZB], [X, 0, 0], [0, 0, ZF - ZB], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
     // front, back (half trapezoids), side
     quad4([0, CROWN0, BZ1], [sx(BX), CROWN0, BZ1], [sx(TOPX), CR1, TOPZ1], [0, CR1, TOPZ1], [0, 0.3, 1]);
     quad4([0, CROWN0, BZ0], [sx(BX), CROWN0, BZ0], [sx(TOPX), CR1, TOPZ0], [0, CR1, TOPZ0], [0, 0.3, -1]);
     quad4([sx(BX), CROWN0, BZ1], [sx(BX), CROWN0, BZ0], [sx(TOPX), CR1, TOPZ0], [sx(TOPX), CR1, TOPZ1], [s, 0.3, 0]);
-    quad4([0, CROWN0, BZ1], [0, CROWN0, BZ0], [0, CR1, TOPZ0], [0, CR1, TOPZ1], [-s, 0, 0], SW.concrete);
+    { const tu = (p) => [p[2] / 8, p[1] / 4.2], c4 = [[0, CROWN0, BZ1], [0, CROWN0, BZ0], [0, CR1, TOPZ0], [0, CR1, TOPZ1]];
+      Bm.tri(c4[0], c4[1], c4[2], [tu(c4[0]), tu(c4[1]), tu(c4[2])], TILE.section, WHITE, [-s, 0, 0]); Bm.tri(c4[0], c4[2], c4[3], [tu(c4[0]), tu(c4[2]), tu(c4[3])], TILE.section, WHITE, [-s, 0, 0]); }
     q(Bm, [Math.min(0, sx(TOPX)), CR1, TOPZ1], [TOPX, 0, 0], [0, 0, -(TOPZ1 - TOPZ0)], { sw: SW.tar });
     // ribs on the sloped faces (continuing the fins), LED edges
     for (let k = 0; k < 5; k++) {
