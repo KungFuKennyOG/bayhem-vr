@@ -133,7 +133,7 @@ export class Mushroom {
     {
       const u = this.core.material.uniforms, r = 3 + sm(0, 0.5, t) * 8 - sm(1.5, 5, t) * 3.5;
       this.core.position.set(0, 2 + sm(0, 2.4, t) * Math.max(0, capH - 7), 0); this.core.scale.set(r, r * 0.8, r);
-      u.uHeat.value = 1.2 - sm(0.8, 7, t) * 0.7; u.uGlow.value = 1.4 - sm(1, 8, t) * 0.8; u.uAlpha.value = sm(0, 0.06, t) * (1 - sm(6, 14, t) * 0.8); u.uSoot.value = cool * 0.5;
+      u.uHeat.value = 1.2 - sm(0.8, 6, t) * 0.95; u.uGlow.value = 1.4 - sm(1, 7, t) * 1.1; u.uAlpha.value = sm(0, 0.06, t) * (1 - sm(4.5, 9, t)); u.uSoot.value = cool * 0.5;
     }
     // stem: a narrow column feeding the cap
     {
