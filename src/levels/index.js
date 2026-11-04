@@ -22,6 +22,11 @@ export const LEVELS = [
     blurb: 'Fight across a sunset apron, ground two jets, then chase a cargo plane down the runway in a borrowed jeep.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. In the jeep: just shoot. When it says JUMP: grip / A (VR) or Space.',
   },
+  {
+    id: 'iron-lady', num: '05', title: 'THE IRON LADY', tagline: 'PARIS AFTER RAIN. 7,300 TONNES OF STEEL.',
+    blurb: 'Fight down the Seine quays at night, cross the bridge, bring down a gunship among the lattice — then watch her fall.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. At the end, run onto the boat.',
+  },
 ];
 
 export const levelById = (id) => LEVELS.find(l => l.id === id) || LEVELS[0];
