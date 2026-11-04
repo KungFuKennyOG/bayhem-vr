@@ -1008,7 +1008,7 @@ export class Ragdoll {
       for (let i = 0; i < this.np; i++) this.floor[i] = W.groundAt(x[i * 3], x[i * 3 + 2], x[i * 3 + 1] + 0.3, 0.2);
     }
     const n = Math.max(1, Math.ceil(dt * 240 - 1e-6)), h = dt / n;
-    for (let s = 0; s < n; s++) { this._substep(h, groundV); if (W) this._boxes(W); }
+    for (let s = 0; s < n; s++) { this._substep(h, groundV); if (W && (s % 3 === 2 || s === n - 1)) this._boxes(W); }
     this._writeBones();
     // settle: once a body has come to rest it stops simulating (on-foot levels keep the bodies around)
     if (W && this.age > 2.5) {

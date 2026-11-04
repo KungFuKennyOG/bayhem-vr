@@ -68,7 +68,7 @@ async function boot() {
   scene.environment = createEnvironment(renderer);
   scene.environmentIntensity = L.environmentIntensity ?? 0.8;
   const { game, player } = L;
-  window.__scene = scene; window.__hud = hud; window.__game = game; window.__fx = fx; window.__player = player; window.__THREE = THREE; window.__level = L;
+  window.__renderer = renderer; window.__scene = scene; window.__hud = hud; window.__game = game; window.__fx = fx; window.__player = player; window.__THREE = THREE; window.__level = L;
   if (params.has('yaw')) { player.yaw = parseFloat(params.get('yaw')) * Math.PI / 180; player.pitch = parseFloat(params.get('pitch') || '0') * Math.PI / 180; }
 
   // warm up: compile every material/program we will ever need before the first explosion (no hitch on Quest)

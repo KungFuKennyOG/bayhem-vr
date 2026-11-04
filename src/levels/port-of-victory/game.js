@@ -88,14 +88,15 @@ export class PortGame {
       }
     }
     this.drums = list;
-    this.drumMesh = new THREE.InstancedMesh(geo, mat, list.length + 8);
+    this.drumCap = list.length + 8;
+    this.drumMesh = new THREE.InstancedMesh(geo, mat, this.drumCap);
     this.drumMesh.castShadow = true; this.drumMesh.receiveShadow = true; this.drumMesh.frustumCulled = false;
     this.scene.add(this.drumMesh);
     this._drumsDirty = true;
   }
   addDrum(pos, opts = {}) { // extra drums (forklift pallet)
     const d = { pos: pos.clone(), yaw: rand() * 6.28, tilt: 0, hp: 2, state: 'ok', fuse: 0, i: this.drums.length, leakT: 0, ...opts };
-    if (this.drums.length >= this.drumMesh.count) return d;
+    if (this.drums.length >= this.drumCap) return d;
     this.drums.push(d); this._drumsDirty = true; return d;
   }
   _writeDrums() {
@@ -556,7 +557,7 @@ export class PortGame {
   _ambient(dt) {
     const pk = this.world.pickup;
     if (pk) {
-      this._pkHood ||= new THREE.Vector3(0, 1.05, -1.9).applyMatrix4(pk.root.matrixWorld);
+      if (!this._pkHood) { pk.root.updateMatrixWorld(true); this._pkHood = new THREE.Vector3(0, 1.05, -1.9).applyMatrix4(pk.root.matrixWorld); }
       const h = this._pkHood;
       if (rand() < dt * 10) this.fx.smoke(_v.copy(h).add(_v2.set(range(-0.4, 0.4), 0, range(-0.3, 0.3))), 0.7, 0.13, 4.5, 1.6, 0.55);
       if (rand() < dt * 6) this.fx.smoke(_v.copy(h), 0.5, 0.75, 1.6, 1.2, 0.25); // steam from the radiator

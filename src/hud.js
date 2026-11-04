@@ -48,6 +48,11 @@ export class HUD {
     this.warnTex = new THREE.CanvasTexture(this.warnCanvas); this.warnTex.colorSpace = THREE.SRGBColorSpace;
     this.warn = plane(this.warnTex, 0.09, 0.09); this.warn.material.opacity = 0; this.root.add(this.warn);
     this._drawWarn();
+    // world-space objective marker (diamond + distance), constant angular size
+    this.wpCanvas = document.createElement('canvas'); this.wpCanvas.width = 128; this.wpCanvas.height = 160;
+    this.wpTex = new THREE.CanvasTexture(this.wpCanvas); this.wpTex.colorSpace = THREE.SRGBColorSpace;
+    this.wp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.wpTex, depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false, opacity: 0 }));
+    this.wp.renderOrder = 140; this.wp.center.set(0.5, 0.2); scene.add(this.wp); this.wpPos = null; this.wpDist = -1;
     // hit marker
     const hm = document.createElement('canvas'); hm.width = hm.height = 128;
     const hx = hm.getContext('2d'); hx.strokeStyle = '#fff'; hx.lineWidth = 9; hx.lineCap = 'round';
@@ -103,6 +108,18 @@ export class HUD {
     this.obj.position.set(0, halfH - 0.2, -1.2);
   }
   setComfort(k) { this.comfortK = k; }
+  setWaypoint(pos) { this.wpPos = pos ? pos.clone() : null; }
+  _drawWp(d) {
+    const c = this.wpCanvas, x = c.getContext('2d');
+    x.clearRect(0, 0, 128, 160);
+    x.shadowColor = 'rgba(255,110,20,0.9)'; x.shadowBlur = 14;
+    x.fillStyle = 'rgba(255,170,60,0.95)';
+    x.beginPath(); x.moveTo(64, 98); x.lineTo(88, 74); x.lineTo(64, 50); x.lineTo(40, 74); x.closePath(); x.fill();
+    x.shadowBlur = 0; x.fillStyle = 'rgba(40,16,4,0.9)'; x.beginPath(); x.moveTo(64, 88); x.lineTo(78, 74); x.lineTo(64, 60); x.lineTo(50, 74); x.closePath(); x.fill();
+    x.font = '700 30px Oswald, sans-serif'; x.textAlign = 'center'; x.fillStyle = '#fff2dc'; x.shadowColor = 'rgba(0,0,0,0.9)'; x.shadowBlur = 6;
+    x.fillText(d + ' M', 64, 34);
+    this.wpTex.needsUpdate = true;
+  }
   objective(text, dur = 6) {
     const c = this.objCanvas, ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
@@ -155,14 +172,17 @@ export class HUD {
     const r = 26;
     ctx.beginPath(); ctx.roundRect(30, 30, c.width - 60, c.height - 60, r); ctx.fill();
     ctx.textBaseline = 'middle';
-    ctx.font = '700 40px Oswald, sans-serif';
     const sp = speaker.toUpperCase() + ':  ';
-    const w0 = ctx.measureText(sp).width;
-    ctx.font = '500 40px Oswald, sans-serif';
-    const w1 = ctx.measureText(text).width;
+    let fs = 40, w0, w1;
+    for (;;) { // shrink long lines to fit the panel
+      ctx.font = `700 ${fs}px Oswald, sans-serif`; w0 = ctx.measureText(sp).width;
+      ctx.font = `500 ${fs}px Oswald, sans-serif`; w1 = ctx.measureText(text).width;
+      if (w0 + w1 < c.width - 110 || fs <= 24) break;
+      fs -= 2;
+    }
     let x = (c.width - (w0 + w1)) / 2;
-    ctx.font = '700 40px Oswald, sans-serif'; ctx.fillStyle = '#ffae3a'; ctx.fillText(sp, x, c.height / 2);
-    ctx.font = '500 40px Oswald, sans-serif'; ctx.fillStyle = '#fff4e2'; ctx.fillText(text, x + w0, c.height / 2);
+    ctx.font = `700 ${fs}px Oswald, sans-serif`; ctx.fillStyle = '#ffae3a'; ctx.fillText(sp, x, c.height / 2);
+    ctx.font = `500 ${fs}px Oswald, sans-serif`; ctx.fillStyle = '#fff4e2'; ctx.fillText(text, x + w0, c.height / 2);
     this.subTex.needsUpdate = true;
     this.subT = dur;
   }
@@ -247,6 +267,15 @@ export class HUD {
     this.slow.material.opacity = Math.min(1, (1 - game.timeScale) * 1.3) * 0.85;
     const ck = this.comfort.material.opacity; this.comfort.material.opacity = ck + (this.comfortK - ck) * Math.min(1, rdt * 10);
     this.comfort.visible = this.comfort.material.opacity > 0.01;
+    if (this.wpPos) {
+      const d = this.wpPos.distanceTo(camPos), dr = Math.round(d);
+      if (dr !== this.wpDist) { this.wpDist = dr; this._drawWp(dr); }
+      this.wp.position.copy(this.wpPos);
+      const h = d * 0.06; this.wp.scale.set(h * 0.8, h, 1);
+      const tgt = d < 5 ? 0 : Math.min(0.9, (d - 5) / 6);
+      this.wp.material.opacity += (tgt - this.wp.material.opacity) * Math.min(1, rdt * 4);
+    } else this.wp.material.opacity = Math.max(0, this.wp.material.opacity - rdt * 3);
+    this.wp.visible = this.wp.material.opacity > 0.01;
     this.objT -= rdt; this.obj.material.opacity = Math.max(0, Math.min(1, this.objT * 1.5, (6 - this.objT) * 3 + 0.0));
     const b = game.boss;
     if (b) { this.boss.visible = true; this.drawBoss(b.frac, b.name); } else this.boss.visible = false;

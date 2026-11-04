@@ -267,7 +267,7 @@ export class PortWorld {
     this.pools.frustumCulled = false; this.pools.renderOrder = 3;
     this.group.add(this.pools);
     // two real point lights follow the nearest lit masts (fixed pool => no shader recompiles)
-    this.sodium = [0, 1].map(() => { const l = new THREE.PointLight(0xff8a30, 0, 46, 1.4); this.scene.add(l); return l; });
+    this.sodium = (this.E.isQuest ? [0] : [0, 1]).map(() => { const l = new THREE.PointLight(0xff8a30, 0, 46, 1.4); this.scene.add(l); return l; });
   }
 
   // ---------------------------------------------------------------- explosive drums (positions only; game owns them)
@@ -440,7 +440,7 @@ export class PortWorld {
       if (ms.on && ms.flick > 0) { ms.flick -= dt; k *= (Math.sin(t * 61 + i) > 0.1 ? 1 : 0.15) * (Math.sin(t * 13 + i * 3) > -0.6 ? 1 : 0); }
       ms.cur = k;
       const kk = k * (0.35 + 0.65 * Math.min(1, dusk * 1.6));
-      poolCol.setXYZ(i, SODIUM[0] * kk * 0.55, SODIUM[1] * kk * 0.55, SODIUM[2] * kk * 0.55);
+      poolCol.setXYZ(i, SODIUM[0] * kk * 0.32, SODIUM[1] * kk * 0.32, SODIUM[2] * kk * 0.32);
       for (const p of ms.lamps) if (gi < G.max - 1) G.set(gi++, p.x, p.y, p.z, 3.2, 3.2, 0, CELL.GLOW, 0, 2.6 * k, 1.5 * k, 0.5 * k, 0.9 * k);
       if (k > 0.05) nearest.push([ms, (ms.x - head.x) ** 2 + (ms.z - head.z) ** 2]);
     });
@@ -460,7 +460,7 @@ export class PortWorld {
       const n = nearest[i];
       if (!n) { l.intensity = 0; return; }
       l.position.set(n[0].x, 16, n[0].z);
-      l.intensity = 900 * n[0].cur * (0.3 + 0.7 * Math.min(1, dusk * 1.6));
+      l.intensity = 260 * n[0].cur * (0.3 + 0.7 * Math.min(1, dusk * 1.6));
     });
   }
 }

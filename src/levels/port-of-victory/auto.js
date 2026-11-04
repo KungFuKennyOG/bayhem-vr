@@ -15,7 +15,14 @@ export class Auto {
     this.stuck = 0; this.last = new THREE.Vector3();
   }
   // goals: [{ p: Vector3, nav: 'ground'|'deck'|null, sprint?, wait? }]
-  go(goals, opts = {}) { this.goals = goals.map(g => ({ ...g, p: g.p.clone() })); this.path = null; this.sprint = !!opts.sprint; }
+  go(goals, opts = {}) {
+    this.goals = goals.map(g => {
+      const p = g.p.clone(), nav = g.nav === 'deck' ? this.g.world.navDeck : g.nav === 'ground' ? this.g.world.nav : null;
+      if (nav && !nav.free(p.x, p.z)) { const j = nav.nearestFree(p.x, p.z, 4); if (j >= 0) { const c = nav.center(j, new THREE.Vector3()); p.x = c.x; p.z = c.z; } }
+      return { ...g, p };
+    });
+    this.path = null; this.sprint = !!opts.sprint;
+  }
   get idle() { return this.goals.length === 0; }
   get feet() { return _v.set(this.g.headPos.x, this.g.rig.position.y, this.g.headPos.z); }
 

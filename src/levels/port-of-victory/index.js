@@ -28,8 +28,11 @@ export async function create(E) {
   const loco = new Locomotion(rig, world.col, { walk: 3.1, sprint: 5.2 });
   player.enableLocomotion(loco);
   rig.position.set(2.6, 0, 35.2);
+  if (params.has('px')) rig.position.set(+params.get('px'), +(params.get('py') || 0), +params.get('pz'));
+  if (params.has('dusk')) game.dusk = +params.get('dusk');
   const auto = flags.AUTO ? new Auto(game, player) : null;
   game.auto = auto;
+  game.player = player;
   if (auto) player.autoState.idleW = 4.5;
 
   // warm-up set

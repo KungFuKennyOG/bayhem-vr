@@ -25,8 +25,12 @@ export class Director {
     const S = (o) => g.spawnSoldier(o);
     const nav = () => g.world.nav, navDeck = () => g.world.navDeck;
     this.steps = [
-      { name: 'intro', music: 0.25, dusk: 0.12, enter: () => {
+      { name: 'intro', wp: null, music: 0.25, dusk: 0.12, enter: () => {
           hud.black.material.opacity = 1;
+          // thrown out of the wreck: crash, ringing ears, getting up off the asphalt
+          audio.play('metal_crash', { volume: 1 }); audio.play('ear_ring', { volume: 0.6 });
+          if (g.player) { g.player.camDip = 1; g.player.camDipRate = 0.42; }
+          g.slowmo(1.2, 0.5, true);
           hud.showTitle(V(0, 13, -40), 'PORT OF VICTORY', 'LEVEL 2  •  DOCKS AT DUSK', trailer ? 4 : 5.5);
           audio.startMusic();
           later(0.7, () => say('End of the line, truck\'s done. That\'s the port.', 3));
@@ -34,7 +38,7 @@ export class Director {
           A?.go([ground(1.5, 26.5)]);
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.6); },
         until: (t) => t > (trailer ? 5.5 : 7.5) },
-      { name: 'gate', hunt: true, music: 0.6, dusk: 0.17, enter: () => {
+      { name: 'gate', wp: V(0, 2.5, 4), hunt: true, music: 0.6, dusk: 0.17, enter: () => {
           hud.objective('Push into the container yard');
           S({ x: -6, z: 4, role: 'rusher', delay: 0.6, entry: V(-5, 0, 14) });
           S({ x: 8.5, z: 3, delay: 0.2 });
@@ -49,7 +53,7 @@ export class Director {
           later(1.4, () => say('Somebody hit the lights. Great — now they can see you.', 3));
           A?.go([ground(-3.2, 13), ground(-3.4, 2, { slow: 0.7 })]);
         }, until: (t) => t > 1.0 && pz() < 15 },
-      { name: 'maze1b', hunt: true, music: 0.8, dusk: 0.28, enter: () => {
+      { name: 'maze1b', wp: V(0, 2.5, -28), hunt: true, music: 0.8, dusk: 0.28, enter: () => {
           S({ x: 2.5, z: -15, delay: 0.3 });
           S({ x: -1, z: -21, delay: 0.8 });
           S({ x: -20.3, z: -6, delay: 1.2, flanker: true, entry: V(-20.3, 0, -18) });
@@ -59,7 +63,7 @@ export class Director {
           later(5, () => say('Watch the side aisles, they\'re flanking!', 2.6));
           A?.go([ground(-3.3, -2, { slow: 0.6 }), ground(3.4, -12, { slow: 0.6 }), ground(2.8, -19, { slow: 0.5 })]);
         }, until: (t) => (t > 4 && alive() === 0) || t > 70 * T },
-      { name: 'maze2', hunt: true, music: 0.85, dusk: 0.34, enter: () => {
+      { name: 'maze2', wp: V(0, 2.5, -70), hunt: true, music: 0.85, dusk: 0.34, enter: () => {
           this.lightsOn([2, 3], 0.3);
           S({ x: -5.2, z: -36, y: CH, role: 'perch', delay: 0.5 });
           S({ x: 2.2, z: -44, delay: 0.2 });
@@ -71,7 +75,7 @@ export class Director {
           later(0.8, () => say('More of them in the stacks. Use the barrels — everything here burns.', 3.2));
           A?.go([ground(1.8, -27, { slow: 0.6 }), ground(-2.2, -34, { slow: 0.55 }), ground(2.5, -46, { slow: 0.5 }), ground(-2.6, -56, { slow: 0.5 })]);
         }, until: (t) => (t > 5 && alive() === 0) || t > 75 * T },
-      { name: 'crane', music: 0.75, dusk: 0.42, enter: () => {
+      { name: 'crane', wp: V(0, 2.5, -106), music: 0.75, dusk: 0.42, enter: () => {
           this.lightsOn([4, 5], 0.3);
           setp.craneStart();
           later(0.4, () => say('Uh... the crane\'s moving. Why is the crane moving?!', 3));
@@ -90,7 +94,7 @@ export class Director {
             if (e.type === 'operatorDown') later(1.4, () => say('Crane operator\'s fired. HR is gonna love that.', 3));
           }
         }, until: (t) => (setp.crane.mode === 'after' || setp.crane.mode === 'done') && !setp.crane.opAlive && alive() === 0 && t > 5 || t > 70 * T },
-      { name: 'apron', hunt: true, music: 0.95, dusk: 0.55, enter: () => {
+      { name: 'apron', wp: V(-4, 2.6, -148.5), hunt: true, music: 0.95, dusk: 0.55, enter: () => {
           this.lightsOn([6, 7, 8, 9], 0.5);
           hud.objective('Get to the ship');
           later(0.5, () => setp.forkliftStart());
@@ -98,11 +102,11 @@ export class Director {
           S({ x: 19, z: -117, delay: 0.5 }); S({ x: 31, z: -119, delay: 1.2 }); S({ x: -13, z: -123, delay: 1.5 }); S({ x: -27, z: -117, delay: 2.4, flanker: true });
           S({ x: -18, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 2, noNade: true });
           S({ x: 8, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 3, noNade: true });
-          A?.go([ground(2.0, -100, { slow: 0.6 }), ground(8, -110, { slow: 0.5 }), ground(4, -118, { slow: 0.45 })]);
+          A?.go([ground(2.0, -100, { slow: 0.6 }), ground(3.5, -113, { slow: 0.5 }), ground(4, -118, { slow: 0.45 })]);
         }, update: (t) => {
           for (const e of g.events) if (e.type === 'forkliftWreck') later(1.5, () => say('...I have never seen a forklift do that.', 2.6));
         }, until: (t) => (t > 6 && alive(s => s.floorY < 1) === 0 && setp.fork.state !== 'charge') || t > 75 * T },
-      { name: 'board', hunt: true, music: 0.85, dusk: 0.64, enter: () => {
+      { name: 'board', wp: V(23.5, DECK_Y + 2.4, -152), hunt: true, music: 0.85, dusk: 0.64, enter: () => {
           audio.play('ship_horn', { x: 30, y: 30, z: -170, volume: 1 });
           hud.objective('Board the ship');
           later(2.2, () => say('That\'s her. Up the gangway — the fuel hold is mid-ship.', 3.2));
@@ -110,14 +114,14 @@ export class Director {
           S({ x: 14, z: -155.8, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 6, noNade: true, entry: V(16, DECK_Y, -156) });
           S({ x: -12, z: -156, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 8, noNade: true });
           A?.go([ground(-3.5, -146.5, { slow: 0.8 }), { p: V(-3.9, 0, -150.2), nav: null }, { p: V(-1.6, 0, -152), nav: null }, { p: V(22.5, DECK_Y, -152), nav: null, slow: 0.9 }, { p: V(23.8, DECK_Y, -154.6), nav: null }, deck(17, -155.3, { slow: 0.55 })]);
-        }, until: (t) => (g.rig.position.y > DECK_Y - 0.5 && px() < 20 && alive(s => s.floorY > 5) === 0 && t > 4) || t > 80 * T },
-      { name: 'manifold', music: 0.9, dusk: 0.7, enter: () => {
+        }, until: (t) => { const on = g.rig.position.y > DECK_Y - 0.5; return on && ((px() < 20 && alive(s => s.floorY > 5) === 0 && t > 4) || t > 80 * T); } },
+      { name: 'manifold', wp: V(-6, DECK_Y + 2.6, -155.5), music: 0.9, dusk: 0.7, enter: () => {
           setp.armManifold();
           hud.objective('Shoot the fuel manifold');
           say('Red valves, mid-deck. Light it up!', 2.6);
           A?.go([deck(4, -155.2, { slow: 0.6 })]);
         }, until: () => setp.man.state === 'burning' },
-      { name: 'escape', music: 1.0, dusk: 0.76, enter: () => {
+      { name: 'escape', wp: V(-4, 2.6, -148.5), music: 1.0, dusk: 0.76, enter: () => {
           audio.play('alarm_klaxon', { x: -6, y: DECK_Y + 3, z: -160, volume: 1 });
           hud.objective('Get off the ship!');
           later(0.6, () => say('She\'s gonna blow! Get off the ship! RUN!!', 2.6));
@@ -130,8 +134,8 @@ export class Director {
           g.bossInfo = { frac: left / this.escape0, name: 'FUEL HOLD  —  ' + left.toFixed(1) + ' s' };
           if (t % 1.6 < 1 / 30) audio.play('alarm_klaxon', { x: -6, y: DECK_Y + 3, z: -160, volume: 0.7 });
           if (t % 2.3 < 1 / 30) audio.play('metal_groan', { x: -10, y: DECK_Y, z: -165, volume: 0.8 });
-        }, until: (t) => t > this.escape0 || (px() < 10 && g.rig.position.y < 4.5 && g.headPos.z > -153.5) || (g.rig.position.y < 0.5 && pz() > -150.5) },
-      { name: 'kaboom', music: 1.0, dusk: 0.84, enter: () => {
+        }, until: (t) => t > this.escape0 || (t > 3 && px() < 10 && g.rig.position.y < 4.5 && g.headPos.z > -153.5) || (t > 3 && g.rig.position.y < 0.5 && pz() > -150.5) },
+      { name: 'kaboom', wp: null, music: 1.0, dusk: 0.84, enter: () => {
           g.bossInfo = null;
           setp.kaboom();
           audio.musicStinger('boss');
@@ -152,6 +156,19 @@ export class Director {
           });
         }, until: (t) => t > (trailer ? 11 : 15) },
     ];
+    // ?beat=<name>: jump straight to a beat (screenshots / testing): teleport, lights, dusk
+    const jump = game.params.get('beat');
+    const START = { gate: [1.5, 0, 26.5], maze1: [-3.2, 0, 16], maze1b: [-3.2, 0, 14], maze2: [2.4, 0, -22], crane: [0.5, 0, -64], apron: [2, 0, -98], board: [-3.5, 0, -142], manifold: [16, DECK_Y, -155.3], escape: [2, DECK_Y, -155.3], kaboom: [8, 3.75, -152], outro: [-4, 0, -146] };
+    const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
+    if (ji > 0) {
+      for (let i = 0; i < ji; i++) { const st = this.steps[i]; if (st.dusk !== undefined) this.duskTarget = game.dusk = st.dusk; }
+      const lit = { maze1b: [0, 1], maze2: [0, 1, 2, 3], crane: [0, 1, 2, 3, 4, 5] }[jump] || (ji >= 6 ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : []);
+      for (const i of lit) { const m = game.world.mastLamps[i]; if (m) { m.on = true; m.k = 1; } }
+      const p = START[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
+      if (ji >= this.steps.findIndex(s => s.name === 'escape')) setp.man.state = 'armed';
+      if (jump === 'escape') setp.rupture();
+      this.stepIdx = ji - 1;
+    }
     this.next();
   }
   lightsOn(idx, stagger = 0.4) {
@@ -167,6 +184,7 @@ export class Director {
     this.cur = s;
     this.audio.setMusicIntensity(s.music);
     if (this.auto) this.auto.hunt = !!s.hunt;
+    if (s.wp !== undefined) this.hud.setWaypoint(s.wp);
     if (s.dusk !== undefined) this.duskTarget = s.dusk;
     s.enter();
   }

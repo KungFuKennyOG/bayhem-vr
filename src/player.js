@@ -191,8 +191,12 @@ export class Player {
     if (this.mode === 'desktop') {
       this.shake *= Math.exp(-rdt * 6);
       const sh = this.shake;
-      this.camera.rotation.set(this.pitch + (sh ? Math.sin(g.time * 47) * sh * 0.02 : 0) + bobY * 0.15, this.yaw + (sh ? Math.sin(g.time * 39) * sh * 0.02 : 0), 0, 'YXZ');
-      this.camera.position.set(Math.cos(this.yaw) * bobX, 1.65 + bobY, -Math.sin(this.yaw) * bobX);
+      // camDip: scripted "knocked down / getting up" (desktop + capture only; VR never moves the head)
+      const dip = this.camDip || 0;
+      if (dip > 0) this.camDip = Math.max(0, dip - rdt * (this.camDipRate || 0.6));
+      const dk = dip > 0 ? dip * dip * (3 - 2 * dip) : 0;
+      this.camera.rotation.set(this.pitch + (sh ? Math.sin(g.time * 47) * sh * 0.02 : 0) + bobY * 0.15 + dk * 0.25, this.yaw + (sh ? Math.sin(g.time * 39) * sh * 0.02 : 0), dk * 0.35, 'YXZ');
+      this.camera.position.set(Math.cos(this.yaw) * bobX, 1.65 + bobY - dk * 1.2, -Math.sin(this.yaw) * bobX);
       // viewmodel sway + converge onto the aim point
       this.camera.updateMatrixWorld();
       const aimDist = 30;

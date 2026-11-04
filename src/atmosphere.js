@@ -154,7 +154,7 @@ vec3 skyCol(vec3 d){
   c += vec3(4.0, 2.6, 1.4) * pow(sa, 600.0) * (1.0 - dusk);
   // blue hour: a band of afterglow along the whole western horizon, stars overhead
   c += vec3(0.55, 0.16, 0.06) * dusk * pow(max(0.0, dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(sunDir.x, 0.0, sunDir.z)))), 2.0) * (1.0 - smoothstep(0.0, 0.18, hh));
-  if (dusk > 0.01) { vec2 sp = d.xz / (h + 0.35) * 220.0; float st = step(0.9975, h21(floor(sp))) * smoothstep(0.25, 0.6, h); c += vec3(0.9, 0.95, 1.1) * st * dusk * 0.6 * (0.6 + 0.4 * sin(time * 3.0 + h21(floor(sp) + 7.0) * 40.0)); }
+  if (dusk > 0.01) { vec2 sp = d.xz / (h + 0.35) * 220.0; float st = step(0.9975, h21(floor(sp))) * smoothstep(0.3, 0.75, h) * (1.0 - smoothstep(0.02, 0.12, dot(c, vec3(0.3, 0.5, 0.2)))); c += vec3(0.9, 0.95, 1.1) * st * dusk * dusk * 0.7 * (0.6 + 0.4 * sin(time * 3.0 + h21(floor(sp) + 7.0) * 40.0)); }
   // sun disk
   float disk = smoothstep(0.99955, 0.99975, sa);
   c = mix(c, mix(vec3(28.0, 18.0, 9.0), vec3(18.0, 6.0, 1.5), dusk), disk);
