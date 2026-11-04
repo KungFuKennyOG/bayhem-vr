@@ -92,7 +92,7 @@ let WHITE_UV = [0.03, 0.2];
 const M4 = (x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = sx, sz = sx) =>
   new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(sx, sy, sz));
 const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-const RBOX = (w, h, d, r, s = 1) => new RoundedBoxGeometry(w, h, d, s, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3));
+const RBOX = (w, h, d, r, s = 1) => (s = 1, new RoundedBoxGeometry(w, h, d, s, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3)));
 const CYL = (rt, rb, h, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg, 1);
 // a textured quad: centre, right (u+) axis, up (v+) axis, normal
 function quad(bk, c, right, up, w, h, rect, col, rm) {
@@ -224,14 +224,15 @@ function loft(stations, sec, { round = null, classify, color, uvf, inner = null,
     return l < 1e-9 ? [0, -1, 0] : n.map((v) => v / l);
   }));
   const mir = (p, s) => [p[0] * s, p[1], p[2]];
+  let curTag = '';
   const emit = (bkName, s, a, b, c, na, nb, nc, col, rm) => {
     const bk = out[bkName]; if (!bk) return;
-    bk.tri(mir(a, s), mir(b, s), mir(c, s), mir(na, s), mir(nb, s), mir(nc, s), uvf(a), uvf(b), uvf(c), col, rm);
+    bk.tri(mir(a, s), mir(b, s), mir(c, s), mir(na, s), mir(nb, s), mir(nc, s), uvf(a, curTag), uvf(b, curTag), uvf(c, curTag), col, rm);
   };
   for (let i = 0; i < ns - 1; i++) {
     const zm = (stations[i] + stations[i + 1]) / 2;
     for (let j = 0; j < m - 1; j++) {
-      const tag = tags[j]; if (tag === 'X') continue;
+      const tag = tags[j]; if (tag === 'X') continue; curTag = tag;
       const a = P[i][j], b = P[i + 1][j], c = P[i + 1][j + 1], d = P[i][j + 1];
       const ym = (a[1] + c[1]) / 2;
       for (const s of [1, -1]) {
@@ -239,7 +240,7 @@ function loft(stations, sec, { round = null, classify, color, uvf, inner = null,
         const [col, rm] = color(tag, zm, ym, s);
         emit(bk, s, a, b, c, N[i][j], N[i + 1][j], N[i + 1][j + 1], col, rm);
         emit(bk, s, a, c, d, N[i][j], N[i + 1][j + 1], N[i][j + 1], col, rm);
-        const inn = inner && bk.indexOf('glass') < 0 && inner(tag, zm, ym);
+        const inn = inner && bk.toLowerCase().indexOf('glass') < 0 && inner(tag, zm, ym);
         if (inn) {
           const off = (p, n) => [p[0] - n[0] * inn.off, p[1] - n[1] * inn.off, p[2] - n[2] * inn.off];
           const ng = (n) => [-n[0], -n[1], -n[2]];
@@ -257,7 +258,7 @@ function loft(stations, sec, { round = null, classify, color, uvf, inner = null,
     for (let j = 0; j < m - 1; j++) {
       if (tags[j] === 'X') continue;
       const [col, rm] = color(tags[j], row[j][2], (row[j][1] + row[j + 1][1]) / 2, 1, true);
-      for (const s of [1, -1]) emit('body', s, ctr, row[j], row[j + 1], n, n, n, col, rm);
+      curTag = 'cap'; for (const s of [1, -1]) emit('body', s, ctr, row[j], row[j + 1], n, n, n, col, rm);
     }
   }
   return P;
@@ -351,17 +352,17 @@ function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.
       [w - 0.05, R0], [w - 0.025, R0 - 0.006], [w + 0.004, R0 - 0.04], [w + 0.012, mid], [w + 0.004, rs + 0.03], [w - 0.02, rs]];
     const sw = rectUV(R.sidewall), tr = rectUV(R.tread);
     const scx = (sw[0] + sw[2]) / 2, scy = (sw[1] + sw[3]) / 2, shw = (sw[2] - sw[0]) / 2;
-    lathe(bk, m4, prof, 22, C.white, RM.rubber, (a, r, th, u) => {
+    lathe(bk, m4, prof, 16, C.white, RM.rubber, (a, r, th, u) => {
       if (Math.abs(a) < w - 0.03) return [lerp(tr[0], tr[2], u), lerp(tr[1], tr[3], (a + w) / tw)];
       const rr = r / R0 * shw * (a > 0 ? 1 : 0.999); return [scx + Math.cos(th) * rr, scy + Math.sin(th) * rr];
     });
   }
   // rim: flange, lip, dish
   const L = (a, r) => [a, r];
-  lathe(bk, m4, [L(w - 0.03, rimR + 0.014), L(w - 0.004, rimR + 0.012), L(w + 0.004, rimR - 0.006), L(w - 0.012, rimR - 0.028), L(w - 0.07, rimR - 0.036), L(-w + 0.03, rimR - 0.036)], 20, rimCol, rimRm, () => WHITE_UV);
+  lathe(bk, m4, [L(w - 0.03, rimR + 0.014), L(w - 0.004, rimR + 0.012), L(w + 0.004, rimR - 0.006), L(w - 0.012, rimR - 0.028), L(w - 0.07, rimR - 0.036), L(-w + 0.03, rimR - 0.036)], 16, rimCol, rimRm, () => WHITE_UV);
   // back plate (hides the void) + brake disc + caliper
   pushGeo(bk, CYL(rimR - 0.03, rimR - 0.03, 0.01, 18), m4.clone().multiply(M4(-w + 0.04, 0, 0, 0, 0, Math.PI / 2)), C.well, RM.under);
-  pushGeo(bk, CYL(rimR - 0.05, rimR - 0.05, 0.022, 18), m4.clone().multiply(M4(-0.02, 0, 0, 0, 0, Math.PI / 2)), [0.32, 0.3, 0.29], RM.metal);
+  pushGeo(bk, CYL(rimR - 0.05, rimR - 0.05, 0.022, 18), m4.clone().multiply(M4(-0.02, 0, 0, 0, 0, Math.PI / 2)), [0.1, 0.095, 0.09], RM.metal);
   pushGeo(bk, RBOX(0.05, 0.11, 0.16, 0.015), m4.clone().multiply(M4(0.0, rimR * 0.52, rimR * 0.3, -0.5, 0, 0)), [0.5, 0.06, 0.04], RM.satin);
   // spokes + centre cap
   const face = w - 0.035;
@@ -371,7 +372,7 @@ function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.
   } else {
     for (let k = 0; k < spokes; k++) {
       const a = k / spokes * Math.PI * 2, rm = rimR * 0.52;
-      pushGeo(bk, BOX(0.022, rimR - 0.06, 0.05), m4.clone().multiply(M4(face - 0.006, Math.cos(a) * rm, Math.sin(a) * rm, a - Math.PI / 2, 0, 0)), rimCol, rimRm);
+      pushGeo(bk, BOX(0.03, rimR - 0.05, 0.06), m4.clone().multiply(M4(face - 0.006, Math.cos(a) * rm, Math.sin(a) * rm, a - Math.PI / 2, 0, 0)), rimCol, rimRm);
     }
   }
   pushGeo(bk, CYL(0.062, 0.07, 0.035, 12), m4.clone().multiply(M4(face, 0, 0, 0, 0, -Math.PI / 2)), rimCol, RM.chrome);
@@ -617,12 +618,12 @@ function sideDecal(bk, S, s, z0, z1, y0, y1, rect, col, rm = RM.paint, xf = null
 // ---------------------------------------------------------------------- car (sedan family, suv, van cab)
 function buildCarBody(kind, S, paint, opts, out, rng) {
   const sm = sideMap(kind);
-  const uvf = (p) => [sm.X(p[2]) / AW, 1 - sm.Y(p[1]) / AW];
+  const uvf = (p, tag) => (tag === 's' || tag === 's0' || tag === 'win' || tag === 'frame' ? [sm.X(p[2]) / AW, 1 - sm.Y(p[1]) / AW] : WHITE_UV);
   const c = S.cab;
   const isSUV = kind === 'suv', isVan = kind === 'van';
   const inDoor = (z, s) => opts.doorOpen && s < 0 && z > S.doors[0][0] && z < S.doors[0][1];
   // lower body
-  const st = stationList(S.zF, S.zR, 0.2, [...archStations(S, 10), ...endStations(S.zF, S.zR, S.rr), c.zA, c.zC, ...S.doors.flat(), c.zA + 0.05, c.zC - 0.05]);
+  const st = stationList(S.zF, S.zR, 0.32, [...archStations(S, 8), ...endStations(S.zF, S.zR, S.rr), c.zA, c.zC, ...S.doors.flat(), c.zA + 0.05, c.zC - 0.05]);
   const ymid = (z) => (Math.min(S.floorY, interp(S.sbKeys, z)) + interp(S.topKeys, z)) / 2;
   loft(st, (z) => carSection(S, z), {
     round: { zF: S.zF, zR: S.zR, rr: S.rr, ymid },
@@ -643,7 +644,7 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
     inner: (tag, z, y) => (z > c.zA + 0.02 && z < c.zC - 0.02 && y > S.inFloor && (tag === 's' || tag === 's0') ? { col: C.interior, rm: RM.plastic, off: 0.045 } : null),
   }, out);
   // greenhouse
-  const cst = stationList(c.zA, c.zC, 0.16, [c.zW1, c.zB0, ...(c.B || []), ...(c.C2 || []), c.Cp, ...S.doors.flat(), c.zA + 0.03, c.zA + 0.1, c.zC - 0.03, c.zC - 0.1, c.zB0 + (c.zC - c.zB0) * 0.5]);
+  const cst = stationList(c.zA, c.zC, 0.24, [c.zW1, c.zB0, ...(c.B || []), ...(c.C2 || []), c.Cp, ...S.doors.flat(), c.zA + 0.03, c.zA + 0.1, c.zC - 0.03, c.zC - 0.1, c.zB0 + (c.zC - c.zB0) * 0.5]);
   const winGlass = (z) => {
     if (z > c.B[0] && z < c.B[1]) return 'B';
     if (c.C2 && z > c.C2[0] && z < c.C2[1]) return 'B';
@@ -934,7 +935,7 @@ function taxiSign(bk, S) {
   const z = (S.cab.zW1 + S.cab.zB0) / 2 + 0.05, y = roofY(S, z) + S.cab.crown + 0.03;
   pushGeo(bk, BOX(0.5, 0.03, 0.12), M4(0, y, z), C.black, RM.satin);
   pushGeo(bk, RBOX(0.92, 0.26, 0.2, 0.06, 2), M4(0, y + 0.15, z), [1.0, 0.75, 0.08], RM.sign);
-  for (const s of [-1, 1]) quad(bk, [0, y + 0.15, z + s * 0.102], [-s, 0, 0], [0, 1, 0], 0.82, 0.2, R.taxiSign, C.white, RM.sign);
+  for (const s of [-1, 1]) quad(bk, [0, y + 0.15, z + s * 0.102], [s, 0, 0], [0, 1, 0], 0.82, 0.2, R.taxiSign, C.white, RM.sign);
 }
 function policeKit(bk, S, lights) {
   const c = S.cab, z = c.zW1 + 0.5, y = roofY(S, z) + c.crown + 0.01;
