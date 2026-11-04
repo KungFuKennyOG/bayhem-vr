@@ -11,7 +11,7 @@ import { raySphere, rayOBB } from './game.js';
 import { TWY, RWY, TAXI, CARGO_HOLD, JEEP_STOP, LIFTOFF_Z, FUEL_FARM } from './layout.js';
 import { loft } from './shapes.js';
 
-export const CREDITS_X = -7; // credits column sits ~13° off the runway axis so it never crosses the airfield plumes
+export const CREDITS_X = -4; // credits column sits ~8° off the runway axis so it never crosses the airfield plumes
 const _fv = new THREE.Vector3(), _red = new THREE.Color(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -486,9 +486,9 @@ export class SetPieces {
         // the jeep goes up BIG: layered fireballs that travel with the tumbling wreck, a fuel-tank pop, a dark mushroom
         J.boomed = true; const P0 = rb.pos.clone().setY(1.2), cv = rb.vel.clone().multiplyScalar(0.7);
         g.boom(P0, 1.8, { radius: 8, dmg: 0, player: false, noRing: true });
-        g.fx.explosion(P0.clone().setY(2.2), 1.8, { carVel: cv, noRing: true });
-        g.fx.later(0.18, () => g.fx.explosion(rb.pos.clone().setY(2.8), 1.6, { carVel: rb.vel.clone().multiplyScalar(0.6), noRing: true }));
-        g.fx.later(0.45, () => { g.fx.explosion(rb.pos.clone().setY(3.5), 1.3, { carVel: rb.vel.clone().multiplyScalar(0.5), noRing: true }); for (let i = 0; i < 10; i++) g.fx.smoke(_v.copy(rb.pos).add(V3(range(-2, 2), range(2, 5), range(-2, 2))), 3.2, 0.06, 7, range(5, 8), 0.85); });
+        g.fx.explosion(P0.clone().setY(2.2), 1.8, { carVel: cv.multiplyScalar(0.5), noRing: true });
+        g.fx.later(0.18, () => g.fx.explosion(rb.pos.clone().setY(2.8), 1.6, { carVel: rb.vel.clone().multiplyScalar(0.35), noRing: true }));
+        g.fx.later(0.45, () => { g.fx.explosion(rb.pos.clone().setY(3.5), 1.3, { carVel: rb.vel.clone().multiplyScalar(0.3), noRing: true }); for (let i = 0; i < 10; i++) g.fx.smoke(_v.copy(rb.pos).add(V3(range(-2, 2), range(2, 5), range(-2, 2))), 3.2, 0.06, 7, range(5, 8), 0.85); });
         rb.vel.y += 9; rb.ang.multiplyScalar(1.3);
         J.mesh.material = J.mesh.material.map((m) => g.scorch(m)); J.sign.visible = false;
         g.smokeCols.push({ p: rb.pos.clone().setY(0.5), k: 1.5, life: 200, fire: 1.6, follow: rb });
@@ -801,7 +801,7 @@ export class SetPieces {
     // the jeep peels off into the grass and flips; the driver bails first (we hear him on the radio)
     J.state = 'crash'; J.t = 0;
     const rb = new RigidBox(1.05, 0.7, 2.6, 2); rb.pos.copy(J.root.localToWorld(V3(0, 0.9, 0))); rb.quat.copy(J.root.quaternion);
-    rb.vel.copy(J.vel).multiplyScalar(0.8).add(V3(16, 6, 0)); rb.ang.set(range(-2, 2), range(2, 3), range(-10, -8)); rb.restitution = 0.3; rb.linDamp = 0.1;
+    rb.vel.copy(J.vel).multiplyScalar(0.8).add(V3(7, 6, 0)); // stays under the ramp long enough to blow up in frame rb.ang.set(range(-2, 2), range(2, 3), range(-10, -8)); rb.restitution = 0.3; rb.linDamp = 0.1;
     J.rb = rb; J.driver.visible = false;
     g.invuln = false;
   }
@@ -835,8 +835,8 @@ export class SetPieces {
     // the readable band: between the world horizon and the lower edge of the hold lining, as seen from the eye right now
     const E = this.cargo.root.worldToLocal(this.g.camera.getWorldPosition(_v));
     const horizon = this.cargo.pitch, lip = Math.atan2(CARGO.floorY + 4.25 - E.y, 20.5 - E.z);
-    const target = horizon + 0.5 * (lip - horizon), dz = 30 - E.z;
-    const centre = E.y + Math.tan(target) * dz - CARGO.floorY, half = Math.max(0.9, 0.5 * Math.abs(Math.tan(lip) - Math.tan(horizon)) * dz);
+    const target = horizon + 0.42 * (lip - horizon), dz = 30 - E.z;
+    const centre = E.y + Math.tan(target) * dz - CARGO.floorY, half = Math.max(0.7, 0.36 * Math.abs(Math.tan(lip) - Math.tan(horizon)) * dz); // fully faded before a line reaches the lining edge
     C.centre = C.centre === undefined ? centre : damp(C.centre, centre, 3, dt);
     for (const it of C.items) {
       const wy = C.grp.position.y + it.position.y - CARGO.floorY;
