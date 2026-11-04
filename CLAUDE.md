@@ -17,6 +17,7 @@ WebXR VR shooter for Quest 3 (three.js r170 + Vite). Michael Bay spectacle, poli
 - Level 1 is a treadmill: truck at the origin, world scrolls toward +z at `V`; "anchored" particles get `+dz`. On-foot levels use ground speed 0, a `CollisionWorld` (AABB grid: walls, rays, ground heights) and `NavGrid` A* (src/collision.js); `fx.setGround(fn)` + `Ragdoll.world` make particles/debris/bodies land on decks and container tops.
 - Global shader patches live in `src/atmosphere.js` (`bayGrade` color grade, sun-aware fog, sun rim light). Custom ShaderMaterials must include `<tonemapping_fragment>` + `<colorspace_fragment>` to get the grade.
 - Fixed pool of 3 point lights (`fx.light`) plus any lights a level creates at load (Level 2: 2 sodium lights that hop between the nearest lit masts) — never add/remove lights at runtime (shader recompiles). Warm up new materials via the level's `warm` group (main.js compiles it before gameplay).
+- Head pose: use the user `camera` (child of the rig) or `game.headPos`, never `renderer.xr.getCamera().getWorld*()` — the XR array camera has no parent, so it returns tracking space and ignores rig position + snap turns.
 - `Object3D.lookAt` points +z at the target; guns/vehicles face -z → `rotateY(Math.PI)` after lookAt.
 - Fire/smoke particles are premultiplied: RGB = emission, A = smoke coverage. Use `fx.trailEmit` for moving emitters (no "string of pearls").
 - Quest budget: no screen-space post, instancing for repeated props, ≤2 draw calls per character, keep particles in the shared batches.

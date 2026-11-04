@@ -89,8 +89,11 @@ async function boot() {
     // sub-step the sim for stable physics
     const steps = rdt > 1 / 45 ? 2 : 1;
     for (let i = 0; i < steps; i++) L.step(rdt / steps, started);
-    camera.updateMatrixWorld(true);
-    const xrCam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+    // head pose in WORLD space. In VR use the user camera (child of the rig), never renderer.xr.getCamera():
+    // the XR array camera has no parent, so its getWorld*() returns tracking space and ignores the rig's
+    // position + snap turns (enemies would aim at the level origin, movement would drift after a turn).
+    camera.updateWorldMatrix(true, false);
+    const xrCam = camera;
     xrCam.getWorldPosition(tmp);
     game.headPos.copy(tmp);
     hud.update(rdt, game, tmp);

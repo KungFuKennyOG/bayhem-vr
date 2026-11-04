@@ -58,8 +58,8 @@ export class Player {
       return w;
     }
     // VR: left stick moves relative to where the head looks, right stick snaps 45°
-    const xrCam = this.renderer.xr.getCamera();
-    xrCam.getWorldDirection(_d); _d.y = 0; if (_d.lengthSq() < 1e-6) _d.set(0, 0, -1); _d.normalize();
+    // world-space head direction (the user camera sits under the rig, so this includes snap turns)
+    this.camera.getWorldDirection(_d); _d.y = 0; if (_d.lengthSq() < 1e-6) _d.set(0, 0, -1); _d.normalize();
     for (const c of this.controllers) {
       const gp = c.source?.gamepad; if (!gp || gp.axes.length < 4) continue;
       const ax = gp.axes[2], ay = gp.axes[3];
