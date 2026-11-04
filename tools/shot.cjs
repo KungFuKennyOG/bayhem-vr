@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
   const logs = [];
   p.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); });
   p.on('pageerror', e => logs.push('PAGEERROR: ' + e.message + '\n' + e.stack));
-  await p.goto('http://localhost:5173/?capture=1&' + q);
+  await p.goto((process.env.URL || 'http://localhost:5173/') + '?capture=1&' + q);
   await p.waitForFunction(() => window.__ready, null, { timeout: 60000 }).catch(e => logs.push('TIMEOUT ready'));
   if (process.env.PRE) await p.evaluate(process.env.PRE).catch(e => logs.push('PRE ' + e.message));
   let done = 0;
