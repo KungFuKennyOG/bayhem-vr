@@ -262,6 +262,7 @@ export class NavGrid {
       while (b > a + 1 && !this.lineFree(out[out.length - 1].x, out[out.length - 1].z, pts[b].x, pts[b].z)) b--;
       out.push(pts[b]); a = b;
     }
+    if (out.length < 2) out.push(pts[pts.length - 1]);
     return out;
   }
 }

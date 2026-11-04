@@ -194,7 +194,7 @@ export class PortWorld {
     const rm = new THREE.Mesh(merge(rails), new THREE.MeshStandardMaterial({ color: 0x9a948e, metalness: 0.9, roughness: 0.35 })); rm.receiveShadow = true; this.group.add(rm);
     // bollards
     const bol = propM?.buildBollard?.();
-    const bpos = []; for (let x = -88; x <= 78; x += 12) bpos.push([x, QUAY_Z + 0.9]);
+    const bpos = []; for (let x = -88; x <= 78; x += 12) if (x < -8 || x > 2) bpos.push([x, QUAY_Z + 0.9]);
     if (bol) {
       const im = new THREE.InstancedMesh(bol.geometry, bol.material, bpos.length); const m = new THREE.Matrix4();
       bpos.forEach(([x, z], i) => im.setMatrixAt(i, m.makeTranslation(x, 0, z))); im.castShadow = true; this.group.add(im);
@@ -202,7 +202,8 @@ export class PortWorld {
     for (const [x, z] of bpos) this.col.add([x - 0.35, 0, z - 0.35], [x + 0.35, 0.8, z + 0.35], { kind: 'bollard', mat: 'metal' });
     // keep the player off the water: wall along the quay edge except at the gangway landing
     this.col.add([-130, -1, QUAY_Z - 3], [-6, 1.1, QUAY_Z + 0.05], { kind: 'edge', noStand: true, noBullet: true });
-    this.col.add([-2, -1, QUAY_Z - 3], [130, 1.1, QUAY_Z + 0.05], { kind: 'edge', noStand: true, noBullet: true });
+    this.col.add([25, -1, QUAY_Z - 3], [130, 1.1, QUAY_Z + 0.05], { kind: 'edge', noStand: true, noBullet: true });
+    this.col.add([-2, -1, QUAY_Z - 3], [25, 1.1, -153.0], { kind: 'edge', noStand: true, noBullet: true });
     this.col.add([-6, -1, QUAY_Z - 3], [-2, 1.1, QUAY_Z - 1.0], { kind: 'edge', noStand: true, noBullet: true });
   }
 
@@ -324,13 +325,15 @@ export class PortWorld {
       this.col.add([25, 0, -153.4], [65, DECK_Y + 1.1, -153.1], { kind: 'bulwark', mat: 'metal' });
       this.col.walk.push({ type: 'box', x0: -95, z0: -180, x1: 65, z1: -153.2, y: DECK_Y });
       this.col.walk.push({ type: 'ramp', x0: -2, x1: 22, y0: 0, y1: DECK_Y, z0: -152.9, z1: -151.1 });
-      this.col.walk.push({ type: 'box', x0: 22, z0: -152.9, x1: 25, z1: -151.1, y: DECK_Y });
+      this.col.walk.push({ type: 'box', x0: 22, z0: -153.6, x1: 25, z1: -151.1, y: DECK_Y });
       const gw = new THREE.Mesh(box(24.6, 0.12, 1.8), new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.6 }));
       gw.position.set(10, DECK_Y / 2, -152); gw.rotation.z = Math.atan2(DECK_Y, 24); this.group.add(gw);
       this.ship = { root: hull, anchors: { manifold: new THREE.Vector3(-6, DECK_Y, -155.5), gangwayBottom: new THREE.Vector3(-4, 0, -150), gangwayTop: new THREE.Vector3(23.5, DECK_Y, -152) } };
     }
+    // the gangway foot sits on a landing that bridges the quay edge (no stepping into the gap)
+    this.col.walk.push({ type: 'box', x0: -6, z0: -152.9, x1: -1.95, z1: -150.8, y: 0 });
     // gangway handrails as colliders (keep walkers on the ramp)
-    this.col.add([-2, 0, -153.1], [25, DECK_Y + 1.2, -152.95], { kind: 'rail', noBullet: true, noStand: true });
+    this.col.add([-2, 0, -153.1], [22, DECK_Y + 1.2, -152.95], { kind: 'rail', noBullet: true, noStand: true });
     this.col.add([-2, 0, -151.05], [25, DECK_Y + 1.2, -150.9], { kind: 'rail', noBullet: true, noStand: true, rampRail: true });
   }
 
