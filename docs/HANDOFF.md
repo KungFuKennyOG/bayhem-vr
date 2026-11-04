@@ -19,7 +19,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **`atmosphere.js`:** sunset sky shader, sun-aware fog, PMREM environment. The global shader patches add the color grade (`bayGrade`), fog toward the sun, and a sun rim light on every lit material.
 - **`particles.js`:** a GPU-generated FX atlas with 64-frame fire and smoke flipbooks, plus an instanced billboard renderer that draws in one call and supports stretched sparks.
 - **`fx.js`:** layered explosions (flash, fireballs, mushroom, oily smoke, sparks, embers, debris, shockwave ring, scorch decal, pooled lights). Also tracers, muzzle flashes, casings, and `trailEmit` for continuous smoke trails.
-- **`characters.js`:** the skinned `Gunman` (window and roof poses, aiming, fire, hit, reload) and the verlet `Ragdoll` on a moving ground. On-foot levels need new poses: stand, crouch, walk, run, take cover, and ground-based aiming.
+- **`characters.js`:** sculpted skinned `Gunman` soldiers (window/roof poses, aiming, fire, hit, reload; 3 headgear variants; one draw call each), the verlet `Ragdoll` (the game also pushes ragdolls out of car bodies via `game.collideRagdoll`), and the animated sidekick `Driver` + `DRIVER_SEAT`. On-foot levels need new poses: stand, crouch, walk, run, take cover, and ground-based aiming. Build them on the same skeleton/mesh pipeline.
 - **`weapons.js`:**
   - `buildRifle` and `buildLauncher` with gloved hands and animations (bolt, mag swap, drum, ammo counter).
   - The `Gun` state machine.
@@ -29,6 +29,17 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **`hud.js`:** world-space callouts, subtitles, score panel, boss bar, vignettes.
 - **`director.js`:** scripted beats with `until` conditions, music intensity and radio chatter.
 - **`tools/capture.cjs` and `tools/render-soundtrack.cjs`:** deterministic headless trailer capture plus offline soundtrack mux. URL flags: `?capture&trailer`, `?demo`, `?sandbox`.
+
+## Changelog (pull main before starting; shared modules keep changing)
+- **Characters:** sculpted bodies, faces and gear; animated `Driver`. A second polish pass is in progress.
+- **Vehicles (`vehicles.js`):**
+  - Lofted bodies with tinted glass and visible drivers.
+  - `buildCivilian(paint, style)` with three civilian styles.
+  - Material slots [7] interior and [8] skin, which must be charred when wrecked.
+- **Helicopter (`heli.js`):** rebuilt, with `aimGun`, `setDamage`, `breakTail`, `burnables` and `sparkPt`.
+- **Particles:** an O(1) free list plus a big-sprite budget (`bigBudget`); explosion sizes are capped for fill rate. Keep this, because overdraw is the Quest bottleneck.
+- **Collisions:** `game.separateCars()`, a solid truck-vs-wreck push, and ragdoll-vs-car.
+- **Polish rule from Kenny:** after each pass, get an independent screenshot review. If it isn't close to 10/10, polish more. Be honest if procedural art plateaus.
 
 ## Level briefs
 
