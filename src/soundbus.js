@@ -11,9 +11,16 @@ export class SoundBus {
       this.sys = new mod.AudioSystem();
       await this.sys.init();
     } catch (e) { console.warn('audio unavailable', e); this.sys = null; }
+    await this.onReady?.(); // e.g. decode this level's driver lines before the level starts talking
   }
   _ev(type, name, opts, value) { if (this.record) this.events.push({ t: +this.t.toFixed(4), type, name, opts: opts ? { ...opts } : undefined, value }); }
   play(name, opts = {}) { this._ev('play', name, opts); this.sys?.play(name, opts); }
+  // driver VO clip (src/vo.js); the url rides along so the offline soundtrack render can load it
+  voice(key, url) { this._ev('voice', key, { url }); this.sys?.voice(key); }
+  async loadVoices(list) {
+    if (this.record || !this.sys) return;
+    await Promise.all(list.map(([k, url]) => this.sys.loadVoice(k, url).catch((e) => console.warn('vo load failed', k, e))));
+  }
   setLoop(name, opts = {}) {
     if (this.record) { this._lt ??= {}; if (this._lt[name] === undefined || this.t - this._lt[name] > 0.1) { this._lt[name] = this.t; this._ev('loop', name, opts); } }
     this.sys?.setLoop(name, opts);

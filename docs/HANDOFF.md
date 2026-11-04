@@ -1,6 +1,6 @@
 # BAYHEM: handoff for the next levels
 
-BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model, texture or audio files.
+BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model or texture files, and the only audio files are the driver's voiced radio lines (`public/vo/`, see `tools/vo/README.md`).
 
 ## Status
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
@@ -18,6 +18,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 ## Decisions made (apply to all levels)
 - **Locomotion for the on-foot levels:** smooth thumbstick movement with a comfort vignette while moving, plus 45° snap turn.
 - **Each new level gets its own chat.**
+- **Driver voice (Nov 2026):** every DRIVER line is voiced with local AI TTS (Chatterbox cloned onto a Kokoro male voice, both free to ship) and a baked radio filter. Kenny picked it over a calmer TTS after listening to samples. A real voice actor is still an option for a final pass. Any new or reworded driver line needs `tools/vo` re-run, or it plays silent (subtitle + squelch only).
 - **Engine:** stay in WebXR with three.js. Keep the art pipeline: procedural geometry and canvas/shader textures, with no screen-space post-processing. Grade, rim light and glows live in material shaders or sprites so they're free on Quest.
 
 ## Reusable modules (src/)
@@ -25,6 +26,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **`locomotion.js`** (new): smooth stick/WASD movement relative to the head, comfort vignette, 45° snap turn around the head, ground following, no walking off ledges; room-scale intrusions into walls push the rig back.
 - **`settings.js`** (new): persisted player settings (`settings.comfortVignette`, `setSetting(k, v)`, localStorage with a private-mode fallback). The comfort vignette toggles from the menu button or by clicking the right stick in VR.
 - **`soundbus.js`**: the live/recording audio bus (was in main.js).
+- **`vo.js`** (new): wraps `hud.subtitle` so every `DRIVER` line with a clip in `vo-manifest.js` is spoken over the radio (keyed by a hash of the exact text, preloaded per level, ducks the score, ignores slow-mo, recorded for trailer renders). It also owns the radio squelch, so level code just calls `hud.subtitle('DRIVER', text)`.
 - **`atmosphere.js`:** sunset sky shader, sun-aware fog, PMREM environment. The global shader patches add the color grade (`bayGrade`), fog toward the sun, and a sun rim light on every lit material.
 - **`particles.js`:** a GPU-generated FX atlas with 64-frame fire and smoke flipbooks, plus an instanced billboard renderer that draws in one call and supports stretched sparks.
 - **`fx.js`:** layered explosions (flash, fireballs, mushroom, oily smoke, sparks, embers, debris, shockwave ring, scorch decal, pooled lights). Also tracers, muzzle flashes, casings, and `trailEmit` for continuous smoke trails.

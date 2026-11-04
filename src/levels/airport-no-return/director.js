@@ -17,7 +17,7 @@ export class Director {
     this.stepIdx = -1; this.t = 0; this.total = 0; this.done = false;
     this.duskTarget = game.dusk;
     const g = game, T = trailer ? 0.7 : 1;
-    const say = (line, d = 3, who = 'DRIVER') => { audio.play('radio_squelch', { volume: 0.6 }); hud.subtitle(who, line, d); };
+    const say = (line, d = 3, who = 'DRIVER') => hud.subtitle(who, line, d); // src/vo.js adds the squelch + voice
     const later = (t, fn) => g.fx.later(t, fn);
     const alive = (f) => g.enemiesAlive(f);
     const pz = () => g.headPos.z, px = () => g.headPos.x;
