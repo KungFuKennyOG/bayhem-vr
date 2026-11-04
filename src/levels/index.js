@@ -12,6 +12,11 @@ export const LEVELS = [
     blurb: 'On foot through a container maze at golden hour, all the way to the cargo ship. Then blow it up.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint.',
   },
+  {
+    id: 'airport-no-return', num: '04', title: 'AIRPORT NO RETURN', tagline: 'RUNWAY 27. SUNSET. ONE WAY OUT.',
+    blurb: 'Fight across a sunset apron, ground two jets, then chase a cargo plane down the runway in a borrowed jeep.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. In the jeep: just shoot. When it says JUMP: grip / A (VR) or Space.',
+  },
 ];
 
 export const levelById = (id) => LEVELS.find(l => l.id === id) || LEVELS[0];

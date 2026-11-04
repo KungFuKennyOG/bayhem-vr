@@ -219,6 +219,8 @@ const SFX = {
   body_fall: { n: 3, gain: 0.42, verb: 0.05, max: 4, vary: 0.07, roll: 1.0 },
   gear_rattle: { n: 3, gain: 0.16, verb: 0.02, max: 6, vary: 0.08, roll: 1.5 },
   fuel_whoomp: { n: 1, gain: 0.62, verb: 0.35, max: 3, vary: 0.05, roll: 0.4, hrtf: true, sub: 0.5 },
+  // --- Level 4 (Airport No Return)
+  jet_spool: { n: 1, gain: 0.7, verb: 0.3, max: 2, vary: 0.03, roll: 0.2, hrtf: true, sub: 0.3 },
 };
 
 const LOOPS = {
@@ -234,6 +236,9 @@ const LOOPS = {
   forklift: { gain: 0.42, roll: 0.75, rate: (i) => 0.75 + 0.75 * i, lp: (i) => 900 + 3500 * i, verb: 0.08, doppler: true, max: 3 },
   fire_big: { gain: 0.7, roll: 0.5, rate: () => 1, lp: (i) => 1500 + 9000 * i, verb: 0.2, sub: 0.5, max: 4 },
   sodium_hum: { gain: 0.06, roll: 1.8, rate: () => 1, lp: (i) => 2500 + 12000 * i, verb: 0, max: 8 },
+  // --- Level 4: taxiing airliner (turbofan whine) and the four-engine cargo plane (roar), both Doppler-shifted
+  jet: { gain: 0.75, roll: 0.25, hrtf: true, rate: (i) => 0.8 + 0.35 * i, lp: (i) => 2500 + 12000 * i, verb: 0.2, sub: 0.4, doppler: true, max: 3 },
+  cargo: { gain: 1.0, roll: 0.18, hrtf: true, rate: (i) => 0.72 + 0.38 * i, lp: (i) => 1800 + 12000 * i, verb: 0.25, sub: 0.8, doppler: true, max: 1 },
 };
 
 // --- Level 2 one-shot bakes (Port of Victory)
@@ -888,6 +893,38 @@ const L2_LOOP_BAKES = {
   } },
 };
 
+// --- Level 4 bakes (Airport No Return): turbofan whine + roar, four-engine cargo roar, spool-up
+const L4_BAKES = {
+  loop_jet: { dur: 2.25, loop: [2, 0.25], sr: 32000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.3), b.o);
+    const fl = b.g(0.8); b.ch(b.osc('sine', 3.1), b.g(0.12), fl.gain); // slow flutter
+    [[1180, 0.07], [2360, 0.035], [3540, 0.015], [590, 0.04]].forEach(([f, g]) => b.ch(b.osc('sine', f), b.g(g), fl)); // fan blade-pass whine
+    b.ch(b.osc('sawtooth', 147), b.f('bandpass', 600, 2), b.g(0.08), fl);
+    fl.connect(o);
+    b.ch(b.src('pink'), b.f('bandpass', 900, 0.6), b.g(0.45), o);        // core roar
+    b.ch(b.src('white'), b.f('highpass', 4200), b.g(0.06), o);            // intake hiss
+    b.ch(b.src('brown'), b.f('lowpass', 160), b.g(0.6), o);               // rumble
+  } },
+  loop_cargo: { dur: 3.25, loop: [3, 0.25], sr: 32000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.7), b.o);
+    // four engines slightly out of tune -> beating
+    for (const f of [138, 141.5, 135.5, 144]) { const g = b.g(0.05); b.ch(b.osc('sawtooth', f), b.f('lowpass', 900, 1), g, o); }
+    for (const f of [1840, 1871, 1812]) b.ch(b.osc('sine', f), b.g(0.018), o);
+    const am = b.g(0.7); [[0.7, 0.18], [1.9, 0.1]].forEach(([f, d]) => b.ch(b.osc('sine', f), b.g(d), am.gain));
+    b.ch(b.src('pink'), b.f('bandpass', 500, 0.5), b.g(0.9), am, o);     // jet roar
+    b.ch(b.src('brown'), b.f('lowpass', 110), b.g(1.0), o);              // chest rumble
+    b.ch(b.src('white'), b.f('bandpass', 3000, 0.7), b.g(0.1), o);
+    { const fl = b.g(0.5); b.ch(b.src('white'), b.f('lowpass', 14), b.g(8), fl.gain); b.ch(b.src('pink'), b.f('bandpass', 1400, 0.8), fl, b.g(0.25), o); } // crackle-roar flutter
+  } },
+  jet_spool: { dur: 3.6, sr: 32000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.2), b.o);
+    const env = b.g(0); env.gain.setValueAtTime(0, 0); env.gain.linearRampToValueAtTime(1, 2.4); env.gain.setTargetAtTime(0, 2.8, 0.3); env.connect(o);
+    for (const [k, g] of [[1, 0.12], [2, 0.05], [0.5, 0.06]]) { const w = b.osc('sine', 300 * k); w.frequency.setValueAtTime(300 * k, 0); w.frequency.exponentialRampToValueAtTime(1600 * k, 2.6); b.ch(w, b.g(g), env); }
+    const n = b.f('bandpass', 300, 0.7); n.frequency.setValueAtTime(300, 0); n.frequency.exponentialRampToValueAtTime(1500, 2.6); b.ch(b.src('pink'), n, b.g(0.8), env);
+    b.ch(b.src('brown'), b.f('lowpass', 140), b.g(0.7), env);
+  } },
+};
+
 // --- music bakes
 const CHORDS = [
   { root: 0, pad: [38, 45, 50, 53, 57], brass: [38, 45, 50, 53], choir: [57, 62, 65, 69] }, // Dm
@@ -1007,7 +1044,7 @@ export class AudioSystem {
     });
     // Level 2 sounds bake in the background after the music so they don't delay start-up; until they are in,
     // play() of those names is a silent no-op and setLoop() retries on the next call.
-    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES))).then(() => { this._xReady = true; });
+    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES, L4_BAKES))).then(() => { this._xReady = true; });
     if (this._offline) { await mp; await xp; } else { mp.catch((e) => console.warn('music bake failed', e)); xp.catch((e) => console.warn('L2 bake failed', e)); }
   }
 
