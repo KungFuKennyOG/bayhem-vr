@@ -207,28 +207,33 @@ export function walkwayTextures(stencils = []) {
 }
 
 // ------------------------------------------------------------------ breaches (quay-side hull, near the fuel hold)
-// placed where setpieces.js spawns the hull fire jets (x -29, -21, -15, -9; y 3.5..6.5)
+// four different tears: a big ragged blow-out at the fuel hold, a diagonal gash, two punched holes.
+// (setpieces.js spawns hull fire jets around x -29, -21, -15, -9 / y 3.5..6.5)
 export const BREACHES = [
-  { x: -15.4, y: 4.9, rx: 2.3, ry: 1.45 },
-  { x: -8.7, y: 5.7, rx: 1.2, ry: 0.92 },
-  { x: -22.2, y: 4.1, rx: 1.1, ry: 0.85 },
-  { x: -29.0, y: 5.1, rx: 0.95, ry: 0.72 },
+  { x: -15.0, y: 4.7, rx: 3.5, ry: 2.1, rot: 0.08, kind: 'tear' },
+  { x: -24.6, y: 3.7, rx: 1.6, ry: 0.7, rot: 0.6, kind: 'gash' },
+  { x: -6.4, y: 6.3, rx: 0.85, ry: 1.05, rot: 0.2, kind: 'punch' },
+  { x: -31.0, y: 5.5, rx: 0.65, ry: 0.55, rot: -0.3, kind: 'punch' },
 ];
-const HULL_Z = -153.0, CAV = 1.7, OUT_N = 64;
-// irregular torn outline per breach: radius (in rx/ry units) sampled around the angle, shared by the shader
-// (DataTexture, linear + repeat) and the petal geometry, so flaps sit exactly on the jagged rim
+const HULL_Z = -153.0, CAV = 1.65, OUT_N = 64;
+// irregular torn outline per breach: radius (in rx/ry units) sampled around the local angle, shared by the shader
+// (DataTexture, linear + repeat) and the petal geometry, so the flaps sit exactly on the jagged rim
 const OUTLINES = (() => {
   const r = makeRng(1601);
-  return BREACHES.map(() => {
+  return BREACHES.map((b) => {
     const R = new Float32Array(OUT_N);
-    const ph = [r() * 6.28, r() * 6.28, r() * 6.28], am = [0.14 + r() * 0.1, 0.09 + r() * 0.07, 0.05 + r() * 0.03];
-    const cracks = [[r() * 6.28, 0.3 + r() * 0.3, 0.16 + r() * 0.06], [r() * 6.28, 0.2 + r() * 0.25, 0.12], [r() * 6.28, -0.18, 0.35]];
+    const P = b.kind === 'tear' ? { am: [0.2, 0.13, 0.07], tooth: 0.12, cracks: 4, clen: 0.45 }
+      : b.kind === 'gash' ? { am: [0.06, 0.05, 0.04], tooth: 0.1, cracks: 0, clen: 0 } : { am: [0.07, 0.05, 0.05], tooth: 0.2, cracks: 1, clen: 0.25 };
+    const ph = [r() * 6.28, r() * 6.28, r() * 6.28];
+    const cracks = [];
+    for (let k = 0; k < P.cracks; k++) cracks.push([r() * 6.28, P.clen * (0.6 + r() * 0.6), 0.1 + r() * 0.1]);
+    if (b.kind === 'gash') cracks.push([0, 0.45, 0.25], [Math.PI, 0.35, 0.22]); // the gash runs on along its long axis
     for (let i = 0; i < OUT_N; i++) {
       const a = ((i + 0.5) / OUT_N - 0.5) * Math.PI * 2;
-      let v = 1 + am[0] * Math.sin(2 * a + ph[0]) + am[1] * Math.sin(3 * a + ph[1]) + am[2] * Math.sin(5 * a + ph[2]);
-      v += (i % 2 ? 1 : -1) * (0.03 + r() * 0.09) + (r() - 0.5) * 0.07; // saw-tooth tear
+      let v = 1 + P.am[0] * Math.sin(2 * a + ph[0]) + P.am[1] * Math.sin(3 * a + ph[1]) + P.am[2] * Math.sin(5 * a + ph[2]);
+      v += (i % 2 ? 1 : -1) * (0.3 + r() * 0.7) * P.tooth * 0.6 + (r() - 0.5) * 0.06; // saw-tooth tear
       for (const [ca, len, w] of cracks) { let d = Math.abs(a - ca) % (Math.PI * 2); d = Math.min(d, Math.PI * 2 - d); v += len * Math.max(0, 1 - d / w); }
-      R[i] = Math.min(1.55, Math.max(0.45, v * 0.86));
+      R[i] = Math.min(1.55, Math.max(0.4, v * 0.86));
     }
     return R;
   });
@@ -236,6 +241,11 @@ const OUTLINES = (() => {
 const outlineR = (bi, ang) => { // same lookup as the shader (linear filter, repeat wrap)
   const f = (ang / (Math.PI * 2) + 0.5) * OUT_N - 0.5, i0 = Math.floor(f), t = f - i0, R = OUTLINES[bi];
   return lerp(R[((i0 % OUT_N) + OUT_N) % OUT_N], R[(((i0 + 1) % OUT_N) + OUT_N) % OUT_N], t);
+};
+// local ellipse coords (angle, radius in rx/ry units) -> world x,y
+const breachPt = (b, ang, s) => {
+  const lx = Math.cos(ang) * b.rx * s, ly = Math.sin(ang) * b.ry * s, c = Math.cos(b.rot), sn = Math.sin(b.rot);
+  return [b.x + lx * c - ly * sn, b.y + lx * sn + ly * c];
 };
 let outlineTex = null;
 function breachOutlineTexture() {
@@ -259,18 +269,22 @@ float bFbm(vec2 p) { return bNoise(p) * 0.55 + bNoise(p * 2.13 + 7.1) * 0.3 + bN
 function glslBreaches() {
   let s = '';
   BREACHES.forEach((b, i) => {
-    s += `{ vec2 q = (vBW.xy - vec2(${b.x.toFixed(2)}, ${b.y.toFixed(2)})) / vec2(${b.rx.toFixed(2)}, ${b.ry.toFixed(2)});
+    const c = Math.cos(b.rot).toFixed(4), sn = Math.sin(b.rot).toFixed(4), rm = ((b.rx + b.ry) / 2).toFixed(2), f = (n) => n.toFixed(2);
+    s += `{ vec2 dp = vBW.xy - vec2(${f(b.x)}, ${f(b.y)});
+      vec2 q = vec2(${c} * dp.x + ${sn} * dp.y, -${sn} * dp.x + ${c} * dp.y) / vec2(${f(b.rx)}, ${f(b.ry)});
       float th = atan(q.y, q.x) * 0.15915494 + 0.5;
       float Rr = texture2D(tBreach, vec2(th, ${((i + 0.5) / BREACHES.length).toFixed(4)})).r * 2.0 * bOpen;
       Rr *= 1.0 + (bNoise(vBW.xy * 9.0) - 0.5) * 0.07;
-      float dm = (length(q) - Rr) * ${Math.min(b.rx, b.ry).toFixed(2)}; // ~metres outside the tear
+      float dm = (length(q) - Rr) * ${f(Math.min(b.rx, b.ry))}; // ~metres outside the tear
       bHole = max(bHole, step(dm, 0.0));
-      bRim = max(bRim, 1.0 - smoothstep(0.0, 0.045, dm));
-      bEdge = max(bEdge, 1.0 - smoothstep(0.0, 0.4, dm));
-      bGlow = max(bGlow, (1.0 - smoothstep(0.0, 1.1, dm)) * bNoise(vBW.xy * 1.4 + ${(i * 5.3).toFixed(1)}));
-      float up = vBW.y - ${b.y.toFixed(2)};
-      float w = ${b.rx.toFixed(2)} * (0.55 + max(up, 0.0) * 0.22);
-      bSoot = max(bSoot, exp(-pow((vBW.x - ${b.x.toFixed(2)}) / w, 2.0)) * smoothstep(${(b.ry * 0.3).toFixed(2)}, ${(b.ry * 1.2).toFixed(2)}, up) * (1.0 - smoothstep(2.0, 7.5, up)) * smoothstep(0.25, 0.75, bFbm(vec2(vBW.x * 1.6, vBW.y * 0.28))));
+      bRim = max(bRim, 1.0 - smoothstep(0.0, 0.05, dm));
+      bEdge = max(bEdge, 1.0 - smoothstep(0.0, 0.35, dm));
+      bGlow = max(bGlow, (1.0 - smoothstep(0.0, 1.2, dm)) * bNoise(vBW.xy * 1.4 + ${(i * 5.3).toFixed(1)}));
+      bHalo = max(bHalo, 1.0 - smoothstep(0.0, ${rm} * 2.3, dm + (bN - 0.5) * ${rm}));
+      bWarm += exp(-max(dm, 0.0) / (0.6 + ${rm} * 0.9));
+      float up = vBW.y - ${f(b.y)};
+      float w = ${rm} * (0.5 + max(up, 0.0) * 0.22);
+      bSoot = max(bSoot, exp(-pow(dp.x / w, 2.0)) * smoothstep(${f(b.ry * 0.2)}, ${f(b.ry * 1.1)}, up) * (1.0 - smoothstep(${f(9.0 - b.y - 2.5)}, ${f(9.4 - b.y)}, up) * 0.5) * smoothstep(0.2, 0.7, bFbm(vec2(vBW.x * 1.5, vBW.y * 0.25))));
     }\n`;
   });
   return s;
@@ -292,7 +306,7 @@ export function makeBurn() {
           vBW = (uRootInv * modelMatrix * bwp).xyz;`);
       let frag = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + GLSL_COMMON + (kind === 'hull' ? 'uniform sampler2D tHullDet; uniform sampler2D tBreach;\n' : ''));
       const colorPart = /* glsl */`#include <color_fragment>
-        float bScorch = 0.0, bN = 0.5, bHole = 0.0, bRim = 0.0, bEdge = 0.0, bSoot = 0.0, bGlow = 0.0;
+        float bScorch = 0.0, bN = 0.5, bHole = 0.0, bRim = 0.0, bEdge = 0.0, bSoot = 0.0, bGlow = 0.0, bHalo = 0.0, bWarm = 0.0;
         ${kind === 'hull' ? `vec3 bDet = texture2D(tHullDet, vNormalMapUv * vec2(0.5, 1.0)).rgb * 1.6; diffuseColor.rgb *= bDet;` : ''}
         if (uBurn > 0.001) {
           bN = bFbm(vBW.xy * 0.31 + vBW.zz * 0.23);
@@ -304,23 +318,30 @@ export function makeBurn() {
             float bOpen = mix(0.62, 1.0, smoothstep(0.0, 0.35, uBurn));
             ${glslBreaches()}
             if (bHole > 0.5) discard;
-            bScorch = max(bScorch, bEdge);
-          }` : ''}
+            bWarm = min(bWarm, 1.5);
+          }
+          // hull: smoke-darkened but legible (plates + lettering still read), heavy char in a soft halo around each tear
+          diffuseColor.rgb *= mix(1.0, 0.42, bScorch);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.085, 0.05) * (0.6 + 0.6 * bN), bScorch * (1.0 - bScorch) * 1.2);
+          diffuseColor.rgb *= mix(1.0, 0.13, pow(bHalo, 1.3) * (0.75 + 0.5 * bN));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.01, 0.009, 0.008), bSoot * 0.9);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.012, 0.01, 0.009), bEdge);` : `
           float fringe = bScorch * (1.0 - bScorch) * 4.0;
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.1, 0.055) * (0.7 + 0.6 * bN), fringe * 0.45);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.058, 0.05) * (0.55 + 0.9 * bN), smoothstep(0.25, 0.85, bScorch));
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.008, 0.007, 0.006), bSoot * 0.92);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.012, 0.01, 0.009), bEdge * bEdge);
+          diffuseColor.rgb = mix(diffuseColor.rgb * 0.45, vec3(0.06, 0.05, 0.043) * (0.55 + 0.9 * bN), smoothstep(0.25, 0.85, bScorch));`}
         }`;
       frag = frag.replace('#include <color_fragment>', colorPart)
-        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.96, bScorch);')
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.96, max(bScorch, bHalo));')
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           ${kind === 'hull' ? `
-          totalEmissiveRadiance *= bDet * (1.0 - 0.95 * smoothstep(0.1, 0.7, bScorch));
+          totalEmissiveRadiance *= bDet * (1.0 - 0.45 * bScorch) * (1.0 - 0.85 * bHalo);
           if (uBurn > 0.001) {
             float fl = 0.78 + 0.22 * sin(uBurnT * 9.0 + vBW.x * 1.7) * sin(uBurnT * 5.3 + vBW.y * 2.1);
             float cr = pow(1.0 - abs(bNoise(vBW.xy * vec2(6.3, 7.1)) * 2.0 - 1.0), 14.0) * 0.7 + smoothstep(0.8, 0.95, bNoise(vBW.xy * 11.0 + 3.0)) * smoothstep(0.3, 0.8, bNoise(vBW.xy * 1.7));
-            vec3 hot = vec3(3.0, 0.95, 0.2) * bRim * (0.55 + 0.9 * bNoise(vBW.xy * 3.3 + uBurnT * 0.7)) + vec3(1.9, 0.45, 0.07) * cr * smoothstep(0.3, 0.95, bEdge) * fl + vec3(0.16, 0.035, 0.005) * bEdge * bEdge + vec3(0.11, 0.024, 0.003) * bGlow;
+            vec3 hot = vec3(3.0, 0.95, 0.2) * bRim * (0.55 + 0.9 * bNoise(vBW.xy * 3.3 + uBurnT * 0.7)) + vec3(1.9, 0.45, 0.07) * cr * smoothstep(0.2, 0.95, bEdge) * fl + vec3(0.16, 0.035, 0.005) * bEdge * bEdge + vec3(0.11, 0.024, 0.003) * bGlow;
+            // fire under-glow: the burning holes and the deck fires light the hull plating (no real lights)
+            float under = bWarm * 0.55 + bScorch * 0.18 * (1.0 - smoothstep(1.0, 8.0, vBW.y));
+            hot += diffuseColor.rgb * vec3(2.6, 1.05, 0.38) * under * (0.8 + 0.2 * fl);
             totalEmissiveRadiance += hot * fl * uBurnGlow;
           }` : `totalEmissiveRadiance *= min(1.0, bScorch * 1.4);`}`);
       sh.fragmentShader = frag;
@@ -368,7 +389,7 @@ export function buildBreaches() {
   const v = (x, y, z, u, w) => { pos.push(x, y, z); uv.push(u, w); col.push(C[0], C[1], C[2]); return pos.length / 3 - 1; };
   const quad = (a, b, c2, d) => idx.push(a, b, c2, a, c2, d);
   const tri = (a, b, c2) => idx.push(a, b, c2);
-  const ZB = -156.2, ZF = HULL_Z - 0.03;
+  const ZB = HULL_Z - 1.6, ZF = HULL_Z - 0.03;
   const BLK = [0.75, 0.04];
   // prism beam between two points (cross-section w x d), dark
   const beam = (p0, p1, w, d) => {
@@ -379,60 +400,79 @@ export function buildBreaches() {
     for (let k = 0; k < 4; k++) quad(P[k], P[(k + 1) % 4], P[4 + (k + 1) % 4], P[4 + k]);
   };
   BREACHES.forEach((b, bi) => {
-    const hx = b.rx * CAV, hy = b.ry * CAV;
+    const cR = Math.cos(b.rot), sR = Math.sin(b.rot);
+    const hx = CAV * Math.hypot(b.rx * cR, b.ry * sR), hy = CAV * Math.hypot(b.rx * sR, b.ry * cR);
     const x0 = b.x - hx, x1 = b.x + hx, y0 = b.y - hy, y1 = Math.min(8.6, b.y + hy);
     C = [0.02, 0.015, 0.012];
-    // sooty side walls: black at the opening, dull red deeper in
+    // sooty side walls: black at the opening, dull red deeper in (the floor glows: burning fuel)
     const ring = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
     let acc = 0;
     for (let k = 0; k < 4; k++) {
       const [ax, ay] = ring[k], [bx2, by2] = ring[(k + 1) % 4], L = Math.hypot(bx2 - ax, by2 - ay);
       const u0 = (acc / 6) % 0.5, u1 = u0 + Math.min(0.48, L / 12); acc += L;
-      const back = k === 0 ? 0.45 : 0.22; // the floor of the cavity glows more (burning fuel pools)
+      const back = k === 0 ? 0.5 : 0.2;
       const a0 = v(ax, ay, ZF, u0, 0.0), a1 = v(bx2, by2, ZF, u1, 0.0), b1 = v(bx2, by2, ZB, u1, back), b0 = v(ax, ay, ZB, u0, back);
       quad(a0, a1, b1, b0);
     }
-    // back wall: a grid with irregular hot patches (mostly dull, one or two bright pockets, hotter low down)
-    const GX = 6, GY = 4, grid = [];
-    const hot = [[lerp(x0, x1, 0.2 + r() * 0.6), lerp(y0, y1, 0.15 + r() * 0.3)], [lerp(x0, x1, r()), lerp(y0, y1, 0.3 + r() * 0.5)]];
+    // back wall (1.6 m inside): grid with irregular hot pockets, hotter low down
+    const GX = 6, GY = 4, g0 = pos.length / 3;
+    const hot = [[lerp(x0, x1, 0.2 + r() * 0.6), lerp(y0, y1, 0.12 + r() * 0.25)], [lerp(x0, x1, r()), lerp(y0, y1, 0.3 + r() * 0.45)]];
     for (let j = 0; j <= GY; j++) for (let i = 0; i <= GX; i++) {
       const x = lerp(x0, x1, i / GX), y = lerp(y0, y1, j / GY);
-      let w = 0.1 + 0.18 * (1 - j / GY) + r() * 0.1;
-      hot.forEach(([hxp, hyp], k) => { w += (k ? 0.4 : 0.65) * Math.exp(-(((x - hxp) / (hx * 0.3)) ** 2 + ((y - hyp) / (hy * 0.35)) ** 2)); });
-      grid.push(v(x, y, ZB, 0.04 + 0.4 * (i / GX) + r() * 0.02, Math.min(0.97, w)));
+      let w = 0.12 + 0.2 * (1 - j / GY) + r() * 0.1;
+      hot.forEach(([hxp, hyp], k) => { w += (k ? 0.4 : 0.65) * Math.exp(-(((x - hxp) / (hx * 0.32)) ** 2 + ((y - hyp) / (hy * 0.38)) ** 2)); });
+      v(x, y, ZB, 0.04 + 0.4 * (i / GX) + r() * 0.02, Math.min(0.97, w));
     }
-    for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) { const a = j * (GX + 1) + i; quad(a + grid[0], a + 1 + grid[0], a + GX + 2 + grid[0], a + GX + 1 + grid[0]); }
-    // a couple of broken frame ribs deep inside (no full-height crossing members) + debris on the floor
-    const nr = b.rx > 1.5 ? 2 : 1;
+    for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) { const a = g0 + j * (GX + 1) + i; quad(a, a + 1, a + GX + 2, a + GX + 1); }
+    // torn tween-deck plate sagging across the hold (parallax shelf), a few broken ribs, debris on the floor
+    if (b.rx > 1.2) {
+      const ty = lerp(y0, y1, 0.55), n = 8, row0 = [], row1 = [];
+      for (let i = 0; i <= n; i++) {
+        const x = lerp(x0, x1, i / n), sag = -0.45 * Math.sin(Math.PI * i / n) - r() * 0.15;
+        row0.push(v(x, ty + sag, ZB, 0.25, 0.14));
+        row1.push(v(x, ty + sag - 0.25 - r() * 0.3, HULL_Z - 0.35 - r() * 0.5, 0.25, 0.08)); // ragged front edge drooping toward the hole
+      }
+      for (let i = 0; i < n; i++) quad(row0[i], row0[i + 1], row1[i + 1], row1[i]);
+    }
+    const nr = b.rx > 1.5 ? 3 : 1;
     for (let i = 0; i < nr; i++) {
-      const fx = lerp(x0 + hx * 0.4, x1 - hx * 0.4, nr === 1 ? 0.3 + r() * 0.4 : i === 0 ? 0.1 + r() * 0.25 : 0.65 + r() * 0.25), zz = HULL_Z - 0.6 - r() * 1.2;
-      const top = lerp(y0, y1, 0.35 + r() * 0.35), lean = (r() - 0.5) * 0.8;
-      beam([fx, y0 - 0.1, zz], [fx + lean, top, zz - 0.2], 0.1, 0.35);
-      beam([fx + lean, top, zz - 0.2], [fx + lean + (r() - 0.5) * 0.7, top + 0.2 + r() * 0.35, zz - 0.1], 0.07, 0.25); // torn stub
+      const fx = lerp(x0 + hx * 0.35, x1 - hx * 0.35, nr === 1 ? 0.3 + r() * 0.4 : (i + 0.2 + r() * 0.6) / nr), zz = HULL_Z - 0.35 - r() * 0.8;
+      const top = lerp(y0, y1, 0.3 + r() * 0.35), lean = (r() - 0.5) * 0.9;
+      beam([fx, y0 - 0.1, zz], [fx + lean, top, zz - 0.15], 0.11, 0.35);
+      beam([fx + lean, top, zz - 0.15], [fx + lean + (r() - 0.5) * 0.8, top + 0.2 + r() * 0.4, zz - 0.05], 0.08, 0.25); // torn stub
     }
-    for (let i = 0; i < 3; i++) { const dx = lerp(x0 + 0.3, x1 - 0.3, r()), dy = y0 + 0.05; beam([dx, dy, ZB + 0.3 + r() * 1.5], [dx + (r() - 0.5) * 1.4, dy + 0.1 + r() * 0.35, ZB + 0.3 + r() * 1.5], 0.18 + r() * 0.2, 0.25); }
-    // petals: a few tapered flaps of torn plate whose roots follow the jagged rim, curled out toward the quay
-    C = [0.085, 0.07, 0.06];
-    const np = 3 + Math.round(b.rx);
-    const E = (ang, s) => [b.x + Math.cos(ang) * b.rx * s, b.y + Math.sin(ang) * b.ry * s];
+    for (let i = 0; i < 3; i++) { const dx = lerp(x0 + 0.3, x1 - 0.3, r()), dy = y0 + 0.05; beam([dx, dy, ZB + 0.2 + r() * 1.0], [dx + (r() - 0.5) * 1.4, dy + 0.1 + r() * 0.35, ZB + 0.2 + r() * 1.0], 0.18 + r() * 0.2, 0.25); }
+    // petals: tapered flaps of torn plate whose roots follow the jagged rim, bent out toward the quay (>= 0.5 m)
+    const big = b.kind === 'tear', gash = b.kind === 'gash';
+    const np = big ? 10 : gash ? 6 : 7;
     for (let i = 0; i < np; i++) {
-      const a = (i + 0.15 + r() * 0.7) / np * Math.PI * 2 - Math.PI, da = 0.16 + r() * 0.22;
-      const len = 0.22 + r() * 0.3, out = 0.35 + r() * 0.8, zf = HULL_Z + 0.015, tw = (r() - 0.5) * 0.6;
-      const rows = [];
+      let a;
+      if (gash) a = (i < np / 2 ? Math.PI / 2 : -Math.PI / 2) + ((i % (np / 2)) / (np / 2 - 1) - 0.5) * 2.0 + (r() - 0.5) * 0.25; // along the long lips
+      else a = (i + 0.15 + r() * 0.7) / np * Math.PI * 2 - Math.PI;
+      if (big && r() < 0.12) continue;
+      const da = (big ? 0.14 : 0.2) + r() * 0.16;
+      const len = big ? 0.16 + r() * 0.24 : 0.3 + r() * 0.35, out = (big ? 0.7 : 0.5) + r() * (big ? 0.9 : 0.5), zf = HULL_Z + 0.015, tw = (r() - 0.5) * 0.6;
+      const first = idx.length, rows = [];
       for (let k = 0; k <= 3; k++) {
-        const f = k / 3, curl = f * f, wd = da * (1 - 0.7 * f), ac = a + tw * f * da;
+        const f = k / 3, curl = Math.pow(f, 1.6), wd = da * (1 - 0.7 * f), ac = a + tw * f * da;
+        C = [lerp(0.1, 0.3, f), lerp(0.09, 0.26, f), lerp(0.085, 0.24, f)]; // charred root -> heat-blued bare steel at the torn edge
         const pts = [];
         for (const sgn of [-1, 0, 1]) {
-          const an = ac + sgn * wd, rr = outlineR(bi, an) * 0.985 + len * f * (1 - 0.4 * curl);
-          const [px, py] = E(an, rr);
+          const an = ac + sgn * wd, rr = outlineR(bi, an) * 0.985 + len * f * (1 - 0.45 * curl);
+          const [px, py] = breachPt(b, an, rr);
           pts.push(v(px, py, zf + out * curl * (1 - 0.15 * Math.abs(sgn)) + (k ? (r() - 0.5) * 0.06 : 0), 0.75 + sgn * 0.12, 0.1 + 0.8 * f));
         }
         rows.push(pts);
       }
       for (let k = 0; k < 3; k++) for (let m = 0; m < 2; m++) quad(rows[k][m], rows[k][m + 1], rows[k + 1][m + 1], rows[k + 1][m]);
-      const [tx, ty] = E(a + tw * da, outlineR(bi, a) + len * 1.1);
-      tri(rows[3][0], rows[3][2], v(tx, ty, zf + out * 1.08, 0.75, 0.99));
+      const [tx, ty] = breachPt(b, a + tw * da, outlineR(bi, a) + len * 1.1);
+      tri(rows[3][0], rows[3][2], v(tx, ty, zf + out * 1.05, 0.75, 0.99));
+      // front face (lit, the 'top' of the flap) must face away from the hull
+      const A = new THREE.Vector3().fromArray(pos, idx[first] * 3), B = new THREE.Vector3().fromArray(pos, idx[first + 1] * 3), Cc = new THREE.Vector3().fromArray(pos, idx[first + 2] * 3);
+      const nrm = new THREE.Vector3().subVectors(B, A).cross(new THREE.Vector3().subVectors(Cc, A));
+      if (nrm.z < 0) for (let k = first; k < idx.length; k += 3) { const t = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = t; }
     }
+    C = [0.02, 0.015, 0.012];
   });
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -440,7 +480,10 @@ export function buildBreaches() {
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setIndex(idx); g.computeVertexNormals();
   const fire = fireTexture();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.9, metalness: 0.2, emissive: 0xffffff, emissiveMap: fire, emissiveIntensity: 0, side: THREE.DoubleSide });
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.75, metalness: 0.35, emissive: 0xffffff, emissiveMap: fire, emissiveIntensity: 0, side: THREE.DoubleSide });
+  // undersides of the flaps (back faces) stay dark; the outer faces catch light
+  mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\nif (!gl_FrontFacing) diffuseColor.rgb *= 0.2;'); };
+  mat.customProgramCacheKey = () => 'vstar-breach';
   const mesh = new THREE.Mesh(g, mat); mesh.name = 'hullBreaches'; mesh.castShadow = false; mesh.receiveShadow = false;
   mesh.scale.setScalar(1e-4); mesh.position.y = -1e4; // compiled at warm-up (visible), frustum-culled until the blast
   return {
@@ -448,7 +491,7 @@ export function buildBreaches() {
     set(k, t = 0) {
       mesh.scale.setScalar(k > 0.001 ? 1 : 1e-4); mesh.position.y = k > 0.001 ? 0 : -1e4;
       const f = 0.8 + 0.12 * Math.sin(t * 11.0) * Math.sin(t * 6.7 + 1.3) + 0.08 * Math.sin(t * 23.0 + 0.4);
-      mat.emissiveIntensity = k > 0.001 ? (0.75 + 0.7 * Math.min(1, k * 2.5)) * f : 0;
+      mat.emissiveIntensity = k > 0.001 ? (0.85 + 0.8 * Math.min(1, k * 2.5)) * f : 0;
       fire.offset.set(Math.sin(t * 0.9) * 0.02 + Math.sin(t * 2.3) * 0.01, Math.sin(t * 3.7) * 0.02); // licking flames
     },
   };

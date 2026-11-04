@@ -40,10 +40,12 @@ function hbAt(x, y) {
   return Math.max(0.12, B * secF(y) * fb * fa);
 }
 // top edge of the hull side (sheer): forecastle bulwark, low sheer strake + railings in the cargo zone, poop bulwark
+// cargo-zone bulwark top: flat aft of x -10, rising toward the forecastle step (sheer)
+const cargoSheer = (x) => 9.35 + (x < -10 ? 1.6 * ((-10 - x) / 66) ** 2 : 0);
 function topY(x) {
   if (x < FC_X) return 12.9 + 0.35 * clamp01((FC_X - x) / 14);
-  if (x < -76) return lerp(12.9, 9.35, sstep(FC_X, -76, x));
-  if (x < 37) return 9.35;
+  if (x < -76) return lerp(12.9, cargoSheer(-76), sstep(FC_X, -76, x));
+  if (x < 37) return cargoSheer(x);
   return lerp(9.35, 10.2, sstep(37, 40, x));
 }
 const deckYAt = (x) => (x < FC_X ? FC_DECK : DECK);
@@ -102,15 +104,18 @@ function hullTexture() {
     let g = ctx.createLinearGradient(0, hpy(13, band), 0, hpy(-0.5, band));
     g.addColorStop(0, '#55607a'); g.addColorStop(0.5, '#465064'); g.addColorStop(1, '#394052');
     ctx.fillStyle = g; ctx.fillRect(0, top, HW, HBAND);
-    // red antifouling below the boot-top + fouling toward the keel
-    g = ctx.createLinearGradient(0, hpy(-0.75, band), 0, hpy(-10.6, band));
-    g.addColorStop(0, '#9a3824'); g.addColorStop(0.12, '#8a3222'); g.addColorStop(0.2, '#5a2a1c'); g.addColorStop(0.5, '#3a2a1e'); g.addColorStop(1, '#2a241c');
-    ctx.fillStyle = g; ctx.fillRect(0, hpy(-0.75, band), HW, hpy(-10.6, band) - hpy(-0.75, band));
-    // dark boot-top band (light -> loaded waterline), reads as a darker band just above the quay coping
-    g = ctx.createLinearGradient(0, hpy(1.65, band), 0, hpy(-0.75, band));
-    g.addColorStop(0, '#26282d'); g.addColorStop(0.5, '#202226'); g.addColorStop(1, '#1b1c1f');
-    ctx.fillStyle = g; ctx.fillRect(0, hpy(1.65, band), HW, hpy(-0.75, band) - hpy(1.65, band));
-    ctx.fillStyle = 'rgba(150,155,165,0.4)'; ctx.fillRect(0, hpy(1.65, band) - 1, HW, 1.5); // cut-in line
+    // two-tone hull: red antifouling up to y 1.4 (she rides light, so the red shows above the quay coping)
+    g = ctx.createLinearGradient(0, hpy(1.4, band), 0, hpy(-10.6, band));
+    g.addColorStop(0, '#8e2a1e'); g.addColorStop(0.1, '#84281d'); g.addColorStop(0.17, '#6e2619'); g.addColorStop(0.26, '#4a2418'); g.addColorStop(0.6, '#33261c'); g.addColorStop(1, '#2a241c');
+    ctx.fillStyle = g; ctx.fillRect(0, hpy(1.4, band), HW, hpy(-10.6, band) - hpy(1.4, band));
+    // weathered red: lighter sun-faded mottling + darker drips from the topsides
+    for (let i = 0; i < (band === 2 ? 30 : 260); i++) {
+      const px = r() * bw, py = hpy(lerp(-1.8, 1.3, r()), band), w = (0.4 + r() * 3) * PXM, h = (0.1 + r() * 0.5) * PYM;
+      ctx.fillStyle = r() < 0.5 ? `rgba(170,70,50,${0.08 + r() * 0.1})` : `rgba(40,14,10,${0.08 + r() * 0.12})`; ctx.fillRect(px, py, w, h);
+    }
+    // thin white boot-top line with a crisp cut-in
+    ctx.fillStyle = '#d6d3c8'; ctx.fillRect(0, hpy(1.56, band), HW, hpy(1.4, band) - hpy(1.56, band));
+    ctx.fillStyle = 'rgba(20,22,28,0.5)'; ctx.fillRect(0, hpy(1.56, band) - 1, HW, 1);
     // shadow / grime band under the deck-edge rubbing strake (defines the sheer line)
     g = ctx.createLinearGradient(0, hpy(8.75, band), 0, hpy(7.6, band));
     g.addColorStop(0, 'rgba(8,10,16,0.45)'); g.addColorStop(1, 'rgba(8,10,16,0)');
@@ -143,6 +148,30 @@ function hullTexture() {
         const sx = cx + (r() - 0.5) * wz, sy = hpy(cy + (r() - 0.5) * 1.3, band), sl = (0.3 + r() * 1.8) * PXM;
         ctx.fillStyle = r() < 0.55 ? `rgba(120,128,142,${0.12 + r() * 0.16})` : `rgba(140,72,38,${0.18 + r() * 0.22})`;
         ctx.fillRect(sx, sy, sl, 1 + r() * 2.5);
+      }
+    }
+    // plate seams that read at distance (aligned with the uv1 detail tile: strakes every 2.4 m, butts every 12 m staggered)
+    if (band < 2) {
+      for (let j = 0; j <= 4; j++) {
+        const y = 2.4 * j, py = hpy(y, band);
+        ctx.fillStyle = 'rgba(5,7,12,0.42)'; ctx.fillRect(0, py - 2, HW, 3); ctx.fillStyle = 'rgba(150,160,180,0.16)'; ctx.fillRect(0, py + 1, HW, 1.5);
+        if (y + 2.4 > 9.4) continue;
+        const odd = [1, 3].includes(((j % 5) + 5) % 5);
+        for (let xx = odd ? -78 : -72; xx < 62; xx += 12) {
+          const px = X(xx, band), y0 = hpy(y + 2.4, band), hh = 2.4 * PYM;
+          ctx.fillStyle = 'rgba(5,7,12,0.4)'; ctx.fillRect(px - 1.5, y0, 3, hh); ctx.fillStyle = 'rgba(150,160,180,0.14)'; ctx.fillRect(px + 1.5, y0, 1.5, hh);
+          // rust bleeding from the butt / seam crossing
+          if (r() < 0.35) { const gg = ctx.createLinearGradient(0, py, 0, py + (0.6 + r() * 1.6) * PYM); gg.addColorStop(0, 'rgba(140,70,34,0.45)'); gg.addColorStop(1, 'rgba(120,60,30,0)'); ctx.fillStyle = gg; ctx.fillRect(px - 2, py, 4, 2.2 * PYM); }
+        }
+      }
+      // dented / oil-canned plates: soft shading blobs inside a few plates
+      for (let i = 0; i < 70; i++) {
+        const j = 1 + Math.floor(r() * 3), x = lerp(-76, 60, r()), y = 2.4 * j + 1.2 + (r() - 0.5) * 0.6;
+        const px = X(x, band), py = hpy(y, band), rx = (1.2 + r() * 2.5) * PXM, ry = (0.5 + r() * 0.5) * PYM;
+        const gg = ctx.createRadialGradient(px - rx * 0.25, py - ry * 0.35, 1, px, py, rx);
+        const dark = r() < 0.6;
+        gg.addColorStop(0, dark ? 'rgba(6,8,14,0.3)' : 'rgba(150,160,185,0.14)'); gg.addColorStop(0.6, dark ? 'rgba(6,8,14,0.12)' : 'rgba(150,160,185,0.05)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.save(); ctx.translate(px, py); ctx.scale(1, ry / rx); ctx.translate(-px, -py); ctx.fillStyle = gg; ctx.fillRect(px - rx, py - rx, rx * 2, rx * 2); ctx.restore();
       }
     }
     // waterline scum
@@ -198,8 +227,17 @@ function hullTexture() {
       const px = X(-88.6, band), py = hpy(8.1, band);
       ctx.fillStyle = '#050607'; ctx.beginPath(); ctx.ellipse(px, py, 1.15 * PXM, 0.9 * PYM, 0, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(120,70,40,0.8)'; ctx.lineWidth = 4; ctx.stroke();
-      rust(px, py + 0.9 * PYM, 1.6 * PXM, 9.5 * PYM, 0.55);
-      rust(px, py + 0.9 * PYM, 0.8 * PXM, 9 * PYM, 0.5);
+      rust(px, py + 0.9 * PYM, 1.6 * PXM, 10.2 * PYM, 0.7);
+      rust(px, py + 0.9 * PYM, 0.8 * PXM, 10 * PYM, 0.65);
+      rust(px + 0.6 * PXM, py + 0.9 * PYM, 0.3 * PXM, 9 * PYM, 0.6);
+    }
+    // portholes along the accommodation / engine-room flat below the superstructure
+    for (let x = 41.2; x < 61; x += 2.35) {
+      const px = X(x, band), py = hpy(7.15, band);
+      rust(px, py + 0.25 * PYM, 0.18 * PXM, (0.8 + r() * 1.6) * PYM, 0.4);
+      ctx.fillStyle = '#c9c7bd'; ctx.beginPath(); ctx.arc(px, py, 0.27 * PYM, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#121820'; ctx.beginPath(); ctx.arc(px, py, 0.2 * PYM, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(160,180,200,0.35)'; ctx.beginPath(); ctx.arc(px - 0.06 * PYM, py - 0.06 * PYM, 0.07 * PYM, 0, Math.PI * 2); ctx.fill();
     }
     // sheer strake highlight following the hull top
     ctx.strokeStyle = 'rgba(210,205,190,0.55)'; ctx.lineWidth = 3; ctx.beginPath();
@@ -609,7 +647,12 @@ export function buildShip(opts = {}) {
     const sg = side === 0 ? 1 : -1, zs = ZC + sg * (B + 0.04);
     // deck-edge rubbing strake: half-round bar that catches the light along the sheer
     pnt(tubeG(new V(-75.5, 8.85, zs + sg * 0.02), new V(37, 8.85, zs + sg * 0.02), 0.1, 8, true), 0x4a5468);
-    bx(37 + 75.5, 0.05, 0.05, (-75.5 + 37) / 2, 9.3, zs + sg * 0.02, 0x8c939c); // sheer strake cap edge
+    for (let x = -75.5; x < 37; x += 4) { const x2 = Math.min(37, x + 4); pnt(tubeG(new V(x, topY(x) - 0.05, zs + sg * 0.02), new V(x2, topY(x2) - 0.05, zs + sg * 0.02), 0.03, 4, true), 0x8c939c); } // sheer strake cap edge
+    // porthole rims (the glass is painted in the hull texture)
+    for (let x = 41.2; x < 61; x += 2.35) {
+      const z = ZC + sg * (hbAt(x, 7.15) + 0.02), ry = Math.atan2(sg * (hbAt(x + 0.1, 7.15) - hbAt(x - 0.1, 7.15)) / 0.2, 1) * -1;
+      const g = new THREE.TorusGeometry(0.235, 0.035, 5, 14); g.rotateY(ry); g.translate(x, 7.15, z); pnt(g, 0x9a9c98);
+    }
     // hawse pipe bolster ring around the anchor pocket
     {
       const hx = -88.6, hy = 8.85, e = 0.05;
@@ -692,9 +735,16 @@ export function buildShip(opts = {}) {
   };
   {
     const zq = -153.0 - 0.12, zf = -180 + 0.12;
-    railing(-75.5, zq, 21.95, zq, 9.35, 0.75, 1.6, WHITE);
+    // forward of x -10 the rail rides the rising bulwark (sheer)
+    const railSheer = (xa, xb2, z, h = 0.75, sp = 1.6) => {
+      const n = Math.max(1, Math.round((xb2 - xa) / sp)), pts = [];
+      for (let i = 0; i <= n; i++) { const x = lerp(xa, xb2, i / n); pts.push([x, topY(x)]); bx(0.05, h, 0.05, x, topY(x) + h / 2, z, WHITE); }
+      for (const [hh, th] of [[h, 0.03], [h * 0.62, 0.02], [h * 0.3, 0.02]]) for (let i = 0; i < n; i++) tube(new V(pts[i][0], pts[i][1] + hh, z), new V(pts[i + 1][0], pts[i + 1][1] + hh, z), th, WHITE, 4);
+    };
+    railSheer(-75.5, -10, zq); railSheer(-75.5, -10, zf);
+    railing(-10, zq, 21.95, zq, 9.35, 0.75, 1.6, WHITE);
     railing(25.05, zq, 37.5, zq, 9.35, 0.75, 1.6, WHITE);
-    railing(-75.5, zf, 37.5, zf, 9.35, 0.75, 1.6, WHITE);
+    railing(-10, zf, 37.5, zf, 9.35, 0.75, 1.6, WHITE);
   }
 
   // ---------- hatch covers + containers
@@ -1293,8 +1343,8 @@ export function buildShip(opts = {}) {
     // [ship end, bollard x, colour, bitt x (cargo-deck chock -> inboard bitts) | null, rat guard]
     const lines = [
       [hullPt(-84, 12.2), -88, DARK, null, false],          // head line (forecastle panama chock)
-      [new V(-64.5, 9.62, -153.1), -40, HIVIS, -66, false],  // forward spring
-      [new V(-46.5, 9.62, -153.1), -28, HIVIS, -45, true],   // forward spring 2
+      [new V(-64.5, topY(-64.5) + 0.27, -153.1), -40, HIVIS, -66, false],  // forward spring
+      [new V(-46.5, topY(-46.5) + 0.27, -153.1), -28, HIVIS, -45, true],   // forward spring 2
       [new V(34.0, 9.62, -153.1), 44, HIVIS, 32, true],      // after spring
       [hullPt(52, 9.75), 56, DARK, null, false],             // stern breast
       [hullPt(60, 9.75), 68, DARK, null, false],             // stern line
@@ -1317,10 +1367,10 @@ export function buildShip(opts = {}) {
       }
       if (bitt !== null) {
         // panama chock on the sheer strake + the line made fast on the bitts in figure-of-eight turns
-        bx(0.9, 0.12, 0.42, a.x, 9.41, -153.12, BLACK);
-        pnt(at(new THREE.TorusGeometry(0.2, 0.075, 6, 14).scale(1.5, 1, 1), a.x, 9.62, -153.12), BLACK);
+        bx(0.9, 0.12, 0.42, a.x, topY(a.x) + 0.06, -153.12, BLACK);
+        pnt(at(new THREE.TorusGeometry(0.2, 0.075, 6, 14).scale(1.5, 1, 1), a.x, topY(a.x) + 0.27, -153.12), BLACK);
         const near = a.x > bitt ? bitt + 0.55 : bitt - 0.55;
-        pnt(ropeG([new V(a.x, 9.6, -153.25), new V((a.x + near) / 2, 9.58, -153.75), new V(near, 9.6, -154.05 + 0.25)], 0.055), hex);
+        pnt(ropeG([new V(a.x, a.y - 0.05, -153.25), new V((a.x + near) / 2, 9.58, -153.75), new V(near, 9.6, -154.05 + 0.25)], 0.055), hex);
         for (const dx of [-0.55, 0.55]) for (const yy of [9.56, 9.7]) pnt(at(new THREE.TorusGeometry(0.27, 0.05, 5, 12), bitt + dx, yy, -154.05, Math.PI / 2), hex);
         pnt(ropeG([new V(bitt - 0.5, 9.62, -153.8), new V(bitt + 0.5, 9.64, -154.3)], 0.05), hex);
         pnt(ropeG([new V(bitt - 0.5, 9.66, -154.3), new V(bitt + 0.5, 9.68, -153.8)], 0.05), hex);
