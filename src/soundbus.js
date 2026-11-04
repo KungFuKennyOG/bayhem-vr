@@ -11,7 +11,7 @@ export class SoundBus {
       this.sys = new mod.AudioSystem();
       await this.sys.init();
     } catch (e) { console.warn('audio unavailable', e); this.sys = null; }
-    this.onReady?.();
+    await this.onReady?.(); // e.g. decode this level's driver lines before the level starts talking
   }
   _ev(type, name, opts, value) { if (this.record) this.events.push({ t: +this.t.toFixed(4), type, name, opts: opts ? { ...opts } : undefined, value }); }
   play(name, opts = {}) { this._ev('play', name, opts); this.sys?.play(name, opts); }

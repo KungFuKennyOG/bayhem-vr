@@ -53,7 +53,10 @@ def radio(x, rng, drive=3.0):
     y += bp(rng.standard_normal(len(y)), 1500, 6000, 2) * 0.012 * np.minimum(1, np.arange(len(y)) / (0.02 * SR))
     return np.clip(y, -1, 1).astype(np.float32)
 
-def words(s): return re.findall(r"[a-z0-9']+", s.lower().replace('-', ' ').replace('fifty cal', 'fifty-cal'))
+NUM = {'5': 'five', '6': 'six', '12': 'twelve', '50': 'fifty', '1': 'one', '3': 'three', '2': 'two', '4': 'four'}
+def words(s):  # Whisper writes numbers as digits and plurals loosely; compare on normalized words
+    w = re.findall(r"[a-z0-9']+", s.lower().replace('-', ' '))
+    return [NUM.get(x, x).rstrip('s') if len(x) > 3 else NUM.get(x, x) for x in w]
 
 def match(ref, hyp):
     """word recall: fraction of the line's words Whisper heard, plus any extra words it heard."""

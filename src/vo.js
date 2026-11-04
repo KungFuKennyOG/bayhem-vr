@@ -18,7 +18,8 @@ export function attachVoice(hud, audio, levelId) {
   const mine = Object.keys(MANIFEST).filter((k) => MANIFEST[k][1].includes(levelId));
   const bytes = audio.record ? [] : mine.map((k) => [k, fetch(url(k)).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })]);
   bytes.forEach(([, p]) => p.catch(() => {})); // failures are reported by loadVoices
-  const load = () => audio.loadVoices(bytes);
+  // audio.init() awaits this, so the intro line is ready when the level starts; never hold the start up for long
+  const load = () => Promise.race([audio.loadVoices(bytes), new Promise((r) => setTimeout(r, 3000))]);
   if (audio.sys) load(); else audio.onReady = load;
 
   const subtitle = hud.subtitle.bind(hud);

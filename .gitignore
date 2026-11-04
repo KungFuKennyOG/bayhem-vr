@@ -11,3 +11,4 @@ char2-test/shots/
 *.jpg
 tools/vo/raw/
 !tools/vo/driver_ref.wav
+__pycache__/

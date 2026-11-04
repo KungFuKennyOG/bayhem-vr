@@ -22,7 +22,13 @@ def spoken(text):
     for a, b in SPOKEN.items(): t = t.replace(a, b)
     t = re.sub(r'(\w)—', r'\1...', t)              # cut-off ("Is that— ANOTHER")
     t = re.sub(r'\s*—\s*', ', ', t)                # spaced dash -> pause
+    t = re.sub(r'^\.\.\.\s*', '', t)               # leading "..." makes it mumble; style() still reads it as deadpan
+    # Chatterbox spells out ALL-CAPS words ("O N U S"), so read them as normal words; the shouting comes from
+    # style(), which looks at the original caps.
+    t = re.sub(r"\b[A-Z][A-Z']+\b", lambda m: m.group(0) if m.group(0) in KEEP_CAPS else m.group(0).capitalize(), t)
     return t.strip()
+
+KEEP_CAPS = {'HR', 'SUV', 'SUVs'}
 
 def style(text):
     """(exaggeration, cfg_weight): deadpan for '...' asides, louder with ! and CAPS."""
