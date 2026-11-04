@@ -3,6 +3,7 @@
 BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model, texture or audio files.
 
 ## Status
+- **Level 3, "Downtown Haven City" (on foot, glass canyon at sunset), is done** — see its section below and `src/levels/downtown-haven/DESIGN.md`.
 - **Level 2, "Port of Victory" (on foot, docks at dusk), is done** — see its section below and `src/levels/port-of-victory/DESIGN.md`.
 - **The repo is multi-level:** shared engine in `src/`, one folder per level in `src/levels/<id>/` (lazy-loaded), a level-select menu, `?level=<id>` in the URL.
 - **Level 1, "The 405 Job" (freeway chase), is done.** The player rides in a pickup bed.
@@ -55,18 +56,21 @@ Original brief:
   - Destructible containers that dent and burst open.
   - Night-transition lighting with sodium point lights, kept to a fixed pool.
 
-### Level 3: DOWNTOWN HAVEN CITY (on foot)
+### Level 3: DOWNTOWN HAVEN CITY (on foot) — DONE
+Code: `src/levels/downtown-haven/` — see its `DESIGN.md`. `layout.js` (avenue, lots, sniper perches, cars, subway, `streetGround`), `world.js` (assembles the art modules `city.js` / `street.js` / `cars.js` / `lobby.js`, collision world, nav grid, glows, dusk), `game.js` (combat), `ai.js` (Level 2 soldiers + rooftop **snipers**), `snipers.js` (scope, laser beams, dots, glints), `glass.js` (breakable glass), `traffic.js` (explosive cars), `setpieces.js` (gunship, lobby collapse, Meridian collapse, dust wall), `birds.js` (pigeons), `director.js`, `auto.js`.
+Beats: intro (title, lasers find the street, pigeons go up) → avenue (2 snipers + goons in the traffic) → avenue2 (2 more roofs, the intersection) → gunship "WIDOWMAKER 2" (strafing runs through the shopfront glass, rockets the car you hide behind; shot down it spins into Meridian's face: glass waterfall + burning hole) → Haven Trust lobby (skylight + curtain wall come down in slow-mo) → collapse (Meridian leans down the avenue and sheds its floors into the canyon; the dust wall rubber-bands a few metres behind you) → dive down the subway stairs → outro. `?level=downtown-haven&beat=<intro|avenue|avenue2|gunship|lobby|collapse|dive|outro>`.
+New tech (reusable for Level 4):
+- **Breakable glass** (`glass.js`): builders export panes `{c, n, w, h, kind}`; one InstancedMesh for all panes + crack overlay, thin colliders until broken, 1 400-shard instanced pool (one draw) with tumble/bounce/settle, `blast()` for explosions, `burst()` for free shards. Bullets and grenades pass through glass (breaking it); enemy LOS ignores it.
+- **Snipers**: scan → track (lock builds, beeps speed up, glint grows) → one heavy shot → bolt/duck. Lasers are an instanced additive beam that fades near the eye (safe in VR).
+- **Explosive traffic** (`traffic.js`): hp → smoke + alarm + hazards → fire → BOOM + RigidBox flip → burning wreck (still cover). Rotated cars become 1–3 AABBs.
+- **Collapse + dust wall** (`setpieces.js`): a chunked tower (`upper` group rotating about a pivot, chunks detach with tamed rigid-body velocities and aimed landing zones), lower section pancakes, dust via the shared smoke flipbook, fog pulled in with `game.fogMix`.
+Original brief:
 - **Setting:** a canyon of glass towers, abandoned traffic, and smoke columns from the earlier chaos.
 - **Beats:**
   1. Street war down an avenue against rooftop snipers with laser sights.
   2. A gunship returns.
   3. Clear a lobby with collapsing glass.
   4. Finale: a skyscraper collapses down the avenue and you sprint ahead of the dust wall in slow-mo, diving into a subway entrance.
-- **New tech:**
-  - Glass shattering into instanced shards.
-  - Sniper glint and laser.
-  - Building collapse: a chunked mesh plus a particle dust wall.
-  - Cars as cover that explode.
 
 ### Level 4: AIRPORT NO RETURN (on foot, ending in a vehicle)
 - **Setting:** a sunset tarmac with hangars, jets and fuel trucks.

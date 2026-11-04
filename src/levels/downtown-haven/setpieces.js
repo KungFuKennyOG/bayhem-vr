@@ -56,6 +56,7 @@ export class SetPieces {
   update(dt) {
     this._updHeli(dt);
     this._updRockets(dt);
+    this._updTail(dt);
     this._updHole(dt);
     this._updCollapse(dt);
     this._updDust(dt);
@@ -78,6 +79,14 @@ export class SetPieces {
   damageHeli(d, P) {
     const H = this.heli; if (!H || !H.alive || H.phase === 'dying') return;
     H.hp -= d; H.hitT = 1;
+    // progressive scorch; at half health the engine access panel blows off
+    if (H.m.setDamage?.(clamp(1 - H.hp / H.maxHp, 0, 1))) {
+      const p = H.m.sparkPt.getWorldPosition(new THREE.Vector3());
+      this.g.fx.smallExplosion(p, 0.7);
+      for (let i = 0; i < 4; i++) this.g.fx.spawnDebris(p, H.vel.x + range(-5, 5), range(2, 6), H.vel.z + range(-5, 5), range(0.15, 0.35), true);
+      this.g.audio.play('metal_crash', { x: p.x, y: p.y, z: p.z, volume: 0.7, pitch: 1.3 });
+      this.g.callout('ENGINE HIT!', p.clone().setY(p.y + 3), 'small');
+    }
     if (H.hp <= 0) this.killHeli();
   }
   killHeli() {
@@ -110,6 +119,8 @@ export class SetPieces {
       if (t > 1.5 && !H.flyby) { H.flyby = true; g.audio.play('heli_flyby', { x: H.pos.x, y: H.pos.y, z: H.pos.z }); }
     }
     if (H.phase === 'fight' || H.phase === 'strafe') this._heliWeapons(dt);
+    m.aimGun?.(H.aimAt || head, dt, H.phase !== 'dying' && (H.burst > 0 || (H.phase === 'strafe' && H.t > 2.2)));
+    if (H.hp < H.maxHp * 0.5 && rand() < dt * 25) { m.sparkPt.getWorldPosition(_v2); g.fx.flame(_v2, 0.5, H.vel); if (rand() < 0.3) g.fx.sparks.spawn({ x: _v2.x, y: _v2.y, z: _v2.z, vx: H.vel.x + range(-3, 3), vy: range(0, 4), vz: H.vel.z + range(-3, 3), grav: -9.8, frame: CELL.SPARK, s0: 1, w: 0.04, life: range(0.4, 0.9), r: 2, g: 1, b: 0.4, a: 1, fadeOut: 0.5 }); }
     if (H.phase === 'fight') {
       H.wpT -= dt; H.strafeT -= dt;
       if (H.wpT <= 0) {
@@ -145,6 +156,11 @@ export class SetPieces {
       _v2.x += Math.sin(H.t * 2.3) * 0.25; _v2.y += Math.sin(H.t * 3.1) * 0.15; _v2.normalize();
       H.vel.lerp(_v2.multiplyScalar(sp), 1 - Math.exp(-dt * 2.5));
       g.fx.trailEmit(H, m.smokePt.getWorldPosition(_v3), 0.7, (q) => { g.fx.flame(q, 1.2); g.fx.smoke(q, 1.6, 0.1, 3.5, 1, 0.85); }, 0);
+      // the tail boom lets go and tumbles down into the street
+      if (H.t > 0.8 && !H.tail && m.breakTail) {
+        const tb = m.breakTail();
+        if (tb) { H.tail = { o: tb.object, v: tb.velocityHint.clone().add(H.vel), w: tb.spinHint.clone() }; g.fx.smallExplosion(tb.object.getWorldPosition(new THREE.Vector3()), 0.9); }
+      }
       if (d < 3 || H.pos.z < H.crash.z + 0.5 || H.t > 14) { this._heliCrash(); return; }
     } else {
       _v2.subVectors(target, H.pos).multiplyScalar(speedK);
@@ -217,11 +233,13 @@ export class SetPieces {
       tgt.y = this.world.fastGround(tgt.x, tgt.z) + (H.walkSide ? range(0.2, 3.5) : range(-0.3, 0.6));
       if (H.walkSide) tgt.x = lerp(tgt.x, Math.sign(tgt.x || 1) * AVE.half, 0.6 * (1 - prog));
       tgt.x += range(-0.8, 0.8); tgt.z += range(-0.8, 0.8);
+      (H.aimAt ||= new THREE.Vector3()).copy(tgt);
       this._gunRound(mz, tgt.clone());
     }
   }
   _gunRound(mz, tgt) {
     const g = this.g;
+    if (this.heli) (this.heli.aimAt ||= new THREE.Vector3()).copy(tgt);
     _v.subVectors(tgt, mz).normalize();
     g.fx.muzzle(mz, _v, 'enemy', false);
     if (rand() < 0.4) g.fx.light(mz, 12, 0.05, 0xffb060, true, 12);
@@ -249,6 +267,15 @@ export class SetPieces {
       const p = ps.length ? pick(ps) : null;
       this._gunRound(mz, p ? p.c.clone().add(_v.set(0, range(-0.8, 0.8), range(-0.6, 0.6))) : new THREE.Vector3(side * AVE.half, range(1, 5), ahead));
     }
+  }
+  _updTail(dt) {
+    const T = this.heli?.tail; if (!T || T.done) return;
+    const g = this.g;
+    T.v.y -= 9.8 * dt; T.o.position.addScaledVector(T.v, dt);
+    _q.setFromAxisAngle(_v.copy(T.w).normalize(), T.w.length() * dt); T.o.quaternion.premultiply(_q);
+    g.fx.trailEmit(T, T.o.position, 0.6, (q) => g.fx.smoke(q, 1.0, 0.12, 2.5, 0.6, 0.7), 0);
+    const gy = this.world.fastGround(T.o.position.x, T.o.position.z);
+    if (T.o.position.y < gy + 0.8) { T.done = true; T.o.position.y = gy + 0.6; g.boom(T.o.position.clone(), 0.9, { radius: 6, dmg: 30 }); for (const mm of [T.o]) mm.traverse(o => { if (o.isMesh) o.material = MAT.charred; }); }
   }
   _updRockets(dt) {
     const g = this.g;
@@ -280,6 +307,8 @@ export class SetPieces {
     // wedged in the facade, nose first, burnt
     m.root.position.set(I.x, I.y - 0.5, I.z + 2.2); m.root.rotation.set(0.35, Math.PI * 0.12, 0.6); m.root.scale.setScalar(1.2);
     m.tilt.rotation.set(0, 0, 0); m.body.material = [MAT.charred, MAT.charred, MAT.charred];
+    for (const b of m.burnables || []) b.material = MAT.charred;
+    m.rotorBlur?.(0, true);
     m.rotor.rotation.set(0.2, 0.7, 0.3); m.cone.visible = false;
     m.root.updateMatrixWorld(true);
     this.wreck = m;
