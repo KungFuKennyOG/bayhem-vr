@@ -102,8 +102,13 @@ export class Player {
         gun.holder.rotation.set(hold.rotation[0], hold.rotation[1], hold.rotation[2]);
         gun.model.setMode?.('vr');
         c.add(gun.holder);
+        if (entry.hand === 'left') this.g.hud.attachWrist(c); // score / HP / ammo watch on the left wrist
       });
-      c.addEventListener('disconnected', () => { if (entry.gun) entry.gun.holder.removeFromParent(); entry.gun = null; entry.source = null; });
+      c.addEventListener('disconnected', () => {
+        if (entry.gun) entry.gun.holder.removeFromParent();
+        if (entry.hand === 'left') this.g.hud.attachWrist(null);
+        entry.gun = null; entry.source = null;
+      });
       this.controllers.push(entry);
     }
   }

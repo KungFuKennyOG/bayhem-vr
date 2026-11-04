@@ -136,6 +136,13 @@ export class HUD {
     this.scorePanel = plane(this.scoreTex, 0.4, 0.140625); this.scorePanel.position.set(-0.52, 0.33, -1.2);
     this.root.add(this.scorePanel);
     this.lastScore = -1; this.lastHp = -1; this.lastAmmo = '';
+    // VR: no head-locked score panel (it sat in view the whole time). The same texture rides on the inside
+    // of the left wrist instead, facing the eye, and only fades in when you glance at it.
+    const wg = new THREE.PlaneGeometry(0.105, 0.105 * 180 / 434), uv = wg.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * 434 / 512); // crop the unused right side of the canvas
+    this.wrist = new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ map: this.scoreTex, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: 0 }));
+    this.wrist.renderOrder = 150; this.wrist.frustumCulled = false; this.wrist.visible = false;
+    scene.add(this.wrist); this.wristAnchor = null; this.wristK = 0;
     // boss bar
     this.bossCanvas = document.createElement('canvas'); this.bossCanvas.width = 1024; this.bossCanvas.height = 96;
     this.bossTex = new THREE.CanvasTexture(this.bossCanvas); this.bossTex.colorSpace = THREE.SRGBColorSpace;
@@ -165,6 +172,24 @@ export class HUD {
     this.boss.position.set(0, halfH - 0.09, -1.2);
     this.sub.position.set(0, -halfH + 0.13, -1.2);
     this.obj.position.set(0, halfH - 0.235, -1.2);
+  }
+  // VR wrist display anchor: the left controller's space (null when it disconnects)
+  attachWrist(obj) { this.wristAnchor = obj; }
+  _updateWrist(rdt, camPos, hk) {
+    const a = this.wristAnchor;
+    if (!this.vr || !a || !a.parent) { this.wrist.visible = false; this.wristK = 0; return; }
+    a.updateWorldMatrix(true, false);
+    // inside of the left wrist (toward the body, behind and below the fist), clear of the launcher stock
+    _hv.set(0.065, -0.045, 0.13).applyMatrix4(a.matrixWorld);
+    this.wrist.position.copy(_hv);
+    this.wrist.lookAt(camPos); // plane faces +z: turn it to the eye, kept upright
+    // fade in only when you look at it (~14° full, gone past ~23°), so it never sits in view while aiming
+    this.camera.getWorldDirection(_hu);
+    const ang = _hu.angleTo(_hp.subVectors(_hv, camPos));
+    const tgt = ang < 0.24 ? 1 : ang > 0.4 ? 0 : (0.4 - ang) / 0.16;
+    this.wristK += (tgt - this.wristK) * Math.min(1, rdt * 8);
+    this.wrist.material.opacity = this.wristK * hk;
+    this.wrist.visible = this.wrist.material.opacity > 0.01;
   }
   setComfort(k) { this.comfortK = k; }
   setWaypoint(pos) { this.wpPos = pos ? pos.clone() : null; }
@@ -449,7 +474,8 @@ export class HUD {
     // end card: fade the gameplay HUD out (score/ammo panel, crosshair, boss bar, markers); subtitles stay
     this.endK += ((this.endCardOn ? 1 : 0) - this.endK) * Math.min(1, rdt * 6);
     const hk = 1 - this.endK, on = hk > 0.02;
-    this.scorePanel.material.opacity = hk; this.scorePanel.visible = on;
+    this.scorePanel.material.opacity = hk; this.scorePanel.visible = on && !this.vr;
+    this._updateWrist(rdt, camPos, hk);
     this.cross.material.opacity = hk; this.cross.visible = on && !this.vr;
     if (!on) { this.boss.visible = false; this.cd.visible = false; this.marker.material.opacity = 0; this.warn.material.opacity = 0; this.obj.material.opacity = 0; this.wp.visible = false; }
   }
