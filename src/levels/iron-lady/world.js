@@ -96,7 +96,7 @@ export class IronWorld {
       if (ax < BRIDGE.rail && az < QUAY_N.face) return true;                                  // bridge + bridge head
       if (az > LOWQ.edge && az < LOWQ.wall) return x > LOWQ.x0 + 0.5 && x < LOWQ.x1;            // lower quays (+ ramps)
       if (z > PONTOON.z0 && z < PONTOON.z1) return x > PONTOON.x0 && x < PONTOON.x1;
-      if (az >= QUAY_N.parapet[1] && az < QUAY_N.face) return x > -110 && x < LOWQ.x1;         // upper quays
+      if (az >= LOWQ.wall && az < QUAY_N.face) return x > -110 && x < LOWQ.x1;                // upper quays (parapet colliders block the rest)
       if (z < PARK.z1 && z > PARK.z0) return ax < PARK.half;                                  // the park
       return false;
     };
