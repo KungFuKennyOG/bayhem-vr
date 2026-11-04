@@ -79,7 +79,7 @@ attribute vec3 iPos;
 attribute vec4 iP;   // size, rot, alpha, variant
 attribute vec4 iC;   // rgb tint, fire glow from below
 uniform float uNearK;
-varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY;
+varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
@@ -88,8 +88,10 @@ void main(){
   vec3 offs = vec3(c * p.x - s * p.y, s * p.x + c * p.y, 0.0);
   mv.xyz += offs;
   vWorldY = iPos.y + (offs * mat3(viewMatrix)).y;   // view → world rotation is the transpose
-  vec2 cell = vec2(mod(iP.w, 2.0), floor(iP.w / 2.0));
-  vUv = (cell + position.xy + 0.5) * 0.5;
+  // variants 4..7 are the mirrored atlas cells: twice the shapes, no visible repeats in a wall of them
+  float vr = mod(iP.w, 4.0); vFlip = iP.w > 3.5 ? -1.0 : 1.0;
+  vec2 cell = vec2(mod(vr, 2.0), floor(vr / 2.0));
+  vUv = (cell + vec2(position.x * vFlip, position.y) + 0.5) * 0.5;
   vCS = vec2(c, s);
   vC = iC;
   // fade as the puff reaches the eye (fill rate + no cardboard planes in your face)
@@ -102,13 +104,13 @@ const FS = /* glsl */`
 uniform sampler2D tex;
 uniform vec3 fogColor; uniform vec3 fogColorSun; uniform vec3 fogSunDir; uniform float fogNear; uniform float fogFar;
 uniform float groundY;
-varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY;
+varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 t = texture2D(tex, vUv);
   float al = t.a * (0.5 + 0.5 * smoothstep(0.0, 0.7, t.r)) * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY); // thin, see-through fringes
   if (al < 0.003) discard;
-  vec2 n2 = t.gb * 2.0 - 1.0;
+  vec2 n2 = t.gb * 2.0 - 1.0; n2.x *= vFlip;
   vec2 nr = vec2(vCS.x * n2.x - vCS.y * n2.y, vCS.y * n2.x + vCS.x * n2.y);
   vec3 N = normalize(vec3(nr, 0.55));
   vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
@@ -181,7 +183,7 @@ export class DustClouds {
     p.rot = o.rot ?? this.vid * 2.39996; p.vrot = o.vrot || 0;
     p.r = o.r ?? 0.5; p.g = o.g ?? 0.44; p.b = o.b ?? 0.36; p.glow = o.glow || 0; p.glowFade = o.glowFade ?? 1;
     p.r1 = o.r1 ?? p.r; p.g1 = o.g1 ?? p.g; p.b1 = o.b1 ?? p.b;
-    p.variant = o.variant ?? (this.vid++ & 3);
+    p.variant = o.variant ?? (this.vid++ % 8);
     p.ride = o.ride || null; p.oz = o.oz || 0;
     return p;
   }

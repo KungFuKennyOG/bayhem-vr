@@ -96,7 +96,10 @@ export class Traffic {
     const rb = new RigidBox(c.half.x, c.half.y, c.half.z, 4);
     rb.pos.copy(P); rb.quat.copy(c.root.quaternion);
     const away = c.lastHitDir ? _v2.copy(c.lastHitDir).setY(0).normalize() : _v2.set(range(-1, 1), 0, range(-1, 1)).normalize();
-    rb.vel.set(away.x * range(2, 5), range(7.5, 10.5), away.z * range(2, 5));
+    // never into the player's face: close to the head, it goes up and away from you
+    const toCar = _v.subVectors(P, g.headPos).setY(0), dh = toCar.length();
+    if (dh < 10) { away.lerp(toCar.divideScalar(dh || 1), 1 - dh / 10).normalize(); }
+    rb.vel.set(away.x * range(2, 5) * (dh < 10 ? 1.4 : 1), range(7.5, 10.5), away.z * range(2, 5) * (dh < 10 ? 1.4 : 1));
     const flip = chance(0.6);
     rb.ang.set(flip ? range(3, 5.5) * (chance(0.5) ? -1 : 1) : range(-1.5, 1.5), range(-2.5, 2.5), flip ? range(-1, 1) : range(2.5, 5) * (chance(0.5) ? -1 : 1));
     rb.restitution = 0.18; rb.friction = 0.7;

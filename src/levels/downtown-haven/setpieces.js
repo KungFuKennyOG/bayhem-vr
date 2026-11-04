@@ -388,7 +388,7 @@ export class SetPieces {
     g.fx.later(0.35, () => this.megaFireball(I.clone().add(_v.set(range(-6, 6), 7, 4)), 1.5));
     for (let k = 0; k < 12; k++) g.fx.later(0.25 + k * 0.13, () => {
       const P = new THREE.Vector3(I.x + range(-17, 17), I.y + (k % 2 ? 1 : -1) * range(2, 4 + k * 1.6), MERIDIAN.z1 + 0.8);
-      g.fx.explosion(P, range(1.1, 1.6), { noRing: true });
+      g.fx.explosion(P, range(1.1, 1.6), { noRing: true }); g.smokeAfter(P, 1.3);
       g.glass.burst(P, _v2.set(range(-0.2, 0.2), 0, 1), 14, { spread: 3, speed: 7, size: 0.5, life: 12, up: 1 });
     });
     // the facade comes down onto the plaza: concrete and twisted panels rain out of the hole
@@ -690,6 +690,7 @@ export class SetPieces {
     if (rand() < dt * 60) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + range(1, 7), vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
     // you, inside it: brown-out, choking, glass ticking off everything
     const dz = head.z - zf;
+    g.sunBlock = damp(g.sunBlock || 0, 1 - THREE.MathUtils.smoothstep(dz, 8, 45), 3, dt);
     const k = THREE.MathUtils.smoothstep(-dz, -1, 5);
     g.fogMix.k = Math.max(g.fogMix.k * Math.exp(-dt * 0.2), k * (safe ? 0.85 : 1));
     g.fogMix.color.setRGB(0.42, 0.36, 0.29); g.fogMix.near = 1; g.fogMix.far = safe ? 30 : 26;

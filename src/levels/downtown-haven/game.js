@@ -4,7 +4,7 @@ import { Ragdoll } from '../../characters.js';
 import { RigidBox } from '../../physics.js';
 import { CELL } from '../../particles.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { applyDusk, setSunElevation } from '../../atmosphere.js';
+import { applyDusk, setSunElevation, fogShared } from '../../atmosphere.js';
 import { Soldier, buildCoverPoints } from './ai.js';
 import { GlassSystem } from './glass.js';
 import { LaserFX } from './snipers.js';
@@ -215,8 +215,17 @@ export class DowntownGame {
   }
 
   // ---------------------------------------------------------------- explosions
+  // every fireball ends as smoke: dark, fire-lit underneath while young, climbing from where it went off
+  smokeAfter(P, size = 1) {
+    const x = P.x, y = P.y, z = P.z, n = Math.round(3 + size * 2);
+    for (let i = 0; i < n; i++) this.fx.later(0.15 + i * 0.07, () => {
+      const s0 = range(1.6, 2.6) * size;
+      this.clouds.spawn({ x: x + range(-1.2, 1.2) * size, y: y + range(0.5, 2.5) * size, z: z + range(-1.2, 1.2) * size, vx: range(-1.5, 1.5), vy: range(3, 6) * Math.sqrt(size), vz: range(-1.5, 1.5), drag: 0.7, buoy: 0.4, s0, s1: s0 * range(3.5, 5), life: range(5, 7), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, vrot: range(-0.3, 0.3), r: 0.07, g: 0.06, b: 0.055, r1: 0.2, g1: 0.18, b1: 0.16, glow: 1.6, glowFade: 3.5 });
+    });
+  }
   boom(P, size = 1, { radius = 7, dmg = 60, src = null, car = false, noRing = false, shake = null, player = true, glass = true } = {}) {
     this.fx.explosion(P, size, { noRing });
+    this.smokeAfter(P, size);
     this.recentExplosions.push(this.time);
     this.lastExplosionT = this.time;
     const dp = this.headPos.distanceTo(P);
@@ -436,6 +445,17 @@ export class DowntownGame {
       setSunElevation(7 - this.dusk * 11, SUN_AZ);
       applyDusk(this.dusk, { sun: this.E.sun, hemi: this.E.hemi, fog: this.scene.fog, renderer: this.E.renderer });
       this._fog0.color.copy(this.scene.fog.color);
+      this._sun0 = { i: this.E.sun.intensity, r: fogShared.sunColor.r, g: fogShared.sunColor.g, b: fogShared.sunColor.b, x: this.E.renderer.toneMappingExposure };
+    }
+    // the dust wall comes from the sun's side: as it closes in it eclipses the low sun, the street goes dark
+    const sb = this.sunBlock || 0;
+    if (sb > 0.001 || this._sbDirty) {
+      this._sbDirty = sb > 0.001;
+      const S = this._sun0;
+      this.E.sun.intensity = S.i * (1 - 0.82 * sb);
+      fogShared.sunColor.r = S.r * (1 - 0.7 * sb); fogShared.sunColor.g = S.g * (1 - 0.7 * sb); fogShared.sunColor.b = S.b * (1 - 0.7 * sb);
+      this.E.renderer.toneMappingExposure = S.x * (1 - 0.22 * sb);
+      if (this.E.flare) this.E.flare.visible = sb < 0.35;
     }
     // inside the lobby the marble bounces light everywhere: more fill so figures against the curtain wall aren't silhouettes
     const inLobby = this.headPos.x > LOBBY.x0 - 1 && this.headPos.z > LOBBY.z0 && this.headPos.z < LOBBY.z1 ? 1 : 0;
