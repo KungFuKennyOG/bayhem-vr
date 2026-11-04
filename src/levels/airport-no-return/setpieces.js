@@ -810,14 +810,14 @@ export class SetPieces {
     let y = 0;
     const items = [];
     for (const L of lines) {
-      if (!L) { y -= 3.2; continue; }
+      if (!L) { y -= 1.0; continue; } // tight: only the sky band between horizon and lining shows text, so long gaps read as "no credits"
       const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big || !L.dim ? 'chrome' : 'rgba(255,200,130,0.95)', stroke: big ? 10 : 7, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.9)', padding: 30 });
-      const h = big ? 5.2 : L.sub ? 3.4 : 2.3;
+      const h = big ? 3.4 : L.sub ? 2.4 : 1.5;
       const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, fog: false, opacity: 0 }); // clamped to the open band, drawn over everything
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * tt.aspect, h), mat);
       pl.rotation.y = 0; pl.position.set(0, y, 0); pl.renderOrder = 170;
       grp.add(pl); items.push(pl);
-      y -= h + 1.0;
+      y -= h + 0.5;
     }
     grp.position.set(0, CARGO.floorY, 30);
     this.credits = { grp, items, t: 0, span: -y };
@@ -825,8 +825,8 @@ export class SetPieces {
   _updCredits(dt) {
     const C = this.credits; if (!C) return;
     C.t += dt;
-    const speed = 1.5;
-    C.grp.position.y = CARGO.floorY - 6 + C.t * speed;
+    const speed = 1.6;
+    C.grp.position.y = CARGO.floorY - 1 + C.t * speed; // first line enters the band within a couple of seconds
     // face the player (plane frame: player looks toward +z out of the ramp)
     C.grp.rotation.set(-this.cargo.pitch, Math.PI, 0);
     // the readable band: between the world horizon and the lower edge of the hold lining, as seen from the eye right now

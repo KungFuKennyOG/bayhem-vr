@@ -58,6 +58,10 @@ export async function create(E) {
   // burnt variants (wrecks swap to these mid-fight: compile them now, no hitch on the first explosion)
   for (const mm of [...gseMaterials(), ...[].concat(...Object.values(MAT)), ...buildSUV().root.children.flatMap(c => [].concat(c.material || []))]) if (mm && mm.isMaterial) warm.add(new THREE.Mesh(box, game.scorch(mm)));
 
+  // particle / glow batches copy the fog range at creation (Level 1's 25..520 m); keep them on this level's fog,
+  // otherwise smoke 100 m away near the sun picks up the sun-tinted haze and reads as a salmon puff
+  const fogged = [fx.main.batch, fx.sparks.batch, fx.near.batch, world.glow].map(b => b.material.uniforms);
+  const syncFog = () => { for (const u of fogged) { u.fogNear.value = scene.fog.near; u.fogFar.value = scene.fog.far; } };
   const ctx = { groundAt: () => 0, onCasing: (c) => audio.play('casing', { x: c.x, y: c.y, z: c.z, volume: 0.3 }) };
   let director = null;
   return {
@@ -67,6 +71,7 @@ export async function create(E) {
     start() { if (!flags.SANDBOX) director = new Director(game, hud, audio, setp, auto, flags.TRAILER || flags.CAPTURE); },
     step(sdt, started) {
       const dt = game.update(sdt);
+      syncFog();
       if (auto && started && !setp.riding) auto.update(dt);
       player.update(sdt, started ? dt : 0);
       setp.afterPlayer(sdt, dt);
