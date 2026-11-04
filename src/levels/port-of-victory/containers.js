@@ -213,16 +213,23 @@ function paintSide(ctx, x0, y0, wpx, Lm, liv, rng, nc, is20) {
   mText(R, `${liv.code} ${liv.serial} ${liv.chk}`, Lm - 0.35, 2.22, 0.1, { color: ccol, fam: 'Oswald', wt: 700, align: 'right', alpha: 0.9 });
   mText(R, is20 ? '22G1' : '45G1', Lm - 0.35, 2.05, 0.1, { color: ccol, fam: 'Oswald', wt: 700, align: 'right', alpha: 0.9 });
 
-  // ---- repaired / patched panels (sometimes painted over the lettering)
-  const nPatch = 1 + Math.floor(rng() * (is20 ? 2 : 3));
+  // ---- repaired / patched panels: one or two corrugation sheets re-primed / repainted, mostly off the lettering
+  const nPatch = (is20 ? 0 : 1) + Math.floor(rng() * 2);
   for (let p = 0; p < nPatch; p++) {
-    const pw = 0.6 + rng() * 1.4, ph = 0.5 + rng() * 1.7;
-    const px = 0.4 + rng() * (Lm - pw - 0.8), py = 0.2 + rng() * (H - ph - 0.45);
+    const pw = 0.56 + Math.floor(rng() * 3) * 0.278, ph = 0.45 + rng() * 1.1;
+    const edge = rng() < 0.5;
+    const px = edge ? 0.25 + rng() * 1.2 : Lm - pw - 0.25 - rng() * 1.2;
+    const py = rng() < 0.6 ? 0.18 : H - 0.12 - ph;
     const kind = rng();
-    ctx.fillStyle = kind < 0.2 ? '#7d7a72' : shade(liv.base, 0.86 + rng() * 0.24, (rng() - 0.5) * 12);
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = kind < 0.25 ? '#6e6a62' : shade(liv.base, 0.9 + rng() * 0.22, (rng() - 0.5) * 10);
     ctx.fillRect(R.X(px), R.Y(py + ph), pw * R.sx, ph * R.sy);
-    ctx.strokeStyle = 'rgba(90,40,15,0.55)'; ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(80,38,14,0.5)'; ctx.lineWidth = 1;
     ctx.strokeRect(R.X(px), R.Y(py + ph), pw * R.sx, ph * R.sy);
+    // weld bead dots along the patch edge
+    ctx.fillStyle = 'rgba(70,32,12,0.55)';
+    for (let t = 0; t < pw; t += 0.04) { ctx.fillRect(R.X(px + t), R.Y(py + ph) - 1, 2, 2); ctx.fillRect(R.X(px + t), R.Y(py) - 1, 2, 2); }
   }
   // ---- sun fade (top lighter / chalky), bottom dirt
   let g = ctx.createLinearGradient(0, y0, 0, y0 + RH);
@@ -310,8 +317,9 @@ function doorLayoutHeight() {
   return { canvas: c, h, S };
 }
 
+const DS = 384; // door tile px
 function paintDoor(ctx, x0, y0, liv, rng, nc) {
-  const S = 512;
+  const S = DS;
   const R = region(ctx, x0, y0, S, S, W, H);
   ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, S, S); ctx.clip();
   const rect = (u0, v0, u1, v1, col) => { ctx.fillStyle = col; ctx.fillRect(R.X(u0), R.Y(v1), (u1 - u0) * R.sx, (v1 - v0) * R.sy); };
@@ -394,13 +402,13 @@ function paintDoor(ctx, x0, y0, liv, rng, nc) {
   for (const v of [0.45, 1.02, 1.62, 2.18]) { streak(C + 0.03 + rng() * 0.04, v - 0.03, 0.15 + rng() * 0.5, 0.5); streak(W - C - 0.06 + rng() * 0.04, v - 0.03, 0.15 + rng() * 0.5, 0.5); }
   for (const u of BARS_U) { streak(u - 0.03 + rng() * 0.06, 1.75, 0.2 + rng() * 0.6, 0.4); streak(u - 0.03 + rng() * 0.06, 0.75, 0.2 + rng() * 0.4, 0.45); }
   for (let i = 0; i < 26; i++) {
-    const u = C + rng() * (W - 2 * C), v = SILL + rng() * 0.25, r = (0.01 + rng() * 0.05) * R.sx;
+    const u = C + rng() * (W - 2 * C), v = SILL + rng() * 0.25, r = Math.max(2, (0.01 + rng() * 0.05) * R.sx);
     const gr = ctx.createRadialGradient(R.X(u), R.Y(v), 0, R.X(u), R.Y(v), r);
     gr.addColorStop(0, 'rgba(95,40,12,0.8)'); gr.addColorStop(1, 'rgba(95,40,12,0)');
     ctx.fillStyle = gr; ctx.fillRect(R.X(u) - r, R.Y(v) - r, r * 2, r * 2);
   }
-  for (let i = 0; i < 260; i++) {
-    const x = x0 + rng() * S, y = y0 + rng() * S, r = 0.5 + rng() * rng() * 2.5;
+  for (let i = 0; i < 120; i++) {
+    const x = x0 + rng() * S, y = y0 + rng() * S, r = 0.5 + rng() * rng() * 2;
     ctx.fillStyle = rng() < 0.7 ? rgba(liv.base, 0.7) : 'rgba(105,95,85,0.6)';
     ctx.fillRect(x, y, r * (0.6 + rng()), r);
   }
@@ -437,8 +445,8 @@ function grimeTexture() {
   // scratches
   const bc = makeCanvas(S, S), b = bc.getContext('2d');
   b.fillStyle = '#000'; b.fillRect(0, 0, S, S); b.lineCap = 'round';
-  for (let i = 0; i < 320; i++) {
-    const x = rng() * S, y = Math.pow(rng(), 0.8) * S, len = 4 + rng() * rng() * 70;
+  for (let i = 0; i < 220; i++) {
+    const x = rng() * S, y = Math.pow(rng(), 0.8) * S, len = 3 + rng() * rng() * 40;
     const ang = (rng() < 0.7 ? (rng() - 0.5) * 0.6 : rng() * Math.PI);
     const a = 0.3 + rng() * 0.7;
     b.strokeStyle = `rgba(255,255,255,${a})`; b.lineWidth = 0.5 + rng() * 1.3;
@@ -526,11 +534,35 @@ vec3 col; float cRough = 0.6; float cMetal = 0.12;
 bool horiz = (fti == 1 || fti == 5);
 vec3 gr = texture2D(tGrime, horiz ? vD.xy / vec2(4.0, 2.44) + gs : vec2(vD.x / 4.0 + gs.x, clamp(hgt, 0.004, 0.996))).rgb;
 if (fti == 3) {
-  float gx = mod(vI.x, 4.0), gy = floor(vI.x / 4.0 + 0.01);
+  int li = int(vI.x + 0.5); float gx = float(li - (li / 4) * 4), gy = float(li / 4);
   vec2 l = clamp(vA, 0.003, 0.997);
   col = texture2D(tDoor, vec2((gx + l.x) * 0.25, 1.0 - (gy + 1.0 - l.y) * 0.5)).rgb;
 } else if (fti <= 5) {
-  col = texture2D(tAtlas, vec2(vA.x, 1.0 - (vI.x + 1.0 - clamp(vA.y, 0.012, 0.988)) * 0.125)).rgb;
+  float av = fti == 4 ? (vA.y < 0.0 ? 0.97 : hgt) : vA.y;
+  col = texture2D(tAtlas, vec2(vA.x, 1.0 - (floor(vI.x + 0.5) + 1.0 - clamp(av, 0.012, 0.988)) * 0.125)).rgb;
+  if (fti == 4) {
+    // corner castings: bottom/top 118 mm of the posts, oval apertures
+    const float CP = ${C.toFixed(3)};
+    float hole = 0.0, isC = 0.0;
+    if (vA.y > 0.0) {
+      float Lf = vA.y;
+      float cu = vD.x < CP + 0.01 ? CP * 0.5 : (vD.x > Lf - CP - 0.01 ? Lf - CP * 0.5 : -1.0);
+      if (cu > 0.0 && (vD.y < 0.118 || vD.y > ${(H - 0.118).toFixed(3)})) {
+        isC = 1.0;
+        float cv = vD.y < 0.118 ? 0.062 : ${(H - 0.062).toFixed(3)};
+        vec2 q = (vD.xy - vec2(cu, cv)) / (Lf > 3.0 ? vec2(0.039, 0.025) : vec2(0.03, 0.025));
+        hole = 1.0 - smoothstep(0.75, 1.0, length(q));
+      }
+    } else {
+      float Lf = -vA.y;
+      float ux = vD.x < CP + 0.01 ? CP * 0.5 : (vD.x > Lf - CP - 0.01 ? Lf - CP * 0.5 : -1.0);
+      float uz = vD.y < CP + 0.01 ? CP * 0.5 : (vD.y > ${(W - C - 0.01).toFixed(3)} ? ${(W - C / 2).toFixed(3)} : -1.0);
+      if (uz > 0.0 && ux > 0.0) { vec2 q = (vD.xy - vec2(ux, uz)) / vec2(0.03, 0.06); hole = 1.0 - smoothstep(0.75, 1.0, length(q)); isC = 1.0; }
+    }
+    col = mix(col, col * vec3(0.72, 0.66, 0.6), isC);
+    col = mix(col, vec3(0.015), hole);
+    cRough = mix(cRough, 0.75, isC);
+  }
 } else if (fti == 6) {
   col = vec3(0.30, 0.29, 0.27) * (0.85 + 0.3 * gr.g); cRough = 0.95; cMetal = 0.0;
 } else if (fti == 7) {
@@ -550,12 +582,12 @@ if (fti <= 5) {
   vec3 rustC = mix(vec3(0.24, 0.085, 0.03), vec3(0.50, 0.22, 0.07), gr.g);
   float rs = clamp(streak, 0.0, 1.0) * 0.8;
   col = mix(col, rustC, rs);
-  float dirt = horiz ? gr.g * 0.6 : gr.g * (smoothstep(0.5, 0.0, hgt) * 0.9 + 0.2);
+  float dirt = horiz ? smoothstep(0.3, 0.9, gr.g) * 0.45 : gr.g * (smoothstep(0.5, 0.0, hgt) * 0.9 + 0.2);
   dirt *= 0.45 + rustA * 0.7;
   col = mix(col, col * vec3(0.5, 0.46, 0.4), clamp(dirt, 0.0, 1.0));
-  float scr = smoothstep(0.35, 0.95, gr.b) * (0.35 + rustA * 0.8);
-  col = mix(col, vec3(0.40, 0.385, 0.36), scr * 0.65);
-  if (fti == 1) { float lum = dot(col, vec3(0.3, 0.59, 0.11)); col = mix(col, vec3(lum) * vec3(1.04, 1.0, 0.95), 0.3) * 1.04; }
+  float scr = smoothstep(0.45, 1.0, gr.b) * (0.2 + rustA * 0.5) * (horiz ? 0.35 : 1.0) * (1.0 - smoothstep(0.4, 1.5, fwidth(vD.x) * 100.0));
+  col = mix(col, mix(col, vec3(0.36, 0.34, 0.32), 0.6), scr);
+  if (fti == 1) { float lum = dot(col, vec3(0.3, 0.59, 0.11)); col = mix(col, vec3(lum) * vec3(1.04, 1.0, 0.95), 0.35) * 0.92; cRough = 0.8; }
   if (fti == 5) col *= 0.25;
   col *= vI.y;
   cRough = mix(cRough, 0.92, rs) ; cRough = mix(cRough, 0.42, scr * 0.6);
@@ -564,7 +596,7 @@ if (fti <= 5) {
 #ifdef CTR_DMG
 col = mix(col, vec3(0.42, 0.40, 0.37) * (0.8 + 0.4 * gr.g), clamp(vDmg.y, 0.0, 1.0));
 cRough = mix(cRough, 0.4, clamp(vDmg.y, 0.0, 1.0)); cMetal = mix(cMetal, 0.65, clamp(vDmg.y, 0.0, 1.0));
-col *= 1.0 - clamp(vDmg.x, 0.0, 0.95);
+if (fti < 6) col *= 1.0 - clamp(vDmg.x, 0.0, 0.95);
 #endif
 diffuseColor.rgb *= col;
 `;
@@ -576,15 +608,30 @@ const FRAG_NRM = /* glsl */`
   float inner = 0.0; float sl = 0.0;
   if (fti == 0 || fti == 2) sl = trap(vD.x, 0.278, 0.022, inner);
   else if (fti == 6) sl = -0.7 * trap(vD.x, 0.278, 0.036, inner);
-  else if (fti == 1) { float P = 0.46; float fw = fwidth(vD.x) / P; sl = 0.09 * cos(6.2832 * vD.x / P) * (1.0 - smoothstep(0.2, 0.5, fw)); }
+  else if (fti == 1) { float P = 0.46; float fw = fwidth(vD.x) / P; sl = 0.035 * cos(6.2832 * vD.x / P) * (1.0 - smoothstep(0.15, 0.4, fw)); }
   vec2 dn = vec2(0.0);
-  if (fti <= 3) dn = (texture2D(tDetN, vD.xy / vec2(2.7, 2.1) + gs * 3.0).xy * 2.0 - 1.0) * (0.45 + vI.w * 0.7);
+  if (fti <= 3) dn = (texture2D(tDetN, vD.xy / vec2(2.7, 2.1) + gs * 3.0).xy * 2.0 - 1.0) * (0.45 + vI.w * 0.7) * (fti == 1 ? 0.3 : (fti == 3 ? 0.45 : 1.0));
   if (fti == 3) dn += (texture2D(tDoorN, clamp(vA, 0.0, 1.0)).xy * 2.0 - 1.0) * 1.1;
+  vec3 nG = normal;
   normal = normalize(normal - Tv * sl + Tv * dn.x + Bv * dn.y);
+#if NUM_DIR_LIGHTS > 0
+  // faces turned away from the sun: don't let ribs catch direct light (would expose back-face shadow acne)
+  { vec3 Ls = directionalLights[0].direction; float gl = dot(nG, Ls);
+    if (gl < 0.02) { float nl = dot(normal, Ls); if (nl > gl) normal = normalize(normal - Ls * (nl - min(gl, 0.0)) * 1.02); } }
+#endif
   diffuseColor.rgb *= 1.0 - inner * 0.06;
 }
 `;
 
+const FRAG_AO = /* glsl */`
+#ifdef CTR_DMG
+if (fti >= 6) {
+  float occ = 1.0 - clamp(vDmg.x, 0.0, 0.95);
+  reflectedLight.directDiffuse *= occ * occ; reflectedLight.directSpecular *= occ * occ;
+  reflectedLight.indirectDiffuse *= occ; reflectedLight.indirectSpecular *= occ * occ;
+}
+#endif
+`;
 function makeMaterial(dmg) {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.12 });
   if (dmg) m.defines = { CTR_DMG: 1 };
@@ -597,7 +644,8 @@ function makeMaterial(dmg) {
       .replace('#include <map_fragment>', FRAG_MAP)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = cRough;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = cMetal;')
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + FRAG_NRM);
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + FRAG_NRM)
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + FRAG_AO);
   };
   m.customProgramCacheKey = () => 'bayhem-container-' + (dmg ? 1 : 0);
   return m;
@@ -617,8 +665,8 @@ export function initContainerMaterials(renderer) {
     paintSwatch(actx, i * RH, liv, nc);
   });
   // door atlas
-  const dc = makeCanvas(2048, 1024), dctx = dc.getContext('2d');
-  LIVERIES.forEach((liv, i) => paintDoor(dctx, (i % 4) * 512, Math.floor(i / 4) * 512, liv, makeRng(500 + i * 31), nc));
+  const dc = makeCanvas(DS * 4, DS * 2), dctx = dc.getContext('2d');
+  LIVERIES.forEach((liv, i) => paintDoor(dctx, (i % 4) * DS, Math.floor(i / 4) * DS, liv, makeRng(500 + i * 31), nc));
   const dh = doorLayoutHeight();
   const atlas = canvasTex(ac, { repeat: false, aniso }); atlas.wrapS = atlas.wrapT = THREE.ClampToEdgeWrapping;
   const door = canvasTex(dc, { repeat: false, aniso }); door.wrapS = door.wrapT = THREE.ClampToEdgeWrapping;
@@ -628,9 +676,11 @@ export function initContainerMaterials(renderer) {
   M = { atlas, door, grime, detN, doorN, canvases: { ac, dc } };
   M.field = makeMaterial(false);
   M.hero = makeMaterial(true);
+  // closed boxes: render back faces into the shadow map -> no self-shadow acne on roofs / grazing sides at 5° sun
+  M.field.shadowSide = THREE.BackSide;
   M.cardboard = cardboardMaterial();
   M.buildMs = Math.round(performance.now() - t0);
-  M.texBytes = Math.round((AW * AW + 2048 * 1024 + 3 * 512 * 512) * 4 * 4 / 3);
+  M.texBytes = Math.round((AW * AW + DS * DS * 8 + 3 * 512 * 512 + 128 * 128) * 4 * 4 / 3);
   return M;
 }
 
@@ -666,6 +716,7 @@ function face(g, o, U, V, ft, L, { nu = 1, nv = 1, side = null, dm = null, wgt =
     if (cargo) a = [su, sv];
     else if (ft === 0) a = [(side[0] + Math.min(1, Math.max(0, wu / L)) * side[1]) / AW, p[1] / H];
     else if (ft === 3) a = [wu / W, p[1] / H];
+    else if (ft === 4) a = [SWU, Math.abs(n[1]) > 0.5 ? -L : (Math.abs(n[2]) > 0.5 ? L : W)];
     else if (Math.abs(n[1]) > 0.5) a = [SWU, n[1] > 0 ? 0.97 : 0.03];
     else a = [SWU, p[1] / H];
     g.p.push(...p); g.n.push(...n); g.t.push(...t); g.a.push(...a); g.d.push(wu, wv, ft);
@@ -844,9 +895,9 @@ export class HeroContainer {
     const side = len === 20 ? S20 : S40;
     buildPanels(g, L, side, true);
     buildFrame(g, L, true);
-    const ao = (p) => [0.55 + 0.4 * Math.min(1, (hx - p[0]) / Math.min(L, 4)), 0];
+    const ao = (p) => [0.35 + 0.55 * Math.min(1, (hx - p[0]) / Math.min(L, 4.5)), 0];
     const nI = Math.max(3, Math.ceil(L / 0.5));
-    const zi = hz - 0.075, yc = H - 0.06;
+    const zi = hz - 0.11, yc = H - 0.09;
     face(g, v3(hx - C, SILL, zi), v3(-(L - C - 0.08), 0, 0), v3(0, yc - SILL, 0), 6, L, { nu: nI, nv: 5, dm: ao }); // inner +z wall (faces -z)
     face(g, v3(-hx + 0.08, SILL, -zi), v3(L - C - 0.08, 0, 0), v3(0, yc - SILL, 0), 6, L, { nu: nI, nv: 5, dm: ao });
     face(g, v3(-hx + 0.08, yc, -zi), v3(L - C - 0.08, 0, 0), v3(0, 0, 2 * zi), 6, L, { nu: nI, nv: 4, dm: ao }); // ceiling
@@ -861,9 +912,10 @@ export class HeroContainer {
         const bw = 0.45 + cr() * 0.35;
         const nStack = 2 + Math.floor(cr() * 3);
         let y = SILL;
-        for (let s = 0; s < nStack && y < yc - 0.6; s++) {
-          const bh = 0.4 + cr() * 0.25, jx = (cr() - 0.5) * 0.06, jz = (cr() - 0.5) * 0.06;
-          boxF(g, [x + jx, y, z + jz], [x + jx + bd, y + bh, z + jz + Math.min(bw, zi - z - 0.02)], ['+x', '+y', '-z', '+z'], 8, L, { cargo: true, wgt: 0, dm: ao });
+        for (let s = 0; s < nStack; s++) {
+          const bh = 0.4 + cr() * 0.25; if (y + bh > yc - 0.45) break;
+          const jx = (cr() - 0.5) * 0.06, jz = (cr() - 0.5) * 0.06;
+          boxF(g, [x + jx, y, z + jz], [x + jx + bd, y + bh, z + jz + Math.min(bw, zi - z - 0.02)], ['+x', '+y', '-z', '+z'], 8, L, { cargo: true, wgt: 0.8, dm: ao });
           y += bh;
         }
         z += bw + 0.02;
@@ -889,7 +941,7 @@ export class HeroContainer {
       const zH = sz * (hz - C), zS = sz * 0.006, xf = hx - DOOR_IN, xb = xf - 0.05;
       const zmin = Math.min(zH, zS), zmax = Math.max(zH, zS);
       boxF(dg, [xb, SILL + 0.004, zmin], [xf, H - HEAD - 0.004, zmax], ['+x'], 3, L, { sub: [1, 8, 4] });
-      boxF(dg, [xb, SILL + 0.004, zmin], [xf, H - HEAD - 0.004, zmax], ['-x'], 6, L, { sub: [1, 4, 2], dm: () => [0.35, 0] });
+      boxF(dg, [xb, SILL + 0.004, zmin], [xf, H - HEAD - 0.004, zmax], ['-x'], 6, L, { sub: [1, 4, 2], dm: () => [0.1, 0] });
       boxF(dg, [xb, SILL + 0.004, zmin], [xf, H - HEAD - 0.004, zmax], ['+z', '-z', '+y', '-y'], 4, L);
       addBars(dg, L, xf, (z) => z * sz > 0);
       const pivot = new THREE.Vector3(hx - 0.04, 0, sz * (hz - 0.02));
@@ -947,12 +999,13 @@ export class HeroContainer {
         const yn = Math.min(1, Math.max(0, y / H));
         const zn = z / (W / 2);
         const e = THREE.MathUtils.smoothstep(x, -hx + 2.0, -hx); // buckled end
-        let dy = -0.75 * Math.pow(sx, 1.3) * (1 - 0.45 * zn * zn) * Math.pow(yn, 1.5);
-        let dz = Math.sign(z) * 0.24 * sx * Math.sin(Math.PI * yn) * Math.min(1, Math.abs(zn) * 1.2);
-        let dx = 0.5 * e * yn;
-        dy += -0.5 * e * yn + 0.09 * e * Math.sin(y * 7 + ph) * Math.sin(Math.PI * yn);
-        dz += 0.12 * e * Math.sin(y * 9 + x * 3 + ph) * Math.sign(z || 1) * Math.sin(Math.PI * yn);
-        const ww = w > 0 ? 1 : 0.6; // cargo gets squashed less
+        const crumple = Math.sin(x * 2.3 + ph) * Math.sin(z * 3.1 + ph * 0.7) * 0.06 + Math.sin(x * 5.7 + ph * 2.0) * 0.025;
+        let dy = (-0.5 * Math.pow(sx, 1.2) * (1 - 0.4 * zn * zn) + crumple * sx) * Math.pow(yn, 1.5);
+        let dz = Math.sign(z) * (0.16 * sx + 0.05 * Math.sin(x * 1.7 + ph)) * Math.sin(Math.PI * yn) * Math.min(1, Math.abs(zn) * 1.2);
+        let dx = 0.32 * e * yn * yn;
+        dy += -0.35 * e * yn + 0.06 * e * Math.sin(y * 7 + ph) * Math.sin(Math.PI * yn);
+        dz += 0.1 * e * Math.sin(y * 9 + x * 3 + ph) * Math.sign(z || 1) * Math.sin(Math.PI * yn);
+        const ww = 1;
         cv[i] = dx * ww; cv[i + 1] = dy * ww; cv[i + 2] = dz * ww;
       }
       this._crushVec = cv;
@@ -1059,9 +1112,9 @@ export async function _demo(ctx = {}) {
 
   // heroes
   const burst = new HeroContainer({ len: 20, livery: 0, seed: 3 });
-  burst.root.position.set(-4.4, 0, 13.6); burst.root.rotation.y = -Math.PI / 2 + 0.25;
+  burst.root.position.set(-4.6, 0, 16.2); burst.root.rotation.y = -Math.PI / 2 + 0.25;
   const dented = new HeroContainer({ len: 20, livery: 3, seed: 8 });
-  dented.root.position.set(4.6, 0, 13.0); dented.root.rotation.y = -Math.PI / 2 - 0.2;
+  dented.root.position.set(4.8, 0, 16.0); dented.root.rotation.y = -Math.PI / 2 - 0.2;
   const crushed = new HeroContainer({ len: 40, livery: 1, seed: 5 });
   crushed.root.position.set(0.6, 0, -50); crushed.root.rotation.y = 0.12;
   root.add(burst.root, dented.root, crushed.root);
@@ -1069,7 +1122,7 @@ export async function _demo(ctx = {}) {
   root.updateMatrixWorld(true);
   // dents on the aisle-facing side of the dented box (its local -z side faces -x world-ish)
   const dz = new THREE.Vector3();
-  for (const [lx, ly, r, dep] of [[0.8, 1.2, 0.7, 0.22], [-1.6, 0.6, 0.5, 0.15], [-0.3, 2.1, 0.9, 0.12], [2.0, 1.6, 0.35, 0.1]]) {
+  for (const [lx, ly, r, dep] of [[0.6, 1.3, 0.8, 0.26], [-1.7, 0.7, 0.55, 0.18], [-0.6, 2.2, 0.7, 0.14], [2.1, 1.7, 0.4, 0.12]]) {
     const p = new THREE.Vector3(lx, ly, -W / 2).applyMatrix4(dented.root.matrixWorld);
     dz.set(0, 0, 1).transformDirection(dented.root.matrixWorld);
     dented.dent(p, dz, r, dep);
@@ -1079,10 +1132,11 @@ export async function _demo(ctx = {}) {
   const parent = ctx.scene || root;
   for (const s of [...res.spill, ...res.pieces]) {
     parent.attach(s.obj);
-    // fake "landed" pose for screenshots
-    const tLand = 0.45;
-    s.obj.position.addScaledVector(s.vel, tLand); s.obj.position.y = s.obj === res.pieces[0]?.obj ? 0.05 : 0.25;
-    if (s.obj === res.pieces[0]?.obj) s.obj.rotation.set(-Math.PI / 2, 0, 0.6);
+    // fake "landed" pose for screenshots: short flight, dropped onto the ground
+    const isDoor = s.obj === res.pieces[0]?.obj;
+    s.obj.position.addScaledVector(s.vel, isDoor ? 0.32 : 0.22);
+    if (isDoor) { s.obj.rotation.set(-Math.PI / 2, 0, 0.6); s.obj.position.y = 0.05; }
+    else { s.obj.geometry.computeBoundingBox(); const bb = s.obj.geometry.boundingBox; s.obj.rotation.set(0, s.obj.rotation.y, 0); s.obj.position.y = (bb.max.y - bb.min.y) / 2; }
   }
   for (let i = 0; i < 90; i++) burst.update(1 / 30);
   const tris = field.info.trisPerBox40 * field.info.instances40 + field.info.trisPerBox20 * field.info.instances20;
@@ -1101,4 +1155,27 @@ export async function _atlas(which = 'side', ctx = {}) {
   const t = which === 'door' ? M.door : M.atlas;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(which === 'door' ? 3.2 : 2.4, which === 'door' ? 1.6 : 2.4), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, fog: false }));
   return { root: m };
+}
+
+// dev: 600-box stress field (viewer: fn=_perf)
+export async function _perf(ctx = {}) {
+  if (ctx && ctx.renderer === undefined && arguments.length > 1) ctx = arguments[arguments.length - 1];
+  initContainerMaterials(ctx.renderer);
+  const rng = makeRng(99), list = [];
+  let seed = 1;
+  for (let bx = 0; bx < 6; bx++) for (let bz = 0; bz < 6; bz++) {
+    const ox = -60 + bx * 22, oz = 10 - bz * 22;
+    const rot = (bx + bz) % 2;
+    for (let r = 0; r < 6; r++) for (let sl = 0; sl < 1; sl++) {
+      const tiers = 1 + Math.floor(rng() * 4);
+      for (let t = 0; t < tiers; t++) {
+        const off = r * 2.5;
+        list.push(rot ? { x: ox + off, z: oz - 6, tier: t, rot: 1, len: 40, livery: Math.floor(rng() * 8), seed: seed++ }
+          : { x: ox + 6, z: oz - off, tier: t, rot: 0, len: rng() < 0.2 ? 20 : 40, livery: Math.floor(rng() * 8), seed: seed++ });
+      }
+    }
+  }
+  const t0 = performance.now();
+  const f = buildContainerField(list, { renderer: ctx.renderer });
+  return { root: f.root, info: { ...f.info, aabbs: undefined, buildFieldMs: Math.round(performance.now() - t0) } };
 }
