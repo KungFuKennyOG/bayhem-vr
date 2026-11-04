@@ -79,7 +79,7 @@ attribute vec3 iPos;
 attribute vec4 iP;   // size, rot, alpha, variant
 attribute vec4 iC;   // rgb tint, fire glow from below
 uniform float uNearK;
-varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip;
+varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip; varying vec2 vQ;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
@@ -87,6 +87,7 @@ void main(){
   vec2 p = position.xy * iP.x;
   vec3 offs = vec3(c * p.x - s * p.y, s * p.x + c * p.y, 0.0);
   mv.xyz += offs;
+  vQ = offs.xy / iP.x * 2.0;                       // view-space position across the puff, -1..1
   vWorldY = iPos.y + (offs * mat3(viewMatrix)).y;   // view → world rotation is the transpose
   // variants 4..7 are the mirrored atlas cells: twice the shapes, no visible repeats in a wall of them
   float vr = mod(iP.w, 4.0); vFlip = iP.w > 3.5 ? -1.0 : 1.0;
@@ -95,7 +96,8 @@ void main(){
   vCS = vec2(c, s);
   vC = iC;
   // fade as the puff reaches the eye (fill rate + no cardboard planes in your face)
-  vA = iP.z * smoothstep(0.8, 0.8 + iP.x * uNearK, -mv.z);
+  float cz = -(modelViewMatrix * vec4(iPos, 1.0)).z;   // per puff, not per corner (no straight-edged gradients across big quads)
+  vA = iP.z * smoothstep(0.8, 0.8 + iP.x * uNearK, cz);
   vFogDepth = -mv.z; vFogViewPos = mv.xyz;
   gl_Position = projectionMatrix * mv;
   if (iP.z <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -104,7 +106,7 @@ const FS = /* glsl */`
 uniform sampler2D tex;
 uniform vec3 fogColor; uniform vec3 fogColorSun; uniform vec3 fogSunDir; uniform float fogNear; uniform float fogFar;
 uniform float groundY; uniform float uDim;
-varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip;
+varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip; varying vec2 vQ;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 t = texture2D(tex, vUv);
@@ -112,7 +114,9 @@ void main(){
   if (al < 0.003) discard;
   vec2 n2 = t.gb * 2.0 - 1.0; n2.x *= vFlip;
   vec2 nr = vec2(vCS.x * n2.x - vCS.y * n2.y, vCS.y * n2.x + vCS.x * n2.y);
-  vec3 N = normalize(vec3(nr * 0.6, 0.55));                              // broad billows, not crinkle
+  // mostly a lit sphere (big soft top-lit/bottom-dark shape), a little of the lobes on top of it
+  vec3 Ns = vec3(vQ * 0.9, sqrt(max(0.05, 1.0 - dot(vQ, vQ) * 0.81)));
+  vec3 N = normalize(Ns + vec3(nr * 0.85, 0.0));
   vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
   float sky = dot(N, upV) * 0.5 + 0.5;
   float sunL = max(dot(N, fogSunDir) * 0.6 + 0.4, 0.0);

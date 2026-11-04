@@ -682,10 +682,10 @@ export class SetPieces {
       this.clouds.spawn({ x: range(SUBWAY.x0 - 1, SUBWAY.x1 + 1), y: range(2, 5), z: SUBWAY.zTop + range(-4, 0), vx: range(-0.5, 0.5), vy: -range(1, 2.5), vz: range(3, 6), drag: 0.6, s0: range(3, 5), s1: range(9, 13), life: range(2.2, 3), a: 0.9, fadeIn: 0.1, fadeOut: 0.4, vrot: range(-0.4, 0.4), r: 0.44, g: 0.38, b: 0.31 });
     }
     // the leading edge: dense small puffs right at the front (big sprites fade near the eye; these don't)
-    const ne = Math.min(18, Math.round(dt * 110 + rand()));
+    // (only a ground roll: low, soft, the wall's own colour — the cloud layer above is the wall itself)
+    const ne = Math.min(6, Math.round(dt * 28 + rand()));
     for (let i = 0; i < ne; i++) {
-      const y = Math.pow(rand(), 1.6) * 16, top = y > 7;
-      g.fx.main.spawn({ x: range(-half, half), y, z: zf + range(-1, 3), vx: range(-2, 2), vy: range(-0.5, 2.5), vz: D.v * range(0.8, 1.1), drag: 0.6, frameKind: 2, frame: rand() * 40, frames: 16, s0: 2, s1: range(4, 5), ease: 0.5, life: range(1.6, 2.6), rot: rand() * 6, vrot: range(-1, 1), r: top ? 0.66 : 0.34, g: top ? 0.56 : 0.29, b: top ? 0.44 : 0.23, a: 0.95, fadeIn: 0.02, fadeOut: 0.4 });
+      g.fx.main.spawn({ x: range(-half, half), y: range(0, 2.5), z: zf + range(0, 3), vx: range(-2, 2), vy: range(0, 1.2), vz: D.v * range(0.9, 1.15), drag: 0.6, frameKind: 2, frame: rand() * 40, frames: 16, s0: 2.5, s1: range(6, 8), ease: 0.5, life: range(1.4, 2), rot: rand() * 6, vrot: range(-1, 1), r: 0.4, g: 0.34, b: 0.27, a: 0.45, fadeIn: 0.05, fadeOut: 0.45 });
     }
     // debris and paper riding the front
     if (rand() < dt * 60) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + range(1, 7), vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
