@@ -728,7 +728,7 @@ export async function buildCity(ctx) {
   const isStoneT = (t) => t === TILE.stone || t === TILE.stoneGlass || t === TILE.precast;
   const fwall = (f, y0, y1, tile, uo = 0, yb = 0, c = WHITE) => {
     if (y1 <= y0 + 0.01) return;
-    const ao = isStoneT(tile) ? { ao: 2.2, aoK: 0.5, aoB: y0 > 1 ? 1.4 : 0, aoBk: 0.6 } : { ao: 1.2, aoK: 0.7 };
+    const ao = isStoneT(tile) ? { ao: 4.2, aoK: 0.42, aoB: y0 > 1 ? 1.8 : 0, aoBk: 0.55 } : { ao: 1.2, aoK: 0.7 };
     lwall(B.facade, f, 0, f.len, y0, y1, 0, { tile, u0: uo, yb, c, ...ao });
   };
   // roof clutter on a rect
@@ -835,7 +835,7 @@ export async function buildCity(ctx) {
   function tower(L, x0, x1, z0, z1, y0, H, seed) {
     const r = makeRng(seed);
     const st = L.style, tile = STYLE[st].tile, uo = Math.floor(r() * 16) / 4, vo = Math.floor(r() * 4);
-    const O = { tile, uo, yb: y0, vo, ...(st === 'stone' ? { ao: 2.4, aoK: 0.5 } : {}) };
+    const O = { tile, uo, yb: y0, vo, ...(st === 'stone' ? { ao: 4.2, aoK: 0.45 } : {}) };
     // keep-out for podium clutter
     avoid.push([x0 - 1, z0 - 1, x1 + 1, z1 + 1]);
     col([x0, y0, z0], [x1, H, z1], 'building', st.startsWith('stone') ? 'concrete' : 'glass');

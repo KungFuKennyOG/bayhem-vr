@@ -131,7 +131,7 @@ function asphaltTex() {
   const { c, g, h } = genSurface(S, 1, (x, y) => {
     const u = x / S, v = y / S;
     const m = fbm(n1, u, v, 4, 4), f = n2(u * 256, v * 256), f2 = n3(u * 64, v * 64), q = r();
-    let b = 0.3 + (m - 0.5) * 0.14 + (f - 0.5) * 0.05 + (f2 - 0.5) * 0.04 + (q - 0.5) * 0.045;
+    let b = 0.28 + (m - 0.5) * 0.14 + (f - 0.5) * 0.05 + (f2 - 0.5) * 0.04 + (q - 0.5) * 0.045;
     let hh = f * 0.55 + q * 0.3 + f2 * 0.15;
     if (q > 0.988) { b += 0.08; hh += 0.25; } else if (q < 0.02) { b -= 0.05; hh -= 0.2; }
     const bit = Math.max(0, fbm(n3, u + 0.31, v + 0.77, 3, 3) - 0.6) * 2.2; b -= bit * 0.12; hh -= bit * 0.3;   // bitumen-rich, smooth
@@ -730,10 +730,10 @@ function tree(B, x, z, rng, colliders, pit = true) {
   // foliage: leaf cards around the cluster centres, normals bent outward from the crown centre (soft volume)
   const cc = [x, SW + H + 0.6, z];
   for (const t of tops) for (let k = 0; k < 11; k++) {
-    const p = [t[0] + (rng() - 0.5) * 1.1, t[1] + (rng() - 0.3) * 0.9, t[2] + (rng() - 0.5) * 1.1];
-    const ya = rng() * Math.PI, pa = (rng() - 0.5) * 1.2, sz = 1.3 + rng() * 0.7;
+    const p = [t[0] + (rng() - 0.5) * 1.5, t[1] + (rng() - 0.35) * 1.2, t[2] + (rng() - 0.5) * 1.5];
+    const ya = rng() * Math.PI, pa = (rng() - 0.5) * 1.2, sz = 0.9 + rng() * 0.8;
     const right = [Math.cos(ya), 0, -Math.sin(ya)], up = [Math.sin(ya) * Math.sin(pa), Math.cos(pa), Math.cos(ya) * Math.sin(pa)];
-    const tint = 0.7 + rng() * 0.3, col = [0.95 * tint, 1.0 * tint, 0.85 * tint];
+    const tint = 1.0 + rng() * 0.35, col = [1.0 * tint, 1.1 * tint, 0.8 * tint];
     const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [p[0] + (right[0] * a + up[0] * b) * sz / 2, p[1] + (right[1] * a + up[1] * b) * sz / 2, p[2] + (right[2] * a + up[2] * b) * sz / 2]);
     const nn = corners.map((q) => { const v = new THREE.Vector3(q[0] - cc[0], (q[1] - cc[1]) * 1.4 + 0.6, q[2] - cc[2]).normalize(); return [v.x, v.y, v.z]; });
     const uvs = [[0, 0], [1, 0], [1, 1], [0, 1]];
