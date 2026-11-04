@@ -9,7 +9,7 @@ import { buildPickup } from '../../vehicles.js';
 import { CW, CH, C40, C20, QUAY_Z, WATER_Y, DECK_Y, YARD, COLUMNS, MAIN_AISLE, MASTS, DRUMS, GATE_Z, RTG, buildContainerList } from './layout.js';
 
 // Asset modules are built by separate builders; fall back to simple stand-ins if one is missing.
-const ASSETS = import.meta.glob(['./ship.js', './containers.js', './props.js']);
+const ASSETS = import.meta.glob(['./ship.js', './containers.js', './props.js', './cranes.js']);
 async function asset(name) { const l = ASSETS[`./${name}.js`]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 const SODIUM = [1.0, 0.52, 0.16];
@@ -30,8 +30,8 @@ export class PortWorld {
 
   async build() {
     const E = this.E, renderer = E.renderer;
-    const [shipM, contM, propM] = await Promise.all([asset('ship'), asset('containers'), asset('props')]);
-    this.mods = { shipM, contM, propM };
+    const [shipM, contM, propM, craneM] = await Promise.all([asset('ship'), asset('containers'), asset('props'), asset('cranes')]);
+    this.mods = { shipM, contM, propM, craneM };
     this.aniso = renderer.capabilities.getMaxAnisotropy();
     this._ground();
     this._water();
@@ -40,7 +40,7 @@ export class PortWorld {
     this._gate(propM);
     this._masts(propM);
     this._drums(propM);
-    this._cranes(shipM);
+    this._cranes(craneM);
     this._ship(shipM);
     this._far();
     this._walls();
@@ -213,6 +213,8 @@ export class PortWorld {
     if (propM) {
       const gh = propM.buildGatehouse(); gh.root.position.set(12, 0, 30); gh.root.rotation.y = -Math.PI / 2; grp.add(gh.root);
       this.gatehouse = gh; this._addCol(gh, gh.root);
+      // the truck went through the boom barrier: it hangs snapped
+      if (gh.anchors?.barrier) gh.anchors.barrier.rotation.z += -1.1;
       const sg = propM.buildSignGantry(); sg.root.position.set(0, 0, 27); grp.add(sg.root); this._addCol(sg, sg.root);
       for (const [x0, x1] of [[-82, -9.5], [9.5, 82]]) {
         const f = propM.buildFence(x1 - x0); f.root.position.set((x0 + x1) / 2, 0, GATE_Z); grp.add(f.root); this._addCol(f, f.root);
@@ -281,7 +283,9 @@ export class PortWorld {
       for (const [x, boom] of [[-48, 'down'], [46, 'up']]) {
         const c = shipM.buildQuayCrane({ boom }); c.root.position.set(x, 0, -124); this.group.add(c.root);
         c.root.updateMatrixWorld(true); this._addCol(c, c.root); this.quayCranes.push(c);
-        for (const p of (c.anchors?.warn || c.anchors?.warnLights || [])) this.lampGlows.push({ p: (p.isVector3 ? p.clone() : p.getWorldPosition(new THREE.Vector3())).applyMatrix4 ? (p.isVector3 ? p.clone().applyMatrix4(c.root.matrixWorld) : p.getWorldPosition(new THREE.Vector3())) : p, size: 1.6, color: [2.4, 0.2, 0.1], blink: true });
+        const wp = (p) => (p.isVector3 ? p.clone().applyMatrix4(c.root.matrixWorld) : p.getWorldPosition(new THREE.Vector3()));
+        for (const p of (c.anchors?.warn || [])) this.lampGlows.push({ p: wp(p), size: 1.8, color: [2.6, 0.25, 0.1], blink: true });
+        for (const p of (c.anchors?.flood || [])) this.lampGlows.push({ p: wp(p), size: 2.6, color: [2.2, 1.9, 1.5], dusk: true });
       }
     }
     if (shipM?.buildRTG) {
