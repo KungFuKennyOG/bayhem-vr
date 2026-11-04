@@ -7,6 +7,7 @@ import { buildAtlas } from './particles.js';
 import { FX } from './fx.js';
 import { HUD } from './hud.js';
 import { SoundBus } from './soundbus.js';
+import { attachVoice } from './vo.js';
 import { seed } from './rng.js';
 import { settings, setSetting } from './settings.js';
 import { LEVELS, levelById, loadLevel, nextLevel } from './levels/index.js';
@@ -61,6 +62,7 @@ async function boot() {
   const hud = new HUD(scene, camera);
   hud.setAspect(innerWidth / innerHeight);
   const audio = new SoundBus(CAPTURE);
+  attachVoice(hud, audio, LEVEL_ID); // driver lines are spoken over the radio
   const E = { scene, renderer, camera, rig, sky, flare, sun, hemi, atlas, fx, hud, audio, params, quality, flags, isQuest };
 
   const levelMod = await loadLevel(LEVEL_ID);
@@ -69,7 +71,7 @@ async function boot() {
   scene.environment = createEnvironment(renderer);
   scene.environmentIntensity = L.environmentIntensity ?? 0.8;
   const { game, player } = L;
-  window.__renderer = renderer; window.__scene = scene; window.__hud = hud; window.__game = game; window.__fx = fx; window.__player = player; window.__THREE = THREE; window.__level = L;
+  window.__renderer = renderer; window.__scene = scene; window.__hud = hud; window.__game = game; window.__fx = fx; window.__player = player; window.__THREE = THREE; window.__level = L; window.__audio = audio;
   if (params.has('yaw')) { player.yaw = parseFloat(params.get('yaw')) * Math.PI / 180; player.pitch = parseFloat(params.get('pitch') || '0') * Math.PI / 180; }
 
   // warm up: compile every material/program we will ever need before the first explosion (no hitch on Quest)

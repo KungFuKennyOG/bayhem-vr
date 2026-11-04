@@ -1089,6 +1089,8 @@ CHORDS.forEach((ch, i) => {
 });
 
 // ---------------------------------------------------------------- the system
+const VO_GAIN = 0.9, VO_DUCK = 0.4; // driver radio level into the glue compressor; music level under a line
+
 export class AudioSystem {
   constructor() {
     this.ctx = null; this._ready = false; this._mReady = false; this._initP = null; this._when = undefined;
@@ -1405,6 +1407,32 @@ export class AudioSystem {
   }
 
   // ---------------------------------------------------------------- music
+  // ---------------------------------------------------------------- driver VO (src/vo.js)
+  // Pre-recorded radio lines (public/vo/*.ogg). One radio channel: a new line cuts the previous one.
+  // Not time-scaled, not panned and outside the concussion/slow-mo filters, so the radio stays clear in bullet time.
+  async loadVoice(key, src) { // src: url, or a (promise of an) ArrayBuffer already fetched
+    this.vo ||= {};
+    if (this.vo[key]) return;
+    let ab = src;
+    if (typeof src === 'string') { const r = await fetch(src); if (!r.ok) throw new Error(`${src}: ${r.status}`); ab = await r.arrayBuffer(); }
+    this.vo[key] = await this.ctx.decodeAudioData(await ab);
+  }
+  voice(key, opts = {}) {
+    const buf = this.vo?.[key];
+    if (!this._ready || !buf) return false;
+    const c = this.ctx, t = this._now();
+    if (!this.voBus) { this.voBus = c.createGain(); this.voBus.gain.value = VO_GAIN; this.voBus.connect(this.glue); }
+    if (this._vo && this._vo.end > t) { this._vo.g.gain.setTargetAtTime(0, t, 0.012); this._vo.s.stop(t + 0.08); }
+    const s = c.createBufferSource(), g = c.createGain();
+    s.buffer = buf; g.gain.value = opts.volume ?? 1;
+    s.connect(g); g.connect(this.voBus); s.start(t);
+    this._vo = { s, g, end: t + buf.duration };
+    for (const d of [this.mDuckD, this.mDuckW]) { // sit the score under the line
+      const p = d.gain; p.cancelScheduledValues(t); p.setTargetAtTime(VO_DUCK, t, 0.06); p.setTargetAtTime(1, t + buf.duration - 0.1, 0.4);
+    }
+    return true;
+  }
+
   startMusic() {
     if (!this._ready || !this._mReady) { this._mPending = { start: true }; return; }
     const t = this._now();
@@ -1528,11 +1556,13 @@ export async function renderOffline(events, duration, sampleRate = 48000) {
   const sys = new AudioSystem();
   await sys.init(ctx);
   const evs = (events || []).filter((e) => e && Number.isFinite(e.t)).slice().sort((a, b) => a.t - b.t);
+  await Promise.all(evs.filter((e) => e.type === 'voice' && e.opts?.url).map((e) => sys.loadVoice(e.name, e.opts.url).catch((err) => console.warn('renderOffline voice', e.name, err))));
   let i = 0;
   const dispatch = (e) => {
     try {
       switch (e.type) {
         case 'play': sys.play(e.name, e.opts || {}); break;
+        case 'voice': sys.voice(e.name, e.opts || {}); break;
         case 'loop': sys.setLoop(e.name, e.opts || {}); break;
         case 'stopLoop': sys.stopLoop(e.name); break;
         case 'listener': if (e.args) sys.setListener(...e.args); break;

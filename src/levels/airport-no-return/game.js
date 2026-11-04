@@ -459,7 +459,6 @@ export class AirportGame {
     if (this.hp <= 0 && !this.downed) {
       this.downed = true; this.hp = 1;
       this.slowmo(1.6, 0.25, true);
-      this.audio.play('radio_squelch', {});
       this.hud.subtitle('DRIVER', pick(["Get up! The plane's not gonna wait!", "Stay with me! Breathe! Shoot!", "Not today! Not on MY runway!"]), 3.5);
       this.fx.later(1.5, () => { this.hp = 100; this.downed = false; });
     }

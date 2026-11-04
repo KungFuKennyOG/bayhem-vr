@@ -9,3 +9,5 @@ heli-test/shots/
 gun-test/*.jpg
 char2-test/shots/
 *.jpg
+tools/vo/raw/
+!tools/vo/driver_ref.wav

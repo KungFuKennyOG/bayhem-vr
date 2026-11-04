@@ -17,7 +17,7 @@ export class Director {
     this.duskTarget = game.dusk;
     const g = game;
     const T = trailer ? 0.7 : 1;
-    const say = (line, d = 3) => { audio.play('radio_squelch', { volume: 0.6 }); hud.subtitle('DRIVER', line, d); };
+    const say = (line, d = 3) => hud.subtitle('DRIVER', line, d); // src/vo.js adds the squelch + voice
     this.say = say;
     const later = (t, fn) => g.fx.later(t, fn);
     const alive = (f) => g.enemiesAlive(f);

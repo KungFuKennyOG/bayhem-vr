@@ -1,0 +1,886 @@
+[
+ {
+  "key": "c7bb71f4",
+  "text": "Last stop. Their boss is on that grey cargo plane, wheels-up in five.",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "f4fa44de",
+  "text": "I'm gonna find us a ride. You go make some noise on the apron.",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "9ed18f71",
+  "text": "Welcoming committee, twelve o'clock! Use the fuel trucks — JET A-1 really wants to explode.",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "924195ca",
+  "text": "More of them by the parked airliner. Don't hit the jet. Hit the TRUCK next to the jet.",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "119ccce0",
+  "text": "Two jets on the taxiway — packed with his guys! They are NOT taking off!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "8509d3c8",
+  "text": "Shoot the engines! Grenades! Anything!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "c981fdc2",
+  "text": "Oh, that's gonna be on the news.",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "2756d156",
+  "text": "...And THAT one didn't have brakes. Okay!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "b350112d",
+  "text": "He's rolling! The cargo plane is ROLLING!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "4e69d1ce",
+  "text": "Look left! Checkered jeep! I borrowed it! Get in the back!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "1f7173f9",
+  "text": "HOLD ON TO SOMETHING!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "57a48c8c",
+  "text": "Company! Black SUVs, six o'clock!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "2033d7bd",
+  "text": "They're shooting from the ramp! Take 'em out!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "c735e33f",
+  "text": "BARRELS! Hang on!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "310746e3",
+  "text": "He's rotating! I'm putting you under that ramp — you JUMP!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "d8a00114",
+  "text": "NOW! JUMP!!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "e3914609",
+  "text": "Yeah! YEAH! You made it!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "f589b41c",
+  "text": "I'm okay, by the way! The jeep... is not.",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "bb678b98",
+  "text": "Hey — where are we flying?",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "c57548b2",
+  "text": "...Is that a question I should be worried about?",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/director.js"
+  ]
+ },
+ {
+  "key": "9f8df304",
+  "text": "Get up! The plane's not gonna wait!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/game.js"
+  ]
+ },
+ {
+  "key": "7707f893",
+  "text": "Stay with me! Breathe! Shoot!",
+  "levels": [
+   "airport-no-return",
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/airport-no-return/game.js",
+   "src/levels/port-of-victory/game.js"
+  ]
+ },
+ {
+  "key": "07da4781",
+  "text": "Not today! Not on MY runway!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/game.js"
+  ]
+ },
+ {
+  "key": "0d16d01e",
+  "text": "He's RAMMING us!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/setpieces.js"
+  ]
+ },
+ {
+  "key": "7cae501d",
+  "text": "Not the paint job!",
+  "levels": [
+   "airport-no-return",
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/airport-no-return/setpieces.js",
+   "src/levels/the-405-job/game.js"
+  ]
+ },
+ {
+  "key": "114b2663",
+  "text": "Back off, pal!",
+  "levels": [
+   "airport-no-return"
+  ],
+  "files": [
+   "src/levels/airport-no-return/setpieces.js"
+  ]
+ },
+ {
+  "key": "1fd6bd8e",
+  "text": "That was a fifty-cal! Keep MOVING, don't let the dot settle!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "512c10a0",
+  "text": "Fifty-cal! Don't let that red dot sit on you!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "372425c2",
+  "text": "...Okay. The cars are bombs. Noted.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "c49656d2",
+  "text": "Sniper down! Look at him go!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "bf9b2a58",
+  "text": "That's three. Roofs are getting quieter.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "566efc00",
+  "text": "Haven City. The guy who owned that ship? He owns that tower. Meridian.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "dd16dd49",
+  "text": "Red dots on the asphalt... ROOFTOPS! Watch the rooftops!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "94c57a00",
+  "text": "Two on the roofs, more in the cars! Use the traffic for cover.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "7f7269e0",
+  "text": "More of them at the intersection — and two more roofs!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "7bf846eb",
+  "text": "Is that— ANOTHER gunship?! Do they get them in bulk?!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "44cff792",
+  "text": "Grenades! Hit it with the grenades!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "4b7dea81",
+  "text": "Strafing run! Get behind something solid!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "1db786d9",
+  "text": "It's going down— it's going— oh. Oh no. Not that way.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "8197e2cf",
+  "text": "...Right into Meridian. Well. That's one way to ring the doorbell.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "541802eb",
+  "text": "They're dug in behind the glass at Haven Trust. Go in loud.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "09166116",
+  "text": "Whoa whoa — the whole block's shaking! Is that MERIDIAN?!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "0613acb2",
+  "text": "The whole block's shaking — get OUT of there! Out to the avenue!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "d9ecac2b",
+  "text": "LOOK DOWN THE AVENUE! MERIDIAN — it's going!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "4058c040",
+  "text": "It's coming DOWN THE AVENUE! The subway — back by the intersection! RUN!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "0590120c",
+  "text": "Meridian's coming down! It's coming DOWN THE AVENUE! RUN!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "6660f097",
+  "text": "The subway — back by the intersection! GO GO GO!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "7c87fdbc",
+  "text": "DON'T LOOK BACK! DUST! THERE'S A WALL OF DUST!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "e156021b",
+  "text": "...Kid? KID! Say something!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "53772430",
+  "text": "...Oh, thank God. Okay. Airport. Last stop. I'm bringing a bigger truck.",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/director.js"
+  ]
+ },
+ {
+  "key": "ae4c09da",
+  "text": "Get up! The city's not done with you!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/game.js"
+  ]
+ },
+ {
+  "key": "b475869b",
+  "text": "Breathe! Shoot back! In that order!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/game.js"
+  ]
+ },
+ {
+  "key": "c3362af3",
+  "text": "Don't you dare die before the tower does!",
+  "levels": [
+   "downtown-haven"
+  ],
+  "files": [
+   "src/levels/downtown-haven/game.js"
+  ]
+ },
+ {
+  "key": "1b6a9534",
+  "text": "End of the line, truck's done. That's the port.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "0641742d",
+  "text": "Their boss loads the ship at sundown. Go! I've got your back... from here.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "b6d86de1",
+  "text": "They're coming out of the containers!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "d677656d",
+  "text": "Somebody hit the lights. Great — now they can see you.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "9295b6ae",
+  "text": "Watch the side aisles, they're flanking!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "c8bfa142",
+  "text": "More of them in the stacks. Use the barrels — everything here burns.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "2969b070",
+  "text": "Uh... the crane's moving. Why is the crane moving?!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "006d0322",
+  "text": "MOVE! MOVE!!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "ab0affb9",
+  "text": "Shoot the guy in the cab before he does that again!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "a2ed3f26",
+  "text": "That was close. Way too close.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "d0702a42",
+  "text": "Crane operator's fired. HR is gonna love that.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "3088af27",
+  "text": "Forklift! Forklift full of fuel drums! Of course!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "589f624f",
+  "text": "...I have never seen a forklift do that.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "30d98d6c",
+  "text": "That's her. Up the gangway — the fuel hold is mid-ship.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "714d67b8",
+  "text": "Red valves, mid-deck. Light it up!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "71b4c39d",
+  "text": "She's gonna blow! Get off the ship! RUN!!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "dcdf0a7e",
+  "text": "...Was that our boat?",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "180a9267",
+  "text": "We'll take the next one.",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/director.js"
+  ]
+ },
+ {
+  "key": "30e2ab38",
+  "text": "Get up! I'm not explaining this to your mom!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/game.js"
+  ]
+ },
+ {
+  "key": "b03df6a9",
+  "text": "You don't get to die on a Tuesday!",
+  "levels": [
+   "port-of-victory"
+  ],
+  "files": [
+   "src/levels/port-of-victory/game.js"
+  ]
+ },
+ {
+  "key": "76c768b6",
+  "text": "Black SUVs, six o'clock. Get on the gun!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "961f4865",
+  "text": "Woo! That one had a sunroof!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "738dbcfb",
+  "text": "Nice! Reload, more coming!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "fc4b87c2",
+  "text": "One coming back from ahead — eyes front!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "89cd055a",
+  "text": "Is that a fuel tanker? Don't you dare...",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "f9989b9d",
+  "text": "You did. You absolutely did.",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "8b07ceb5",
+  "text": "Four more! They're gonna try to box us in!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "c3ac55b7",
+  "text": "Is that... rotor noise?",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "b9dbd1a7",
+  "text": "It called friends!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "b900ccb2",
+  "text": "...We should really get this truck washed.",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/director.js"
+  ]
+ },
+ {
+  "key": "b5b32476",
+  "text": "Stay with me! You don't get to die before the credits!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/game.js"
+  ]
+ },
+ {
+  "key": "e65340bf",
+  "text": "It's going down — it's going down ON US!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/game.js"
+  ]
+ },
+ {
+  "key": "a3df61e6",
+  "text": "He's gonna ram us!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/game.js"
+  ]
+ },
+ {
+  "key": "6966f239",
+  "text": "Hold on to something!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/game.js"
+  ]
+ },
+ {
+  "key": "87990b23",
+  "text": "Helicopter! Why is it ALWAYS a helicopter?!",
+  "levels": [
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/the-405-job/game.js"
+  ]
+ }
+]
