@@ -139,6 +139,7 @@ export class HUD {
     this.lastKey = key;
     const c = this.scoreCanvas, ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = 'rgba(8,5,3,0.5)'; ctx.beginPath(); ctx.roundRect(2, 2, 430, c.height - 4, 18); ctx.fill();
     ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 8;
     const g = ctx.createLinearGradient(0, 10, 0, 86);
     g.addColorStop(0, '#fffaf0'); g.addColorStop(0.5, '#ffd38a'); g.addColorStop(1, '#ff9a2a');
@@ -162,7 +163,8 @@ export class HUD {
     const c = this.bossCanvas, ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
-    ctx.fillStyle = '#fff0d6'; ctx.font = '400 36px Anton, Impact'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.save(); ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(8,5,3,0.55)'; ctx.beginPath(); ctx.roundRect(90, 0, 844, 92, 18); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#fff0d6'; ctx.font = '400 44px Anton, Impact'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(name, c.width / 2, 2);
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(112, 54, 800, 22);

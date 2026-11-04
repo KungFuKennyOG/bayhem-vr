@@ -954,7 +954,7 @@ export class Game {
         _v2.set(0, 0, L.kind === 'head' ? -1 : 1).transformDirection(c.root.matrixWorld);
         _v3.subVectors(head, _v).normalize();
         const facing = Math.max(0, _v2.dot(_v3));
-        if (L.kind === 'head') B.set(i++, _v.x, _v.y, _v.z, 0.5 + facing * 1.3, 0.4 + facing * 0.9, 0, CELL.GLOW, 0, 1.5, 1.3, 1.0, 0.2 + facing * 0.6);
+        if (L.kind === 'head') B.set(i++, _v.x, _v.y, _v.z, 0.35 + facing * 0.7, 0.3 + facing * 0.5, 0, CELL.GLOW, 0, 1.3, 1.15, 0.9, 0.15 + facing * 0.45);
         else B.set(i++, _v.x, _v.y, _v.z, 0.5 + facing * 0.9, 0.5 + facing * 0.7, 0, CELL.GLOW, 0, 2.0, 0.15, 0.05, 0.3 + facing * 0.7);
       }
     };
