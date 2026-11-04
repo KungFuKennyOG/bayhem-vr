@@ -21,7 +21,7 @@ const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
 const TRAILER = params.has('trailer');
 const SANDBOX = params.has('sandbox');
-const AUTO = !SANDBOX && (CAPTURE || params.has('demo') || TRAILER);
+const AUTO = !SANDBOX && !params.has('noauto') && (CAPTURE || params.has('demo') || TRAILER); // noauto: capture without the autopilot (test real-play beats)
 const flags = { CAPTURE, TRAILER, SANDBOX, AUTO };
 seed(parseInt(params.get('seed') || '1337', 10));
 const LEVEL_ID = levelById(params.get('level') || (CAPTURE ? null : safeGet('bayhem.level')) || LEVELS[0].id).id;

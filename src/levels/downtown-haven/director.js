@@ -3,6 +3,7 @@ import { pick, range, clamp, damp, rand } from '../../rng.js';
 import { SNIPERS, SUBWAY, LOBBY, MERIDIAN, CROSS } from './layout.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const _look = new THREE.Vector3(), _to = new THREE.Vector3(), _tgt = new THREE.Vector3();
 
 // =====================================================================================
 //  DOWNTOWN HAVEN CITY — the beats. Triggers are positional for real play; the autopilot
@@ -106,15 +107,42 @@ export class Director {
             later(0.2, () => say('Whoa whoa — the whole block\'s shaking! Is that MERIDIAN?!', 3));
           }
         }, until: (t) => (t > 6 && alive(s => s.role !== 'sniper') === 0 && setp.lobbyDone) || t > 110 * T },
-      { name: 'collapse', wp: V(subTop.x, 2.4, subTop.z), music: 1.0, dusk: 0.38, enter: () => {
-          hud.objective('RUN! Get underground — the subway!');
-          later(1.0, () => setp.startCollapse());
-          say('Meridian\'s coming down! It\'s coming DOWN THE AVENUE! RUN!', 3);
-          later(3.5, () => say('The subway — back by the intersection! GO GO GO!', 3));
+      { name: 'collapse', wp: V(15.5, 2.6, LOBBY.doors[0][0] + 2), music: 1.0, dusk: 0.38, enter: () => {
+          // VR can't steer your head, so the beat earns the look: 1) get out to the street, 2) the waypoint marks
+          // the Meridian and the collapse waits until you're actually looking at it, 3) only then: RUN.
+          this.runT = -1; this.lookT = 0; this.fell = false; this.running = false; this._pt = 0; this.outT = -1;
+          hud.objective('Get out to the street!');
+          say('The whole block\'s shaking — get OUT of there! Out to the avenue!', 3);
           // kill anything left (they run too)
           for (const s of g.soldiers) if (s.alive && s.role === 'sniper') s.delay = 999;
-          A?.go([ground(19.6, -88.6, { sprint: true }), ground(14.4, -88.4, { sprint: true }), ground(6.5, -82, { sprint: true }), ground(5.5, -52, { sprint: true }), ground(9.6, -46.5, { sprint: true }), ground(13.7, -43.4, { sprint: true }), { p: V(subTop.x, 0, SUBWAY.zTop + 0.6), nav: null, sprint: true }, { p: V(subTop.x, 0, SUBWAY.zBot + 1.5), nav: null, sprint: true, tol: 0.8 }]);
+          if (A) { later(1.0, () => setp.startCollapse()); this.runT = 0; } // autopilot / trailer: the cinematic look covers it
         }, update: (t) => {
+          const dt = t - this._pt; this._pt = t;
+          if (!setp.col) {
+            const out = px() < LOBBY.x0 - 0.5 || pz() > LOBBY.z1 || pz() < LOBBY.z0;
+            if (this.outT < 0 && ((out && t > 0.5) || t > 14)) {
+              this.outT = t;
+              hud.objT = Math.min(hud.objT, 0.3); // the "get out" card fades: nothing on screen but the tower
+              hud.setWaypoint(V(0, 66, -167));
+              say('LOOK DOWN THE AVENUE! MERIDIAN — it\'s going!', 3);
+            }
+            if (this.outT >= 0) {
+              g.camera.getWorldDirection(_look); _to.set(0, 66, -167).sub(g.headPos).normalize();
+              const seen = _look.dot(_to) > 0.8 && g.col.visible(g.headPos, _tgt.set(0, 66, -167));
+              this.lookT = seen ? this.lookT + dt : 0;
+              if (this.lookT > 0.35 || t - this.outT > 5) setp.startCollapse();
+            }
+          }
+          for (const e of g.events) if (e.type === 'collapseFall' && !this.fell) { this.fell = true; if (this.runT < 0) this.runT = t + 1.6; }
+          // 2) RUN: objective + waypoint to the subway, once it's tipping
+          if (this.runT >= 0 && t >= this.runT && !this.running) {
+            this.running = true;
+            hud.objective('RUN! Get underground — the subway!');
+            hud.setWaypoint(V(subTop.x, 2.4, subTop.z));
+            if (!A) say('It\'s coming DOWN THE AVENUE! The subway — back by the intersection! RUN!', 3.2);
+            else { say('Meridian\'s coming down! It\'s coming DOWN THE AVENUE! RUN!', 3); later(3.5, () => say('The subway — back by the intersection! GO GO GO!', 3)); }
+            A?.go([ground(19.6, -88.6, { sprint: true }), ground(14.4, -88.4, { sprint: true }), ground(6.5, -82, { sprint: true }), ground(5.5, -52, { sprint: true }), ground(9.6, -46.5, { sprint: true }), ground(13.7, -43.4, { sprint: true }), { p: V(subTop.x, 0, SUBWAY.zTop + 0.6), nav: null, sprint: true }, { p: V(subTop.x, 0, SUBWAY.zBot + 1.5), nav: null, sprint: true, tol: 0.8 }]);
+          }
           for (const e of g.events) {
             if (e.type === 'collapseFall') this.lookBack = 1; // as soon as you're out on the street
             if (e.type === 'closeCall') { g.cinematicLook = e.P.clone().setY(9); g.cinematicW = 3.2; later(trailer ? 2.0 : 2.4, () => { g.cinematicLook = null; }); later(0.6, () => say('DON\'T LOOK BACK! DUST! THERE\'S A WALL OF DUST!', 2.6)); }

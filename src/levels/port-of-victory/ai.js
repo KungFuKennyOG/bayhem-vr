@@ -182,13 +182,19 @@ export class Soldier {
     // facing: toward the player when engaging, toward travel when running blind
     const sp = Math.hypot(this.vel.x, this.vel.z);
     let faceYaw = Math.atan2(-(head.x - this.pos.x), -(head.z - this.pos.z));
-    if (sp > 2.5 && !this.los && !gm.aimWhileRunning) faceYaw = Math.atan2(-this.vel.x, -this.vel.z);
+    if (sp > 2.5 && !this.los && !gm.aimWhileRunning) {
+      // running between covers: a soldier who knows where you are keeps his gun on you and runs sideways
+      // (at most ~100 deg off his travel direction); he only turns his back once he has lost you for a while
+      const travel = Math.atan2(-this.vel.x, -this.vel.z);
+      if (this.seenT > 3.5 && dist > 14) faceYaw = travel;
+      else { let off = faceYaw - travel; while (off > Math.PI) off -= Math.PI * 2; while (off < -Math.PI) off += Math.PI * 2; faceYaw = travel + clamp(off, -1.75, 1.75); }
+    }
     let dy = faceYaw - this.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
     this.yaw += dy * (1 - Math.exp(-dt * (sp > 2.5 ? 7 : 4)));
     if (this.role !== 'seated') { this.root.position.copy(this.pos); this.root.rotation.y = this.yaw; }
     gm.setMove(this.vel.x, this.vel.z);
     gm.setCrouch(crouch); gm.setPeek(peek);
-    if (!this.los && sp > 2.5) { _v3.set(this.pos.x + this.vel.x, this.floorY + 1.4, this.pos.z + this.vel.z); aimAt = _v3; }
+    if (!this.los && sp > 2.5 && this.seenT > 3.5 && dist > 14) { _v3.set(this.pos.x + this.vel.x, this.floorY + 1.4, this.pos.z + this.vel.z); aimAt = _v3; }
     // aim point: chest/head of the player with a little sway
     this.aim.copy(aimAt === head ? _v2.set(head.x, head.y - 0.25, head.z) : aimAt);
     gm.update(dt, this.aim);
