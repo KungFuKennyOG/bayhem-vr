@@ -59,7 +59,7 @@ function bakePuffAtlas() {
       const t = at(x, y);
       const gx = (at(x + 1, y) - at(x - 1, y)) * 10, gy = (at(x, y + 1) - at(x, y - 1)) * 10;
       const nl = Math.hypot(gx, gy, 1);
-      const dens = Math.min(1, Math.max(0, t / 0.3)) * (t > 0 ? 1 : 0);
+      const dens = Math.min(1, Math.max(0, t / 0.45)) * (t > 0 ? 1 : 0);
       const o = ((oy + y) * W + ox + x) * 4;
       data[o] = Math.round(t * 255);
       data[o + 1] = Math.round((-gx / nl * 0.5 + 0.5) * 255);
@@ -106,7 +106,7 @@ varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying f
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 t = texture2D(tex, vUv);
-  float al = t.a * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY);
+  float al = t.a * (0.5 + 0.5 * smoothstep(0.0, 0.7, t.r)) * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY); // thin, see-through fringes
   if (al < 0.003) discard;
   vec2 n2 = t.gb * 2.0 - 1.0;
   vec2 nr = vec2(vCS.x * n2.x - vCS.y * n2.y, vCS.y * n2.x + vCS.x * n2.y);
@@ -122,7 +122,7 @@ void main(){
   col += base * fogColorSun * 0.32 * sunL * sunL * lump;                   // low sun on the lit side
   float edge = sqrt(t.a) * (1.0 - t.a) * 2.6;
   col += fogColorSun * (base + 0.03) * toward * edge * 0.06;               // sun shining through the thin fringe
-  col += vec3(1.6, 0.62, 0.2) * vC.a * (1.0 - sky) * (1.0 - sky);          // fire glow from below
+  col += vec3(1.5, 0.58, 0.2) * vC.a * (1.0 - sky) * (1.0 - sky) * (0.4 + 0.6 * t.r);          // fire glow from below
   float f = smoothstep(fogNear, fogFar, vFogDepth); f = 1.0 - (1.0 - f) * (1.0 - f);
   float fs = max(dot(V, fogSunDir), 0.0);
   col = mix(col, mix(fogColor, fogColorSun, pow(fs, 3.0)), f);
