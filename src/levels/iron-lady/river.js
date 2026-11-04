@@ -148,14 +148,14 @@ export function buildRiver(ctx = {}) {
         vec2 wc = vec2(hx / 3.6, (hy - 11.0) / 3.3);
         // ripples scatter the reflected ray across many window cells per pixel: past a small footprint use the
         // mean lit fraction (a smooth warm sheen) instead of single windows (that was orange TV static)
-        float wAA = 1.0 - smoothstep(0.06, 0.2, max(fwidth(wc.x), fwidth(wc.y)));
+        float wAA = (1.0 - smoothstep(0.02, 0.07, max(fwidth(wc.x), fwidth(wc.y)))) * (1.0 - smoothstep(0.15, 0.4, length(slope)));
         vec2 wf = fract(wc) - 0.5;
         float lit = step(0.6, rh(floor(wc) + 3.1)) * step(0.0, hy - 11.0) * step(hy, 27.0);
         float win = lit * (1.0 - smoothstep(0.18, 0.3, abs(wf.x))) * (1.0 - smoothstep(0.2, 0.36, abs(wf.y)));
         float winBand = step(0.0, hy - 11.0) * step(hy, 27.0);
         shore += vec3(0.3, 0.17, 0.07) * mix(0.075 * winBand, win * (0.5 + rh(floor(wc) + 9.7)), wAA) * (1.0 - smoothstep(120.0, 450.0, tz)) * (1.0 - smoothstep(80.0, 300.0, dist));
         // streetlamp line along the far parapet (just above the wall top) as a dim warm band
-        shore += vec3(0.16, 0.09, 0.04) * exp(-pow((hy - 11.5) / 1.6, 2.0)) * (1.0 - smoothstep(200.0, 900.0, tz));
+        shore += vec3(0.07, 0.04, 0.018) * exp(-pow((hy - 11.5) / 4.5, 2.0)) * (1.0 - smoothstep(200.0, 900.0, tz));
         sky = mix(shore, sky, smoothstep(skyline * 0.85, skyline * 1.15 + 0.004, tanR));
         // body: dark green-brown Seine
         vec3 body = mix(vec3(0.008, 0.011, 0.012), vec3(0.005, 0.007, 0.009), n);

@@ -773,8 +773,8 @@ export class SetPieces {
       const c = 1 - now / rest; // + compressed, - stretched
       const out = _vd.set(L.sx, 0, L.sz).normalize();
       const crash = i === TOWER.crashLeg ? F.wound : 0;
-      const bw = Math.max(0, c) * 55 + crash * 14;
-      R.bow[i].set(out.x * bw + (i === TOWER.crashLeg ? F.dir.x * 4 * crash : 0), -Math.max(0, c) * 18 - crash * 9, out.z * bw);
+      const bw = Math.max(0, c) * 55 + crash * 20;
+      R.bow[i].set(out.x * bw + (i === TOWER.crashLeg ? F.dir.x * 4 * crash : 0), -Math.max(0, c) * 18 - crash * 12, out.z * bw);
       if (c < -0.03 && F.phase !== 'wounded') {
         // stretched: the foot tears out of its plinth and follows
         const k = clamp((-c - 0.03) * 4, 0, 0.92);

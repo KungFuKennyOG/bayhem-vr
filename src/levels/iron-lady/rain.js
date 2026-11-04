@@ -53,7 +53,7 @@ export class Rain {
         void main() {
           float a = (1.0 - abs(vQ.x)) * (1.0 - vQ.y) * vA * 0.3 * uK;
           // a cool sheen with a hint of the sodium glow
-          gl_FragColor = vec4(vec3(0.75, 0.78, 0.86) * a, a * 0.6);
+          gl_FragColor = vec4(vec3(0.75, 0.78, 0.86) * a, 0.0);   // purely additive: no dark specks over fire / bright glows
         }`,
       transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, fog: false,
     });
