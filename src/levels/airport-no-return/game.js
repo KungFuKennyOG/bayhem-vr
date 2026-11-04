@@ -190,6 +190,7 @@ export class AirportGame {
   spawnTruck(x, z, ry, mats = gseMaterials()) {
     const b = buildRefueler();
     const root = new THREE.Group(); const mesh = new THREE.Mesh(b.geometry, mats.slice()); mesh.castShadow = true; mesh.receiveShadow = true; root.add(mesh);
+    { const bl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 12.5).rotateX(-Math.PI / 2), MAT.blob); bl.position.set(0, 0.03, 0.8); bl.renderOrder = 3; root.add(bl); }
     root.position.set(x, 0, z); root.rotation.y = ry; this.scene.add(root); root.updateMatrixWorld(true);
     const t = { root, mesh, b, hp: 14, state: 'ok', leaks: [], fireT: 0, fuse: 0, boxes: [] };
     t.boxes = this.col.addFromObject(b.colliders, root.matrixWorld, { kind: 'truck', mat: 'metal', ref: t });
@@ -234,6 +235,7 @@ export class AirportGame {
     for (let k = 0; k < 14; k++) this.fx.later(k * 0.05, () => { const a = rand() * 6.28, r = range(2, 9); this.fx.explosion(_v.set(P.x + Math.cos(a) * r, 0.4, P.z + Math.sin(a) * r).clone(), range(0.35, 0.6), { noRing: true }); });
     // the truck jumps and flips (rigid box), charred
     for (const bx of t.boxes) this.col.remove(bx);
+    t.root.children.forEach(c => { if (c !== t.mesh) c.visible = false; });
     t.mesh.material = t.mesh.material.map(() => MAT.charred);
     const rb = new RigidBox(t.b.half.x, t.b.half.y, t.b.half.z, 8);
     t.root.updateMatrixWorld(true);

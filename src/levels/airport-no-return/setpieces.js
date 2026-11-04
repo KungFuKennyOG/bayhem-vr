@@ -59,6 +59,7 @@ export class SetPieces {
       const a = buildAirliner(liv);
       a.root.position.set(TAXI.x, 0, z0); a.root.rotation.y = Math.PI; // nose toward +z (toward the threshold)
       g.scene.add(a.root);
+      for (const [w, d, z] of [[5.5, 38, 0], [36, 8, 0.8]]) { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), MAT.blob); b.position.set(0, 0.04, z); b.renderOrder = 3; a.whole.add(b); }
       const J = { a, z: z0, v: 0, vTarget: 0, state: 'hold', eng: [{ hp: 12, fire: 0, side: -1 }, { hp: 12, fire: 0, side: 1 }], t: 0, pieces: [], idx: this.jets.length, spool: 0.25 };
       this.jets.push(J);
       g.targets.push({
@@ -382,6 +383,7 @@ export class SetPieces {
     const mesh = new THREE.Mesh(b.geometry, mats); mesh.castShadow = true; mesh.receiveShadow = true; root.add(mesh);
     const driver = new THREE.Mesh(b.driver, mats); driver.position.copy(b.driverPos); driver.castShadow = true; root.add(driver);
     const sign = new THREE.Mesh(b.sign, mats); sign.position.copy(b.signPos); sign.castShadow = true; root.add(sign);
+    { const bl = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 6.2).rotateX(-Math.PI / 2), MAT.blob); bl.position.y = 0.03; bl.renderOrder = 3; root.add(bl); }
     root.position.set(110, 0, -60); root.visible = false;
     g.scene.add(root);
     const J = this.jeep = { root, mesh, driver, sign, signFold: 0, b, pos: root.position, yaw: Math.PI, v: 0, state: 'away', t: 0, s: 0, wheelSpin: 0, roll: 0, pitch: 0, sway: 0, lat: 0, vel: new THREE.Vector3(), lastPos: new THREE.Vector3() };

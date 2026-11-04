@@ -70,6 +70,7 @@ export class AirportWorld {
     this._far();
     this._bounds();
     this.gse.build(this.group);
+    this._buildBlobs();
     this.wb.build(this.group);
     this._lightBatch();
     return this;
@@ -113,7 +114,24 @@ export class AirportWorld {
     const mtx = M4(x, opts.y || 0, z, ry);
     this.gse.add(b.geometry, mtx);
     if (opts.collide !== false) this.col.addFromObject(b.colliders || [], mtx, { kind: opts.kind || 'gse', mat: 'metal' });
+    if (opts.blob !== false && b.colliders?.length) {
+      let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for (const c of b.colliders) { if (c.min[1] > 1.5) continue; x0 = Math.min(x0, c.min[0]); x1 = Math.max(x1, c.max[0]); z0 = Math.min(z0, c.min[2]); z1 = Math.max(z1, c.max[2]); }
+      if (x1 > x0) this.addBlob(x, z, (x1 - x0) * 1.25 + 0.4, (z1 - z0) * 1.15 + 0.4, ry, (x0 + x1) / 2, (z0 + z1) / 2, opts.blobA ?? 0.85);
+    }
     return b;
+  }
+  // soft contact shadow under a prop (local centre offset cx/cz rotated by ry)
+  addBlob(x, z, w, d, ry = 0, cx = 0, cz = 0, a = 0.85) {
+    (this.blobs ||= []).push({ x: x + Math.cos(ry) * cx + Math.sin(ry) * cz, z: z - Math.sin(ry) * cx + Math.cos(ry) * cz, w, d, ry, a });
+  }
+  _buildBlobs() {
+    const B = this.blobs || [];
+    const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, color: 0x0c0806, opacity: 0.62, polygonOffset: true, polygonOffsetFactor: -2 });
+    const im = new THREE.InstancedMesh(g, mat, B.length); const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3();
+    B.forEach((b, i) => { m.compose(v.set(b.x, 0.03, b.z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.ry), new THREE.Vector3(b.w, 1, b.d)); im.setMatrixAt(i, m); });
+    im.renderOrder = 3; im.frustumCulled = false; this.group.add(im);
   }
 
   // ---------------------------------------------------------------- ground: grass, runway, taxiways, apron
@@ -170,11 +188,33 @@ export class AirportWorld {
     const asm = new THREE.Mesh(asg, this.asphMat); asm.receiveShadow = true; asm.position.y = 0.006; this.group.add(asm);
     this.asphalt = asm;
 
-    // apron concrete (slabs) + hangar aprons
-    const conc = slabTexture(); conc.anisotropy = aniso; conc.repeat.set((APRON.x1 - APRON.x0) / 10, (APRON.z1 - APRON.z0) / 10);
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(APRON.x1 - APRON.x0, APRON.z1 - APRON.z0), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.88, color: 0xe8d6bf, envMapIntensity: 0.35 }));
-    apron.rotation.x = -Math.PI / 2; apron.position.set((APRON.x0 + APRON.x1) / 2, 0.012, (APRON.z0 + APRON.z1) / 2); apron.receiveShadow = true;
-    this.group.add(apron);
+    // apron concrete: every 5 m slab gets its own tint (poured at different times), a few patched / stained ones
+    const conc = slabTexture(); conc.anisotropy = aniso; conc.wrapS = conc.wrapT = THREE.RepeatWrapping;
+    {
+      const r = makeRng(7171), P = [], U = [], C = [], S = 5;
+      for (let z = APRON.z0; z < APRON.z1; z += S) for (let x = APRON.x0; x < APRON.x1; x += S) {
+        const k = 0.9 + r() * 0.13, patched = r() < 0.06, warm = (r() - 0.5) * 0.04;
+        const c = patched ? [0.78, 0.76, 0.72] : [k + warm, k, k - warm * 1.5];
+        const x1 = Math.min(x + S, APRON.x1), z1 = Math.min(z + S, APRON.z1);
+        for (const [px, pz] of [[x, z], [x, z1], [x1, z], [x1, z], [x, z1], [x1, z1]]) { P.push(px, 0.012, pz); U.push(px / 10, -pz / 10); C.push(...c); }
+      }
+      const ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); ag.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); ag.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); ag.computeVertexNormals();
+      if (ag.attributes.normal.getY(0) < 0) { for (let i = 0; i < P.length; i += 9) { for (let k = 0; k < 3; k++) { const t = P[i + 3 + k]; P[i + 3 + k] = P[i + 6 + k]; P[i + 6 + k] = t; } } ag.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); ag.computeVertexNormals(); }
+      const apron = new THREE.Mesh(ag, new THREE.MeshStandardMaterial({ map: conc, vertexColors: true, roughness: 0.88, color: 0xe8d6bf, envMapIntensity: 0.35 }));
+      apron.receiveShadow = true; this.group.add(apron);
+      // oil / fuel stains + tyre scuffs (one instanced decal batch)
+      const sg = new THREE.PlaneGeometry(1, 1); sg.rotateX(-Math.PI / 2);
+      const sm = new THREE.MeshBasicMaterial({ map: stainTexture(), transparent: true, depthWrite: false, color: 0x120c08, opacity: 0.5, polygonOffset: true, polygonOffsetFactor: -1 });
+      const N = 110, im = new THREE.InstancedMesh(sg, sm, N), m = new THREE.Matrix4();
+      for (let i = 0; i < N; i++) { const sc = 1.2 + r() * 3.5; m.compose(new THREE.Vector3(APRON.x0 + 4 + r() * (APRON.x1 - APRON.x0 - 8), 0.02, APRON.z0 + 4 + r() * (APRON.z1 - APRON.z0 - 8)), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6.28), new THREE.Vector3(sc * (0.6 + r()), 1, sc)); im.setMatrixAt(i, m); }
+      im.renderOrder = 2; im.frustumCulled = false; this.group.add(im);
+      // stand numbers painted on the concrete
+      for (const [txt, x, z] of [['12', 278, 252], ['14', 196, 304], ['16', 170, 226], ['18', 238, 178]]) {
+        const t = T.textTexture(txt, { font: 'Anton', size: 200, color: 'rgba(250,200,40,0.92)', stroke: 0, glow: null, padding: 10 });
+        const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.2 * t.aspect, 3.2), new THREE.MeshStandardMaterial({ map: t.texture, transparent: true, depthWrite: false, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -3 }));
+        pl.rotation.set(-Math.PI / 2, 0, Math.PI / 2); pl.position.set(x, 0.025, z); pl.renderOrder = 2; this.group.add(pl);
+      }
+    }
     // rubber deposits on the touchdown zones (both ends) + tyre streaks
     const rub = new THREE.MeshBasicMaterial({ map: rubberTexture(), transparent: true, depthWrite: false, color: 0x000000, opacity: 0.55, polygonOffset: true, polygonOffsetFactor: -2 });
     for (const [zc, len] of [[180, 520], [-2620, 480]]) {
@@ -302,6 +342,7 @@ export class AirportWorld {
         this.col.add([x - 0.8, 0, z1 - 1.6], [x + 4.4, 3.2, z1 - 0.4], { kind: 'gse', mat: 'metal' });
       }
     }
+    for (const h of HANGARS) { this.addBlob(h.x - h.w / 2 + 1, h.z + h.d / 2, 4, h.d, 0, 0, 0); this.addBlob(h.x + h.w / 2 - 1, h.z + h.d / 2, 4, h.d); this.addBlob(h.x, h.z + h.d - 1.5, h.w, 5); }
     // hangar 2 hero dressing: a jet engine on a transport stand + a workbench + crates (low cover near the start)
     const h2 = HANGARS[1];
     const ex = h2.x + 10, ez = h2.z + 22;
@@ -312,12 +353,14 @@ export class AirportWorld {
     for (const [cx, cz, s] of [[h2.x - 9, h2.z + 12, 1.2], [h2.x - 7.6, h2.z + 12.3, 0.9], [h2.x - 8.4, h2.z + 13.6, 1.0], [h2.x + 16, h2.z + 8, 1.1], [h2.x + 17.3, h2.z + 8.4, 1.1]]) {
       this._w(box(s, s, s, 1), w.crate, M4(cx, s / 2, cz));
       this.col.add([cx - s / 2, 0, cz - s / 2], [cx + s / 2, s, cz + s / 2], { kind: 'crate', mat: 'wood' });
+      this.addBlob(cx, cz, s * 1.6, s * 1.6);
     }
     this._w(box(4, 1.0, 1.2), w.steel, M4(h2.x - 18, 0.5, h2.z + 30)); this.col.add([h2.x - 20, 0, h2.z + 29.4], [h2.x - 16, 1.0, h2.z + 30.6], { kind: 'gse', mat: 'metal' });
     // hangar 1: an airliner in for maintenance, nose out
     const jet = buildAirliner('haven');
     jet.root.position.set(HANGARS[0].x, 0, HANGARS[0].z + 21); jet.root.rotation.y = 0;
     this.group.add(jet.root); this.hangarJet = jet;
+    this.addBlob(HANGARS[0].x, HANGARS[0].z + 21, 5.5, 38); this.addBlob(HANGARS[0].x, HANGARS[0].z + 21.5, 36, 8);
     this._jetColliders(jet, HANGARS[0].x, HANGARS[0].z + 21, 0);
   }
   _jetColliders(jet, x, z, ry) {
@@ -339,6 +382,7 @@ export class AirportWorld {
     const jet = buildAirliner('pacifica');
     jet.root.position.set(298, 0, 236); jet.root.rotation.y = Math.PI / 2; // nose toward -x (taxiway)
     this.group.add(jet.root); this.parkedJet = jet;
+    this.addBlob(298, 236, 5.5, 38, Math.PI / 2); this.addBlob(298 - 0.5, 236, 36, 8, Math.PI / 2, 0, 0.5);
     this._jetColliders(jet, 298, 236, Math.PI / 2);
     // stair truck at its front door, belt loader at the aft hold
     this._place(G.buildStairTruck(), 283.2, 233.6, Math.PI / 2 + 0.05);
@@ -370,6 +414,7 @@ export class AirportWorld {
         this._w(box(w, h, d, 1), k % 2 ? W.crate : W.wrap, m.clone().multiply(new THREE.Matrix4().makeTranslation(0, 0.14 + h / 2, 0)));
         if (r() < 0.5) this._w(box(0.9, 0.6, 0.8, 1), W.crate, m.clone().multiply(new THREE.Matrix4().makeTranslation(0.3, 0.14 + h + 0.3, 0.1)));
         this.col.addFromObject([{ min: [-1.0, 0, -0.85], max: [1.0, 0.14 + h, 0.85] }], M4(x + ox, 0, z + oz, Math.round(ry / (Math.PI / 2)) * Math.PI / 2), { kind: 'crate', mat: 'wood' });
+        this.addBlob(x + ox, z + oz, 2.8, 2.4, ry);
       }
     }
     // GPUs, belt loader, blast fence near the taxiway edge
@@ -688,4 +733,22 @@ function wrapTexture() {
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) { const g = T.fbm(n, xx / S, y / S, 4, 4); const v = 120 + g * 120 + Math.sin(y * 0.4 + g * 6) * 12; const i = (y * S + xx) * 4; img.data[i] = v * 0.95; img.data[i + 1] = v; img.data[i + 2] = v * 1.05; img.data[i + 3] = 255; }
   x.putImageData(img, 0, 0);
   return T.canvasTex(c);
+}
+
+function blobTexture() {
+  const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d');
+  const g = x.createRadialGradient(S / 2, S / 2, S * 0.1, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  return T.canvasTex(c, { repeat: false });
+}
+function stainTexture() {
+  const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d'), r = makeRng(1919), img = x.createImageData(S, S), n = T.makeNoise(1920, 4);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const dx = xx / S - 0.5, dy = y / S - 0.5, d = Math.hypot(dx, dy * 1.3) * 2;
+    const a = Math.max(0, 1 - d - (T.fbm(n, xx / S, y / S, 4, 4) - 0.5) * 1.3) ;
+    const i = (y * S + xx) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = Math.min(1, a * 1.6) * 255;
+  }
+  x.putImageData(img, 0, 0); void r;
+  return T.canvasTex(c, { repeat: false });
 }
