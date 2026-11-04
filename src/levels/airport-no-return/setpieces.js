@@ -8,9 +8,10 @@ import { textTexture } from '../../textures.js';
 import { buildAirliner, buildCargoPlane, CARGO, cargoHoldMaterial } from './aircraft.js';
 import { buildJeep, gseMaterials, JEEP, JEEP_SEAT } from './gse.js';
 import { raySphere, rayOBB } from './game.js';
-import { TWY, RWY, TAXI, CARGO_HOLD, JEEP_STOP, LIFTOFF_Z } from './layout.js';
+import { TWY, RWY, TAXI, CARGO_HOLD, JEEP_STOP, LIFTOFF_Z, FUEL_FARM } from './layout.js';
 import { loft } from './shapes.js';
 
+export const CREDITS_X = -7; // credits column sits ~13° off the runway axis so it never crosses the airfield plumes
 const _fv = new THREE.Vector3(), _red = new THREE.Color(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -167,13 +168,15 @@ export class SetPieces {
       const pivot = new THREE.Group(); g.scene.add(pivot); pivot.position.copy(rb.pos); pivot.quaternion.copy(rb.quat);
       part.position.copy(com).negate(); pivot.add(part);
       J.pieces.push({ name, rb, pivot, fire: 1, smokeT: 0, settled: false });
-      g.fx.later(1.0, () => { part.userData.mesh.material = part.userData.mesh.material.map((m, i) => (i === 0 || i === 1 || i === 2 || i === 6 || i === 11 ? g.scorch(m, i === 1 || i === 11, 0.15) : m)); });
+      g.fx.later(1.0, () => { part.userData.mesh.material = part.userData.mesh.material.map((m, i) => (i === 0 || i === 1 || i === 2 || i === 6 || i === 11 ? g.scorch(m, i === 1 || i === 11, 0.55) : m)); });
     }
     // a detached engine cartwheels across the apron
     const eng = this._looseEngine(J, root.localToWorld(V3(s0 * 5.05, 1.42, -3)), V3(range(9, 12), 7, J.v * 0.6 + range(-2, 2)));
     J.pieces.push(eng);
     for (const f of J.a.fans) f.visible = true;
     g.smokeCols.push({ p: C.clone().setY(1), k: 2.4, life: 400, fire: 2.2 });
+    // the blast reaches the fuel farm: it burns for the rest of the level (the skyline payoff from the climb-out)
+    if (J.idx === 0) g.fx.later(2.5, () => { g.smokeCols.push({ p: V3(FUEL_FARM.x - 10, 1, FUEL_FARM.z - 8), k: 2.0, life: 500, fire: 1.8 }, { p: V3(FUEL_FARM.x + 10, 1, FUEL_FARM.z + 12), k: 1.6, life: 500, fire: 1.5 }); g.audio.play('explosion_big', { x: FUEL_FARM.x, y: 8, z: FUEL_FARM.z, volume: 0.6 }); });
     g.events.push({ type: 'jetBoom', J, P: C.clone() });
   }
   _scorched(m, plain = false) { return this.g.scorch(m, plain); }
@@ -811,15 +814,15 @@ export class SetPieces {
     const items = [];
     for (const L of lines) {
       if (!L) { y -= 1.0; continue; } // tight: only the sky band between horizon and lining shows text, so long gaps read as "no credits"
-      const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big || !L.dim ? 'chrome' : 'rgba(255,200,130,0.95)', stroke: big ? 10 : 7, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.9)', padding: 30 });
-      const h = big ? 3.4 : L.sub ? 2.4 : 1.5;
+      const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big || !L.dim ? 'chrome' : 'rgba(255,200,130,0.95)', stroke: big ? 10 : 10, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.95)', padding: 30 });
+      const h = big ? 4.2 : L.sub ? 3.0 : 2.0;
       const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, fog: false, opacity: 0 }); // clamped to the open band, drawn over everything
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * tt.aspect, h), mat);
       pl.rotation.y = 0; pl.position.set(0, y, 0); pl.renderOrder = 170;
       grp.add(pl); items.push(pl);
       y -= h + 0.5;
     }
-    grp.position.set(0, CARGO.floorY, 30);
+    grp.position.set(CREDITS_X, CARGO.floorY, 30);
     this.credits = { grp, items, t: 0, span: -y };
   }
   _updCredits(dt) {

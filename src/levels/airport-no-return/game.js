@@ -13,6 +13,15 @@ import { Soldier, buildCoverPoints } from '../port-of-victory/ai.js';
 import { buildRefueler, gseMaterials } from './gse.js';
 
 let _plumeTex = null;
+const SOOT_GLSL = /* glsl */`
+varying vec3 vSootP;
+uniform float sootHeavy;
+float sootH(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float sootV(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(sootH(i), sootH(i + vec3(1,0,0)), f.x), mix(sootH(i + vec3(0,1,0)), sootH(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(sootH(i + vec3(0,0,1)), sootH(i + vec3(1,0,1)), f.x), mix(sootH(i + vec3(0,1,1)), sootH(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float sootMask(vec3 p) { float n = sootV(p * 0.22) * 0.6 + sootV(p * 0.7) * 0.3 + sootV(p * 2.3) * 0.1; return smoothstep(0.62 - sootHeavy * 0.3, 0.72 - sootHeavy * 0.3, n); }
+`;
 let _emberTex = null;
 function emberTexture() {
   // black with thin glowing crack lines + a few hot spots (tiles; works on any uv layout)
@@ -258,7 +267,7 @@ export class AirportGame {
     rb.pos.copy(t.root.localToWorld(t.b.com.clone())); rb.quat.copy(t.root.quaternion);
     rb.vel.set(range(-2, 2), range(9, 12), range(-2, 2)); rb.ang.set(range(-1.5, 1.5), range(-1, 1), range(-2.5, 2.5)); rb.restitution = 0.15;
     t.rb = rb; t.com = t.b.com.clone();
-    this.smokeCols.push({ p: P.clone().setY(1), k: 1.2, life: 60, fire: 1.0 });
+    this.smokeCols.push({ p: P.clone().setY(1), k: 1.2, life: 300, fire: 1.0 });
     this.addScore(800, 'FUEL TRUCK!', P.clone().setY(P.y + 6), 'huge');
     this.events.push({ type: 'truckBoom', t });
   }
@@ -629,7 +638,7 @@ export class AirportGame {
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire, c.follow ? _v2.copy(c.follow.vel).multiplyScalar(0.9) : null); // a tumbling wreck carries its fire
       }
       // from far out a wreck's smoke reads as a black plume silhouetted on the sky (particles would fog into lavender)
-      if (c.fire && c.k >= 1.5) this._plume(c);
+      if (c.fire && c.k >= 1.2) this._plume(c);
       // from the air (credits) the burning airfield reads as fire glows under the smoke
       if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * (1 + 0 * fogK); /* fog-free batch */ this.world.addFarGlow(_v.set(c.p.x, c.p.y + 3 * c.k + d * 0.008, c.p.z), /* lifted with range: kilometres out the ground's depth precision (~20 m) would swallow it */ Math.max(7 * c.k, d * 0.065) * Math.min(1.2, f), 1.7 * f, 0.48 * f, 0.08 * f, 1); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
@@ -652,7 +661,8 @@ export class AirportGame {
         _plumeTex = T.canvasTex(cv, { repeat: false });
       }
       const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ map: _plumeTex, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
-      m.scale.set(260 * c.k / 2.4, 720 * c.k / 2.4, 1); m.renderOrder = 4; m.frustumCulled = false;
+      const v = 0.75 + ((c.p.x * 12.9898 + c.p.z * 78.233) % 1 + 1) % 1 * 0.5; // each plume its own width / height
+      m.scale.set(260 * c.k / 2.4 * v, 720 * c.k / 2.4 * (1.6 - v * 0.6), 1); m.renderOrder = 4; m.frustumCulled = false;
       this.scene.add(m); c.plume = m;
     }
     const m = c.plume, d = Math.hypot(c.p.x - this.headPos.x, c.p.z - this.headPos.z);
@@ -663,13 +673,24 @@ export class AirportGame {
   }
   // burnt version of a material (cached per source): soot-dark, keeps its maps so liveries / text ghost through, ember glow
   scorch(m, plain = false, k = 0) {
+    // burnt version of a material (cached per source): patchy soot in object space (black at the burns, sooty skin
+    // and livery between), glowing cracks only inside the black patches
     const key = (plain ? 'scorchedPlain' : 'scorched') + (k ? k : '');
     if (!m.userData[key]) {
       const s = m.clone(); if (plain) s.map = null;
-      s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(k || (m.map && !plain ? 0.3 : 0.22));
+      s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(s.map ? 0.72 : 0.5);
       if (s.vertexColors === undefined) s.vertexColors = m.vertexColors;
-      s.emissive = new THREE.Color(0xff5a14); s.emissiveIntensity = 0.32; s.emissiveMap = emberTexture(); // only the cracks glow (a uniform ember tint read as maroon paint)
-      s.roughness = 0.92; s.metalness = 0.15; s.envMapIntensity = 0.3;
+      s.emissive = new THREE.Color(0xff5a14); s.emissiveIntensity = 0.5; s.emissiveMap = emberTexture();
+      s.roughness = 0.9; s.metalness = 0.15; s.envMapIntensity = 0.3;
+      const heavy = k ? 1 - k : 0.5; // k (old darkness factor) -> share of the surface that is burnt black
+      s.onBeforeCompile = (sh) => {
+        sh.uniforms.sootHeavy = { value: heavy };
+        sh.vertexShader = 'varying vec3 vSootP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vSootP = position;');
+        sh.fragmentShader = SOOT_GLSL + sh.fragmentShader
+          .replace('#include <map_fragment>', '#include <map_fragment>\n  float sootK = sootMask(vSootP);\n  diffuseColor.rgb *= mix(1.0, 0.06, sootK);')
+          .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= sootK * sootK;');
+      };
+      s.customProgramCacheKey = () => 'bayhem-soot';
       m.userData[key] = s;
     }
     return m.userData[key];
