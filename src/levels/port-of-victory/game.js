@@ -152,7 +152,7 @@ export class PortGame {
   }
   explodeDrum(d) {
     if (d.state === 'gone') return;
-    d.state = 'gone';
+    d.state = 'gone'; this._drumsDirty = true; // hide the intact drum instance
     if (d.box) this.col.remove(d.box);
     this.drumsBlown++;
     const P = d.pos.clone(); P.y += 0.5;
