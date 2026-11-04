@@ -598,6 +598,7 @@ export class PortGame {
       // shoot drums when enemies stand next to them (Bay logic)
       const near = this.soldiers.filter(s => s.alive && s.delay <= 0 && s.pos.distanceTo(d.pos) < 4.5).length;
       if (near === 0 && !d.onFork) continue;
+      if (d.onFork && dd > 24) continue;
       const p = d.pos.clone().setY(d.pos.y + 0.45);
       if (!this.col.visible(head, p, b => b.data.noBullet || b === d.box)) continue;
       out.push({ kind: 'drum', p, score: 50 + near * 22 + (d.onFork ? 40 : 0) - dd * 0.5 + (A.target?.ref === d ? 20 : 0), ref: d, tol: 0.03 });

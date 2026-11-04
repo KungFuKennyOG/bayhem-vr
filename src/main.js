@@ -106,7 +106,7 @@ async function boot() {
     updateSun(sun, rig.position);
     updateFogView(xrCam);
     if (!noRender) renderer.render(scene, camera);
-    if (started && !ended && L.director?.done && !CAPTURE) { ended = true; setTimeout(() => showEndScreen(renderer), 2500); }
+    if (started && !ended && L.director?.done && !CAPTURE) { ended = true; setTimeout(() => showEndScreen(renderer, hud), 2500); }
   }
 
   window.__step = (dt, noRender) => frame(dt, noRender);
@@ -201,7 +201,8 @@ function buildStartScreen() {
   return d;
 }
 
-function showEndScreen(renderer) {
+function showEndScreen(renderer, hud) {
+  hud?.endCard(true); // no score panel / crosshair behind the end menu
   const s = renderer.xr.getSession?.(); if (s) s.end().catch(() => {});
   document.exitPointerLock?.();
   const nx = nextLevel(LEVEL_ID);

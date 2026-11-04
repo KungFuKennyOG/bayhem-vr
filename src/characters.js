@@ -50,11 +50,14 @@ const PALM_L = new THREE.Vector3(-0.05, -0.014, 0);
 const S = {
   FAT: 0, FAT2: 1, VEST: 2, VEST2: 3, GLOVE: 4, BOOT: 5, SOLE: 6, SKIN: 7, SKIN2: 8, MASK: 9, HAT: 10, LENS: 11, STRAP: 12, POLY: 13, GMET: 14, FURN: 15,
   MAGC: 16, HW: 17, BELT: 18, HAIR: 19, KNEE: 20, BEARD: 21, LIP: 22, EYE: 23, IRIS: 24, TEE: 25, JEANS: 26, JACKET: 27, RIB: 28, WATCH: 29, BROW: 30, GOLD: 31, ALENS: 32,
+  REFLF: 33, REFLV: 34, // reflective bands on cloth / on the vest (same colour as the cloth/vest unless an outfit paints them)
 };
-const NS = 33;
+const NS = 35;
 // [roughness, metalness]
 const SURF = [[0.9, 0], [0.92, 0], [0.82, 0], [0.85, 0], [0.6, 0], [0.55, 0], [0.9, 0], [0.5, 0], [0.6, 0], [0.95, 0], [0.78, 0], [0.06, 0.9], [0.72, 0], [0.5, 0.08], [0.36, 0.75], [0.58, 0.02],
-  [0.45, 0.3], [0.32, 0.85], [0.78, 0], [0.8, 0], [0.45, 0], [0.82, 0], [0.42, 0], [0.18, 0], [0.12, 0], [0.88, 0], [0.86, 0], [0.62, 0], [0.95, 0], [0.24, 0.9], [0.85, 0], [0.22, 0.95], [0.04, 0.55]];
+  [0.45, 0.3], [0.32, 0.85], [0.78, 0], [0.8, 0], [0.45, 0], [0.82, 0], [0.42, 0], [0.18, 0], [0.12, 0], [0.88, 0], [0.86, 0], [0.62, 0], [0.95, 0], [0.24, 0.9], [0.85, 0], [0.22, 0.95], [0.04, 0.55], [0.9, 0], [0.82, 0]];
+// per-slot emissive mask (scaled at runtime by setGunmanLook().band; 0 by default so nothing glows)
+const EMIT = new Float32Array(NS); EMIT[S.REFLF] = 1; EMIT[S.REFLV] = 1; EMIT[S.VEST] = 0.3;
 
 // ---------------- build-time math ----------------
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -444,7 +447,10 @@ function trouserFolds(amp = 1) {
     return [cx + (q[0] - cx) * k, q[1], q[2] * k];
   };
 }
-function legGeo(keys, M, folds, n = 14) { return tubeLoft({ A: [HIPX, 1.0, 0], D: [0, -1, 0], U: [1, 0, 0], V: [0, 0, 1], keys, ss: lin(0.0, keys[keys.length - 1][0], n), M, post: folds }); }
+function legGeo(keys, M, folds, n = 14, extra = null) { return tubeLoft({ A: [HIPX, 1.0, 0], D: [0, -1, 0], U: [1, 0, 0], V: [0, 0, 1], keys, ss: withStations(lin(0.0, keys[keys.length - 1][0], n), extra), M, post: folds }); }
+// merge extra loft stations (e.g. crisp edges for painted bands) into a sorted station list
+function withStations(ss, extra) { if (!extra) return ss; const o = [...ss]; for (const e of extra) if (!o.some((v) => Math.abs(v - e) < 0.003)) o.push(e); return o.sort((a, b) => a - b); }
+const bandEdges = (list) => list.flatMap(([a, b]) => [a - 0.005, a + 0.005, b - 0.005, b + 0.005]);
 
 // boots (right): foot loft along -z from the heel, sole, shaft. foot-space origin = ankle (x, 0.085, 0)
 function bootParts(add, o = {}) {
@@ -490,7 +496,8 @@ function handParts(add, o) {
 //  SOLDIER
 // =====================================================================================
 // kind: 0 = helmet + goggles + balaclava, 1 = cap + sunglasses (bare face), 2 = balaclava + headset (eyes visible)
-function soldierParts(kind) {
+function soldierParts(kind, outfit = null) {
+  const port = outfit === 'port';
   const parts = [];
   const add = (p) => { parts.push(p); return p; };
   const addM = (p) => { add(p); add({ ...p, mirror: true }); };
@@ -507,7 +514,11 @@ function soldierParts(kind) {
   // ---- neck + head
   addNeckHead(add, kind === 1 ? 'skin' : kind === 2 ? 'eyes' : 'mask', { beard: kind === 1 ? 1 : 0, hair: kind === 1, brows: kind === 1 || kind === 2, eyes: kind === 2, ears: true });
   // ---- arms
-  addM({ g: armGeo(ARM_KEYS, lin(0.12, 0.735, 12), 12, sleeveFolds(1)), wf: armWF, slot: S.FAT });
+  // reflective bands (slot REFLF/REFLV: same colour as the cloth unless the outfit paints them)
+  const band = (v, a, b, slot) => (P, N, out) => { const t = sst(a - 0.004, a + 0.004, v(P)) * sst(b + 0.004, b - 0.004, v(P)); if (t > 0.02) { out.s2 = slot; out.m = t; } };
+  const bands = (v, list, slot) => (P, N, out) => { for (const [a, b] of list) band(v, a, b, slot)(P, N, out); };
+  const ARM_B = [[0.385, 0.425], [0.585, 0.625]], LEG_B = [[0.29, 0.325], [0.36, 0.395]]; // x along the arm / y up the shin
+  addM({ g: armGeo(ARM_KEYS, withStations(lin(0.12, 0.735, 12), port ? bandEdges(ARM_B) : null), 12, sleeveFolds(1)), wf: armWF, slot: S.FAT, paint: port ? bands((P) => P.x, ARM_B, S.REFLF) : undefined });
   addM({ g: deltoid(0.9), wf: deltWF, slot: S.FAT });
   addM({ g: place(box(0.1, 0.014, 0.074), 0.315, 1.5, 0), bone: B.uarmR, slot: S.FAT2 }); // shoulder pocket
   addM({ g: place(box(0.062, 0.01, 0.046), 0.315, 1.508, 0), bone: B.uarmR, slot: S.VEST }); // velcro patch
@@ -517,7 +528,7 @@ function soldierParts(kind) {
     for (const p of hp) add(m ? { ...p, mirror: true } : p);
   }
   // ---- legs
-  addM({ g: legGeo(LEG_KEYS, 12, trouserFolds(1)), wf: legWF, slot: S.FAT });
+  addM({ g: legGeo(LEG_KEYS, 12, trouserFolds(1), 14, port ? bandEdges(LEG_B.map(([a, b]) => [1 - b, 1 - a])) : null), wf: legWF, slot: S.FAT, paint: port ? bands((P) => P.y, LEG_B, S.REFLF) : undefined });
   { const bp = []; bootParts((p) => bp.push(p)); for (const p of bp) { add(p); add({ ...p, mirror: true }); } }
   // knee pads
   addM({ g: bend(rbox(0.1, 0.125, 0.03, 0.013, 4, 3, 3), 3.2), bone: B.shinR, slot: S.KNEE, xf: [HIPX, 0.5, -0.07] });
@@ -529,6 +540,11 @@ function soldierParts(kind) {
   // front & back plate bags, curved to the chest
   add({ g: place(bend(rbox(0.305, 0.33, 0.054, 0.02, 5, 3, 3), 1.6), 0, 1.318, -0.153), bone: B.chest, slot: S.VEST, soft: chestSoft });
   add({ g: place(bend(rbox(0.3, 0.34, 0.05, 0.02, 5, 3, 3), -1.6), 0, 1.33, 0.137), bone: B.chest, slot: S.VEST, soft: chestSoft });
+  if (port) { // reflective strips across chest + back and around the cummerbund (hi-vis workwear read)
+    add({ g: place(bend(box(0.3, 0.026, 0.008), 1.6), 0, 1.462, -0.182), bone: B.chest, slot: S.REFLV, soft: chestSoft });
+    add({ g: place(bend(box(0.29, 0.032, 0.008), -1.6), 0, 1.432, 0.165), bone: B.chest, slot: S.REFLV, soft: chestSoft });
+    add({ g: torsoBand([[1.175, 0.03], [1.177, 0.036], [1.201, 0.036], [1.203, 0.03]], 22), bone: B.chest, slot: S.REFLV, soft: chestSoft });
+  }
   // MOLLE rows on the front panel (proud webbing strips catch the rim light)
   for (let k = 0; k < 3; k++) pc(place(bend(box(0.29, 0.011, 0.01), 1.6), 0, 1.28 + k * 0.042, -0.183), B.chest, S.VEST2);
   for (let k = 0; k < 4; k++) pc(place(bend(box(0.28, 0.011, 0.01), -1.6), 0, 1.24 + k * 0.045, 0.166), B.chest, S.VEST2);
@@ -747,7 +763,7 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
     if (p.mirror) g = mirrorGeo(g);
     const pos = g.attributes.position, nor = g.attributes.normal, n = pos.count;
     const cav = cavity(g);
-    const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), sf = new Float32Array(n * 2);
+    const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), sf = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       P.fromBufferAttribute(pos, i); N.fromBufferAttribute(nor, i);
       // functions are authored for the right side: evaluate on the mirrored point
@@ -781,7 +797,7 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
       PT.s1 = p.slot; PT.s2 = p.slot; PT.m = 0; PT.k = 1;
       if (p.paint) p.paint(MP, MN, PT);
       const a = SURF[PT.s1], b = SURF[PT.s2];
-      sf[i * 2] = lerp(a[0], b[0], PT.m); sf[i * 2 + 1] = lerp(a[1], b[1], PT.m);
+      sf[i * 3] = lerp(a[0], b[0], PT.m); sf[i * 3 + 1] = lerp(a[1], b[1], PT.m); sf[i * 3 + 2] = lerp(EMIT[PT.s1], EMIT[PT.s2], PT.m);
       // cloth/hard-surface cavity: lighter worn edges, darker creases
       const cv = cav[i], ck = 1 + Math.min(0.28, Math.max(0, -cv - 0.12) * 0.7) - Math.min(0.45, Math.max(0, cv - 0.02) * 1.6);
       const sky = 0.86 + 0.14 * (N.y * 0.5 + 0.5), noise = 0.95 + 0.1 * hash3(P.x * 61, P.y * 61, P.z * 61);
@@ -790,7 +806,7 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
     if (p.postMat) g.applyMatrix4(p.postMat);
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
     g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-    g.setAttribute('surf', new THREE.Float32BufferAttribute(sf, 2));
+    g.setAttribute('surf', new THREE.Float32BufferAttribute(sf, 3));
     geos.push(g);
   }
   const geo = mergeGeometries(geos, false);
@@ -820,18 +836,46 @@ export function gunmanMaterial() {
   if (sharedMat) return sharedMat;
   sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0, envMapIntensity: 1.0 });
   sharedMat.onBeforeCompile = (sh) => {
+    sh.uniforms.gunLift = LOOK.lift; sh.uniforms.gunBand = LOOK.band;
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec2 surf;\nvarying vec2 vSurf;')
+      .replace('#include <common>', '#include <common>\nattribute vec3 surf;\nvarying vec3 vSurf;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSurf = surf;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vSurf;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vSurf;\nuniform float gunLift;\nuniform float gunBand;')
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vSurf.x;')
-      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vSurf.y;');
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vSurf.y;')
+      // readability floor (dusk: dark cloth never crushes to pure black) + hi-vis / reflective bands catching light
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vColor.rgb * (gunLift + vSurf.z * gunBand);');
   };
-  sharedMat.customProgramCacheKey = () => 'bayhem-gunman-v1';
+  sharedMat.customProgramCacheKey = () => 'bayhem-gunman-v2';
   return sharedMat;
 }
-function getTemplate(kind) { return TEMPLATES[kind] || (TEMPLATES[kind] = buildTemplate(soldierParts(kind))); }
+// shared look uniforms for every gunman-material character (0 = the original look; Level 2 drives them with dusk)
+const LOOK = { lift: { value: 0 }, band: { value: 0 } };
+export function setGunmanLook({ lift = 0, band = 0 } = {}) { LOOK.lift.value = lift; LOOK.band.value = band; }
+
+// soft contact shadow ("blob") material for on-foot characters: black, alpha from a radial texture times the
+// instance colour's red channel (per-instance fade). Shared so warmupGunmen() compiles it up front.
+let blobMat = null;
+export function blobShadowMaterial() {
+  if (blobMat) return blobMat;
+  const S2 = 64, c = document.createElement('canvas'); c.width = c.height = S2;
+  const x = c.getContext('2d'), g = x.createRadialGradient(S2 / 2, S2 / 2, 0, S2 / 2, S2 / 2, S2 / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.82)'); g.addColorStop(0.7, 'rgba(255,255,255,0.3)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S2, S2);
+  const tex = new THREE.CanvasTexture(c);
+  blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  blobMat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#ifdef USE_COLOR\ndiffuseColor.a *= vColor.r;\n#endif'); };
+  blobMat.customProgramCacheKey = () => 'bayhem-blob-v1';
+  return blobMat;
+}
+export function blobShadowGeometry() { const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); return g; }
+function getTemplate(kind, outfit = null) {
+  const key = kind + (outfit === 'port' ? 3 : 0);
+  return TEMPLATES[key] || (TEMPLATES[key] = buildTemplate(soldierParts(kind, outfit)));
+}
+// build the outfit's templates now (load time) instead of on the first spawn
+export function prebuildOutfit(outfit) { for (let k = 0; k < 3; k++) getTemplate(k, outfit); }
 
 // per-instance geometry: shares every attribute with the template except the colour buffer (pooled, never disposed)
 function acquireGeometry(tpl) {
@@ -864,7 +908,17 @@ const PAL = {
   lensS: hexes(['#30343c', '#b08a3a', '#3a2a20', '#506070']),
   mask: hexes(['#3a3a3d', '#38383a', '#4a4e44', '#47433e']),
 };
-function makePalette(seed, kind) {
+// 'port' outfit (Level 2 dock goons): dark navy/charcoal workwear, hi-vis carrier with silver reflective
+// bands, coloured hard-shell helmets / caps -> two-tone silhouettes that read against dark asphalt at dusk
+const PAL_PORT = {
+  fat: hexes(['#3d4554', '#454a52', '#3a4250', '#4a4a4c', '#40485a']),
+  vest: hexes(['#ff6414', '#ff7a1a', '#f2c414', '#d6e01e', '#ff5a10']),
+  vest2: hexes(['#34373c', '#3a3a36', '#30343a']),
+  helm: hexes(['#ece6d8', '#f2c018', '#ff6a18', '#c02c1c', '#e8e4dc', '#2e4c8c']),
+  cap: hexes(['#ff6a18', '#f2c018', '#c02c1c', '#2e4c8c', '#ece6d8']),
+  refl: hexes(['#e8ece8', '#dfe4e2']),
+};
+function makePalette(seed, kind, outfit) {
   const r = makeRng((seed * 2654435761) >>> 0 ^ 0x5bd1e995);
   const pick = (a) => a[Math.floor(r() * a.length) % a.length];
   const pal = new Float32Array(NS * 3);
@@ -886,6 +940,17 @@ function makePalette(seed, kind) {
   set(S.HAIR, hair); set(S.BROW, _col.copy(hair).multiplyScalar(0.8)); set(S.KNEE, r() < 0.5 ? _col.setRGB(0.06, 0.06, 0.062) : _col.copy(vest).multiplyScalar(0.85));
   const beard = r(); set(S.BEARD, _col.copy(skin).lerp(hair, beard < 0.35 ? 0.25 : beard < 0.7 ? 0.55 : 0.85));
   set(S.EYE, _col.setRGB(0.55, 0.5, 0.46)); set(S.IRIS, _col.setRGB(0.04, 0.03, 0.025));
+  // reflective bands default to the cloth they sit on (invisible: the original look)
+  set(S.REFLF, fat); set(S.REFLV, vest);
+  if (outfit === 'port') {
+    const rp = makeRng((seed * 2246822519) >>> 0 ^ 0x27d4eb2f), pk = (a) => a[Math.floor(rp() * a.length) % a.length];
+    const pf = pk(PAL_PORT.fat), pv = pk(PAL_PORT.vest), pv2 = pk(PAL_PORT.vest2), rf = pk(PAL_PORT.refl);
+    set(S.FAT, pf); set(S.FAT2, pf, 0.8);
+    set(S.VEST, pv); set(S.VEST2, pv2); set(S.BELT, pv2, 0.8); set(S.KNEE, pv2, 0.9);
+    set(S.HAT, kind === 1 ? pk(PAL_PORT.cap) : pk(PAL_PORT.helm));
+    set(S.REFLF, rf); set(S.REFLV, rf);
+    set(S.MASK, _col.copy(pf).multiplyScalar(0.85));
+  }
   return pal;
 }
 function recolor(g, pal) {
@@ -993,10 +1058,11 @@ export class Gunman {
     const r = makeRng((this.seed * 0x9e3779b1) >>> 0 ^ 0x1234567);
     this.rng = r;
     this.kind = opts.headgear ?? Math.floor(r() * 3) % 3;
-    const tpl = getTemplate(this.kind);
+    const tpl = getTemplate(this.kind, opts.outfit);
     this.mesh = cloneSkinned(tpl.mesh);
     this.mesh.geometry = acquireGeometry(tpl);
-    recolor(this.mesh.geometry, makePalette(this.seed, this.kind));
+    this.outfit = opts.outfit || null;
+    recolor(this.mesh.geometry, makePalette(this.seed, this.kind, this.outfit));
     this.mesh.castShadow = true; this.mesh.receiveShadow = false;
     this.mesh.frustumCulled = false;
     this.bones = this.mesh.skeleton.bones;
@@ -1742,6 +1808,9 @@ const BI_GUN_UP = bindInv(GUN_PTS[0].clone().sub(GUN_PTS[1]), GUN_PTS[0].clone()
 export function warmupGunmen() {
   const g = new THREE.Group();
   for (let k = 0; k < 3; k++) { const gm = new Gunman({ pose: k === 2 ? 'roof' : 'window', side: k === 2 ? 0 : -1, seed: k + 1, headgear: k }); g.add(gm.root); }
+  // contact-shadow batch program (instanced + instance colour), so the first on-foot spawn doesn't compile it
+  const blob = new THREE.InstancedMesh(blobShadowGeometry(), blobShadowMaterial(), 1);
+  blob.setColorAt(0, new THREE.Color(1, 1, 1)); blob.frustumCulled = false; g.add(blob);
   return g;
 }
 

@@ -249,7 +249,7 @@ export class ParticleSystem {
     // O(1): pop a free slot; when the pool is full, recycle the oldest (ring cursor)
     // Big sprites (fill-rate heavy) have their own budget so a huge blast can't flood the screen.
     const big = (o.s1 ?? o.s0 ?? o.size ?? 1) > 5;
-    if (big && this.bigAlive >= this.bigBudget) return this._dummy;
+    if (big && !o.force && this.bigAlive >= this.bigBudget) return this._dummy; // force: hero effects (the finale) bypass the budget
     let i;
     if (this.free.length) i = this.free.pop();
     else { i = this.cursor; this.cursor = (this.cursor + 1) % this.max; if (this.p[i].big) this.bigAlive--; }
