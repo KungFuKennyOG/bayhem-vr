@@ -49,11 +49,13 @@ export class Director {
           later(0.8, () => say('Paris. Nine o\'clock — she does the sparkle on the hour. Pretty, right?', 3.4));
           later(4.4, () => say('Our guy is in the tower. His friends are on the quay. Go say bonsoir.', 3.2));
           A?.go([go(166, 45.5, { slow: 0.6 })]);
+          if (A) { g.cinematicLook = V(40, 70, -100); g.cinematicW = 1.6; } // desktop / trailer: frame the tower (VR starts facing it)
           if (g.player) g.player.autoState.holdFire = true;
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 5.8 : 7.8) },
       // 2 ---- the quay fight
       { name: 'quay', wp: V(70, LOW_Y + 2.4, 44), hunt: true, music: 0.65, dusk: 0.25, enter: () => {
+          g.cinematicLook = null;
           hud.objective('Fight down the quay to the bridge');
           if (g.player) g.player.autoState.holdFire = false;
           setp.T.state.sparkle = 0;
@@ -190,6 +192,9 @@ export class Director {
       if (ji > idx('run')) { setp.callBoat(); setp.escape.x = BOAT_DOCK.x; setp.escape.state = 'wait'; }
       if (ji >= idx('escape')) { setp.board(); }
       g.score = [0, 0, 1200, 3400, 9800, 11200, 12400, 24000, 25600, 25600][ji] || 0;
+      // drop whatever the fast-forward queued (score callouts from the scripted kills)
+      for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
+      for (const L of Object.values(hud.lanes || {})) { L.q.length = 0; L.cur = null; }
       this.stepIdx = ji - 1;
     }
     this.next();
