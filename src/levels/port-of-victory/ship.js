@@ -14,7 +14,7 @@ const sstep = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t 
 
 // ------------------------------------------------------------------ hull form
 function stemX(y) {
-  const bump = 3.6 * Math.exp(-(((y + 5.6) / 2.0) ** 2));
+  const bump = 3.9 * Math.exp(-(((y + 4.3) / 2.1) ** 2));
   const cut = y < -8 ? Math.pow(-8 - y, 1.5) * 1.6 : 0;
   return -95.5 + (13.4 - y) * 0.28 - bump + cut;
 }
@@ -31,7 +31,7 @@ function hbAt(x, y) {
   const d = x - xf, L = lerp(34, 22, clamp01((y + 10) / 22)), t = clamp01(d / L);
   const p = 1.6 + 1.3 * clamp01((y + 3) / 12);
   let fb = 1 - Math.pow(1 - t, p);
-  const bb = Math.exp(-(((y + 5.6) / 1.9) ** 2));
+  const bb = Math.exp(-(((y + 4.3) / 2.0) ** 2));
   fb = Math.max(fb, bb * 0.21 * Math.sqrt(clamp01(d / 4.5)));
   const dA = xa - x, La = 30 * clamp01((0.5 - y) / 7);
   let fa = La < 0.05 ? 1 : 1 - Math.pow(1 - clamp01(dA / La), 1.8);
@@ -497,6 +497,22 @@ export function buildShip(opts = {}) {
   const hullMesh = new THREE.Mesh(hullGeo, mHull); hullMesh.castShadow = hullMesh.receiveShadow = true; hullMesh.name = 'hull';
   root.add(hullMesh);
 
+  // ---------- hull-side hardware (raised so it catches the rim light)
+  for (const side of [0, 1]) {
+    const sg = side === 0 ? 1 : -1, zs = ZC + sg * (B + 0.04);
+    // deck-edge gutter / sheer strake bar
+    bx(37 + 75.5, 0.16, 0.12, (-75.5 + 37) / 2, 8.85, zs + sg * 0.04, 0x232b38);
+    // pilot doors + side port frames
+    for (const [x, y, w, h] of [[30.5, 3.2, 1.0, 1.9], [-40, 2.4, 1.6, 1.6], [48, 3.6, 1.0, 1.9]]) {
+      bx(w + 0.16, 0.1, 0.1, x, y + h / 2, zs + sg * 0.03, 0x2c3546); bx(w + 0.16, 0.1, 0.1, x, y - h / 2, zs + sg * 0.03, 0x2c3546);
+      bx(0.1, h, 0.1, x - w / 2, y, zs + sg * 0.03, 0x2c3546); bx(0.1, h, 0.1, x + w / 2, y, zs + sg * 0.03, 0x2c3546);
+      for (let k = 0; k < 3; k++) bx(0.06, 0.3, 0.14, x + w / 2 + 0.12, y - h / 2 + 0.3 + k * 0.6, zs + sg * 0.06, 0x2c3546);
+    }
+    // pilot ladder hand-holds below the pilot door
+    for (let k = 0; k < 6; k++) bx(0.6, 0.05, 0.12, 30.5, 1.8 - k * 0.5, zs + sg * 0.05, 0xb0b0a8);
+    // stern sponson lines (white rub bars at the quarters)
+    bx(10, 0.14, 0.14, 58.5, 7.6, ZC + sg * (hbAt(58.5, 7.6) + 0.05), 0x2c3546);
+  }
   // ---------- bulwark inner face + cap (paint), decks
   const topRow = (side) => grid[side][ROWS.length - 1];
   for (const side of [0, 1]) {
@@ -605,7 +621,7 @@ export function buildShip(opts = {}) {
   const CL = [12.19, 6.06], CHh = 2.59, CWd = 2.44;
   const palette = [0x2a5d8f, 0x8c2a20, 0x2f6b46, 0xc75a1a, 0x8a8f94, 0xd8d6cf, 0x6b4a2e, 0xc9a227, 0x1f3c66, 0x7a1d3a, 0x3d8fa0, 0xa8432c];
   const inst = [[], []];
-  const contStacks = [[0, 3, 0.9], [1, 2, 0.8], [3, 2, 0.75], [4, 3, 0.85]];
+  const contStacks = [[0, 4, 0.92], [1, 4, 0.85], [3, 3, 0.85], [4, 5, 0.9]];
   for (const [hi, maxH, fill] of contStacks) {
     const [x0, x1] = HATCHES[hi];
     const bays = []; let x = x0 + 0.4;
@@ -613,19 +629,19 @@ export function buildShip(opts = {}) {
     while (x1 - x >= CL[1] + 0.3) { bays.push([x, 1]); x += CL[1] + 0.3; }
     const off = (x1 - x) / 2; // centre the bays
     for (const [bx0, kind] of bays) {
-      let stackMax = 0;
+      const base = Math.max(1, maxH - Math.floor(rng() * 2));
       for (let rI = 0; rI < 7; rI++) {
         const z = HZ0 + 0.35 + CWd / 2 + rI * (CWd + 0.08);
-        let h = Math.floor(rng() * (maxH + 1));
+        // tiered: tall in the middle/far rows, stepping down toward the quay-side walkway
+        let h = base - (rI >= 5 ? rI - 4 : 0) - (rng() < 0.3 ? 1 : 0);
         if (rng() > fill) h = 0;
-        if (rI === 6 && h > 1) h = 1; // keep the quay-side row lower for silhouette steps
-        stackMax = Math.max(stackMax, h);
+        h = Math.max(0, Math.min(maxH, h));
+        if (h) col(bx0 + off, HTOP, z - CWd / 2, bx0 + off + CL[kind], HTOP + h * (CHh + 0.02), z + CWd / 2);
         for (let l = 0; l < h; l++) {
           const cx = bx0 + off + CL[kind] / 2, cy = HTOP + 0.04 + CHh / 2 + l * (CHh + 0.02);
           inst[kind].push([cx, cy, z, palette[Math.floor(rng() * palette.length)], (rng() - 0.5) * 0.008]);
         }
       }
-      if (stackMax) col(bx0 + off, HTOP, HZ0 + 0.35, bx0 + off + CL[kind], HTOP + stackMax * (CHh + 0.02), HZ0 + 0.35 + 7 * (CWd + 0.08));
     }
   }
   const contMeshes = [];
@@ -646,7 +662,7 @@ export function buildShip(opts = {}) {
   // (a few vertical rods at hatch ends)
   for (const [hi] of contStacks) {
     const [x0, x1] = HATCHES[hi];
-    for (let z = HZ0 + 0.6; z < HZ1; z += 2.52) for (const x of [x0 + 0.2, x1 - 0.2]) tube(new V(x, HTOP, z), new V(x + (x < 0 ? 0.6 : -0.6) * 0, HTOP + 4.8, z + 0.9), 0.025, GREY, 4);
+    for (let z = HZ0 + 0.6; z < HZ1 - 3; z += 2.52) for (const x of [x0 + 0.2, x1 - 0.2]) { tube(new V(x, HTOP, z), new V(x, HTOP + 5.0, z + 1.1), 0.025, GREY, 4); tube(new V(x, HTOP, z + 2.2), new V(x, HTOP + 5.0, z + 1.1), 0.025, GREY, 4); }
   }
 
   // ---------- quay-side walkway detail (x +23 -> -6)
@@ -663,6 +679,7 @@ export function buildShip(opts = {}) {
     // fuel line jog up into the fuel hold trunk
     line([new V(-6.5, 9.62, zP + 0.02), new V(-10, 9.62, zP + 0.02), new V(-10, 11.2, zP + 0.02), new V(-10, 11.2, -161.2), new V(-13.4, 11.2, -161.2)], 0.13, BLACK, 10);
     line([new V(-6.5, 9.32, zP), new V(-8, 9.32, zP), new V(-8, 11.5, zP), new V(-8, 11.5, -162.6), new V(-13.4, 11.5, -162.6)], 0.1, YEL, 10);
+    col(-27, DECK, -157.6, 36, DECK + 1.0, -157.22);
     // mushroom vents (against the bulwark)
     for (const x of [11.5, -1.0, 30]) {
       tube(new V(x, DECK, -153.9), new V(x, DECK + 0.9, -153.9), 0.18, WHITE, 10);
@@ -1017,8 +1034,8 @@ export function buildShip(opts = {}) {
       bx(7.6, 0.12, 2.55, xb, yb + 0.15, z, WHITE);
       for (let k = -2; k <= 2; k++) bx(0.5, 0.25, 2.4, xb + k * 1.2, yb + 0.7, z, 0x2a3036);
       for (const dx of [-2.6, 2.6]) {
-        bx(0.35, 4.5, 0.35, xb + dx, 14.6 + 2.25, z - s * 1.8, WHITE);
-        tube(new V(xb + dx, 18.8, z - s * 1.8), new V(xb + dx, 18.8, z + s * 0.1), 0.17, WHITE, 6);
+        bx(0.35, 4.5, 0.35, xb + dx, 14.6 + 2.25, z - s * 1.4, WHITE);
+        tube(new V(xb + dx, 18.8, z - s * 1.4), new V(xb + dx, 18.8, z + s * 0.1), 0.17, WHITE, 6);
         tube(new V(xb + dx, 18.8, z), new V(xb + dx, yb + 1.2, z), 0.02, 0x222222, 3);
       }
     }
