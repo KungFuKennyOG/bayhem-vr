@@ -11,6 +11,7 @@ import { applyDusk, setSunElevation } from '../../atmosphere.js';
 import { Soldier, buildCoverPoints } from '../port-of-victory/ai.js';
 import { buildRefueler, gseMaterials } from './gse.js';
 
+const _nightHaze = new THREE.Color(0.13, 0.11, 0.18);
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
 export const SUN_AZ = new THREE.Vector3(-0.22, 0, -1).normalize(); // the sun sits just left of the runway heading
@@ -562,6 +563,8 @@ export class AirportGame {
       // airport look: less cool sky fill on the concrete, a touch more sun (golden floor, blue-violet only in shadow)
       const H = this.E.hemi; H.intensity *= 0.72; H.color.lerp(_warmSky, 0.35); H.groundColor.lerp(_warmGround, 0.4);
       this.E.sun.intensity *= 1.12;
+      // blue hour from the air: deep violet haze instead of the pale band the default blue-hour fog leaves under the hills
+      { const n = Math.min(1, Math.max(0, (this.dusk - 0.35) / 0.27)); this.scene.fog.color.lerp(_nightHaze, n * n * (3 - 2 * n) * 0.8); }
     }
     this.world.update(dt, this.headPos, this.dusk);
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
@@ -611,7 +614,7 @@ export class AirportGame {
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire, c.follow ? _v2.copy(c.follow.vel).multiplyScalar(0.9) : null); // a tumbling wreck carries its fire
       }
       // from the air (credits) the burning airfield reads as fire glows under the smoke
-      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), f = 0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z); this.world.addGlow(_v.set(c.p.x, c.p.y + 3 * c.k, c.p.z), Math.max(7 * c.k, d * 0.028) * f, 5.2 * f, 1.9 * f, 0.5 * f, 1); }
+      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * Math.min(4, fogK); /* fires punch through the haze */ this.world.addGlow(_v.set(c.p.x, c.p.y + 3 * c.k, c.p.z), Math.max(7 * c.k, d * 0.028) * Math.min(1.2, f), 5.2 * f, 1.9 * f, 0.5 * f, 1); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
     }
   }

@@ -139,7 +139,7 @@ export class AirportWorld {
     const aniso = this.aniso;
     // grass + far fields (vertex-coloured patchwork, gentle hills away from the airfield)
     const n = T.makeNoise(4401, 64), n2 = T.makeNoise(4402, 32);
-    const SZ = 12000, SEG = 128;
+    const SZ = 16000, SEG = 160; // reaches under the hills ring (r 7.2 km): no sky haze band below the mountains from the climb-out
     const gg = new THREE.PlaneGeometry(SZ, SZ, SEG, SEG); gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -1100);
     const pos = gg.attributes.position, col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
@@ -517,9 +517,11 @@ export class AirportWorld {
     const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); hg.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3)); hg.setIndex(idx);
     const hills = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }));
     hills.renderOrder = -40; this.group.add(hills);
+    this.hillsMat = hills.material;
     // city skyline strip to the north-east (+x)
     const sky = T.skylineTexture(4242); sky.repeat.set(3, 1);
     const cityMat = new THREE.MeshBasicMaterial({ map: sky, transparent: true, fog: false, color: 0x9a8a92, depthWrite: false });
+    this.skylineMat = cityMat;
     for (const [x, z, ry, w, hgt] of [[3000, -400, -Math.PI / 2, 4200, 260], [2200, 1800, -2.4, 2600, 180]]) {
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), cityMat); pl.position.set(x, hgt / 2 - 10, z); pl.rotation.y = ry; pl.renderOrder = -39; this.group.add(pl);
     }
@@ -598,7 +600,7 @@ export class AirportWorld {
     for (let k = 0; k < 40; k++) dot(r() * S, r() * S, 3, 'rgba(255,30,20,0.9)');
     const tex = T.canvasTex(c, { aniso: 8 });
     const mat = this.cityMat = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0, toneMapped: false });
-    mat.color.setScalar(4.2);
+    mat.color.setScalar(2.4);
     mat.polygonOffset = true; mat.polygonOffsetFactor = -8; mat.polygonOffsetUnits = -64; // kilometres out, 2 m over the grass is below depth precision // dots are sub-pixel at range: mip-averaged they need HDR punch
     // west, east and south of the field (the airport itself + its approach stay dark)
     const tile = 1150; // smaller dots (the near field from 120 m read as confetti)
@@ -612,7 +614,8 @@ export class AirportWorld {
         const dx = Math.max(-720 - wx, wx - 820, 0), dz = Math.max(wz - 1150, -3300 - wz, 0); // distance outside the dark airfield corridor
         const edge = Math.max(dx, dz) - 160 * T.fbm(n, wx / 1400, wz / 1400, 3, 16);
         const k = Math.min(1, Math.max(0, edge / 520)) * (0.55 + 0.45 * T.fbm(n, wx / 2300 + 7, wz / 2300, 3, 16) * 1.6);
-        col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = Math.min(1, k);
+        const far = Math.min(1, Math.max(0, 1 - (Math.hypot(wx - 80, wz + 1100) - 2600) / 2200)); // thin out toward the horizon (no bright seam of mip-averaged dots)
+        col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = Math.min(1, k) * far;
       }
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.rotateX(-Math.PI / 2); g.translate((x0 + x1) / 2, 2, (z0 + z1) / 2);
@@ -648,7 +651,7 @@ export class AirportWorld {
     L.push({ p: this.towerBeacon, kind: 'beacon', size: 5 });
     // PAPI (4 boxes left of the touchdown zone)
     for (let k = 0; k < 4; k++) L.push({ p: new THREE.Vector3(-R.halfW - 15 - k * 9, 0.8, R.z0 - 330), kind: 'papi', size: 1.6, phase: k });
-    this.glow = new BillboardBatch(L.length + 64, this.E.atlas, { boost: 1, renderOrder: 6, fog: this.scene.fog });
+    this.glow = new BillboardBatch(L.length + 160, this.E.atlas, { boost: 1, renderOrder: 6, fog: this.scene.fog });
     this.scene.add(this.glow.mesh);
     this.extraGlows = []; // per-frame glows from other systems (aircraft nav lights, jeep beacons)
   }
@@ -659,6 +662,7 @@ export class AirportWorld {
     const t = this.time, G = this.glow;
     const on = 0.55 + 0.45 * Math.min(1, dusk * 2.2); // runway lights are on at sunset, brighter at blue hour
     if (this.shaftMat) this.shaftMat.opacity = 0.45 * Math.max(0, 1 - dusk * 3);
+    if (this.hillsMat) { const n = Math.min(1, Math.max(0, (dusk - 0.2) / 0.4)); this.hillsMat.color.setScalar(1 - 0.62 * n); this.skylineMat.color.setHex(0x9a8a92).multiplyScalar(1 - 0.55 * n); }
     if (this.grassMat) { const n = Math.min(1, Math.max(0, (dusk - 0.2) / 0.4)); this.grassMat.color.setRGB(1 - 0.62 * n, 1 - 0.6 * n, 1 - 0.5 * n); } // fields sink into blue hour
     if (this.cityMat) { const k = Math.min(1, Math.max(0, (dusk - 0.25) / 0.3)); this.cityMat.opacity = k * k * (3 - 2 * k); this.cityMat.visible = k > 0.001; }
     let gi = 0;

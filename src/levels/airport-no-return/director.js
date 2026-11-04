@@ -156,7 +156,7 @@ export class Director {
           A?.go([]);
         }, update: (t) => {
           g.cinematicLook = setp.cargo.root.localToWorld(V(0, CARGO.floorY + 2.4, 30)); g.cinematicW = 2; // eye on the sky band where the credits roll
-          g.scene.fog.far = Math.min(7000, g.scene.fog.far + (1 / 30) * 300); // open up the view: airport lights on the horizon
+          g.scene.fog.far = Math.min(5200, g.scene.fog.far + (1 / 30) * 300); // open up the view: airport lights on the horizon
           // last shot: the ramp starts closing on the sunset
           if (t > (trailer ? 18 : 24)) { setp.rampA = Math.max(-0.42, setp.rampA - (1 / 30) * 0.06); setp.cargo.setRamp(setp.rampA); }
           if (t > (trailer ? 22 : 30)) hud.black.material.opacity = Math.min(1, (t - (trailer ? 22 : 30)) / 2);

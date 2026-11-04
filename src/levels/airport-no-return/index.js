@@ -21,6 +21,8 @@ export async function create(E) {
   setSunElevation(sunElevation(dusk0), SUN_AZ);
   applyDusk(dusk0, { sun: E.sun, hemi: E.hemi, fog: scene.fog, renderer });
   scene.fog.near = 70; scene.fog.far = 2600;
+  // long sightlines: the climb-out looks back over 4+ km of airfield and city (engine default far plane is 3 km)
+  camera.far = 12000; camera.updateProjectionMatrix();
   // a slightly wider shadow frustum: big aircraft, long shadows
   const sc = E.sun.shadow.camera; sc.left = -46; sc.right = 46; sc.top = 46; sc.bottom = -46; sc.far = 320; sc.updateProjectionMatrix();
   // tighter sun glare: the low sun sits right down the runway and the default halo washes out the plane
