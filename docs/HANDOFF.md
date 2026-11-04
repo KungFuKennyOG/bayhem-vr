@@ -76,6 +76,15 @@ New tech (reusable for Level 4):
 - **Explosive traffic** (`traffic.js`): hp → smoke + alarm + hazards → fire → BOOM + RigidBox flip → burning wreck (still cover). Rotated cars become 1–3 AABBs.
 - **Collapse + dust wall** (`setpieces.js`): a chunked tower (`upper` group rotating about a pivot, chunks detach with tamed rigid-body velocities, random kicks and aimed landing zones), lower section pancakes, fog pulled in with `game.fogMix` only once the wall actually reaches you. The wall is clouds riding the front (`ride: D`), its crest outruns its foot and rolls over your head near the subway.
 - **Volumetric dust/smoke clouds** (`dustfx.js`, `game.clouds`): level-local instanced puffs (one draw, own pool of 320 / 170 on Quest, sorted back to front) sampling a baked cauliflower height atlas (thickness + normal + density), lit like lumpy spheres (sky from above, low-sun wrap, sun through thin fringes, optional fire glow from below), with the game's sun-aware fog. Used for the dust wall, collapse shroud/skirt/chunk trails, the crash smoke column, burning-wreck columns and the side-street smoke columns. It never touches the shared particle big-sprite budget. Fill rate is the Quest risk: spawn rates halve on Quest.
+Review status: five independent screenshot reviews went 5.5 → 5.5 → 5.5 → 6.0 → 6.2/10 (final frames in `docs/level3/`). The reviewers rate the canyon lighting, set dressing, lobby, sniper lasers and collapse staging well. What they still mark down:
+- the shared fireball sprites (`fx.js`: puffy, with an olive fringe where the orange meets the grade);
+- the collapse fracture reading as boxes;
+- the dust wall's front edge;
+- glass shards reading as paper;
+- low-contrast enemies in the lobby;
+- the desktop gun materials.
+
+Procedural art plateaued here. The next real jumps need shared-engine explosion work or authored fracture meshes.
 Original brief:
 - **Setting:** a canyon of glass towers, abandoned traffic, and smoke columns from the earlier chaos.
 - **Beats:**

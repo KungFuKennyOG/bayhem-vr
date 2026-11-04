@@ -476,6 +476,13 @@ export class DowntownGame {
     this.dustDome.visible = F.k > 0.01;
     if (this.dustDome.visible) { this.dustDome.position.copy(this.headPos); this.dustDome.material.color.copy(fog.color).multiplyScalar(0.9); this.dustDome.material.opacity = Math.min(1, F.k * 1.15); }
     this.world.update(dt, this.headPos, this.dusk);
+    // billboard batches copy fog near/far once at creation: keep them in step with the dust fog (lamp glows,
+    // sparks and smoke must sink into the dust too)
+    if (F.k > 0.001 || this._fogDirty || this._bbFogK) {
+      this._bbFogK = F.k > 0.001;
+      this._bbMats ||= (() => { const out = []; this.scene.traverse(o => { const u = o.material?.uniforms; if (u?.fogNear && u?.fogFar && !out.includes(o.material)) out.push(o.material); }); return out; })();
+      for (const m of this._bbMats) { m.uniforms.fogNear.value = fog.near; m.uniforms.fogFar.value = fog.far; }
+    }
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);
     return dt;
