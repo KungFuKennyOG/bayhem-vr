@@ -103,7 +103,7 @@ void main(){
 const FS = /* glsl */`
 uniform sampler2D tex;
 uniform vec3 fogColor; uniform vec3 fogColorSun; uniform vec3 fogSunDir; uniform float fogNear; uniform float fogFar;
-uniform float groundY;
+uniform float groundY; uniform float uDim;
 varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
@@ -112,19 +112,20 @@ void main(){
   if (al < 0.003) discard;
   vec2 n2 = t.gb * 2.0 - 1.0; n2.x *= vFlip;
   vec2 nr = vec2(vCS.x * n2.x - vCS.y * n2.y, vCS.y * n2.x + vCS.x * n2.y);
-  vec3 N = normalize(vec3(nr, 0.55));
+  vec3 N = normalize(vec3(nr * 0.6, 0.55));                              // broad billows, not crinkle
   vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
   float sky = dot(N, upV) * 0.5 + 0.5;
   float sunL = max(dot(N, fogSunDir) * 0.6 + 0.4, 0.0);
   vec3 V = normalize(vFogViewPos);
   float toward = pow(max(dot(V, fogSunDir), 0.0), 5.0);
   vec3 base = vC.rgb;
-  float lump = 0.7 + 0.3 * t.r;                                          // thick lobes catch light, cavities stay dark
+  float lump = 0.8 + 0.2 * t.r;                                          // thick lobes catch light, cavities stay dark
   vec3 col = base * (0.32 + 0.8 * sky * sky) * lump;                      // sky from above, dark undersides
   col += base * fogColorSun * 0.32 * sunL * sunL * lump;                   // low sun on the lit side
   float edge = sqrt(t.a) * (1.0 - t.a) * 2.6;
   col += fogColorSun * (base + 0.03) * toward * edge * 0.06;               // sun shining through the thin fringe
   col += vec3(1.5, 0.58, 0.2) * vC.a * (1.0 - sky) * (1.0 - sky) * (0.4 + 0.6 * t.r);          // fire glow from below
+  col *= 1.0 - 0.4 * uDim;                                                // the wall has eaten the sun
   float f = smoothstep(fogNear, fogFar, vFogDepth); f = 1.0 - (1.0 - f) * (1.0 - f);
   float fs = max(dot(V, fogSunDir), 0.0);
   col = mix(col, mix(fogColor, fogColorSun, pow(fs, 3.0)), f);
@@ -147,7 +148,7 @@ export class DustClouds {
     this.geometry = g;
     this.material = new THREE.ShaderMaterial({
       uniforms: {
-        tex: { value: bakePuffAtlas() }, uNearK: { value: 0.22 }, groundY: { value: -50 },
+        tex: { value: bakePuffAtlas() }, uNearK: { value: 0.22 }, uDim: { value: 0 }, groundY: { value: -50 },
         fogColor: { value: fog.color }, fogNear: { value: fog.near }, fogFar: { value: fog.far },
         fogColorSun: { value: fogShared.sunColor }, fogSunDir: { value: fogShared.sunDirView },
       },

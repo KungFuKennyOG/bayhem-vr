@@ -58,6 +58,10 @@ export class DowntownGame {
     this.traffic = new Traffic(this, world.mods.carMod, world.fallbackCar);
     this.lasers = new LaserFX(this);
     this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320 });
+    // dust veil over the (unfogged) sky dome: inside the dust there is no blue sky
+    this.dustDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 12), new THREE.MeshBasicMaterial({ color: 0x6b5d4b, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
+    E.scene.add(this.dustDome);
     this.birds = new Birds(this, birdSpots(world.fastGround));
     world.buildNav();
     this.glass.blockNav(world.nav);
@@ -438,6 +442,7 @@ export class DowntownGame {
     this.birds.update(dt);
     this._updateBodies(dt);
     this._ambient(dt);
+    this.clouds.material.uniforms.uDim.value = this.sunBlock || 0;
     this.clouds.update(dt, this.headPos, 0.15);
     // golden hour sinking into dusk as the level goes on
     if (Math.abs((this._appliedDusk ?? -1) - this.dusk) > 0.002) {
@@ -468,6 +473,8 @@ export class DowntownGame {
       fog.color.copy(this._fog0.color).lerp(F.color, F.k);
       fog.near = lerp(this._fog0.near, F.near, F.k); fog.far = lerp(this._fog0.far, F.far, F.k);
     }
+    this.dustDome.visible = F.k > 0.01;
+    if (this.dustDome.visible) { this.dustDome.position.copy(this.headPos); this.dustDome.material.color.copy(fog.color).multiplyScalar(0.9); this.dustDome.material.opacity = Math.min(1, F.k * 1.15); }
     this.world.update(dt, this.headPos, this.dusk);
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);

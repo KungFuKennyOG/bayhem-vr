@@ -348,32 +348,32 @@ function facadeAtlas() {
   sw(SW.copper, [92, 150, 128], [0, 0.7, 0.25]); sw(SW.interior, [22, 20, 18], [0, 0.9, 0]); sw(SW.paint, [222, 220, 214], [0, 0.7, 0]);
   sw(SW.redPaint, [168, 40, 30], [0, 0.6, 0]); sw(SW.amber, [230, 170, 90], [0, 0.1, 0.9], [255, 170, 80]); sw(SW.cyanLed, [210, 240, 255], [0, 0.4, 0], [150, 220, 255]);
   sw(SW.char, [16, 13, 11], [0, 0.95, 0]);
-  // tile 8: a broken floor in section (8 m x 4.2 m): slab at the bottom, smoky gutted office above
+  // tile 8: a broken floor in section (8 m x 4.2 m): thick light slab edge at the bottom, dark gutted gap above
+  // (no windows, no emission: this is what the break faces show)
   {
     const y0 = 384, H = 128;
-    for (let i = 0; i < 16; i++) { const t = i / 16; R(0, y0 + i * 8, 256, 8, [30 + 26 * (1 - t), 24 + 18 * (1 - t), 20 + 12 * (1 - t)], [0, 0.95, 0]); }
-    for (let k = 0; k < 400; k++) R(r() * 256, y0 + 16 + r() * 110, 1 + r() * 4, 1 + r() * 3, `rgba(${r() < 0.5 ? '0,0,0' : '120,90,60'},${r() * 0.25})`);
-    // slab (jagged top/bottom edges), cracks
-    for (let x = 0; x < 256; x += 4) { const a = r() * 3, b = r() * 4; R(x, y0 + a, 4, 15 - a + b, [104 + r() * 20, 88 + r() * 14, 72 + r() * 10], [0, 0.92, 0]); }
-    R(0, y0 + 14, 256, 2, 'rgba(0,0,0,0.5)');
-    for (let k = 0; k < 18; k++) R(r() * 256, y0 + r() * 12, 1, 3 + r() * 5, 'rgba(20,14,10,0.7)');
-    // ceiling (underside of the floor above) + hanging ceiling grid
-    R(0, y0 + H - 10, 256, 10, [48, 40, 34], [0, 0.95, 0]);
-    for (let x = 0; x < 256; x += 3 + r() * 10) R(x, y0 + H - 10 - r() * 24, 1 + r() * 2, 4 + r() * 20, [36 + r() * 30, 30 + r() * 20, 26 + r() * 14]);
-    // columns, rebar, debris on the floor
-    for (const cx of [40 + r() * 20, 170 + r() * 30]) { R(cx, y0 + 15, 13, H - 25, [76, 64, 54], [0, 0.9, 0]); R(cx + 9, y0 + 15, 4, H - 25, 'rgba(0,0,0,0.35)'); }
-    for (let k = 0; k < 14; k++) { const x = r() * 256, len = 6 + r() * 30; for (let j = 0; j < len; j++) R(x + j * (r() - 0.3), y0 + H - 12 - j, 1.5, 1.5, [88, 48, 26]); }
-    for (let k = 0; k < 30; k++) R(r() * 256, y0 + 15, 2 + r() * 10, 2 + r() * 8, [60 + r() * 50, 50 + r() * 40, 40 + r() * 30]);
-    for (let k = 0; k < 6; k++) { const x = r() * 240, y = y0 + 17 + r() * 30; for (let j = 0; j < 4; j++) R(x + r() * 12, y + r() * 6, 2 + r() * 3, 2, null, null, [255, 120 + r() * 80, 30]); }
+    for (let i = 0; i < 16; i++) { const t = i / 16; R(0, y0 + i * 8, 256, 8, [22 + 10 * (1 - t), 18 + 8 * (1 - t), 15 + 6 * (1 - t)], [0, 0.97, 0]); }
+    for (let k = 0; k < 300; k++) R(r() * 256, y0 + 18 + r() * 106, 1 + r() * 5, 1 + r() * 3, `rgba(${r() < 0.6 ? '0,0,0' : '70,56,44'},${r() * 0.3})`);
+    // column stubs in the dark
+    for (const cx of [30 + r() * 30, 150 + r() * 40]) { R(cx, y0 + 18, 12, H - 22, [40, 35, 30], [0, 0.95, 0]); R(cx + 8, y0 + 18, 4, H - 22, 'rgba(0,0,0,0.4)'); }
+    // the slab: 0.55 m of light, chipped concrete with a dark underside line and a jagged top
+    for (let x = 0; x < 256; x += 3) { const a = r() * 2, top = 15 + r() * 4; R(x, y0 + a, 3, top - a, [138 + r() * 22, 124 + r() * 18, 106 + r() * 14], [0, 0.92, 0]); }
+    R(0, y0, 256, 2, [40, 32, 26]);
+    for (let k = 0; k < 22; k++) R(r() * 256, y0 + 2 + r() * 12, 1, 2 + r() * 6, 'rgba(30,22,16,0.75)');
+    for (let k = 0; k < 10; k++) { const x = r() * 250, w = 4 + r() * 12; R(x, y0 + 10 + r() * 6, w, 3 + r() * 4, [60, 52, 44]); }
+    // rebar stubs sticking up out of the slab
+    for (let k = 0; k < 16; k++) { const x = r() * 254, len = 4 + r() * 14, lean = (r() - 0.5) * 0.8; for (let j = 0; j < len; j++) R(x + j * lean, y0 + 17 + j, 1.4, 1.4, [70, 40, 24]); }
+    // debris lying on the slab
+    for (let k = 0; k < 24; k++) R(r() * 256, y0 + 18, 2 + r() * 9, 1 + r() * 5, [50 + r() * 40, 44 + r() * 32, 36 + r() * 24]);
   }
-  // tile 9: warm cast concrete soffit (4 m x 2 m): formwork joints, stains, exposed rebar
+  // tile 9: rough broken concrete (4 m x 2 m) for slab undersides / tops / chunks of debris: mottled, cracked,
+  // no regular joints (a grid here read as windows)
   {
     const X0 = 128, y0 = 320;
-    R(X0, y0, 128, 64, [84, 72, 62], [0, 0.94, 0]);
-    for (let k = 0; k < 500; k++) R(X0 + r() * 128, y0 + r() * 64, 1 + r() * 3, 1 + r() * 3, `rgba(${r() < 0.6 ? '0,0,0' : '160,130,100'},${r() * 0.2})`);
-    for (let x = 0; x < 128; x += 32) R(X0 + x, y0, 1, 64, 'rgba(20,14,10,0.45)');
-    for (let y = 0; y < 64; y += 16) R(X0, y0 + y, 128, 1, 'rgba(20,14,10,0.35)');
-    for (let k = 0; k < 5; k++) { const x = X0 + r() * 110, y = y0 + r() * 54; R(x, y, 10 + r() * 14, 6 + r() * 6, [38, 30, 24]); R(x + 2, y + 3, 12, 1, [110, 60, 30]); }
+    R(X0, y0, 128, 64, [92, 82, 72], [0, 0.95, 0]);
+    for (let k = 0; k < 900; k++) { const v = r(); R(X0 + r() * 126, y0 + r() * 62, 1 + r() * 6, 1 + r() * 4, v < 0.55 ? `rgba(0,0,0,${r() * 0.22})` : `rgba(150,128,104,${r() * 0.18})`); }
+    for (let k = 0; k < 7; k++) { let x = X0 + r() * 128, y = y0 + r() * 64, ang = r() * 6.28; for (let j = 0; j < 30; j++) { ang += (r() - 0.5) * 0.9; x = X0 + ((x - X0 + Math.cos(ang) * 2 + 128) % 128); y = y0 + ((y - y0 + Math.sin(ang) * 2 + 64) % 64); R(x, y, 1.3, 1.3, 'rgba(18,12,8,0.7)'); } }
+    for (let k = 0; k < 6; k++) { const x = X0 + r() * 116, y = y0 + r() * 54, w = 6 + r() * 12, h = 4 + r() * 8; R(x, y, w, h, [44, 37, 31]); R(x + 1, y + h - 2, w - 2, 1, 'rgba(255,240,220,0.12)'); }
   }
   return { map: canvasTex(CC, { aniso: 8 }), orm: canvasTex(OC, { srgb: false, aniso: 8 }), em: canvasTex(EC, { aniso: 8 }) };
 }
@@ -1350,16 +1350,34 @@ export async function buildMeridian(a, b) {
     w('-z', ZB, Math.min(0, xs(X - NT)), Math.max(0, xs(X - NT)), y0, y1, { ...O, yb: 0, ...(o.soot ? { aoB: 2.6, aoBk: 0.35, ao: 1.4, aoK: 0.5 } : {}) });
     // cut face (exposed when the halves part): floor slabs
     // (the parts inside the blast cavity go to `patch`, hidden while the hole shows)
-    const DH = HD + 0.5, CUTO = { tile: TILE.section, yb: 0, aoB: (y1 - y0) * 0.55, aoBk: 0.38, ao: 1.2, aoK: 0.7 }, inHoleY = patch && HOLE.y1 > y0 && HOLE.y0 < y1, hy0c = Math.max(y0, HOLE.y0), hy1c = Math.min(y1, HOLE.y1);
+    // cut face (exposed when the halves part): a 1 m deep recess with a dark gutted interior wall and real
+    // floor slabs every 4.2 m sticking out to the break line, so a tumbling chunk shows floors, not a box
+    // (the parts inside the blast cavity go to `patch`, hidden while the hole shows)
+    const DH = HD + 0.5, CI = 1.0, inHoleY = patch && HOLE.y1 > y0 && HOLE.y0 < y1, hy0c = Math.max(y0, HOLE.y0), hy1c = Math.min(y1, HOLE.y1);
+    const WALL = { tile: TILE.section, yb: 0, aoB: (y1 - y0) * 0.5, aoBk: 0.5, ao: 1.2, aoK: 0.7 };
+    const SLAB = { tile: TILE.soffit, c: [1.55, 1.42, 1.28], top: { tile: TILE.soffit, c: [1.2, 1.1, 0.98] } };
+    const DARK = { tile: TILE.soffit, c: [0.32, 0.27, 0.23] };
+    const cutPart = (B2, za, zb, ya, yb) => {
+      if (zb - za < 0.05 || yb - ya < 0.05) return;
+      const f = mkFace(cut, s * CI, za, zb);
+      const o = { ...WALL, u0: (f.ox * f.dx + f.oz * f.dz) / 8 };
+      lwall(B2, f, 0, f.len, ya, yb, 0, o);
+      for (let fy = Math.ceil((ya + 0.05) / 4.2) * 4.2; fy + 0.55 < yb; fy += 4.2) box(B2, 0, fy - 0.02, za, s * (CI + 0.02), fy + 0.55, zb, { ...SLAB, skip: 'zZ' + (s > 0 ? 'X' : 'x') });
+      if (ya === y0) q(B2, s > 0 ? [0, y0 + 0.01, zb] : [-CI, y0 + 0.01, zb], [CI, 0, 0], [0, 0, za - zb], DARK);   // inner floor (faces up)
+      if (yb === y1) q(B2, s > 0 ? [0, y1 - 0.01, za] : [-CI, y1 - 0.01, za], [CI, 0, 0], [0, 0, zb - za], DARK);   // inner ceiling (faces down)
+      const sideW = (z, nz) => q(B2, nz < 0 ? [s > 0 ? CI : 0, ya, z] : [s > 0 ? 0 : -CI, ya, z], [nz < 0 ? -CI : CI, 0, 0], [0, yb - ya, 0], DARK);
+      if (zb === ZF) sideW(ZF - 0.01, -1);
+      if (za === ZB) sideW(ZB + 0.01, 1);
+    };
     if (inHoleY) {
-      w(cut, 0, ZB, ZF - DH, y0, y1, CUTO);
-      if (hy0c > y0) w(cut, 0, ZF - DH, ZF, y0, hy0c, CUTO);
-      if (y1 > hy1c) w(cut, 0, ZF - DH, ZF, hy1c, y1, CUTO);
-      const f2 = mkFace(cut, 0, ZF - DH, ZF); lwall(patch, f2, 0, f2.len, hy0c, hy1c, 0, { tile: TILE.section, yb: 0, u0: (ZF - DH) / 8 });
-    } else w(cut, 0, ZB, ZF, y0, y1, CUTO);
+      cutPart(Bm, ZB, ZF - DH, y0, y1);
+      if (hy0c > y0) cutPart(Bm, ZF - DH, ZF, y0, hy0c);
+      if (y1 > hy1c) cutPart(Bm, ZF - DH, ZF, hy1c, y1);
+      cutPart(patch, ZF - DH, ZF, hy0c, hy1c);
+    } else cutPart(Bm, ZB, ZF, y0, y1);
     // caps (seen when chunks tumble)
     const xa = Math.min(0, xs(X)), xb = Math.max(0, xs(X));
-    const UNDER = { tile: TILE.soffit, c: [0.55, 0.47, 0.4] }, TOPC = { tile: TILE.soffit, c: [1.05, 0.95, 0.85] };
+    const UNDER = { tile: TILE.soffit, c: [0.62, 0.54, 0.46] }, TOPC = { tile: TILE.soffit, c: [1.0, 0.9, 0.8] };
     const cap = (y, opt, down) => {
       const Q = (B2, x0c, z0c, wx, dz) => (down ? q(B2, [x0c, y, z0c], [wx, 0, 0], [0, 0, dz], opt) : q(B2, [x0c, y, z0c + dz], [wx, 0, 0], [0, 0, -dz], opt));
       if (patch && y > HOLE.y0 && y < HOLE.y1) {
@@ -1391,7 +1409,7 @@ export async function buildMeridian(a, b) {
   // break damage: jagged slab noses + rebar on the cut face, hanging concrete under the chunk,
   // missing glass along the break line (warm-dark concrete, so tumbling chunks never read as clean blocks)
   const brk = makeRng(4040);
-  const CONC = [1.25, 1.12, 1.0], CONC_D = [0.8, 0.72, 0.64], REBAR = [0.32, 0.16, 0.08];
+  const CONC = [1.4, 1.28, 1.14], CONC_D = [0.85, 0.76, 0.66], REBAR = [0.32, 0.16, 0.08];
   // Dm (optional): damage that only shows once the chunk is falling (front-face bites / dangling panels would
   // give the seams away on the intact tower). Sizes stay within ~10 % of the chunk's half extents.
   function broken(Bm, s, y0, y1, { under = true, cut = true, top = false, Dm = null } = {}) {
@@ -1404,7 +1422,7 @@ export async function buildMeridian(a, b) {
         const len = 0.6 + r() * 2.6, reach = 0.15 + r() * (maxOut - 0.15), sag = r() < 0.3 ? r() * 0.6 : 0;
         const z1 = Math.min(ZF - 0.3, z + len);
         if (!inHoleBox(0, -reach, fy - 1, fy + 0.2, z, z1) && r() < 0.85) {
-          box(Bm, xs(0.02), fy - 0.45 - sag, z, xs(-reach), fy + 0.05 - sag * 0.4, z1, { tile: TILE.soffit, c: conc() });
+          box(Bm, xs(0.02), fy - 0.02 - sag, z, xs(-reach), fy + 0.55 - sag * 0.4, z1, { tile: TILE.soffit, c: conc() });
           if (r() < 0.4) box(Bm, xs(-reach + 0.02), fy - 0.3 - sag - r() * 0.4, z + len * 0.3, xs(-reach - 0.25), fy - sag * 0.4, z + len * (0.5 + r() * 0.4), { tile: TILE.soffit, c: concDk() });
           for (let k = 0; k < (r() < 0.5 ? 2 : 0); k++) beam(Bm, [xs(-reach + 0.1), fy - 0.2, z + len * r()], [xs(-reach - 0.3 - r() * 0.5), fy - 0.25 - r() * 0.9, z + len * r()], 0.05, 0.05, { sw: SW.char, c: REBAR });
         }
