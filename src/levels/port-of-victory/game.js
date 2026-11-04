@@ -252,7 +252,8 @@ export class PortGame {
       const t = tg.ray(origin, dir);
       if (t > 0 && t < best.t) best = { t, kind: 'target', target: tg };
     }
-    const hit = this.col.raycast(origin, dir, best.t, (b) => b.data.noBullet);
+    const manOn = this.setpieces?.man?.state === 'armed';
+    const hit = this.col.raycast(origin, dir, best.t, (b) => b.data.noBullet || (manOn && b.data.isManifold));
     if (hit) {
       const d = hit.box.data;
       best = { t: hit.t, kind: d.kind === 'drum' ? 'drum' : d.kind === 'hero' ? 'hero' : 'world', box: hit.box, normal: hit.normal, mat: d.mat };
