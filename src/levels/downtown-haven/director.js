@@ -121,8 +121,8 @@ export class Director {
           }
           // the dust wall catches up: one last look over the shoulder in slow-mo, then dive
           const D = setp.dust;
-          if (D && !this.dustLook && pz() - D.z < 15 && pz() < SUBWAY.zTop - 4) { this.dustLook = true; g.slowmo(2.2, 0.32, true); g.cinematicLook = V(px(), 9, D.z); g.cinematicW = 3.2; later(trailer ? 1.8 : 2.2, () => { g.cinematicLook = null; }); }
-          if (this.dustLook && g.cinematicLook && D) g.cinematicLook.set(px(), 9, D.z - 4);
+          if (D && !this.dustLook && pz() - D.z < 15 && pz() < SUBWAY.zTop - 4) { this.dustLook = true; g.slowmo(2.2, 0.32, true); g.cinematicLook = V(px(), 6, D.z - 12); g.cinematicW = 3.2; later(trailer ? 1.8 : 2.2, () => { g.cinematicLook = null; }); }
+          if (this.dustLook && g.cinematicLook && D) g.cinematicLook.set(px(), 6, D.z - 12);
           // the look back down the avenue at the leaning tower, once you're out of the lobby
           if (this.lookBack === 1 && px() < LOBBY.x0 - 1) { this.lookBack = 2; g.cinematicLook = V(0, 52, -165); g.cinematicW = 2.4; later(trailer ? 2.6 : 3.2, () => { g.cinematicLook = null; }); }
         }, until: () => g.rig.position.y < -1.4 && pz() > SUBWAY.zTop + 2 },

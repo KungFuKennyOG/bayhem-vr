@@ -702,13 +702,15 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
   const isSUV = kind === 'suv', isVan = kind === 'van';
   const inDoor = (z, s) => opts.doorOpen && s < 0 && z > S.doors[0][0] && z < S.doors[0][1];
   // lower body
-  const st = stationList(S.zF, S.zR, 0.32, [...archStations(S, 7), ...endStations(S.zF, S.zR, S.rr), c.zA, c.zC, ...S.doors.flat(), c.zA + 0.05, c.zC - 0.05]);
+  const st = stationList(S.zF, S.zR, 0.32, [...archStations(S, 7), ...endStations(S.zF, S.zR, S.rr), c.zA, c.zC, ...S.doors.flat(), c.zA + 0.05, c.zC - 0.05, S.zF + 0.16, c.zA - 0.02, c.zC + 0.03, S.zR - 0.14]);
   const ymid = (z) => (Math.min(S.floorY, interp(S.sbKeys, z)) + interp(S.topKeys, z)) / 2;
   loft(st, (z) => carSection(S, z), {
     round: { zF: S.zF, zR: S.zR, rr: S.rr, ymid },
     caps: true, uvf,
     classify: (tag, z, s, y) => {
       if (tag === 't' && z > c.zA && z < c.zC) return null;              // open cabin
+      if (tag === 't' && opts.hoodUp && z > S.zF + 0.16 && z < c.zA - 0.02) return 'hood';
+      if (tag === 't' && opts.trunkOpen && z > c.zC + 0.03 && z < S.zR - 0.14) return 'trunk';
       if ((tag === 's') && inDoor(z, s) && y > S.doorY) return 'door';
       return 'body';
     },
@@ -737,6 +739,7 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
       const door = inDoor(z, s) && (tag === 'frame' || tag === 'win' || tag === 'drip');
       let g = 'body';
       if (tag === 'win' && winGlass(z) === 'glass') g = 'glass';
+      if (g === 'glass' && tag === 'win' && opts.shatter && s === opts.shatter.s && z > opts.shatter.z0 && z < opts.shatter.z1) return null;   // shattered pane
       if (tag === 'roof' && z < c.zW1) g = 'glassW';
       else if ((tag === 'roofE' || tag === 'roof') && (z < c.zW1 || z > c.zB0)) g = (tag === 'roofE' && z < c.zW1) ? 'body' : 'glass';
       if (door) return g === 'glass' ? 'doorGlass' : 'door';
@@ -752,6 +755,74 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
   }, out);
 }
 
+// ---- abandoned details: hood up (engine bay), trunk open (tub + junk), shattered side window (+ glass on the ground)
+function flipCopy(src, dst, col, off) {
+  const n0 = src.p.length;
+  for (let i = 0; i < n0; i += 9) {
+    const P = [0, 1, 2].map((k) => [0, 1, 2].map((j) => src.p[i + k * 3 + j] - src.n[i + k * 3 + j] * off));
+    const N = [0, 1, 2].map((k) => [0, 1, 2].map((j) => -src.n[i + k * 3 + j]));
+    dst.tri(P[0], P[2], P[1], N[0], N[2], N[1], WHITE_UV, WHITE_UV, WHITE_UV, col, RM.under);
+  }
+}
+const _rot = (y, z, a) => new THREE.Matrix4().makeTranslation(0, y, z).multiply(new THREE.Matrix4().makeRotationX(a)).multiply(new THREE.Matrix4().makeTranslation(0, -y, -z));
+function rod(bk, a, b, r, col, rm) {
+  const L = a.distanceTo(b), m = new THREE.Matrix4().lookAt(a, b, new THREE.Vector3(0, 1, 0.01));
+  m.setPosition(a.clone().add(b).multiplyScalar(0.5));
+  pushGeo(bk, CYL(r, r, L, 5).rotateX(Math.PI / 2), m, col, rm);
+}
+function openHood(out, S) {
+  const c = S.cab, zh = c.zA - 0.02, yh = interp(S.topKeys, zh), z0 = S.zF + 0.16, iw = S.hw - 0.11;
+  flipCopy(out.hood, out.hood, [0.035, 0.035, 0.035], 0.012);                 // underside (insulation pad)
+  const M = _rot(yh, zh, 1.05);
+  THIN.append(out.hood, M);
+  // engine bay: floor, inner fenders, firewall, engine, radiator, battery, airbox
+  const yt = interp(S.topKeys, (z0 + zh) / 2), yf = yt - 0.42, zc = (z0 + zh) / 2, L = zh - z0;
+  pushGeo(out.body, BOX(iw * 2, 0.03, L), M4(0, yf, zc), [0.05, 0.05, 0.05], RM.under);
+  for (const s of [-1, 1]) pushGeo(out.body, BOX(0.03, yt - yf, L), M4(s * iw, (yt + yf) / 2, zc), [0.08, 0.08, 0.08], RM.under);
+  pushGeo(out.body, BOX(iw * 2, yt - yf, 0.03), M4(0, (yt + yf) / 2, zh), [0.06, 0.06, 0.06], RM.under);
+  pushGeo(out.body, BOX(iw * 2, yt - yf - 0.05, 0.05), M4(0, (yt + yf) / 2, z0 + 0.04), [0.04, 0.04, 0.045], RM.metal);   // radiator
+  pushGeo(out.body, RBOX(0.62, 0.3, 0.55, 0.04), M4(0.02, yf + 0.18, zc + 0.08), [0.2, 0.2, 0.21], RM.metal);             // block
+  pushGeo(out.body, RBOX(0.56, 0.08, 0.5, 0.03), M4(0.02, yf + 0.37, zc + 0.08), [0.45, 0.06, 0.04], RM.satin);           // valve cover
+  pushGeo(out.body, BOX(0.24, 0.18, 0.16), M4(-iw + 0.18, yf + 0.12, zh - 0.18), [0.03, 0.03, 0.03], RM.plastic);          // battery
+  pushGeo(out.body, CYL(0.11, 0.11, 0.2, 8), M4(iw - 0.2, yf + 0.25, z0 + 0.3, 0, 0, Math.PI / 2), [0.05, 0.05, 0.05], RM.plastic);  // airbox
+  pushGeo(out.body, CYL(0.07, 0.07, 0.08, 8), M4(-iw + 0.22, yf + 0.3, zh - 0.45), [0.7, 0.62, 0.15], RM.plastic);         // reservoir
+  rod(THIN, new THREE.Vector3(-iw + 0.04, yt - 0.02, z0 + 0.5), new THREE.Vector3(-iw + 0.06, yt, z0 + 0.5).applyMatrix4(M), 0.008, [0.6, 0.6, 0.6], RM.chrome);
+}
+function openTrunk(out, S, rng) {
+  const c = S.cab, zh = c.zC + 0.03, yh = interp(S.topKeys, zh), z1 = S.zR - 0.14, iw = S.hw - 0.12;
+  flipCopy(out.trunk, out.trunk, [0.07, 0.07, 0.07], 0.01);
+  THIN.append(out.trunk, _rot(yh, zh, -1.15));
+  const yt = interp(S.topKeys, (zh + z1) / 2), yf = yt - 0.45, zc = (zh + z1) / 2, L = z1 - zh;
+  pushGeo(out.body, BOX(iw * 2, 0.03, L), M4(0, yf, zc), [0.06, 0.06, 0.06], RM.cloth);
+  for (const s of [-1, 1]) pushGeo(out.body, BOX(0.03, yt - yf, L), M4(s * iw, (yt + yf) / 2, zc), [0.07, 0.07, 0.07], RM.cloth);
+  for (const z of [zh, z1]) pushGeo(out.body, BOX(iw * 2, yt - yf, 0.03), M4(0, (yt + yf) / 2, z), [0.07, 0.07, 0.07], RM.cloth);
+  // dumped junk: a duffel, a box, a spare
+  pushGeo(out.body, RBOX(0.6, 0.25, 0.3, 0.1, 2), M4(-0.3, yf + 0.14, zc - 0.05, 0, 0.3, 0), [0.12, 0.16, 0.1], RM.cloth);
+  pushGeo(out.body, BOX(0.4, 0.28, 0.32), M4(0.45, yf + 0.15, zc + 0.08, 0, -0.2, 0), [0.45, 0.33, 0.2], RM.cloth);
+  if (rng() < 0.5) pushGeo(out.body, new THREE.TorusGeometry(0.22, 0.08, 5, 12), M4(0.1, yf + 0.06, zc, Math.PI / 2, 0, 0), C.rubber, RM.rubber);
+}
+function shatterWindow(out, S, sh, rng) {
+  const { s, z0, z1 } = sh;
+  for (let z = z0 + 0.03; z < z1 - 0.06; z += 0.05 + rng() * 0.05) {   // jagged remnants along the sill and the top
+    const za = z, zb = Math.min(z1 - 0.02, z + 0.04 + rng() * 0.06), zm = (za + zb) / 2 + (rng() - 0.5) * 0.03;
+    const A = cabSection(S, za), B = cabSection(S, zb), T = cabSection(S, zm);
+    const h = Math.pow(rng(), 2) * 0.35 + 0.02;
+    const P = (q, z) => [s * q[0], q[1], z];
+    const bot = (sec, z) => P(sec[1], z), top = (sec, z) => P(sec[2], z);
+    const ap = (sec, z, t) => { const a = bot(sec, z), b = top(sec, z); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, z]; };
+    const n = [s * 0.95, 0.3, 0];
+    out.glass.tri(bot(A, za), bot(B, zb), ap(T, zm, h), n, n, n, WHITE_UV, WHITE_UV, WHITE_UV, C.white, RM.lens);
+    if (rng() < 0.4) { const h2 = 0.05 + rng() * 0.15; out.glass.tri(top(A, za), top(B, zb), ap(T, zm, 1 - h2), n, n, n, WHITE_UV, WHITE_UV, WHITE_UV, C.white, RM.lens); }
+  }
+  // safety-glass crumbs on the ground (glitter) and on the seat
+  const up = [0, 1, 0];
+  for (let k = 0; k < 70; k++) {
+    const x = s * (S.hw + 0.02 + Math.pow(rng(), 1.5) * 0.9), z = z0 - 0.2 + rng() * (z1 - z0 + 0.4), r = 0.012 + rng() * 0.025, a = rng() * 6;
+    const nn = [(rng() - 0.5) * 0.5, 1, (rng() - 0.5) * 0.5];
+    out.body.tri([x + Math.cos(a) * r, 0.006, z + Math.sin(a) * r], [x + Math.cos(a + 2.2) * r, 0.006, z + Math.sin(a + 2.2) * r], [x + Math.cos(a + 4.1) * r, 0.006, z + Math.sin(a + 4.1) * r], nn, nn, nn, WHITE_UV, WHITE_UV, WHITE_UV, [0.55, 0.62, 0.62], [0.05, 1, 0]);
+  }
+  void up;
+}
 // windshield: glass pushed 18 mm into the opening + a black rubber gasket around it (A-pillars, cowl, header)
 function windshieldTrim(out, S) {
   const g = out.glassW, c = S.cab;
@@ -1140,6 +1211,7 @@ export function buildCar(type, opts = {}) {
   const out = { body: new Bucket(), glass: new Bucket(), glassW: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
   THIN = new Bucket();
   const lights = [], bd = {};
+  let abandon = '';
   const mark = (k) => { bd[k] = out.body.tris - (bd._t || 0); bd._t = out.body.tris; };
   const wreck = type === 'wreck';
   const kind = wreck ? 'sedan' : type;
@@ -1151,7 +1223,22 @@ export function buildCar(type, opts = {}) {
   else {
     S = SPECS[kind === 'taxi' || kind === 'police' ? 'sedan' : kind];
     const doorOpen = !!opts.doorOpen && !wreck;
-    buildCarBody(kind, S, wreck ? [0.2, 0.2, 0.2] : paint, { doorOpen }, out, rng); mark('shell');
+    // abandoned-traffic variety (deterministic per seed; opts can force it)
+    const ab = makeRng(seed * 7919 + type.length * 17);
+    const pickH = ab(), pickT = ab(), pickS = ab(), pickSide = ab(), pickWin = ab();
+    const hoodUp = !wreck && (opts.hoodUp ?? (['sedan', 'taxi', 'police', 'suv'].includes(kind) && pickH < 0.3));
+    const trunkOpen = !wreck && !hoodUp && (opts.trunkOpen ?? (['sedan', 'taxi', 'police'].includes(kind) && pickT < 0.3));
+    let shatter = null;
+    if (!wreck && (opts.shattered ?? pickS < 0.5)) {
+      const sd = pickSide < 0.5 ? -1 : 1, di = S.doors.length > 1 && pickWin < 0.5 ? 1 : 0;
+      if (!(doorOpen && sd < 0 && di === 0)) shatter = { s: sd, z0: S.doors[di][0], z1: S.doors[di][1] };
+    }
+    out.hood = new Bucket(); out.trunk = new Bucket();
+    buildCarBody(kind, S, wreck ? [0.2, 0.2, 0.2] : paint, { doorOpen, hoodUp, trunkOpen, shatter }, out, rng); mark('shell');
+    if (hoodUp) openHood(out, S);
+    if (trunkOpen) openTrunk(out, S, rng);
+    if (shatter) shatterWindow(out, S, shatter, rng);
+    abandon = [hoodUp && 'hood', trunkOpen && 'trunk', shatter && 'glass'].filter(Boolean).join(' ');
     if (!wreck) windshieldTrim(out, S);
     interior(out.body, S, kind, rng, { rows: kind === 'van' ? 1 : 2 }); mark('interior');
     if (!wreck) dressCar(out.body, S, kind, paint, { doorOpen }, rng, lights);
@@ -1243,7 +1330,7 @@ export function buildCar(type, opts = {}) {
   };
   let tris = out.body.tris + (glass ? out.glass.tris : 0) + 2;
   mark('wheels'); delete bd._t;
-  const info = { type, tris, draws: 2 + (glass ? 1 : 0), breakdown: bd };
+  const info = { type, tris, draws: 2 + (glass ? 1 : 0), breakdown: bd, abandon };
   const res = {
     root, half, center, anchors, info, mesh: body, glass, blob, burntMaterials: [M.charred], burnt: wreck,
     setBurnt() {

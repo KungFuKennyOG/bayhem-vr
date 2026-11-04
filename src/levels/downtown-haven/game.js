@@ -11,6 +11,7 @@ import { LaserFX } from './snipers.js';
 import { Traffic } from './traffic.js';
 import { Birds, birdSpots } from './birds.js';
 import { SMOKE_COLUMNS } from './layout.js';
+import { DustClouds } from './dustfx.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -56,6 +57,7 @@ export class DowntownGame {
     this.glass = new GlassSystem(this, world.panes);
     this.traffic = new Traffic(this, world.mods.carMod, world.fallbackCar);
     this.lasers = new LaserFX(this);
+    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320 });
     this.birds = new Birds(this, birdSpots(world.fastGround));
     world.buildNav();
     this.glass.blockNav(world.nav);
@@ -427,6 +429,7 @@ export class DowntownGame {
     this.birds.update(dt);
     this._updateBodies(dt);
     this._ambient(dt);
+    this.clouds.update(dt, this.headPos, 0.15);
     // golden hour sinking into dusk as the level goes on
     if (Math.abs((this._appliedDusk ?? -1) - this.dusk) > 0.002) {
       this._appliedDusk = this.dusk;
@@ -477,9 +480,12 @@ export class DowntownGame {
     // big sprites are budgeted (fill rate is the Quest bottleneck): few, huge, slow puffs; they stop for the finale
     this._colT = (this._colT || 0) - dt;
     if (this._colT <= 0 && !this.finale) {
-      const cols = this.fx.main.bigBudget >= 140 ? SMOKE_COLUMNS : SMOKE_COLUMNS.slice(0, 3);
-      this._colT = 1.5;
-      for (const [x, z, s] of cols) this.fx.main.spawn({ x: x + range(-5, 5), y: 12, z: z + range(-5, 5), vx: range(-0.6, 0.6) + 2.2, vy: range(5, 7) * s, vz: range(-0.6, 0.6) + 1.2, drag: 0.1, frameKind: 2, frame: rand() * 40, frames: 14, s0: 20 * s, s1: range(60, 85) * s, ease: 0.6, life: range(15, 18), rot: rand() * 6, vrot: range(-0.04, 0.04), r: 0.14, g: 0.115, b: 0.1, a: 0.9, fadeIn: 0.06, fadeOut: 0.5 });
+      const cols = this.E.isQuest ? SMOKE_COLUMNS.slice(0, 3) : SMOKE_COLUMNS;
+      this._colT = 1.6;
+      for (const [x, z, s] of cols) {
+        // black oil smoke climbing out of the side streets, lit orange from the fire under it while it's young
+        this.clouds.spawn({ x: x + range(-4, 4), y: 10, z: z + range(-4, 4), vx: range(-0.5, 0.5) + 1.6, vy: range(4.5, 6.5) * s, vz: range(-0.5, 0.5) + 0.9, drag: 0.08, s0: 14 * s, s1: range(46, 62) * s, life: range(16, 19), a: 0.94, fadeIn: 0.05, fadeOut: 0.45, vrot: range(-0.05, 0.05), r: 0.075, g: 0.066, b: 0.06, r1: 0.16, g1: 0.145, b1: 0.13, glow: 0.55, glowFade: 3 });
+      }
     }
     const head = this.headPos;
     for (const m of this.world.manholes) {

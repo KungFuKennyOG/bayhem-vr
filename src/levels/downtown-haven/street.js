@@ -27,6 +27,7 @@ const A = {
   poster: [768, 0, 256, 384], map: [0, 320, 384, 256], meter: [512, 192, 64, 64], bin: [576, 192, 64, 128],
   grate: [384, 320, 256, 256], police: [0, 576, 512, 64], station: [0, 640, 512, 64], plaque: [512, 576, 256, 128], ad2: [768, 384, 256, 384],
   tactile: [640, 192, 128, 128],
+  papers: [[0, 704, 128, 128], [128, 704, 128, 128], [256, 704, 128, 128], [384, 704, 128, 128]], roadClosed: [0, 832, 256, 96], detour: [256, 832, 256, 96],
 };
 const WHITE = [16 / PA, 1 - 16 / PA];
 const rUV = (r, S = PA) => [r[0] / S, 1 - (r[1] + r[3]) / S, (r[0] + r[2]) / S, 1 - r[1] / S];
@@ -143,7 +144,7 @@ function asphaltTex() {
   const { c, g, h } = genSurface(S, 1, (x, y) => {
     const u = x / S, v = y / S;
     const m = fbm(n1, u, v, 4, 4), f = n2(u * 256, v * 256), f2 = n3(u * 64, v * 64), q = r();
-    let b = 0.28 + (m - 0.5) * 0.14 + (f - 0.5) * 0.05 + (f2 - 0.5) * 0.04 + (q - 0.5) * 0.045;
+    let b = 0.31 + (m - 0.5) * 0.17 + (f - 0.5) * 0.05 + (f2 - 0.5) * 0.04 + (q - 0.5) * 0.045;
     let hh = f * 0.55 + q * 0.3 + f2 * 0.15;
     if (q > 0.988) { b += 0.08; hh += 0.25; } else if (q < 0.02) { b -= 0.05; hh -= 0.2; }
     const bit = Math.max(0, fbm(n3, u + 0.31, v + 0.77, 3, 3) - 0.6) * 2.2; b -= bit * 0.12; hh -= bit * 0.3;   // bitumen-rich, smooth
@@ -212,18 +213,25 @@ function tileTex() {
   return { map, normal };
 }
 function leafTex() {
-  // leaf clusters: dark core, broken lobed silhouette, no pale fringe (dark background bleed + hard alpha test)
+  // a loose spray of 6-8 leaf sub-clusters with gaps between them (no round blob), olive / desaturated,
+  // dark background bleed + hard alpha test → no pale fringe
   const S = 512, c = makeCanvas(S, S), g = c.getContext('2d'), r = makeRng(911);
-  g.fillStyle = 'rgb(20,30,12)'; g.fillRect(0, 0, S, S);
+  g.fillStyle = 'rgb(24,27,15)'; g.fillRect(0, 0, S, S);
   const a = makeCanvas(S, S), ag = a.getContext('2d');
   ag.fillStyle = '#000'; ag.fillRect(0, 0, S, S);
-  for (let k = 0; k < 1700; k++) {
-    const ang = r() * Math.PI * 2, d = Math.pow(r(), 0.75) * S * 0.46, x = S / 2 + Math.cos(ang) * d, y = S / 2 + Math.sin(ang) * d * 0.9;
-    const l = 7 + r() * 9, edge = d / (S * 0.46), rot = r() * 7;
-    const lit = (1 - edge * 0.55) * (0.6 + r() * 0.5) * (y < S * 0.45 ? 1.1 : 0.8);
-    g.fillStyle = `rgb(${(46 + r() * 30) * lit | 0},${(70 + r() * 36) * lit | 0},${(24 + r() * 16) * lit | 0})`;
-    g.save(); g.translate(x, y); g.rotate(rot); g.beginPath(); g.ellipse(0, 0, l, l * 0.42, 0, 0, 7); g.fill(); g.restore();
-    ag.fillStyle = '#fff'; ag.save(); ag.translate(x, y); ag.rotate(rot); ag.beginPath(); ag.ellipse(0, 0, l, l * 0.42, 0, 0, 7); ag.fill(); ag.restore();
+  const subs = []; for (let k = 0; k < 8; k++) { const an = r() * 7, d = (0.12 + r() * 0.24) * S; subs.push([S / 2 + Math.cos(an) * d, S / 2 + Math.sin(an) * d, (0.1 + r() * 0.07) * S]); }
+  subs.push([S / 2, S / 2, 0.14 * S]);
+  for (const [sx, sy, sr] of subs) {
+    // twig
+    g.strokeStyle = 'rgb(40,32,24)'; ag.strokeStyle = '#fff'; g.lineWidth = ag.lineWidth = 3;
+    for (const cx of [g, ag]) { cx.beginPath(); cx.moveTo(S / 2, S / 2); cx.lineTo(sx, sy); cx.stroke(); }
+    for (let k = 0; k < 150; k++) {
+      const an = r() * 7, d = Math.pow(r(), 0.6) * sr, x = sx + Math.cos(an) * d, y = sy + Math.sin(an) * d * 0.85;
+      const l = 6 + r() * 8, rot = r() * 7, lit = (1 - d / sr * 0.45) * (0.65 + r() * 0.45) * (y < sy ? 1.08 : 0.82);
+      g.fillStyle = `rgb(${(58 + r() * 22) * lit | 0},${(66 + r() * 22) * lit | 0},${(32 + r() * 12) * lit | 0})`;
+      g.save(); g.translate(x, y); g.rotate(rot); g.beginPath(); g.ellipse(0, 0, l, l * 0.45, 0, 0, 7); g.fill(); g.restore();
+      ag.fillStyle = '#fff'; ag.save(); ag.translate(x, y); ag.rotate(rot); ag.beginPath(); ag.ellipse(0, 0, l, l * 0.45, 0, 0, 7); ag.fill(); ag.restore();
+    }
   }
   const id = g.getImageData(0, 0, S, S), ad = ag.getImageData(0, 0, S, S).data;
   for (let i = 0; i < id.data.length; i += 4) id.data[i + 3] = ad[i];
@@ -235,7 +243,7 @@ const MK = {
   line: [0, 0, 512, 64], line2: [0, 64, 512, 64], skid: [512, 0, 512, 128], patch: [0, 128, 256, 256], cracks: [256, 128, 256, 256],
   manhole: [512, 128, 256, 256], oil: [[768, 128, 128, 128], [896, 128, 128, 128], [768, 256, 128, 128], [896, 256, 128, 128]],
   drain: [0, 384, 256, 128], pothole: [256, 384, 256, 256], puddle: [512, 704, 512, 320], tar: [512, 384, 512, 64], pool: [512, 448, 256, 256], scorch: [768, 448, 256, 256],
-  arrow: [0, 512, 128, 256], xing: [128, 640, 384, 128],
+  arrow: [0, 512, 128, 256], xing: [128, 640, 384, 128], patchL: [0, 768, 256, 256], tyre: [256, 768, 256, 256],
 };
 function markingsTex() {
   const S = 1024, c = makeCanvas(S, S), g = c.getContext('2d'), r = makeRng(1001), n = makeNoise(1002, 32);
@@ -253,7 +261,7 @@ function markingsTex() {
   // skid marks: two rubber streaks fading at both ends
   { const [x, y, w, hh] = MK.skid; for (const yy of [y + 30, y + 92]) for (let k = 0; k < 40; k++) { const t = k / 40; g.strokeStyle = `rgba(8,8,8,${0.05 + 0.07 * Math.sin(t * Math.PI)})`; g.lineWidth = 14 + r() * 8; g.beginPath(); g.moveTo(x + 10 + r() * 20, yy + (r() - 0.5) * 6); g.lineTo(x + w - 10 - r() * 40, yy + (r() - 0.5) * 6); g.stroke(); } }
   // patch: fresher darker asphalt with sealed seams
-  { const [x, y, w, hh] = MK.patch; g.fillStyle = 'rgba(14,14,16,0.6)'; g.fillRect(x + 10, y + 10, w - 20, hh - 20); for (let k = 0; k < 700; k++) { g.fillStyle = `rgba(${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},0.25)`; g.fillRect(x + 10 + r() * (w - 20), y + 10 + r() * (hh - 20), 2, 2); } g.strokeStyle = 'rgba(4,4,6,0.9)'; g.lineWidth = 5; g.strokeRect(x + 10, y + 10, w - 20, hh - 20); }
+  { const [x, y, w, hh] = MK.patch; g.fillStyle = 'rgba(14,14,16,0.3)'; g.fillRect(x + 10, y + 10, w - 20, hh - 20); for (let k = 0; k < 700; k++) { g.fillStyle = `rgba(${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},0.25)`; g.fillRect(x + 10 + r() * (w - 20), y + 10 + r() * (hh - 20), 2, 2); } g.strokeStyle = 'rgba(4,4,6,0.45)'; g.lineWidth = 3; g.strokeRect(x + 10, y + 10, w - 20, hh - 20); }
   // crack network
   { const [x, y, w, hh] = MK.cracks; g.save(); g.beginPath(); g.rect(x, y, w, hh); g.clip(); for (let k = 0; k < 2; k++) sealedCrack(g, null, r, x + w / 2 + (r() - 0.5) * 50, y + hh / 2 + (r() - 0.5) * 50, 18 + r() * 12 | 0, 0.8); hairline(g, r, x + w / 2, y + hh / 2, 14, 0.2); g.restore(); }
   // manhole cover
@@ -286,6 +294,18 @@ function markingsTex() {
   { const [x, y, w] = MK.pool, cx = x + w / 2, cy = y + w / 2; const gr = g.createRadialGradient(cx, cy, 0, cx, cy, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.5)'); gr.addColorStop(0.75, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, w); }
   // scorch (earlier chaos)
   { const [x, y, w] = MK.scorch, cx = x + w / 2, cy = y + w / 2; for (let k = 0; k < 40; k++) { const a = r() * 7, d = r() * 70, rr = 20 + r() * 50; const gr = g.createRadialGradient(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0, cx + Math.cos(a) * d, cy + Math.sin(a) * d, rr); gr.addColorStop(0, 'rgba(4,3,2,0.35)'); gr.addColorStop(1, 'rgba(4,3,2,0)'); g.fillStyle = gr; g.fillRect(x, y, w, w); } for (let k = 0; k < 30; k++) { const a = r() * 7; g.strokeStyle = 'rgba(5,4,3,0.4)'; g.lineWidth = 2 + r() * 4; g.beginPath(); g.moveTo(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40); g.lineTo(cx + Math.cos(a) * 125, cy + Math.sin(a) * 125); g.stroke(); } }
+  // light patch repair: older, sun-bleached grey asphalt with a darker sealed edge
+  { const [x, y, w, hh] = MK.patchL, nn = makeNoise(1004, 16), img = g.createImageData(w, hh);
+    for (let j = 0; j < hh; j++) for (let i = 0; i < w; i++) {
+      const e = Math.min(i, j, w - 1 - i, hh - 1 - j), n = fbm(nn, i / w, j / hh, 4, 4), q = r();
+      const k = (j * w + i) * 4, edge = e < 6;
+      const v = edge ? 30 : 150 + (n - 0.5) * 60 + (q - 0.5) * 50;
+      img.data[k] = v * 1.04; img.data[k + 1] = v; img.data[k + 2] = v * 0.9; img.data[k + 3] = (edge ? 0.6 : 0.32 + (n - 0.5) * 0.2) * 255 * (e < 3 ? e / 3 : 1);
+    }
+    g.putImageData(img, x, y); }
+  // tyre tracks: two soft rubber bands with tread print (braking / burnout traces)
+  { const [x, y, w, hh] = MK.tyre;
+    for (const cx of [x + 64, x + 192]) for (let j = 0; j < hh; j += 3) { const a = 0.18 * Math.sin(Math.PI * j / hh); g.fillStyle = `rgba(6,6,6,${a})`; g.fillRect(cx - 26, y + j, 52, 3); if ((j / 3) % 3 === 0) { g.fillStyle = `rgba(6,6,6,${a * 0.8})`; g.fillRect(cx - 22, y + j, 44, 1); } } }
   // puddle mask (white, soft irregular edge; alpha = wetness)
   { const [x, y, w, hh] = MK.puddle;
     const img = g.createImageData(w, hh), nn = makeNoise(1003, 16);
@@ -348,6 +368,14 @@ function propsAtlas() {
     g.lineWidth = 14; g.strokeRect(x + 6, y + 6, w - 12, h - 12); g.fillStyle = '#4a2f1a'; g.beginPath(); g.arc(cx, cy, 24, 0, 7); g.fill(); }
   { const [x, y, w, h] = A.police; g.fillStyle = '#f2f2f2'; g.fillRect(x, y, w, h); g.fillStyle = '#163a8a'; for (let k = -2; k < 18; k++) { g.beginPath(); g.moveTo(x + k * 32, y + h); g.lineTo(x + k * 32 + 16, y + h); g.lineTo(x + k * 32 + 48, y); g.lineTo(x + k * 32 + 32, y); g.fill(); } g.fillStyle = 'rgba(242,242,242,0.92)'; g.fillRect(x + 110, y + 10, 292, 44); txt('POLICE LINE  ·  HCPD', x + 256, y + 33, 30, '#111', FONT, 'center', 280); }
   { const [x, y, w, h] = A.station; g.fillStyle = '#1b5e3a'; g.fillRect(x, y, w, h); for (let i = 0; i < w; i += 8) for (let j = 0; j < h; j += 8) { g.fillStyle = `rgba(${r() < 0.5 ? 0 : 255},${r() < 0.5 ? 0 : 255},${r() < 0.5 ? 0 : 255},0.06)`; g.fillRect(x + i, y + j, 7, 7); } g.fillStyle = '#c9a646'; g.fillRect(x, y + 4, w, 4); g.fillRect(x, y + h - 8, w, 4); txt('GRAND  STREET', x + w / 2, y + h / 2 + 2, 36, '#f4f1e6', FONT, 'center', w - 30); }
+  // litter: newspaper page, crumpled flyer, cardboard, fast-food bag; fallen signs
+  { const P4 = A.papers;
+    let [x, y, w, h] = P4[0]; g.fillStyle = '#d8d2c2'; g.fillRect(x, y, w, h); g.fillStyle = '#222'; g.fillRect(x + 8, y + 8, w - 16, 12); g.fillStyle = 'rgba(40,40,40,0.55)'; for (let k = 0; k < 14; k++) { g.fillRect(x + 8, y + 26 + k * 7, 52, 2); g.fillRect(x + 68, y + 26 + k * 7, 52, 2); } g.fillStyle = '#888'; g.fillRect(x + 70, y + 30, 48, 34);
+    [x, y, w, h] = P4[1]; g.fillStyle = '#f0ece2'; g.fillRect(x, y, w, h); for (let k = 0; k < 12; k++) { g.strokeStyle = `rgba(0,0,0,${0.08 + r() * 0.12})`; g.lineWidth = 2; g.beginPath(); g.moveTo(x + r() * w, y + r() * h); g.lineTo(x + r() * w, y + r() * h); g.stroke(); } txt('SALE', x + w / 2, y + 40, 34, '#c4241c'); g.fillStyle = 'rgba(30,30,30,0.5)'; for (let k = 0; k < 5; k++) g.fillRect(x + 16, y + 70 + k * 9, w - 32, 3);
+    [x, y, w, h] = P4[2]; g.fillStyle = '#9a7650'; g.fillRect(x, y, w, h); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, y + h / 2 - 2, w, 4); g.fillStyle = 'rgba(60,40,20,0.6)'; g.fillRect(x + 20, y + 20, 40, 14); txt('FRAGILE', x + 80, y + 96, 18, '#5a1a10');
+    [x, y, w, h] = P4[3]; g.fillStyle = '#e6dcc8'; g.fillRect(x, y, w, h); g.fillStyle = '#b32a1c'; g.fillRect(x, y + 40, w, 34); txt('BURGER', x + w / 2, y + 58, 26, '#ffd23a'); g.fillStyle = 'rgba(120,90,40,0.35)'; g.beginPath(); g.arc(x + 90, y + 100, 18, 0, 7); g.fill();
+    [x, y, w, h] = A.roadClosed; g.fillStyle = '#f2f0ea'; g.fillRect(x, y, w, h); for (let k = -2; k < 12; k++) { g.fillStyle = '#e2661a'; g.beginPath(); g.moveTo(x + k * 28, y + 22); g.lineTo(x + k * 28 + 14, y + 22); g.lineTo(x + k * 28 + 28, y); g.lineTo(x + k * 28 + 14, y); g.fill(); g.beginPath(); g.moveTo(x + k * 28, y + h); g.lineTo(x + k * 28 + 14, y + h); g.lineTo(x + k * 28 + 28, y + h - 22); g.lineTo(x + k * 28 + 14, y + h - 22); g.fill(); } txt('ROAD CLOSED', x + w / 2, y + h / 2 + 2, 40, '#111', FONT, 'center', w - 20);
+    [x, y, w, h] = A.detour; g.fillStyle = '#e8781c'; g.fillRect(x, y, w, h); g.strokeStyle = '#111'; g.lineWidth = 4; g.strokeRect(x + 5, y + 5, w - 10, h - 10); txt('DETOUR', x + w / 2 - 20, y + h / 2 + 2, 52, '#111'); g.fillStyle = '#111'; g.beginPath(); g.moveTo(x + w - 46, y + 28); g.lineTo(x + w - 18, y + h / 2); g.lineTo(x + w - 46, y + h - 28); g.fill(); }
   { const [x, y, w, h] = A.plaque; g.fillStyle = '#2b2a28'; g.fillRect(x, y, w, h); g.strokeStyle = '#c9a646'; g.lineWidth = 3; g.strokeRect(x + 6, y + 6, w - 12, h - 12); txt('MERIDIAN PLAZA', x + w / 2, y + 44, 30, '#c9a646'); txt('"ASCENT" · 2019', x + w / 2, y + 84, 18, '#bdb7a6', FONT2); }
   const t = canvasTex(c, { repeat: false, aniso: 8 });
   return t;
@@ -366,7 +394,8 @@ let MAT = null;
 function materials(renderer) {
   if (MAT) return MAT;
   const T = textures(renderer);
-  const road = new THREE.MeshStandardMaterial({ map: T.asph.map, normalMap: T.asph.normal, roughnessMap: T.asph.rough, normalScale: new THREE.Vector2(0.35, 0.35), vertexColors: true, roughness: 1.0, metalness: 0, envMapIntensity: 0.55 });
+  // emissive = faint warm bounce from the sunlit facades (keeps shadowed asphalt from going blue-black)
+  const road = new THREE.MeshStandardMaterial({ emissiveMap: T.asph.map, emissive: new THREE.Color(0.13, 0.08, 0.035), map: T.asph.map, normalMap: T.asph.normal, roughnessMap: T.asph.rough, normalScale: new THREE.Vector2(0.35, 0.35), vertexColors: true, roughness: 1.0, metalness: 0, envMapIntensity: 0.55 });
   const marks = new THREE.MeshStandardMaterial({ map: T.marks, vertexColors: true, transparent: true, depthWrite: false, roughness: 0.62, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, envMapIntensity: 0.5 });
   const side = new THREE.MeshStandardMaterial({ map: T.side.map, normalMap: T.side.normal, normalScale: new THREE.Vector2(0.6, 0.6), vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   const plaza = new THREE.MeshStandardMaterial({ map: T.pav.map, normalMap: T.pav.normal, normalScale: new THREE.Vector2(0.6, 0.6), vertexColors: true, roughness: 0.62, metalness: 0, envMapIntensity: 0.8 });
@@ -420,15 +449,15 @@ function surfaces(B, rng) {
   const uvRoad = (x, z) => [x / T6, -z / T6];
   const laneWear = (x) => { // darker tyre paths, lighter oil-drip lane centres, dusty gutters
     const ax = Math.abs(x); let k = 0;
-    for (const c of [1.85, 5.55]) { const d1 = Math.abs(ax - c + 0.85), d2 = Math.abs(ax - c - 0.85); k -= 0.08 * (Math.exp(-d1 * d1 / 0.12) + Math.exp(-d2 * d2 / 0.12)); k -= 0.05 * Math.exp(-((ax - c) ** 2) / 0.05); }
+    for (const c of [1.85, 5.55]) { const d1 = Math.abs(ax - c + 0.85), d2 = Math.abs(ax - c - 0.85); k += 0.13 * (Math.exp(-d1 * d1 / 0.18) + Math.exp(-d2 * d2 / 0.18)); k -= 0.09 * Math.exp(-((ax - c) ** 2) / 0.06); }   // polished lighter wheel paths, oily lane centres
     k += 0.12 * Math.max(0, (ax - 9.6) / 1.4);
     return k;
   };
   const warm = (x, z) => (fbm(n1, x / 120 + 3, z / 120 + 7, 3, 3) - 0.5) * 0.5;
-  const colRoad = (x, z) => { const m = macro(x, z) + laneWear(x), w = warm(x, z); return [(1.0 + w * 0.5) * m, (0.93 + w * 0.2) * m, (0.84 - w * 0.2) * m]; };
-  const xs = merged(range(-11, 11, 1.0), [-10.6, -9.9, 9.9, 10.6, -6.4, -4.7, -2.7, -1.0, 1.0, 2.7, 4.7, 6.4]);
+  const colRoad = (x, z) => { const m = macro(x, z, 0.24) + laneWear(x), w = warm(x, z); return [(1.12 + w * 0.5) * m, (0.98 + w * 0.2) * m, (0.8 - w * 0.2) * m]; };   // golden-hour warm albedo
+  const xs = merged(range(-11, 11, 1.0), [-10.6, -9.9, 9.9, 10.6, -6.4, -4.7, -2.7, -1.0, 1.0, 2.7, 4.7, 6.4, -6.9, -5.9, -4.2, -3.2, -2.2, -1.5, 1.5, 2.2, 3.2, 4.2, 5.9, 6.9]);
   groundXZ(B.road, xs, range(-156, 150, 3), 0, uvRoad, colRoad, RM.concrete);
-  const colX = (x, z) => { const az = Math.abs(z + 53); const m = macro(x, z) - 0.06 * Math.exp(-((az - 2.6) ** 2) / 0.4) + 0.12 * Math.max(0, (az - 3.6) / 1.4), w = warm(x, z); return [(1.0 + w * 0.5) * m, (0.93 + w * 0.2) * m, (0.84 - w * 0.2) * m]; };
+  const colX = (x, z) => { const az = Math.abs(z + 53); const m = macro(x, z, 0.24) + 0.1 * Math.exp(-((az - 2.6) ** 2) / 0.3) + 0.12 * Math.max(0, (az - 3.6) / 1.4), w = warm(x, z); return [(1.12 + w * 0.5) * m, (0.98 + w * 0.2) * m, (0.8 - w * 0.2) * m]; };
   for (const s of [-1, 1]) {
     const xx = s > 0 ? merged(range(11, 40, 2), range(40, 220, 12)) : merged(range(-220, -40, 12), range(-40, -11, 2));
     groundXZ(B.road, xx, merged(range(CROSS.road0, CROSS.road1, 1.25), [-57.6, -48.4]), 0, uvRoad, colX, RM.concrete);
@@ -578,7 +607,9 @@ function markings(B, rng, anchors) {
     void side;
   }
   const scatter = (count, fn) => { for (let k = 0; k < count; k++) { const z = 140 - rng() * 296, x = (rng() - 0.5) * 20; fn(x, z); } };
-  scatter(16, (x, z) => decal(bk, x, z, 2 + rng() * 3, 2 + rng() * 5, (rng() - 0.5) * 0.1, MK.patch, [1, 1, 1], 0.005));
+  scatter(22, (x, z) => decal(bk, x, z, 2 + rng() * 3, 2 + rng() * 5, (rng() - 0.5) * 0.1, MK.patch, [1, 1, 1], 0.005));
+  scatter(20, (x, z) => decal(bk, x, z, 1.6 + rng() * 3, 1.8 + rng() * 4, (rng() - 0.5) * 0.08, MK.patchL, [1, 1, 1], 0.0049));
+  scatter(22, (x, z) => { const lane = [-5.55, -1.85, 1.85, 5.55][(rng() * 4) | 0]; decal(bk, lane + (rng() - 0.5) * 0.6, z, 1.8, 4 + rng() * 8, (rng() - 0.5) * 0.12, MK.tyre, [1, 1, 1], 0.0064, true); });
   scatter(16, (x, z) => decal(bk, x, z, 2 + rng() * 2.5, 2 + rng() * 2.5, rng() * 6, MK.cracks, [1, 1, 1], 0.0055));
   scatter(70, (x, z) => { const lane = [-5.55, -1.85, 1.85, 5.55][(rng() * 4) | 0]; decal(bk, lane + (rng() - 0.5) * 0.4, z, 1 + rng() * 1.4, 1 + rng() * 2.4, rng() * 0.4, MK.oil[(rng() * 4) | 0], [1, 1, 1], 0.0058); });
   scatter(7, (x, z) => decal(bk, x, z, 0.7 + rng() * 0.6, 0.6 + rng() * 0.5, rng() * 6, MK.pothole, [1, 1, 1], 0.0062));
@@ -733,29 +764,43 @@ function tree(B, x, z, rng, colliders, pit = true) {
     for (const [dx, dz, w, d] of [[0, -0.7, 1.4, 0.03], [0, 0.7, 1.4, 0.03], [0.7, 0, 0.03, 1.4]]) addGeo(P, BOX(w, 0.03, d), M4(x + dx * Math.sign(x || 1), SW + 0.45, z + dz), COL.green, RM.paint);
     for (const [dx, dz] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) addGeo(P, BOX(0.03, 0.45, 0.03), M4(x + dx, SW + 0.225, z + dz), COL.green, RM.paint);
   }
-  const H = 3.0 + rng() * 0.8, bark = [0.16, 0.13, 0.1];
-  addGeo(P, CYL(0.07, 0.11, H, 7), M4(x, SW + H / 2, z, (rng() - 0.5) * 0.06, 0, (rng() - 0.5) * 0.06), bark, RM.wood);
-  const tops = [];
-  for (let k = 0; k < 4; k++) {
-    const a = k / 4 * Math.PI * 2 + rng(), l = 1.1 + rng() * 0.6, tilt = 0.5 + rng() * 0.3;
-    const bx = x + Math.sin(a) * Math.sin(tilt) * l / 2, by = SW + H - 0.3 + Math.cos(tilt) * l / 2, bz = z + Math.cos(a) * Math.sin(tilt) * l / 2;
-    const g = CYL(0.025, 0.05, l, 5);
-    addGeo(P, g, new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(tilt, a, 0, 'YXZ')).setPosition(bx, by, bz), bark, RM.wood);
-    tops.push([x + Math.sin(a) * Math.sin(tilt) * l, SW + H - 0.3 + Math.cos(tilt) * l, z + Math.cos(a) * Math.sin(tilt) * l]);
+  // trunk → 4-5 primaries → 2 secondaries each; a loose leaf cluster (4-5 small cards) at every branch tip, so the
+  // canopy has gaps that show the branches. Olive, desaturated greens; per-tree hue; sunlit top, dark underside.
+  const H = 2.4 + rng() * 0.6, bark = [0.13, 0.11, 0.09];
+  const lean = [(rng() - 0.5) * 0.12, (rng() - 0.5) * 0.12];
+  const fork = [x + lean[0] * H, SW + H, z + lean[1] * H];
+  const limb = (a, b, r0, r1) => {
+    const A0 = new THREE.Vector3(...a), B0 = new THREE.Vector3(...b), L = A0.distanceTo(B0);
+    const m = new THREE.Matrix4().lookAt(A0, B0, new THREE.Vector3(0, 1, 0.01)).setPosition(A0.clone().add(B0).multiplyScalar(0.5));
+    addGeo(P, CYL(r1, r0, L, 6).rotateX(-Math.PI / 2), m, bark, RM.wood);
+  };
+  limb([x, SW, z], fork, 0.12, 0.085);
+  const tips = [];
+  const nP = 4 + (rng() < 0.5 ? 1 : 0), a0 = rng() * 6;
+  for (let i = 0; i < nP; i++) {
+    const a = a0 + i / nP * Math.PI * 2 + (rng() - 0.5) * 0.5, tilt = 0.45 + rng() * 0.35, l = 1.0 + rng() * 0.6;
+    const p1 = [fork[0] + Math.sin(a) * Math.sin(tilt) * l, fork[1] + Math.cos(tilt) * l, fork[2] + Math.cos(a) * Math.sin(tilt) * l];
+    limb(fork, p1, 0.06, 0.04); tips.push([p1, 0.85]);
+    for (let j = 0; j < 2; j++) {
+      const a2 = a + (j ? 0.6 : -0.6) + (rng() - 0.5) * 0.4, t2 = tilt + 0.25 + rng() * 0.3, l2 = 0.6 + rng() * 0.5;
+      const p2 = [p1[0] + Math.sin(a2) * Math.sin(t2) * l2, p1[1] + Math.cos(t2) * l2, p1[2] + Math.cos(a2) * Math.sin(t2) * l2];
+      limb(p1, p2, 0.035, 0.018); tips.push([p2, 1.0]);
+    }
   }
-  tops.push([x, SW + H + 0.9, z]);
-  // foliage: leaf cards around the cluster centres, normals bent outward from the crown centre (soft volume)
-  const cc = [x, SW + H + 0.6, z];
-  for (const t of tops) for (let k = 0; k < 11; k++) {
-    const p = [t[0] + (rng() - 0.5) * 1.5, t[1] + (rng() - 0.35) * 1.2, t[2] + (rng() - 0.5) * 1.5];
-    const ya = rng() * Math.PI, pa = (rng() - 0.5) * 1.2, sz = 0.9 + rng() * 0.8;
-    const right = [Math.cos(ya), 0, -Math.sin(ya)], up = [Math.sin(ya) * Math.sin(pa), Math.cos(pa), Math.cos(ya) * Math.sin(pa)];
-    const tint = 1.0 + rng() * 0.35, col = [1.0 * tint, 1.1 * tint, 0.8 * tint];
-    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [p[0] + (right[0] * a + up[0] * b) * sz / 2, p[1] + (right[1] * a + up[1] * b) * sz / 2, p[2] + (right[2] * a + up[2] * b) * sz / 2]);
-    const nn = corners.map((q) => { const v = new THREE.Vector3(q[0] - cc[0], (q[1] - cc[1]) * 1.4 + 0.6, q[2] - cc[2]).normalize(); return [v.x, v.y, v.z]; });
-    const uvs = [[0, 0], [1, 0], [1, 1], [0, 1]];
-    const shade = corners.map((q) => (q[1] < cc[1] - 0.3 ? 0.45 : q[1] > cc[1] + 0.5 ? 1.0 : 0.75));
-    const cl = (i) => col.map((v) => v * shade[i]);
+  let yLo = 1e9, yHi = -1e9; for (const [t] of tips) { yLo = Math.min(yLo, t[1]); yHi = Math.max(yHi, t[1]); }
+  yLo -= 0.6; yHi += 0.6;
+  const cc = [fork[0], (yLo + yHi) / 2, fork[2]];
+  const hueR = 0.85 + rng() * 0.25, hueG = 0.9 + rng() * 0.15, sunH = new THREE.Vector3(-0.42, 0, -1).normalize();
+  const uvs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  for (const [t, k0] of tips) for (let k = 0; k < 6 + (rng() < 0.5 ? 1 : 0); k++) {
+    const p = [t[0] + (rng() - 0.5) * 0.95 * k0, t[1] + (rng() - 0.35) * 0.7, t[2] + (rng() - 0.5) * 0.95 * k0];
+    const out = new THREE.Vector3(p[0] - cc[0], (p[1] - cc[1]) * 0.6, p[2] - cc[2]).normalize();
+    const ya = Math.atan2(out.x, out.z) + Math.PI / 2 + (rng() - 0.5) * 1.4, pa = (rng() - 0.5) * 1.1, sz = 0.85 + rng() * 0.5;
+    const right = [Math.cos(ya), 0, -Math.sin(ya)], upv = [Math.sin(ya) * Math.sin(pa), Math.cos(pa), Math.cos(ya) * Math.sin(pa)];
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [p[0] + (right[0] * a + upv[0] * b) * sz / 2, p[1] + (right[1] * a + upv[1] * b) * sz / 2, p[2] + (right[2] * a + upv[2] * b) * sz / 2]);
+    const nn = corners.map((q) => { const v = new THREE.Vector3(q[0] - cc[0], (q[1] - cc[1]) * 1.3 + 0.5, q[2] - cc[2]).normalize(); return [v.x, v.y, v.z]; });
+    const sunSide = Math.max(0, out.dot(sunH)) * 0.18, v0 = 0.85 + rng() * 0.3;
+    const cl = (i) => { const h = Math.min(1, Math.max(0, (corners[i][1] - yLo) / (yHi - yLo))), f = (0.42 + 0.78 * h * h + sunSide) * v0; return [hueR * f, hueG * f, 0.72 * f]; };
     B.leaves.tri(corners[0], corners[1], corners[2], nn[0], nn[1], nn[2], uvs[0], uvs[1], uvs[2], [...cl(0), ...cl(1), ...cl(2)], RM.wood);
     B.leaves.tri(corners[0], corners[2], corners[3], nn[0], nn[2], nn[3], uvs[0], uvs[2], uvs[3], [...cl(0), ...cl(2), ...cl(3)], RM.wood);
   }
@@ -807,6 +852,67 @@ function planter(B, x, z, w, d, rng, colliders, withTree) {
 }
 function tactile(B, x, z, w, d) { quad(B.props, [x, SW + 0.004, z], [1, 0, 0], [0, 0, -1], w, d, A.tactile, COL.white, [0.5, 0, 0]); }
 
+// street litter (visual only, merged into the props batch: 0 extra draws). Paper, safety/plate glass glitter,
+// brick + concrete chunks, a few cones and fallen sign panels; concentrated in the gutters, along the curbs and
+// at the foot of the facades (blown-out storefronts).
+function litter(B, rng) {
+  const P = B.props, up = [0, 1, 0];
+  const blocked = (x, z) => (x > SUBWAY.x0 - 0.3 && x < SUBWAY.x1 + 0.3 && z > SUBWAY.zTop - 1.2 && z < SUBWAY.zEnd + 0.5) || Math.hypot(x, z + 162.5) < 4.8;
+  const bandX = () => { const t = rng(), s = rng() < 0.5 ? -1 : 1; return s * (t < 0.45 ? 9.5 + rng() * 1.45 : t < 0.7 ? 11.2 + rng() * 0.8 : t < 0.9 ? 15.0 + rng() * 0.9 : rng() * 9.5); };
+  const spot = (n, fn) => { for (let k = 0, tries = 0; k < n && tries < n * 4; tries++) { const x = bandX(), z = 46 - rng() * 214; if (blocked(x, z)) continue; fn(x, z, streetGround(x, z)); k++; } };
+  // paper sheets: slightly bent quads
+  spot(380, (x, z, y) => {
+    const cell = A.papers[(rng() * 4) | 0], uv = rUV(cell), w = 0.18 + rng() * 0.3, l = 0.22 + rng() * 0.35, a = rng() * 6, c = Math.cos(a), sn = Math.sin(a), lift = rng() * 0.06;
+    const Q = (u, v, h) => [x + u * c + v * sn, y + 0.008 + h, z - u * sn + v * c];
+    const p0 = Q(-w / 2, -l / 2, 0), p1 = Q(w / 2, -l / 2, rng() * 0.02), p2 = Q(w / 2, l / 2, lift), p3 = Q(-w / 2, l / 2, 0);
+    const t = 0.42 + rng() * 0.35, col = [t, t * 0.96, t * 0.88];
+    P.tri(p0, p1, p2, up, up, up, [uv[0], uv[1]], [uv[2], uv[1]], [uv[2], uv[3]], col, [0.85, 0, 0]);
+    P.tri(p0, p2, p3, up, up, up, [uv[0], uv[1]], [uv[2], uv[3]], [uv[0], uv[3]], col, [0.85, 0, 0]);
+  });
+  // glass glitter: clusters of tiny shards (bright, metallic-ish so they catch the sky and the sun)
+  spot(55, (x0, z0, y0) => {
+    const nShard = 18 + (rng() * 20) | 0, R0 = 0.4 + rng() * 0.9;
+    for (let k = 0; k < nShard; k++) {
+      const x = x0 + (rng() - 0.5) * R0 * 2, z = z0 + (rng() - 0.5) * R0 * 2, y = streetGround(x, z) + 0.006, r = 0.015 + Math.pow(rng(), 2) * 0.06, a = rng() * 6;
+      const nn = [(rng() - 0.5) * 0.6, 1, (rng() - 0.5) * 0.6], g = 0.5 + rng() * 0.35;
+      P.tri([x + Math.cos(a) * r, y, z + Math.sin(a) * r], [x + Math.cos(a + 2.0) * r * 0.7, y, z + Math.sin(a + 2.0) * r * 0.7], [x + Math.cos(a + 4.0) * r, y + 0.003, z + Math.sin(a + 4.0) * r], nn, nn, nn, WHITE, WHITE, WHITE, [g * 0.9, g, g], [0.04, 1, 0]);
+    }
+    void y0;
+  });
+  // brick / concrete chunks (clusters near the facades and the scorch sites, strays in the gutters)
+  const chunk = (x, z, s0) => {
+    const y = streetGround(x, z), brick = rng() < 0.45, t = 0.7 + rng() * 0.4;
+    const col = brick ? [0.3 * t, 0.1 * t, 0.06 * t] : [0.42 * t, 0.4 * t, 0.37 * t];
+    const sx = s0 * (0.6 + rng() * 0.8), sy = s0 * (0.35 + rng() * 0.4), sz = s0 * (0.6 + rng() * 0.9);
+    const g = brick ? BOX(2, 1.1, 1) : new THREE.IcosahedronGeometry(1, 0);
+    addGeo(P, g, M4(x, y + sy * (brick ? 0.55 : 0.7), z, (rng() - 0.5) * 0.5, rng() * 6, (rng() - 0.5) * 0.5, sx * (brick ? 0.5 : 1), sy * (brick ? 0.5 : 1), sz * (brick ? 0.5 : 1)), col, RM.stone);
+  };
+  spot(120, (x, z) => chunk(x, z, 0.05 + rng() * 0.08));
+  for (const [cx, cz] of [[15.4, 30], [-15.3, 8], [15.2, -14], [-15.4, -36], [-15.2, -78], [15.3, -66], [-15.4, -104], [15.4, -140], [4.5, 41], [-6, -12], [2, -47], [6.5, -118]]) {
+    for (let k = 0; k < 14; k++) { const x = cx + (rng() - 0.5) * 2.4, z = cz + (rng() - 0.5) * 3.2; if (!blocked(x, z) && Math.abs(x) < 16) chunk(x, z, 0.04 + Math.pow(rng(), 2) * 0.16); }
+  }
+  // traffic cones (some knocked over)
+  const coneG = new THREE.LatheGeometry([[0.0, 0.7], [0.03, 0.7], [0.13, 0.05], [0.0, 0.05]].map(([a, b]) => new THREE.Vector2(a, b)), 9);
+  const cone = (x, z, down, rot) => {
+    const y = streetGround(x, z), m = down ? M4(x, y + 0.13, z, 0, rot, Math.PI / 2 - 0.2).multiply(M4(0, -0.35, 0)) : M4(x, y, z, 0, rot, 0);
+    addGeo(P, coneG, m, [0.85, 0.18, 0.02], RM.paint);
+    addGeo(P, CYL(0.075, 0.095, 0.11, 9), m.clone().multiply(M4(0, 0.4, 0)), [0.9, 0.9, 0.88], [0.3, 0, 0.15]);
+    addGeo(P, BOX(0.36, 0.04, 0.36), m.clone().multiply(M4(0, 0.02, 0)), [0.05, 0.05, 0.05], RM.rubber);
+  };
+  for (const [x, z, d] of [[-4.6, 43.2, 0], [0.8, 43.6, 1], [6.8, 42.8, 0], [10.2, 40, 1], [-10.4, -20.8, 0], [-0.4, -21.5, 1], [9.6, -42.6, 0], [-9.8, -61.8, 1], [5.1, -105.5, 0], [0.5, -110.5, 1], [-10.3, -150.5, 0], [10.4, -151, 1]]) cone(x, z, d, rng() * 6);
+  // fallen sign panels (flat or propped on a chunk)
+  const panel = (x, z, rect, w, h, rot, tilt) => {
+    const y = streetGround(x, z) + 0.02 + Math.sin(tilt) * h / 2, m = M4(x, y, z, -Math.PI / 2 + tilt, rot, 0);
+    addGeo(P, BOX(w, h, 0.02), m, [0.55, 0.56, 0.57], RM.alu);
+    quadUV(P, new THREE.Vector3(0, 0, 0.011).applyMatrix4(m).toArray(), new THREE.Vector3(1, 0, 0).transformDirection(m).toArray(), new THREE.Vector3(0, 1, 0).transformDirection(m).toArray(), w - 0.02, h - 0.02, rUV(rect), COL.white, [0.5, 0, 0.12]);
+  };
+  panel(-2.8, 40.5, A.roadClosed, 1.2, 0.45, 0.3, 0.0);
+  panel(9.2, 36.5, A.detour, 1.0, 0.38, -0.6, 0.35);
+  panel(-9.9, -42.4, A.aveSign, 1.4, 0.35, 1.2, 0.0);
+  panel(3.5, -64, A.roadClosed, 1.2, 0.45, 2.4, 0.25);
+  panel(-9.6, -124, A.detour, 1.0, 0.38, 0.9, 0.0);
+  panel(13.1, -154.5, A.crossSign, 1.4, 0.35, -0.4, 0.3);
+}
 // plaza centrepiece: round fountain basin with still water + "ASCENT" steel ribbon sculpture
 function fountain(B, cx, cz, colliders) {
   const P = B.props, R = 4.2, segs = 28;
@@ -889,6 +995,7 @@ export async function buildStreet(ctx = {}) {
   curbs(B, rng);
   markings(B, rng, anchors);
   furniture(B, rng, anchors.glows, colliders);
+  litter(B, makeRng(4477));
   // light pools under the lamps (additive, faded in at dusk)
   for (const [x, z, r] of B.poolList) decal(B.pools, x, z, r, r, 0, MK.pool, [1.0, 0.72, 0.42], (Math.abs(x) > AVE.curb ? SW : 0) + 0.012);
   const root = new THREE.Group(); root.name = 'street';

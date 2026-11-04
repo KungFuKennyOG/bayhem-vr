@@ -89,6 +89,7 @@ export class SetPieces {
     };
     game.targets.push(this.heliTarget);
     this.rubble = new Rubble(game);
+    this.clouds = game.clouds;
   }
 
   update(dt) {
@@ -364,8 +365,10 @@ export class SetPieces {
     m.root.updateMatrixWorld(true);
     this.wreck = m;
     if (this.world.meridian.hole) this.world.meridian.hole.visible = true;
-    g.fx.explosion(I.clone().add(_v.set(0, 0, 3)), 3.4, { noRing: true });
-    for (let k = 1; k <= 5; k++) g.fx.later(0.12 * k + rand() * 0.1, () => g.fx.explosion(I.clone().add(_v.set(range(-9, 9), range(-5, 6), range(1, 4))), range(1.4, 2.2), { noRing: true }));
+    g.fx.explosion(I.clone().add(_v.set(0, 0, 3)), 4.2, { noRing: true });
+    for (let k = 1; k <= 8; k++) g.fx.later(0.1 * k + rand() * 0.1, () => g.fx.explosion(I.clone().add(_v.set(range(-12, 12), range(-7, 8), range(1, 5))), range(1.8, 2.8), { noRing: true }));
+    // the blast cloud: black, fire-lit, rolling up the facade and staying there
+    for (let k = 0; k < 14; k++) g.fx.later(0.15 + k * 0.08, () => this.clouds.spawn({ x: I.x + range(-14, 14), y: I.y + range(-6, 8), z: I.z + range(3, 9), vx: range(-4, 4), vy: range(4, 9), vz: range(1, 5), drag: 0.5, buoy: 0.6, s0: range(14, 20), s1: range(40, 56), life: range(10, 14), a: 0.95, fadeIn: 0.02, fadeOut: 0.4, vrot: range(-0.1, 0.1), r: 0.06, g: 0.052, b: 0.047, r1: 0.14, g1: 0.125, b1: 0.11, glow: 1.4, glowFade: 1.6 }));
     g.fx.light(I.clone().add(_v.set(0, 0, 6)), 900, 1.8, 0xff9040, true, 140);
     g.lastExplosionT = g.time; g.lastExplosionShake = 0.6;
     g.audio.play('explosion_big', { x: I.x, y: I.y, z: I.z + 10, volume: 1 });
@@ -378,7 +381,8 @@ export class SetPieces {
     g.addScore(1500, 'RIGHT IN THE LOBBY!', I.clone().add(_v.set(0, 10, 10)), 'big');
     // the crash owns the big-sprite budget for a few seconds
     g.fx.main.bigBudget += 90; g.fx.later(5, () => { g.fx.main.bigBudget -= 90; });
-    this.megaFireball(I.clone().add(_v.set(0, 2, 6)), 1.7);
+    this.megaFireball(I.clone().add(_v.set(0, 2, 6)), 2.3);
+    g.fx.later(0.35, () => this.megaFireball(I.clone().add(_v.set(range(-6, 6), 7, 4)), 1.5));
     for (let k = 0; k < 12; k++) g.fx.later(0.25 + k * 0.13, () => {
       const P = new THREE.Vector3(I.x + range(-17, 17), I.y + (k % 2 ? 1 : -1) * range(2, 4 + k * 1.6), MERIDIAN.z1 + 0.8);
       g.fx.explosion(P, range(1.1, 1.6), { noRing: true });
@@ -396,14 +400,14 @@ export class SetPieces {
       const a = rand() * 6.28, el = range(0.1, 1.2), sp = range(6, 16) * k;
       g.fx.main.spawn({ x: P.x + range(-4, 4) * k, y: P.y + range(-2, 3) * k, z: P.z + range(-2, 4) * k, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp + 4, vz: Math.abs(Math.sin(a)) * Math.cos(el) * sp + 3, drag: 1.6, grav: 2, frameKind: 1, s0: range(9, 13) * k, s1: range(22, 32) * k, ease: 0.55, life: range(1.8, 2.6), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 2.3, g: 1.9, b: 1.6, a: 1, fadeIn: 0.02, fadeOut: 0.8 });
     });
-    for (let i = 0; i < 8; i++) g.fx.later(range(0.5, 1.3), () => g.fx.main.spawn({ x: P.x + range(-8, 8), y: P.y + range(4, 12), z: P.z + range(0, 6), vx: range(-2, 2), vy: range(5, 9), vz: range(0, 3), drag: 0.5, frameKind: 2, frame: rand() * 40, frames: 16, s0: 14 * k, s1: range(36, 50) * k, ease: 0.6, life: range(7, 10), rot: rand() * 6, r: 0.12, g: 0.1, b: 0.09, a: 0.92, fadeIn: 0.1, fadeOut: 0.5 }));
+    for (let i = 0; i < 9; i++) g.fx.later(range(0.4, 1.3), () => this.clouds.spawn({ x: P.x + range(-8, 8) * k, y: P.y + range(3, 10) * k, z: P.z + range(0, 6), vx: range(-2, 2), vy: range(5, 9), vz: range(0, 3), drag: 0.45, buoy: 0.5, s0: 12 * k, s1: range(30, 42) * k, life: range(8, 11), a: 0.95, fadeIn: 0.08, fadeOut: 0.45, vrot: range(-0.12, 0.12), r: 0.07, g: 0.06, b: 0.055, r1: 0.15, g1: 0.13, b1: 0.115, glow: 1.2, glowFade: 2 }));
   }
   _updHole(dt) {
     if (!this.holeFire || this.col?.phase === 'fall' || this.col?.phase === 'down') return;
     const g = this.g, I = _v.set(...MERIDIAN.impact).add(_v2.set(0, 0, 2));
     // a burning wound in the tower: fire belching out, a black column climbing past the crown
     if (rand() < dt * 26) g.fx.main.spawn({ x: I.x + range(-7, 7), y: I.y + range(-3, 3), z: I.z + range(0, 2), vx: range(-1, 1), vy: range(3, 7), vz: range(1, 4), drag: 1.2, frameKind: 1, s0: range(4, 6), s1: range(10, 15), ease: 0.6, life: range(0.9, 1.5), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.8, b: 1.5, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
-    if (rand() < dt * 3.5) g.fx.main.spawn({ x: I.x + range(-5, 5), y: I.y + 4, z: I.z + 2, vx: range(-0.5, 0.5) + 1.2, vy: range(6, 9), vz: range(0.5, 1.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 14, s0: 9, s1: range(34, 48), ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.1, 0.1), r: 0.1, g: 0.085, b: 0.075, a: 0.92, fadeIn: 0.05, fadeOut: 0.5 });
+    if (rand() < dt * 2.2) this.clouds.spawn({ x: I.x + range(-7, 7), y: I.y + 3, z: I.z + range(1, 4), vx: range(-0.5, 0.5) + 1.1, vy: range(6, 9), vz: range(0.3, 1.5), drag: 0.15, buoy: 0.4, s0: 12, s1: range(48, 64), life: range(13, 16), a: 0.95, fadeIn: 0.04, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.06, g: 0.053, b: 0.048, r1: 0.15, g1: 0.135, b1: 0.12, glow: 1.3, glowFade: 4 });
     if (g.headPos.distanceTo(I) < 90) g.audio.setLoop('fire_big', { x: I.x, y: I.y, z: I.z, volume: 0.9, intensity: 0.9 });
   }
 
@@ -443,7 +447,7 @@ export class SetPieces {
     M.chunks.forEach((c, i) => {
       c.updateMatrixWorld(true);
       const hy = c.position.y, frac = clamp(hy / H, 0, 1);
-      c.userData.detach = (lerp(58, 24, frac) + range(-3, 3)) * Math.PI / 180;
+      c.userData.detach = (lerp(60, 30, frac) + range(-10, 10)) * Math.PI / 180;
       c.userData.idx = i;
     });
     g.audio.play('collapse_rumble', { volume: 1 });
@@ -461,7 +465,7 @@ export class SetPieces {
     C.t += dt;
     if (C.phase === 'groan') {
       // the tower creaks: dust jets out of the hole, windows pop up and down the face
-      if (rand() < dt * 8) { const y = range(26, 60), x = range(-18, 18); g.glass.burst(_v.set(x, y, MERIDIAN.z1 + 0.5), _v2.set(0, -0.3, 1), 8, { spread: 1.2, speed: 5, size: 0.4, life: 12 }); g.fx.main.spawn({ x, y, z: MERIDIAN.z1 + 1, vz: range(3, 6), vy: range(-1, 1), drag: 1.2, frame: CELL.DUST, s0: 2, s1: 8, life: 3, rot: rand() * 6, r: 0.75, g: 0.68, b: 0.58, a: 0.6, fadeOut: 0.5 }); }
+      if (rand() < dt * 8) { const y = range(26, 60), x = range(-18, 18); g.glass.burst(_v.set(x, y, MERIDIAN.z1 + 0.5), _v2.set(0, -0.3, 1), 8, { spread: 1.2, speed: 5, size: 0.4, life: 12 }); this.clouds.spawn({ x, y, z: MERIDIAN.z1 + 2, vz: range(5, 9), vy: range(-1, 1), drag: 1.1, s0: 3, s1: range(10, 16), life: 3.5, a: 0.8, fadeIn: 0.03, fadeOut: 0.5, r: 0.62, g: 0.55, b: 0.46 }); }
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.12 + C.t * 0.08;
       if (C.t > 2.4) {
         C.phase = 'fall'; C.t = 0; C.om = 0.04;
@@ -483,7 +487,14 @@ export class SetPieces {
       C.sinkV = Math.min(11, C.sinkV + dt * 4.5);
       if (C.sink < MERIDIAN.breakY * 0.75) { C.sink += C.sinkV * dt; M.lower.position.y = -C.sink; }
       // base dust: a boiling cloud swallowing the plaza
-      const nb = Math.min(4, Math.round(dt * 14 + rand()));
+      C.skirtT = (C.skirtT || 0) - dt;
+      if (C.skirtT <= 0) {
+        // the skirt: a boiling wall of dust rolling out of the base and climbing the stump
+        C.skirtT = g.E.isQuest ? 0.16 : 0.09;
+        const a = rand() * Math.PI, rr = range(18, 34), up = rand() < 0.4;
+        this.clouds.spawn({ x: Math.cos(a) * rr * 1.1, y: up ? range(14, 30) : range(4, 12), z: (MERIDIAN.z0 + MERIDIAN.z1) / 2 + Math.sin(a) * rr, vx: Math.cos(a) * range(4, 10), vy: up ? range(3, 6) : range(1, 3), vz: Math.sin(a) * range(5, 12) + 3, drag: 0.35, buoy: up ? 0.5 : 0.2, s0: range(16, 22), s1: range(46, 70), life: range(9, 12), a: 0.97, fadeIn: 0.04, fadeOut: 0.4, vrot: range(-0.1, 0.1), r: 0.36, g: 0.31, b: 0.25, r1: 0.5, g1: 0.44, b1: 0.36 });
+      }
+      const nb = Math.min(2, Math.round(dt * 5 + rand()));
       for (let i = 0; i < nb; i++) { const up = rand() < 0.35; g.fx.main.spawn({ x: range(-26, 26), y: up ? range(10, C.pivot.y + 10) : range(1, 10), z: range(MERIDIAN.z1 - 10, MERIDIAN.z1 + 6), vx: range(-7, 7), vy: up ? range(2, 6) : range(1, 4), vz: range(3, 11), drag: 0.45, frameKind: 2, frame: rand() * 40, frames: 16, s0: 12, s1: range(30, 52), ease: 0.55, life: range(7, 10), rot: rand() * 6, vrot: range(-0.15, 0.15), r: up ? 0.48 : 0.36, g: up ? 0.41 : 0.31, b: up ? 0.34 : 0.26, r1: 0.32, g1: 0.28, b1: 0.23, a: 0.97, fadeIn: 0.05, fadeOut: 0.4 }); }
     }
     if (C.phase === 'fall') {
@@ -505,7 +516,12 @@ export class SetPieces {
         C.phase = 'down';
       }
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.2;
-      if (rand() < dt * 6) g.fx.main.spawn({ x: range(-22, 22), y: range(30, 95), z: range(MERIDIAN.z0, MERIDIAN.z1), vx: range(-3, 3), vy: range(3, 7), vz: range(1, 5), drag: 0.3, frameKind: 2, frame: rand() * 40, frames: 16, s0: 22, s1: range(55, 75), ease: 0.6, life: range(9, 12), rot: rand() * 6, vrot: range(-0.08, 0.08), r: 0.45, g: 0.39, b: 0.32, a: 0.92, fadeIn: 0.08, fadeOut: 0.45 });
+      // the break line pours dust and smoke: it wraps the hinge and climbs up the leaning block
+      if (rand() < dt * 9) {
+        _v.set(range(-20, 20), range(-4, 10), range(-14, 14)).applyAxisAngle(_v2.set(1, 0, 0), C.th * 0.5).add(C.pivot);
+        const dark = rand() < 0.35;
+        this.clouds.spawn({ x: _v.x, y: _v.y, z: _v.z + 4, vx: range(-3, 3), vy: range(2, 6), vz: range(2, 7), drag: 0.3, buoy: 0.5, s0: range(12, 18), s1: range(40, 60), life: range(8, 11), a: 0.95, fadeIn: 0.05, fadeOut: 0.45, vrot: range(-0.1, 0.1), r: dark ? 0.09 : 0.42, g: dark ? 0.08 : 0.36, b: dark ? 0.07 : 0.29, r1: 0.46, g1: 0.4, b1: 0.33, glow: dark ? 1.0 : 0, glowFade: 3 });
+      }
       if (rand() < dt * 6) g.audio.play('metal_groan', { x: 0, y: C.pivot.y + 20, z: -160, volume: 1, pitch: range(0.6, 0.9) });
     }
     // detached floors: ballistic, tumbling, then they hit the canyon floor
@@ -514,7 +530,12 @@ export class SetPieces {
       f.v.y -= 9.8 * dt * 0.85;
       f.o.position.addScaledVector(f.v, dt);
       _q.setFromAxisAngle(_v.copy(f.w).normalize(), f.w.length() * dt); f.o.quaternion.premultiply(_q);
-      g.fx.trailEmit(f, f.o.position, 3.0, (q) => { g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + range(-3, 5), z: q.z + range(-7, 7), vx: range(-1.5, 1.5), vy: range(0.5, 2.5), vz: range(-1, 1), drag: 0.8, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(26, 36), life: range(4, 6), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.5, g: 0.44, b: 0.36, a: 0.85, fadeIn: 0.05, fadeOut: 0.5 }); }, 0);
+      g.fx.trailEmit(f, f.o.position, 4.0, (q) => {
+        // a dust shroud pouring off every edge of the falling floor
+        const h = f.o.userData.half;
+        _v3.set(range(-h[0], h[0]), range(-h[1], h[1]), range(-h[2], h[2])).applyQuaternion(f.o.quaternion).add(q);
+        this.clouds.spawn({ x: _v3.x, y: _v3.y, z: _v3.z, vx: f.v.x * 0.35 + range(-2, 2), vy: f.v.y * 0.25 + range(0, 3), vz: f.v.z * 0.35 + range(-2, 2), drag: 0.6, buoy: 0.3, s0: range(9, 14), s1: range(28, 40), life: range(5, 7), a: 0.93, fadeIn: 0.04, fadeOut: 0.45, vrot: range(-0.15, 0.15), r: 0.44, g: 0.38, b: 0.31, r1: 0.5, g1: 0.44, b1: 0.36 });
+      }, 0);
       if (rand() < dt * 10) g.glass.burst(f.o.position, f.v.clone().normalize().multiplyScalar(0.3), 4, { spread: 6, speed: 3, size: 0.5, life: 10 });
       // the slab crumbles as it falls: concrete and facade chunks shed off its edges
       if (rand() < dt * 9) { const h = f.o.userData.half; _v.set(range(-h[0], h[0]), range(-h[1], h[1]), range(-h[2], h[2])).applyQuaternion(f.o.quaternion).add(f.o.position); this.rubble.spawn(_v, _v2.copy(f.v).multiplyScalar(range(0.7, 1)).add(_v3.set(range(-3, 3), range(-1, 2), range(-3, 3))), range(0.5, 1.8)); }
@@ -547,9 +568,12 @@ export class SetPieces {
     const tFall = (v.y + Math.sqrt(v.y * v.y + 2 * 8.3 * Math.max(1, c.position.y))) / 8.3;
     const zMax = Math.min(-112, g.headPos.z - 32) - range(0, 14); // centre of a 38 m deep slab: its near edge lands ~13 m behind you
     v.z = clamp(v.z, 3, Math.max(3, (zMax - c.position.z) / tFall)); v.x += range(-1.5, 1.5) + Math.sign(c.position.x) * range(0.5, 2);
-    const w = new THREE.Vector3(C.om * range(0.8, 1.6) + range(0.05, 0.25), range(-0.25, 0.25), range(-0.2, 0.2) + Math.sign(c.position.x) * -0.15);
+    const w = new THREE.Vector3(C.om * range(0.5, 1.9) + range(-0.05, 0.3), range(-0.45, 0.45), range(-0.4, 0.4) + Math.sign(c.position.x) * -0.2);
+    // no two floors leave alike: a kick off the axis so the slabs don't fan out like cards
+    _e.set(range(-0.12, 0.12), range(-0.2, 0.2), range(-0.14, 0.14)); _q.setFromEuler(_e); c.quaternion.multiply(_q);
     C.flying.push({ o: c, v, w, hit: 0, bury: 0, rest: false });
-    for (let i = 0; i < 6; i++) g.fx.main.spawn({ x: c.position.x + range(-8, 8), y: c.position.y + range(-4, 4), z: c.position.z + range(-6, 6), vx: range(-2, 2), vy: range(-1, 2), vz: range(0, 4), drag: 0.7, frameKind: 2, frame: rand() * 40, frames: 14, s0: 6, s1: 16, life: range(4, 6), rot: rand() * 6, r: 0.62, g: 0.56, b: 0.47, a: 0.75, fadeIn: 0.05, fadeOut: 0.5 });
+    for (let i = 0; i < 5; i++) this.clouds.spawn({ x: c.position.x + range(-14, 14), y: c.position.y + range(-4, 4), z: c.position.z + range(-10, 10), vx: range(-2, 2), vy: range(-1, 2), vz: range(0, 4), drag: 0.6, buoy: 0.3, s0: range(8, 12), s1: range(26, 36), life: range(5, 7), a: 0.9, fadeIn: 0.04, fadeOut: 0.5, r: 0.5, g: 0.44, b: 0.36 });
+    for (let i = 0; i < 10; i++) g.glass.burst(_v.set(c.position.x + range(-14, 14), c.position.y + range(-4, 4), c.position.z + range(-12, 12)), _v2.set(range(-0.3, 0.3), -0.2, 0.6), 6, { spread: 4, speed: 5, size: 0.5, life: 10 });
   }
   _chunkImpact(f) {
     const g = this.g, C = this.col, P = f.o.position.clone().setY(1);
@@ -561,7 +585,11 @@ export class SetPieces {
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 0.8, pitch: 0.7 });
     if (chance(0.6)) g.fx.explosion(P.clone().add(_v.set(range(-6, 6), 2, range(-4, 4))), 1.6, { noRing: true });
     // a ring of dust bursting out from under the slab, glass everywhere
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 14; i++) {
+      const a = rand() * 6.28, sp = range(10, 26), up = rand() < 0.35;
+      this.clouds.spawn({ x: P.x + Math.cos(a) * 10, y: up ? range(8, 18) : range(3, 7), z: P.z + Math.sin(a) * 12, vx: Math.cos(a) * sp * (up ? 0.4 : 1), vy: up ? range(5, 10) : range(1, 4), vz: Math.sin(a) * sp * (up ? 0.4 : 1) + 4, drag: 0.8, buoy: 0.3, s0: range(14, 20), s1: range(44, 64), life: range(8, 11), a: 0.97, fadeIn: 0.03, fadeOut: 0.4, vrot: range(-0.15, 0.15), r: 0.4, g: 0.35, b: 0.28, r1: 0.5, g1: 0.44, b1: 0.36 });
+    }
+    for (let i = 0; i < 6; i++) {
       const a = rand() * 6.28, sp = range(8, 24), up = rand() < 0.3;
       g.fx.main.spawn({ x: P.x + Math.cos(a) * 9, y: up ? range(6, 18) : range(1, 6), z: P.z + Math.sin(a) * 9, vx: Math.cos(a) * sp * (up ? 0.4 : 1), vy: up ? range(5, 11) : range(1, 5), vz: Math.sin(a) * sp * (up ? 0.4 : 1) + 4, drag: 0.85, frameKind: 2, frame: rand() * 40, frames: 16, s0: 14, s1: range(34, 56), ease: 0.55, life: range(6, 8), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.54, g: 0.47, b: 0.38, r1: 0.42, g1: 0.37, b1: 0.31, a: 0.95, fadeIn: 0.03, fadeOut: 0.4 });
     }
@@ -620,12 +648,32 @@ export class SetPieces {
     D.z = Math.min(D.z + D.v * dt, head.z - D.gap);
     if (safe) D.z += D.v * dt * 0.6;
     const zf = D.z;
-    // the front: a churning wall from the asphalt to the 10th floor, filling the canyon
+    // the front: a cliff of dust from the asphalt to the 12th floor, filling the canyon wall to wall.
+    // Soft lit clouds ride the front (they stay with it however the rubber band moves it); the
+    // tallest ones roll over the top so the crest is dark, lumpy and moving.
     const half = zf < CROSS.z1 && zf > CROSS.z0 ? 60 : AVE.half;
-    const n = Math.min(12, Math.round(dt * 34 + rand()));
-    for (let i = 0; i < n; i++) {
-      const x = range(-half, half), low = rand() < 0.55, y = low ? range(0, 7) : range(5, 34);
-      g.fx.main.spawn({ x, y, z: zf + range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? Math.sign(x) * range(2, 6) : 0), vy: low ? range(0.5, 2.5) : range(-0.5, 1.5), vz: D.v * range(0.55, 0.95), drag: 0.35, frameKind: 2, frame: rand() * 40, frames: 16, s0: low ? 9 : 14, s1: low ? range(18, 26) : range(28, 44), ease: 0.55, life: range(4, 5.5), rot: rand() * 6, vrot: range(-0.3, 0.3), r: low ? 0.4 : 0.62, g: low ? 0.34 : 0.54, b: low ? 0.27 : 0.43, r1: low ? 0.33 : 0.48, g1: low ? 0.28 : 0.42, b1: low ? 0.22 : 0.34, a: 0.97, fadeIn: 0.04, fadeOut: 0.4 });
+    D.wallT = (D.wallT || 0) - dt;
+    const quest = g.E.isQuest;
+    while (D.wallT <= 0) {
+      D.wallT += (quest ? 0.075 : 0.045) * (half > AVE.half ? 0.7 : 1);
+      const row = rand(), y = row < 0.45 ? range(2, 9) : row < 0.8 ? range(9, 22) : range(22, 40);
+      const top = y > 20, s0 = top ? range(16, 22) : range(12, 18);
+      const shade = clamp(y / 40, 0, 1);
+      this.clouds.spawn({ x: range(-half - 4, half + 4), y, z: zf, ride: D, oz: range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? range(-4, 4) : 0), vy: top ? range(1.5, 4) : range(0.3, 2), vz: -range(2, 6), drag: 0.15, buoy: top ? 0.6 : 0.1, s0, s1: s0 * range(1.8, 2.4), life: range(2.6, 3.4), a: 0.98, fadeIn: 0.08, fadeOut: 0.35, vrot: range(-0.35, 0.35), r: lerp(0.3, 0.52, shade), g: lerp(0.26, 0.45, shade), b: lerp(0.21, 0.36, shade), r1: lerp(0.34, 0.5, shade), g1: lerp(0.29, 0.43, shade), b1: lerp(0.23, 0.35, shade) });
+    }
+    // the crest curls over you: the top of the wall outruns its foot and rolls overhead, then pours
+    // down into the subway mouth behind you
+    if (head.z - zf < 14 && !D.inside) {
+      D.overT = (D.overT || 0) - dt;
+      while (D.overT <= 0) {
+        D.overT += quest ? 0.18 : 0.11;
+        const s0 = range(14, 20);
+        this.clouds.spawn({ x: head.x + range(-14, 14), y: range(13, 28), z: zf + range(-2, 3), vx: range(-2, 2), vy: -range(0.5, 2.5), vz: D.v + range(7, 13), drag: 0.25, s0, s1: s0 * range(2, 2.6), life: range(2.6, 3.4), a: 0.96, fadeIn: 0.1, fadeOut: 0.35, vrot: range(-0.3, 0.3), r: 0.5, g: 0.43, b: 0.35, r1: 0.47, g1: 0.41, b1: 0.33 });
+      }
+    }
+    if (safe && D.t - (D.pourT || 0) > (quest ? 0.2 : 0.12)) {
+      D.pourT = D.t;
+      this.clouds.spawn({ x: range(SUBWAY.x0 - 1, SUBWAY.x1 + 1), y: range(2, 5), z: SUBWAY.zTop + range(-4, 0), vx: range(-0.5, 0.5), vy: -range(1, 2.5), vz: range(3, 6), drag: 0.6, s0: range(3, 5), s1: range(9, 13), life: range(2.2, 3), a: 0.9, fadeIn: 0.1, fadeOut: 0.4, vrot: range(-0.4, 0.4), r: 0.44, g: 0.38, b: 0.31 });
     }
     // the leading edge: dense small puffs right at the front (big sprites fade near the eye; these don't)
     const ne = Math.min(18, Math.round(dt * 110 + rand()));
@@ -637,13 +685,13 @@ export class SetPieces {
     if (rand() < dt * 60) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + range(1, 7), vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
     // you, inside it: brown-out, choking, glass ticking off everything
     const dz = head.z - zf;
-    const k = THREE.MathUtils.smoothstep(-dz, -10, 3);
+    const k = THREE.MathUtils.smoothstep(-dz, -1, 5);
     g.fogMix.k = Math.max(g.fogMix.k * Math.exp(-dt * 0.2), k * (safe ? 0.85 : 1));
     g.fogMix.color.setRGB(0.42, 0.36, 0.29); g.fogMix.near = 1; g.fogMix.far = safe ? 30 : 26;
     if (dz < -1 && !safe) { D.inside = true; if (rand() < dt * 2) g.hurt(3, head); }
-    if (dz < 4 || safe) {
+    if (dz < 0 || safe) {
       D.ceilT = (D.ceilT || 0) - dt;
-      if (D.ceilT <= 0) { D.ceilT = 0.12; g.fx.main.spawn({ x: range(-24, 24), y: range(22, 60), z: head.z + range(-50, 30), vx: range(-1, 1), vy: range(-0.2, 0.6), vz: range(0, 2), drag: 0.2, frameKind: 2, frame: rand() * 40, frames: 16, s0: 30, s1: range(55, 80), ease: 0.6, life: range(10, 14), rot: rand() * 6, vrot: range(-0.04, 0.04), r: 0.42, g: 0.36, b: 0.29, a: 0.9, fadeIn: 0.15, fadeOut: 0.4 }); }
+      if (D.ceilT <= 0) { D.ceilT = 0.2; this.clouds.spawn({ x: range(-24, 24), y: range(20, 50), z: Math.min(zf - 6, head.z + range(-40, 20)), vx: range(-1, 1), vy: range(-0.2, 0.6), vz: range(0, 2), drag: 0.2, s0: 30, s1: range(55, 80), life: range(10, 14), a: 0.9, fadeIn: 0.15, fadeOut: 0.4, vrot: range(-0.04, 0.04), r: 0.42, g: 0.36, b: 0.29 }); }
       if (rand() < dt * 30) g.fx.sparks.spawn({ x: head.x + range(-8, 8), y: head.y + range(2, 6), z: head.z + range(-8, 8), vx: range(-0.3, 0.3), vy: range(-1.2, -0.5), vz: range(-0.3, 0.3), grav: -0.4, drag: 0.4, frame: CELL.CHIP, s0: 1, w: 0.02, len: 0.03, life: 4, r: 0.8, g: 0.75, b: 0.65, a: 0.8, fadeOut: 0.4 });
     }
     g.audio.setLoop('dust_roar', { x: head.x, y: 6, z: zf, volume: clamp(1.2 - dz / 60, 0.2, 1) });

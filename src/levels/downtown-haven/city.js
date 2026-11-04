@@ -575,6 +575,25 @@ function facadeMaterial(T) {
         vec3 emT = textureGrad(emissiveMap, aUv, gdx, gdy).rgb;
         float isSw = step(6.5, tl);
         vec2 grid = (tl > 3.5 && tl < 4.5) ? vec2(2.0, 4.0) : vec2(4.0, 4.0);
+        // analytic AA: once a window cell is a few pixels on screen (distance, grazing angles) the mullion /
+        // spandrel grid dissolves into the tile's average colour; lines also thin out with distance first
+        vec2 cfw = max(fwidth(fUv * grid), vec2(1e-5));
+        float cpx = min(1.0 / cfw.x, 1.0 / cfw.y);
+        float vdist = length(vWPos - cameraPosition);
+        float kAA = smoothstep(3.0, 10.0, cpx);
+        float kThin = smoothstep(12.0, 40.0, cpx) * (1.0 - smoothstep(90.0, 380.0, vdist));
+        if (tl < 6.5) {
+          vec2 tc = (tileO + 0.5) * vec2(0.25, 0.5), g8x = vec2(0.25, 0.0), g8y = vec2(0.0, 0.25);
+          vec4 avgC = textureGrad(map, tc, g8x, g8y);
+          vec4 avgO = textureGrad(roughnessMap, tc, g8x, g8y);
+          vec3 avgE = textureGrad(emissiveMap, tc, g8x, g8y).rgb;
+          float gTile = (tl < 2.5 || (tl > 4.5 && tl < 5.5)) ? 1.0 : 0.0;
+          float fAA = 1.0 - kAA;
+          float fL = max(fAA, gTile * (1.0 - ormT.r) * (1.0 - kThin) * 0.7);
+          texelColor = mix(texelColor, avgC, fL);
+          ormT = mix(ormT, avgO, fL);
+          emT = mix(emT, avgE, fAA);
+        }
         vec2 cell = floor(fUv * grid) + tl * 37.0;
         float glassM = ormT.r * (1.0 - isSw);
         float ph = fhash(cell);
@@ -583,7 +602,7 @@ function facadeMaterial(T) {
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = roughness * ormT.g;')
       .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = metalness * ormT.b;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        { vec2 jj = vec2(fhash(cell + 7.1), fhash(cell + 19.3)) - 0.5; normal = normalize(normal + vec3(jj * 0.09 * glassM, 0.0)); }`)
+        { vec2 jj = vec2(fhash(cell + 7.1), fhash(cell + 19.3)) - 0.5; normal = normalize(normal + vec3(jj * 0.09 * glassM * kAA, 0.0)); }`)
       .replace('#include <emissivemap_fragment>', /* glsl */`
         {
           float zone = fhash(vec2(floor(cell.x / 3.0), cell.y) + 0.37);
@@ -591,7 +610,8 @@ function facadeMaterial(T) {
           float lit = max(step(zone, 0.3 * lk), step(fhash(cell + 3.3), 0.13 * lk));
           lit = mix(lit, 1.0, isSw);
           float bright = mix(0.45 + 0.95 * fhash(cell + 9.9), 1.0, isSw);
-          totalEmissiveRadiance *= emT * lit * bright;
+          float lb = mix(lit * bright, mix(0.32 * lk, 1.0, isSw), 1.0 - kAA);   // sub-pixel cells: average density, no sparkle
+          totalEmissiveRadiance *= emT * lb;
         }`)
       .replace('#include <lights_fragment_maps>', /* glsl */`#include <lights_fragment_maps>
         #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
@@ -611,8 +631,11 @@ function facadeMaterial(T) {
           // the reflected wall is a facade too: floor bands, a window grid, some lit offices (never a dead black slab)
           vec2 wg = vec2(az * 160.0, rw.y * 60.0);
           float wcell = fhash(floor(wg));
-          float frame = max(step(0.82, fract(wg.x)), step(0.78, fract(wg.y)));
-          float win = step(0.84, wcell) * (1.0 - frame);
+          vec2 wfw = fwidth(wg);
+          float kW = smoothstep(1.5, 4.0, 1.0 / max(max(wfw.x, wfw.y), 1e-5));
+          float frame = mix(0.2, max(step(0.82, fract(wg.x)), step(0.78, fract(wg.y))), kW);
+          float win = mix(0.13, step(0.84, wcell) * (1.0 - frame), kW);
+          wcell = mix(0.5, wcell, kW);
           vec3 wallC = mix(vec3(0.16, 0.13, 0.12), vec3(0.09, 0.1, 0.12), step(0.5, fhash(vec2(floor(az * 34.0), 3.1))));
           wallC *= 2.2;
           vec3 bc = radiance * 0.3 + wallC * (0.7 + 0.5 * wcell) * (1.0 - 0.45 * frame) + vec3(1.0, 0.62, 0.32) * win * (0.12 + 0.5 * uDusk);
@@ -624,7 +647,7 @@ function facadeMaterial(T) {
         }
         #endif`);
   };
-  m.customProgramCacheKey = () => 'bayhem-facade-v5';
+  m.customProgramCacheKey = () => 'bayhem-facade-v6';
   return m;
 }
 
@@ -1290,12 +1313,14 @@ export async function buildMeridian(a, b) {
   const { sT, facade } = shared();
   const store = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.5, metalness: 0, alphaTest: 0.5, vertexColors: true });
   store.userData.duskEmissive = 2.2;
-  const trim = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x8a7a6a, side: THREE.DoubleSide });   // unlit: a smoky cavity, no rim sheen
+  const trim = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0xffffff, side: THREE.DoubleSide });   // unlit: a smoky cavity, no rim sheen
   const ember = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 2.6, roughness: 0.9, vertexColors: true });
   const root = new THREE.Group(); root.name = 'meridian';
   const pivot = new THREE.Vector3(0, M.breakY, ZF);
   const TW = TM[TILE.meridian][0];
-  const HOLE = { x0: M.impact[0] - 7, x1: M.impact[0] + 7, y0: M.impact[1] - 7, y1: M.impact[1] + 7 };
+  const HW = 9, HH = 6.8, HD = 10;   // blast hole half width / half height / depth (18 m x 13.6 m, three floors)
+  const HOLE = { x0: M.impact[0] - HW, x1: M.impact[0] + HW, y0: M.impact[1] - HH, y1: M.impact[1] + HH };
+  const inHoleBox = (xa, xb, ya, yb, za, zb) => Math.max(xa, xb) > HOLE.x0 - 0.5 && Math.min(xa, xb) < HOLE.x1 + 0.5 && Math.max(ya, yb) > HOLE.y0 - 0.5 && Math.min(ya, yb) < HOLE.y1 + 0.5 && Math.max(za, zb) > ZF - HD - 1;
   const glows = [];
   let tris = 0;
   const O = { tile: TILE.meridian };
@@ -1322,28 +1347,31 @@ export async function buildMeridian(a, b) {
     w(side, xs(X), ZB + NT, ZF - NT, y0, y1, { ...O, yb: 0 });
     w(side, xs(X - NT), ZB, ZB + NT, y0, y1, { sw: SW.gold });
     w('-z', ZB + NT, xs(X - NT), xs(X), y0, y1, { ...O, yb: 0 });
-    w('-z', ZB, Math.min(0, xs(X - NT)), Math.max(0, xs(X - NT)), y0, y1, { ...O, yb: 0 });
+    w('-z', ZB, Math.min(0, xs(X - NT)), Math.max(0, xs(X - NT)), y0, y1, { ...O, yb: 0, ...(o.soot ? { aoB: 2.6, aoBk: 0.35, ao: 1.4, aoK: 0.5 } : {}) });
     // cut face (exposed when the halves part): floor slabs
     // (the parts inside the blast cavity go to `patch`, hidden while the hole shows)
-    const DH = 9.5, inHoleY = patch && HOLE.y1 > y0 && HOLE.y0 < y1, hy0c = Math.max(y0, HOLE.y0), hy1c = Math.min(y1, HOLE.y1);
+    const DH = HD + 0.5, CUTO = { tile: TILE.section, yb: 0, aoB: (y1 - y0) * 0.55, aoBk: 0.38, ao: 1.2, aoK: 0.7 }, inHoleY = patch && HOLE.y1 > y0 && HOLE.y0 < y1, hy0c = Math.max(y0, HOLE.y0), hy1c = Math.min(y1, HOLE.y1);
     if (inHoleY) {
-      w(cut, 0, ZB, ZF - DH, y0, y1, { tile: TILE.section, yb: 0 });
-      if (hy0c > y0) w(cut, 0, ZF - DH, ZF, y0, hy0c, { tile: TILE.section, yb: 0 });
-      if (y1 > hy1c) w(cut, 0, ZF - DH, ZF, hy1c, y1, { tile: TILE.section, yb: 0 });
+      w(cut, 0, ZB, ZF - DH, y0, y1, CUTO);
+      if (hy0c > y0) w(cut, 0, ZF - DH, ZF, y0, hy0c, CUTO);
+      if (y1 > hy1c) w(cut, 0, ZF - DH, ZF, hy1c, y1, CUTO);
       const f2 = mkFace(cut, 0, ZF - DH, ZF); lwall(patch, f2, 0, f2.len, hy0c, hy1c, 0, { tile: TILE.section, yb: 0, u0: (ZF - DH) / 8 });
-    } else w(cut, 0, ZB, ZF, y0, y1, { tile: TILE.section, yb: 0 });
+    } else w(cut, 0, ZB, ZF, y0, y1, CUTO);
     // caps (seen when chunks tumble)
     const xa = Math.min(0, xs(X)), xb = Math.max(0, xs(X));
-    if (o.bottom !== false) {
-      if (patch && y0 > HOLE.y0 && y0 < HOLE.y1) {
+    const UNDER = { tile: TILE.soffit, c: [0.55, 0.47, 0.4] }, TOPC = { tile: TILE.soffit, c: [1.05, 0.95, 0.85] };
+    const cap = (y, opt, down) => {
+      const Q = (B2, x0c, z0c, wx, dz) => (down ? q(B2, [x0c, y, z0c], [wx, 0, 0], [0, 0, dz], opt) : q(B2, [x0c, y, z0c + dz], [wx, 0, 0], [0, 0, -dz], opt));
+      if (patch && y > HOLE.y0 && y < HOLE.y1) {
         const ha = Math.max(xa, HOLE.x0), hb = Math.min(xb, HOLE.x1);
-        q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - DH - ZB], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
-        if (ha > xa) q(Bm, [xa, y0, ZF - DH], [ha - xa, 0, 0], [0, 0, DH], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
-        if (xb > hb) q(Bm, [hb, y0, ZF - DH], [xb - hb, 0, 0], [0, 0, DH], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
-        if (hb > ha) q(patch, [ha, y0, ZF - DH], [hb - ha, 0, 0], [0, 0, DH], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
-      } else q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
-    }
-    if (o.top !== false) q(Bm, [xa, y1, ZF], [xb - xa, 0, 0], [0, 0, -(ZF - ZB)], { tile: TILE.soffit, c: [1.15, 1.05, 0.95] });
+        Q(Bm, xa, ZB, xb - xa, ZF - DH - ZB);
+        if (ha > xa) Q(Bm, xa, ZF - DH, ha - xa, DH);
+        if (xb > hb) Q(Bm, hb, ZF - DH, xb - hb, DH);
+        if (hb > ha) Q(patch, ha, ZF - DH, hb - ha, DH);
+      } else Q(Bm, xa, ZB, xb - xa, ZF - ZB);
+    };
+    if (o.bottom !== false) cap(y0, UNDER, true);
+    if (o.top !== false) cap(y1, TOPC, false);
     // LED strip in the front notch
     box(Bm, xs(X - NT) - s * 0.05, y0, ZF - NT + 0.02, xs(X - NT) + s * 0.25, y1, ZF - NT + 0.3, { sw: SW.led, skip: 'yY' });
     // gold fins: front, back and the side
@@ -1364,37 +1392,80 @@ export async function buildMeridian(a, b) {
   // missing glass along the break line (warm-dark concrete, so tumbling chunks never read as clean blocks)
   const brk = makeRng(4040);
   const CONC = [1.25, 1.12, 1.0], CONC_D = [0.8, 0.72, 0.64], REBAR = [0.32, 0.16, 0.08];
-  function broken(Bm, s, y0, y1, { under = true, cut = true, top = false } = {}) {
+  // Dm (optional): damage that only shows once the chunk is falling (front-face bites / dangling panels would
+  // give the seams away on the intact tower). Sizes stay within ~10 % of the chunk's half extents.
+  function broken(Bm, s, y0, y1, { under = true, cut = true, top = false, Dm = null } = {}) {
     const r = brk, xs = (v) => s * v;
+    const conc = () => (r() < 0.5 ? CONC : CONC_D), concDk = () => (r() < 0.5 ? [0.62, 0.54, 0.47] : [0.45, 0.39, 0.34]);
+    const hy = (y1 - y0) / 2, maxOut = Math.min(0.9, X * 0.09), maxDown = Math.min(1.2, hy * 0.14);
+    // slab noses + rebar along every floor line of the cut face (jagged, sagging)
     if (cut) for (let fy = Math.ceil((y0 + 0.6) / 4.2) * 4.2; fy < y1 - 0.4; fy += 4.2) {
-      for (let z = ZB + 0.5; z < ZF - 0.5;) {
-        const len = 0.8 + r() * 3, reach = r() * 1.6, sag = r() < 0.25 ? r() * 0.5 : 0;
-        if (r() < 0.8) box(Bm, xs(0.02), fy - 0.45 - sag, z, xs(-reach - 0.1), fy + 0.05 - sag * 0.3, Math.min(ZF - 0.3, z + len), { tile: TILE.soffit, c: r() < 0.5 ? CONC : CONC_D });
-        if (r() < 0.45) beam(Bm, [xs(-reach), fy - 0.2, z + len * 0.5], [xs(-reach - 0.5 - r() * 1.2), fy - 0.2 - r() * 0.9, z + len * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
-        z += len + r() * 0.8;
+      for (let z = ZB + 0.3 + r() * 0.8; z < ZF - 0.5;) {
+        const len = 0.6 + r() * 2.6, reach = 0.15 + r() * (maxOut - 0.15), sag = r() < 0.3 ? r() * 0.6 : 0;
+        const z1 = Math.min(ZF - 0.3, z + len);
+        if (!inHoleBox(0, -reach, fy - 1, fy + 0.2, z, z1) && r() < 0.85) {
+          box(Bm, xs(0.02), fy - 0.45 - sag, z, xs(-reach), fy + 0.05 - sag * 0.4, z1, { tile: TILE.soffit, c: conc() });
+          if (r() < 0.4) box(Bm, xs(-reach + 0.02), fy - 0.3 - sag - r() * 0.4, z + len * 0.3, xs(-reach - 0.25), fy - sag * 0.4, z + len * (0.5 + r() * 0.4), { tile: TILE.soffit, c: concDk() });
+          for (let k = 0; k < (r() < 0.5 ? 2 : 0); k++) beam(Bm, [xs(-reach + 0.1), fy - 0.2, z + len * r()], [xs(-reach - 0.3 - r() * 0.5), fy - 0.25 - r() * 0.9, z + len * r()], 0.05, 0.05, { sw: SW.char, c: REBAR });
+        }
+        z += len + r() * 1.0;
+      }
+      // broken facade edges along the cut (front and back), sticking out a little: torn mullions
+      for (const ze of [ZF - 0.4, ZB + 0.4]) if (r() < 0.7 && !inHoleBox(0, 0, fy, fy + 4, ze, ze)) {
+        const h = 1 + r() * 2.6, yb = fy + r() * (4.2 - h);
+        beam(Bm, [xs(-0.05), yb, ze], [xs(-0.3 - r() * 0.6), yb + h, ze + (r() - 0.5) * 0.4], 0.12, 0.18, { sw: r() < 0.5 ? SW.gold : SW.darkAlu }, r());
       }
     }
+    // teeth under / over the chunk: hanging concrete + rebar
     const jag = (y, dir) => {
-      for (let k = 0; k < 9; k++) {
-        const x0 = r() * (X - 2), w = 1.2 + r() * 4, z0 = ZB + r() * (ZF - ZB - 4), d = 2 + r() * 8, h = 0.3 + r() * 1.4;
-        const xa = xs(x0), xb = xs(Math.min(X - 0.3, x0 + w));
-        box(Bm, xa, y, z0, xb, y + dir * h, Math.min(ZF - 0.2, z0 + d), { tile: TILE.soffit, c: r() < 0.5 ? CONC : CONC_D });
-        if (r() < 0.6) beam(Bm, [(xa + xb) / 2, y + dir * h, z0 + d * 0.5], [(xa + xb) / 2 + (r() - 0.5) * 1.2, y + dir * (h + 0.6 + r()), z0 + d * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
+      const n = 6 + Math.floor(r() * 7);
+      for (let k = 0; k < n; k++) {
+        const x0 = r() * (X - 2), w = 1 + r() * 3.6, z0 = ZB + r() * (ZF - ZB - 4), d = 1.5 + r() * 7, h = 0.25 + r() * (maxDown - 0.25);
+        const xa = xs(x0), xb = xs(Math.min(X - 0.3, x0 + w)), z1 = Math.min(ZF - 0.2, z0 + d);
+        if (inHoleBox(xa, xb, y, y + dir * h, z0, z1)) continue;
+        box(Bm, xa, y, z0, xb, y + dir * h, z1, { tile: TILE.soffit, c: dir < 0 ? concDk() : conc() });
+        if (r() < 0.5) box(Bm, (xa + xb) / 2 - 0.3, y + dir * h, z0 + d * 0.3, (xa + xb) / 2 + 0.3, y + dir * (h + 0.25 + r() * 0.3), z0 + d * 0.5, { tile: TILE.soffit, c: concDk() });
+        if (r() < 0.6) beam(Bm, [(xa + xb) / 2, y + dir * h, z0 + d * 0.5], [(xa + xb) / 2 + (r() - 0.5) * 1.2, y + dir * (h + 0.4 + r() * 0.6), z0 + d * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
       }
     };
     if (under) jag(y0, -1);
     if (top) jag(y1, 1);
-    // missing / smashed panes near the break: dark recessed squares with a torn edge on the front, back and side faces
-    const holes = (yB, dir) => {
-      for (let k = 0; k < 6; k++) {
-        const y = yB + dir * (0.2 + r() * 2.5), hgt = 1.2 + r() * 2.2, ya = dir > 0 ? y : y - hgt;
-        const fx = 0.6 + r() * (X - NT - 3), fw = 1.3 + r() * 2.4, face = r();
-        if (face < 0.75) q(Bm, [xs(fx) + (s < 0 ? 0 : fw), ya, ZB - 0.03], [-fw, 0, 0], [0, hgt, 0], { sw: SW.char, c: [0.6, 0.5, 0.4] });
-        else if (false) { const z = ZB + NT + 1 + r() * (ZF - ZB - 2 * NT - 4); q(Bm, s > 0 ? [X + 0.03, ya, z + fw] : [-X - 0.03, ya, z], [0, 0, s > 0 ? -fw : fw], [0, hgt, 0], { sw: SW.char, c: [0.6, 0.5, 0.4] }); }
+    // missing / smashed panes near the break on the back face (never seen before the fall)
+    const holes = (yB, dir, B2, zf, nz) => {
+      const n = 3 + Math.floor(r() * 5);
+      for (let k = 0; k < n; k++) {
+        const y = yB + dir * (0.2 + r() * 3), hgt = 1.2 + r() * 2.6, ya = dir > 0 ? y : y - hgt;
+        const fx = 0.6 + r() * (X - NT - 3), fw = 1.3 + r() * 3;
+        const o = nz > 0 ? [xs(fx) - (s > 0 ? 0 : fw), ya, zf] : [xs(fx) + (s < 0 ? 0 : fw), ya, zf];
+        q(B2, o, [nz > 0 ? fw : -fw, 0, 0], [0, hgt, 0], { tile: TILE.section, yb: 0, c: [0.7, 0.6, 0.5] });
       }
     };
-    if (under) holes(y0, 1);
-    if (top) holes(y1, -1);
+    if (under) holes(y0, 1, Bm, ZB - 0.03, -1);
+    if (top) holes(y1, -1, Bm, ZB - 0.03, -1);
+    if (!Dm) return;
+    // ---- fall-only damage: front-face smashed panes, corner bites, dangling panels on front/back/side
+    if (under) holes(y0, 1, Dm, ZF + 0.85, 1);
+    if (top) holes(y1, -1, Dm, ZF + 0.85, 1);
+    const bite = (cx, cz, cy, sx, sy, sz) => box(Dm, cx - sx, cy - sy, cz - sz, cx + sx, cy + sy, cz + sz, { tile: TILE.section, yb: 0, c: [0.95, 0.8, 0.66] });
+    const nb = 1 + Math.floor(r() * 2);
+    for (let k = 0; k < nb; k++) {
+      // a broken-away corner/edge: a charred section block wrapped over the corner (reads as missing structure)
+      const atCut = r() < 0.6, atFront = r() < 0.5, yb = r() < 0.65 ? y0 : y1;
+      const cx = atCut ? 0 : xs(X), cz = atFront ? ZF + 0.4 : ZB;
+      bite(cx, cz, yb, 1.2 + r() * 2.4, 1 + r() * 1.8, 1.5 + r() * 3);
+    }
+    const nd = 3 + Math.floor(r() * 4);
+    for (let k = 0; k < nd; k++) {
+      // panels torn loose, hanging from the bottom edge by a corner
+      const face = r(), w = 1.2 + r() * 1.6, h = 1.5 + r() * 2.2, tilt = 0.2 + r() * 0.7;
+      let p, rotY = 0;
+      if (face < 0.45) p = [xs(1 + r() * (X - 4)), y0 + 0.4, ZF + 0.9 + h * 0.25];
+      else if (face < 0.75) { p = [xs(1 + r() * (X - 4)), y0 + 0.4, ZB - 0.3 - h * 0.25]; rotY = Math.PI; }
+      else { p = [xs(X + 0.9 + h * 0.2), y0 + 0.4, ZB + 3 + r() * (ZF - ZB - 6)]; rotY = s * Math.PI / 2; }
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(p[0], p[1] - h * 0.4, p[2]), new THREE.Quaternion().setFromEuler(new THREE.Euler(-tilt, rotY + (r() - 0.5) * 0.5, (r() - 0.5) * 0.7, 'YXZ')), new THREE.Vector3(w, h, 0.08));
+      Dm.geo(UNIT_BOX, m, { sw: r() < 0.6 ? SW.blackGlass : SW.goldGlass });
+      beam(Dm, [p[0] - w * 0.45, p[1] + 0.3, p[2]], [p[0] - w * 0.4, p[1] - h * 0.8, p[2] + h * 0.3], 0.08, 0.1, { sw: SW.darkAlu });
+    }
   }
   const lowerB = new Batch(), lowerPatch = new Batch(), lowerStore = new Batch();
   const LOBBY_H = 12;
@@ -1440,6 +1511,9 @@ export async function buildMeridian(a, b) {
   for (let i = 0; i < NB; i++) bands.push([M.breakY + i * bh, M.breakY + (i + 1) * bh]);
   const logoY0 = 103.8, logoY1 = 110.2;
   const colliders = [{ min: [M.x0, 0, M.z0], max: [M.x1, M.breakY, M.z1], data: { kind: 'meridian', mat: 'glass', part: 'lower' } }];
+  // fall-only damage: shown once the upper section leans / sinks or the chunk has been detached
+  const damageMesh = (Dm) => { const d = Dm.mesh(facade); d.name = 'meridian-chunk-damage'; d.visible = false; d.userData.damage = true; tris += Dm.tris; return d; };
+  const falling = (c) => c.parent !== upper || Math.abs(upper.rotation.x) > 0.004 || upper.position.y < pivot.y - 0.2;
   const mkChunk = (Bm, s, y0, y1, extra = []) => {
     const cx = s * X / 2, cy = (y0 + y1) / 2, cz = (ZF + ZB) / 2;
     Bm.translate(-cx, -cy, -cz);
@@ -1448,6 +1522,8 @@ export async function buildMeridian(a, b) {
     m.userData.half = [X / 2, (y1 - y0) / 2, (ZF - ZB) / 2];
     for (const e of extra) { e.position.set(-cx, -cy, -cz); m.add(e); }
     upper.add(m); chunks.push(m);
+    const dmg = extra.find(e => e.userData.damage);
+    if (dmg) { m.userData.damage = dmg; m.onBeforeRender = function () { dmg.visible = falling(this); }; }
     colliders.push({ min: [Math.min(0, s * X), y0, ZB], max: [Math.max(0, s * X), y1, ZF], data: { kind: 'meridian', mat: 'glass', part: 'upper', chunk: chunks.length - 1 } });
     tris += Bm.tris;
     return m;
@@ -1456,12 +1532,13 @@ export async function buildMeridian(a, b) {
     const [y0, y1] = bands[i];
     for (const s of [-1, 1]) {
       const Bm = new Batch(), patch = i === 0 ? new Batch() : null;
-      band(Bm, patch, s, y0, y1, {});
-      broken(Bm, s, y0, y1, { under: true, cut: true, top: i < NB - 1 && brk() < 0.6 });
+      const Dm = new Batch();
+      band(Bm, patch, s, y0, y1, { soot: true });
+      broken(Bm, s, y0, y1, { under: true, cut: true, top: i < NB - 1 && brk() < 0.6, Dm });
       // gold belt at the crown base / mid tower
       if (i === NB - 1) box(Bm, Math.min(0, s * (X + 0.4)), y1 - 1.6, ZB - 0.4, Math.max(0, s * (X + 0.4)), y1, ZF + 1.0, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
       if (i === 1) box(Bm, Math.min(0, s * (X + 0.2)), y1 - 0.8, ZB - 0.2, Math.max(0, s * (X + 0.2)), y1, ZF + 0.95, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
-      const extra = [];
+      const extra = [damageMesh(Dm)];
       if (patch) { const pm = patch.mesh(facade); extra.push(pm); patches.push(pm); tris += patch.tris; }
       if (logoY0 >= y0 && logoY1 <= y1) {
         // MERIDIAN lettering, split between the halves ("MERI" | "DIAN")
@@ -1513,8 +1590,9 @@ export async function buildMeridian(a, b) {
       for (const y of [CR1 + 8, CR1 + 16, CR1 + 24]) Bm.geo(new THREE.CylinderGeometry(1.5 - (y - CR1) * 0.04, 1.5 - (y - CR1) * 0.04, 0.5, 10), new THREE.Matrix4().makeTranslation(0.01, y, (ZF + ZB) / 2), { sw: SW.gold });
       Bm.geo(new THREE.SphereGeometry(0.35, 8, 6), new THREE.Matrix4().makeTranslation(0.01, CR1 + 45.3, (ZF + ZB) / 2), { sw: SW.red });
     }
-    broken(Bm, s, CROWN0, CR1, { under: true, cut: false });
-    mkChunk(Bm, s, CROWN0, CR1 + 3, []);
+    const Dm = new Batch();
+    broken(Bm, s, CROWN0, CR1, { under: true, cut: false, Dm });
+    mkChunk(Bm, s, CROWN0, CR1 + 3, [damageMesh(Dm)]);
   }
   const top = chunks[chunks.length - 1];
   top.userData.half = [X / 2, (CR1 + 3 - CROWN0) / 2, (ZF - ZB) / 2];
@@ -1525,51 +1603,99 @@ export async function buildMeridian(a, b) {
   // ---------- the blast hole (hidden until the gunship hits)
   const hole = new THREE.Group(); hole.name = 'meridian-hole';
   hole.position.set(...M.impact);
+  const holeFires = [];
   {
     const r = makeRng(666);
     const HB = new Batch(), HM = new Batch(), HE = new Batch(), HF = new Batch();
-    const hw = 7, D = 9;
-    const charC = (k = 1) => [0.06 * k, 0.05 * k, 0.045 * k];
-    // cavity (inward facing)
-    q(HB, [-hw, -hw, -D], [2 * hw, 0, 0], [0, 2 * hw, 0], { c: charC(1), s: 3 });
-    q(HB, [-hw, -hw, 0], [0, 0, -D], [0, 2 * hw, 0], { c: charC(0.8), s: 3 });
-    q(HB, [hw, -hw, -D], [0, 0, D], [0, 2 * hw, 0], { c: charC(0.8), s: 3 });
-    q(HB, [-hw, hw, 0], [2 * hw, 0, 0], [0, 0, -D], { c: charC(0.5), s: 3 });
-    q(HB, [-hw, -hw, -D], [2 * hw, 0, 0], [0, 0, D], { c: charC(1.2), s: 3 });
-    // broken slabs with jagged noses, rebar, sagging
-    for (const fy of [-6.4, -2.2, 2.0, 6.2]) {
-      if (fy < -hw || fy > hw) continue;
-      box(HB, -hw, fy - 0.35, -D, hw, fy, -2.5 - r() * 1.5, { c: [0.1, 0.09, 0.085] });
-      for (let x = -hw + 0.4; x < hw - 0.6; x += 1 + r() * 1.4) {
-        const reach = r() * 2.6, sag = r() * 0.9;
-        box(HB, x, fy - 0.35 - sag, -2.8, x + 0.6 + r() * 1.2, fy - sag * 0.6, -2.8 + reach, { c: [0.13, 0.11, 0.1] });
-        if (r() < 0.6) beam(HM, [x + 0.3, fy - 0.2, -2.5], [x + 0.3 + (r() - 0.5), fy - 0.2 - r() * 1.6, -0.6 + r() * 1.5], 0.04, 0.04, { c: [0.25, 0.14, 0.08] });
+    const hw = HW, hh = HH, D = HD, TH = TM[TILE.meridian][1];
+    const charC = (k = 1) => [0.013 * k, 0.0105 * k, 0.009 * k];
+    const hot = (k = 1) => [1.0 * k, 0.42 * k, 0.12 * k];
+    // --- punched-in cavity: dark, smoky walls (unlit), glowing deeper in
+    q(HB, [-hw, -hh, -D], [2 * hw, 0, 0], [0, 2 * hh, 0], { c: charC(1.2), cTop: charC(0.5), s: 3 });
+    q(HB, [-hw, -hh, 0], [0, 0, -D], [0, 2 * hh, 0], { c: hot(0.18), cTop: charC(0.5), s: 3 });
+    q(HB, [hw, -hh, -D], [0, 0, D], [0, 2 * hh, 0], { c: hot(0.18), cTop: charC(0.5), s: 3 });
+    q(HB, [-hw, hh, 0], [2 * hw, 0, 0], [0, 0, -D], { c: charC(0.4), s: 3 });
+    q(HB, [-hw, -hh, -D], [2 * hw, 0, 0], [0, 0, D], { c: hot(0.25), s: 3 });
+    // back wall on fire (lower part), embers through the gutted floors
+    lwall(HE, mkFace('+z', -D + 0.05, -hw, hw), 0, 2 * hw, -hh, -hh + 2.6, 0, { uv: srUV(SR.ember, 2), c: [0.8, 0.6, 0.45] });
+    // --- floors: broken slabs with jagged noses, sagging, rebar; undersides lit orange by the fire below
+    const floors = []; for (let k = -3; k <= 3; k++) { const fy = 4.2 * Math.round(M.impact[1] / 4.2 + k) - M.impact[1]; if (fy > -hh + 0.5 && fy < hh + 0.2) floors.push(fy); }
+    for (const fy of floors) {
+      const back = -D, front = -3.5 - r() * 2;
+      box(HB, -hw, fy - 0.4, back, hw, fy, front, { c: charC(2.2), top: { c: charC(1.5) } });
+      q(HB, [-hw, fy - 0.401, back], [2 * hw, 0, 0], [0, 0, front - back], { c: hot(0.32), cTop: charC(2) });
+      for (let x = -hw + 0.2; x < hw - 0.4;) {
+        const w = 0.5 + r() * 1.6, reach = r() * (D * 0.5), sag = r() * 1.6, droop = r() < 0.3;
+        const z0 = front, z1 = Math.min(-0.3, front + reach);
+        if (z1 > z0 + 0.2) {
+          if (droop) beam(HB, [x + w / 2, fy - 0.2, z0], [x + w / 2 + (r() - 0.5), fy - 0.2 - sag * 1.8, z1], w, 0.35, { c: charC(2.5) });
+          else box(HB, x, fy - 0.4 - sag * 0.3, z0, x + w, fy - sag * 0.15, z1, { c: charC(2.4), top: { c: charC(1.6) } });
+          if (r() < 0.55) for (let k = 0; k < 2; k++) beam(HM, [x + w * r(), fy - 0.2, z1 - 0.1], [x + w * r() + (r() - 0.5) * 0.6, fy - 0.3 - r() * 1.4, z1 + 0.4 + r() * 1.2], 0.045, 0.045, { c: [0.12, 0.05, 0.02] });
+        }
+        x += w + r() * 0.5;
       }
-      // embers along the slab edge + burning interior
-      lwall(HE, mkFace('+z', -2.4, -hw + 0.5, hw - 0.5), 0, 2 * hw - 1, fy, fy + 1.0 + r() * 1.2, 0, { uv: srUV(SR.ember, 2), c: [1, 0.8, 0.6] });
+      // fire along the slab: flames standing on it, glowing under its nose
+      for (let x = -hw + 0.5 + r() * 2; x < hw - 1.5;) {   // patchy fires, not a full-width strip
+        const w = 1.2 + r() * 3.2, zf = front + 0.4 + r() * 1.5;
+        if (r() < 0.6) lwall(HE, mkFace('+z', zf, x, Math.min(hw - 0.5, x + w)), 0, Math.min(hw - 0.5, x + w) - x, fy, fy + 0.6 + r() * 2.2, 0, { uv: srUV(SR.ember, 2), c: [1, 0.85, 0.7] });
+        x += w + 0.5 + r() * 2.5;
+      }
+      for (let k = 0; k < 3; k++) holeFires.push(new THREE.Vector3(M.impact[0] - hw + 2 + r() * (2 * hw - 4), M.impact[1] + fy + 0.8, ZF - 3 - r() * 3));
     }
-    lwall(HE, mkFace('+z', -D + 0.05, -hw, hw), 0, 2 * hw, -hw, -hw + 3.5, 0, { uv: srUV(SR.ember, 2) });
     // broken columns
-    for (const x of [-3.8, 3.8]) { box(HB, x - 0.45, -hw, -5, x + 0.45, -1 + r() * 3, -4.1, { c: [0.12, 0.11, 0.1] }); beam(HM, [x, 1.5, -4.5], [x + 0.6, 3.5, -3.6], 0.05, 0.05, { c: [0.25, 0.14, 0.08] }); }
-    // torn mullions / bent fins at the rim
-    for (let k = 0; k < 26; k++) {
-      const a = r() * Math.PI * 2, rr = hw * (0.75 + r() * 0.3);
-      const p0 = [Math.cos(a) * rr, Math.sin(a) * rr * 0.95, 0.3];
-      const len = 1.2 + r() * 3.2, dir = [-Math.cos(a) * 0.6 + (r() - 0.5), -Math.sin(a) * 0.6 - r() * 0.8, 0.5 + r() * 1.2];
-      const p1 = [p0[0] + dir[0] * len, p0[1] + dir[1] * len, p0[2] + dir[2] * len * 0.6];
-      beam(HF, p0, p1, k % 3 ? 0.08 : 0.28, k % 3 ? 0.12 : 0.6, { sw: k % 3 ? SW.darkAlu : SW.gold }, r() * 3);
+    for (const x of [-hw * 0.5, hw * 0.45]) { box(HB, x - 0.5, -hh, -5.5, x + 0.5, -hh + 2 + r() * 4, -4.5, { c: charC(2.6) }); beam(HM, [x, 0.5, -5], [x + 0.6, 2.8, -3.8], 0.06, 0.06, { c: [0.3, 0.15, 0.07] }); }
+    // --- jagged rim: broken curtain wall eating into the rectangular cut, rounder at the corners
+    const tuv = (p) => [(p[0] + M.impact[0]) / TW, (p[1] + M.impact[1]) / TH];
+    const tri = (A, Bp, C) => HF.tri(A, Bp, C, [tuv(A), tuv(Bp), tuv(C)], TILE.meridian, WHITE, [0, 0, 1]);
+    const rect = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
+    for (let e = 0; e < 4; e++) {
+      const P0 = rect[e], P1 = rect[(e + 1) % 4], L = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]);
+      const dir = [(P1[0] - P0[0]) / L, (P1[1] - P0[1]) / L], inn = [-dir[1], dir[0]];
+      let t = 0, prevIn = null, prevE = null;
+      while (t <= L + 1e-3) {
+        const edgeP = [P0[0] + dir[0] * t, P0[1] + dir[1] * t, 0.03];
+        const corner = Math.max(0, 1 - Math.min(t, L - t) / 4.5);
+        const d = (r() < 0.2 ? 0.05 : 0.15 + r() * 1.1) + corner * corner * 2.4;
+        const inP = [edgeP[0] + inn[0] * d, edgeP[1] + inn[1] * d, 0.03];
+        if (prevIn) { tri(prevE, edgeP, inP); tri(prevE, inP, prevIn); }
+        prevIn = inP; prevE = edgeP;
+        if (t >= L) break;
+        t = Math.min(L, t + 0.5 + r() * 1.3);
+      }
     }
-    // hanging spandrel / glass panels
-    for (let k = 0; k < 7; k++) {
-      const x = -hw + 1 + r() * (2 * hw - 2), y = hw - 0.5 - r() * 3, w = 1.2 + r() * 0.8, h = 1.6 + r() * 2.2;
-      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - h / 2, 0.7 + r() * 0.5), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3 + r() * 0.6, (r() - 0.5) * 0.8, (r() - 0.5) * 0.9)), new THREE.Vector3(w, h, 0.06));
+    // charred glass shards just outside the rim (scorch ring)
+    for (let k = 0; k < 46; k++) {
+      const a = r() * Math.PI * 2, ex = Math.cos(a), ey = Math.sin(a), k2 = Math.max(Math.abs(ex) / hw, Math.abs(ey) / hh);
+      const px = ex / k2 * (1 + r() * 0.25), py = ey / k2 * (1 + r() * 0.25), w = 1 + r() * 2.6, h = 0.5 + r() * 2;
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(px, py, 0.84 + r() * 0.1), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, a + (r() - 0.5))), new THREE.Vector3(w, h, 0.05));
+      HB.geo(UNIT_BOX, m, { c: charC(0.5 + r()), uvS: 1 });
+    }
+    // --- twisted mullions and gold fins hanging out of the hole
+    const chain = (p, segs, sw, wd, dp) => {
+      let cur = p.slice(), d = [(r() - 0.5) * 0.6, -1, 0.5 + r() * 0.6];
+      for (let k = 0; k < segs; k++) {
+        const len = 0.8 + r() * 1.8;
+        d = [d[0] + (r() - 0.5) * 0.9, d[1] + (r() - 0.3) * 0.5, d[2] + (r() - 0.2) * 0.6];
+        const n = Math.hypot(...d), nxt = [cur[0] + d[0] / n * len, cur[1] + d[1] / n * len, Math.max(0.1, cur[2] + d[2] / n * len)];
+        beam(HF, cur, nxt, wd, dp, { sw }, r() * 2);
+        cur = nxt;
+      }
+    };
+    for (const wfx of [-1.9, 1.9, 5.7, 9.5]) {                      // the tower's own fins, torn at the hole
+      const lx = wfx - M.impact[0];
+      if (lx < -hw || lx > hw) continue;
+      chain([lx, hh - 0.2, 0.4], 2 + Math.floor(r() * 2), SW.gold, 0.3, 0.7);
+      if (r() < 0.7) chain([lx, -hh + 0.3, 0.4], 1 + Math.floor(r() * 2), SW.gold, 0.3, 0.7);
+    }
+    for (let k = 0; k < 16; k++) {                                   // mullions
+      const top = r() < 0.65, x = -hw + 0.8 + r() * (2 * hw - 1.6);
+      chain([x, top ? hh - 0.3 - r() * 1.5 : -hh + 0.3, 0.15], 1 + Math.floor(r() * 3), SW.darkAlu, 0.09, 0.14);
+    }
+    // panels dangling from the upper lip
+    for (let k = 0; k < 9; k++) {
+      const x = -hw + 1 + r() * (2 * hw - 2), w = 1.2 + r() * 0.9, h = 1.6 + r() * 2.4, y = hh - 0.4 - r() * 2;
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - h / 2, 0.7 + r() * 0.8), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3 + r() * 0.7, (r() - 0.5) * 0.9, (r() - 0.5) * 0.9)), new THREE.Vector3(w, h, 0.06));
       HF.geo(UNIT_BOX, m, { sw: k % 3 ? SW.blackGlass : SW.darkAlu });
-    }
-    // scorch ring: irregular charred shards over the face around the rim
-    for (let k = 0; k < 40; k++) {
-      const a = r() * Math.PI * 2, rr = hw * (0.95 + r() * 0.55), w = 1 + r() * 2.4, h = 0.6 + r() * 2;
-      const m = new THREE.Matrix4().compose(new THREE.Vector3(Math.cos(a) * rr, Math.sin(a) * rr + (r() < 0.5 ? 1.5 : 0), 0.82 + r() * 0.1), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, a + (r() - 0.5))), new THREE.Vector3(w, h, 0.05));
-      HB.geo(UNIT_BOX, m, { c: charC(0.6 + r() * 0.6), uvS: 1 });
     }
     hole.add(HB.mesh(trim, { cast: false }), HM.mesh(trim, { cast: false }), HE.mesh(ember, { cast: false }), HF.mesh(facade, { cast: false }));
     tris += HB.tris + HM.tris + HE.tris + HF.tris;
@@ -1579,7 +1705,7 @@ export async function buildMeridian(a, b) {
   let holeVis = true;
   Object.defineProperty(hole, 'visible', { configurable: true, get() { return holeVis; }, set(v) { holeVis = v; for (const p of patches) p.visible = !v; } });
   hole.visible = !!opts.hole;
-  if (opts.explode) chunks.forEach((c, i) => { c.position.y += (i >> 1) * opts.explode; c.position.x += (i % 2 ? 1 : -1) * opts.explode * 0.6; c.rotation.x = (i % 3 - 1) * 0.15; });   // viewer only
+  if (opts.explode) chunks.forEach((c, i) => { if (c.userData.damage) c.userData.damage.visible = true; c.position.y += (i >> 1) * opts.explode; c.position.x += (i % 2 ? 1 : -1) * opts.explode * 0.6; c.rotation.x = (i % 3 - 1) * 0.15; });   // viewer only
 
   root.traverse(o => { if (o.isMesh && o.castShadow === false && !o.material.alphaTest && o.name !== 'meridian-logo') { o.castShadow = o.parent !== hole; } });
   preview([facade, store]);
@@ -1588,7 +1714,7 @@ export async function buildMeridian(a, b) {
     root, lower: lowerG, upper, chunks, pivot, colliders, hole, info,
     anchors: {
       impact: new THREE.Vector3(...M.impact), crown: new THREE.Vector3(0, CR1, (ZF + ZB) / 2), spireLight,
-      logo: new THREE.Vector3(0, (logoY0 + logoY1) / 2, ZF + 1), glows,
+      logo: new THREE.Vector3(0, (logoY0 + logoY1) / 2, ZF + 1), glows, holeFires,
     },
   };
 }

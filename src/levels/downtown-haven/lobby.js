@@ -110,7 +110,7 @@ function woodTexture() {
 }
 // Sign atlas (1024²): lettering, halo, emblem, lift indicator, monitor UI, glow, soft band, LED wall art.
 const A = { LET: [0, 0, 1024, 160], HALO: [0, 160, 1024, 160], EMB: [0, 320, 256, 256], IND: [256, 320, 256, 128],
-  MON: [256, 448, 256, 128], GLOW: [512, 320, 256, 256], BAND: [768, 320, 256, 64], LED: [0, 768, 1024, 256], SOFT: [768, 384, 192, 192] };
+  MON: [256, 448, 256, 128], GLOW: [512, 320, 256, 256], BAND: [768, 320, 256, 64], LED: [0, 768, 1024, 256], SOFT: [768, 384, 192, 192], LEAF0: [0, 576, 192, 192], LEAF1: [192, 576, 192, 192], LEAF2: [384, 576, 192, 192] };
 const uvr = ([x, y, w, h], inset = 0) => [(x + inset) / 1024, 1 - (y + h - inset) / 1024, (x + w - inset) / 1024, 1 - (y + inset) / 1024];
 function atlasTexture() {
   const c = makeCanvas(1024, 1024), x = c.getContext('2d');
@@ -190,6 +190,25 @@ function atlasTexture() {
     x.save(); x.beginPath(); x.rect(sx, sy, sw, sh); x.clip(); x.filter = 'blur(10px)';
     x.fillStyle = '#ffffff'; x.fillRect(sx + 26, sy + 26, sw - 52, sh - 52); x.restore();
   }
+  // leaf clusters (ficus): ragged clumps of small pointed leaves, desaturated greens, alpha cut-out
+  for (const [ci, key] of ['LEAF0', 'LEAF1', 'LEAF2'].entries()) {
+    const [lx, ly, lw, lh] = A[key], r = makeRng(900 + ci), cx = lx + lw / 2, cy = ly + lh / 2;
+    x.save(); x.beginPath(); x.rect(lx + 2, ly + 2, lw - 4, lh - 4); x.clip();
+    x.strokeStyle = 'rgba(48,36,26,1)'; x.lineWidth = 2;
+    for (let k = 0; k < 7; k++) { const a = r() * 6.283; x.beginPath(); x.moveTo(cx, cy + lh * 0.3); x.lineTo(cx + Math.cos(a) * lw * 0.36, cy + Math.sin(a) * lh * 0.36); x.stroke(); }
+    for (let k = 0; k < 360; k++) {
+      const a = r() * 6.283, d = Math.pow(r(), 0.6) * (0.3 + 0.16 * Math.sin(a * 3 + ci * 2) + 0.06 * Math.sin(a * 7 + ci)) * lw;
+      const px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d * 0.92;
+      const edge = d / (0.42 * lw), hue = 78 + r() * 34, sat = 16 + r() * 22, lit = 13 + r() * 16 + (1 - edge) * 6 - (py - ly) / lh * 6;
+      x.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
+      x.save(); x.translate(px, py); x.rotate(r() * 6.283);
+      const L = 6 + r() * 6;
+      x.beginPath(); x.moveTo(-L, 0); x.quadraticCurveTo(0, -L * 0.48, L, 0); x.quadraticCurveTo(0, L * 0.48, -L, 0); x.fill();
+      x.fillStyle = 'rgba(200,215,170,0.12)'; x.fillRect(-L * 0.8, -0.5, L * 1.5, 1);
+      x.restore();
+    }
+    x.restore();
+  }
   // LED wall art (tiles horizontally): navy-to-ember gradient, flowing gold ribbons, skyline, brand line
   {
     const [lx, ly, lw, lh] = A.LED;
@@ -261,15 +280,15 @@ export async function buildLobby(ctx = {}) {
   const { tex: atlas } = atlasTexture();
   atlas.wrapS = THREE.RepeatWrapping;   // only the LED row (full atlas width) ever samples outside [0,1] in u
   const M = {
-    floor: new THREE.MeshStandardMaterial({ map: marble, roughness: 0.13, metalness: 0, envMapIntensity: 1.5 }),
+    floor: new THREE.MeshStandardMaterial({ map: marble, color: 0xd6cdbf, roughness: 0.17, metalness: 0, envMapIntensity: 1.15 }),
     inlay: new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.5, roughness: 0.12, envMapIntensity: 1.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     stone: new THREE.MeshStandardMaterial({ map: stoneT, vertexColors: true, roughness: 0.42, metalness: 0, envMapIntensity: 0.7 }),
     bronze: new THREE.MeshStandardMaterial({ map: metalT, color: 0x8c7660, metalness: 0.8, roughness: 0.3, envMapIntensity: 1.3 }),
     steel: new THREE.MeshStandardMaterial({ map: metalT, color: 0xd8dce0, metalness: 0.7, roughness: 0.28, envMapIntensity: 1.3 }),
     wood: new THREE.MeshStandardMaterial({ map: woodT, roughness: 0.42, metalness: 0, envMapIntensity: 0.6 }),
     ceil: new THREE.MeshStandardMaterial({ map: metalT, emissiveMap: metalT, vertexColors: true, color: 0xfaf2e6, emissive: 0xd0bea6, emissiveIntensity: 0.8, roughness: 0.75, envMapIntensity: 0.25 }),
-    foliage: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0, envMapIntensity: 0.2 }),
-    sunPool: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.66, 0.36).multiplyScalar(0.55), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }),
+    foliage: new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, roughness: 0.8, metalness: 0, envMapIntensity: 0.25 }),
+    sunPool: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.62, 0.32).multiplyScalar(0.28), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }),
     skyShafts: new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }),
     misc: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0, envMapIntensity: 0.6 }),
     light: new THREE.MeshStandardMaterial({ color: 0xfff4e6, emissive: 0xffdcb0, emissiveIntensity: 2.6, roughness: 0.5 }),
@@ -278,15 +297,36 @@ export async function buildLobby(ctx = {}) {
     halo: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.62, 0.3), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
     led: new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0xffffff, emissiveMap: atlas, emissiveIntensity: 1.7, roughness: 0.22, metalness: 0 }),
     glass: new THREE.MeshStandardMaterial({ color: 0xa8bcc0, transparent: true, opacity: 0.2, roughness: 0.05, metalness: 0.6, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.2 }),
-    pools: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.78, 0.52).multiplyScalar(0.22), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+    pools: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.76, 0.5).multiplyScalar(0.13), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     shafts: new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }),
   };
   M.letters.userData.duskEmissive = 0.45;
   // ceiling: vertex colours (coffer AO / grime) also darken the emissive fill
   M.ceil.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= vColor.rgb;'); };
+  // floor: keep the polished env reflection, but cut the grazing-sun specular hot spot and soft-clamp
+  // the result below white so the veining (and dark figures standing on it) stay readable.
+  M.floor.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n  reflectedLight.directSpecular *= 0.2; reflectedLight.directDiffuse *= 0.7;')
+      .replace('#include <opaque_fragment>', `{ float m = max(outgoingLight.r, max(outgoingLight.g, outgoingLight.b));
+    if (m > 0.6) { float e = m - 0.6; outgoingLight *= (0.6 + e / (1.0 + e * 2.6)) / m; } }
+  #include <opaque_fragment>`);
+  };
+  // bounce light: warm emissive gradient on the lower 2.8 m of interior walls/columns/desk (the sunlit marble
+  // floor lighting them from below). Masked to the lobby interior so the exterior base strip stays as is.
+  const bounceU = { value: new THREE.Color(1.0, 0.68, 0.4).multiplyScalar(0.4) };
+  const bounce = (sh) => {
+    sh.uniforms.bounceCol = bounceU;
+    sh.vertexShader = 'varying vec3 vBW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vBW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'varying vec3 vBW;\nuniform vec3 bounceCol;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  { float bh = 1.0 - smoothstep(0.15, 2.8, vBW.y);
+    float bin = step(16.25, vBW.x) * step(vBW.x, 42.05) * step(-126.05, vBW.z) * step(vBW.z, -81.95);
+    totalEmissiveRadiance += diffuseColor.rgb * bounceCol * bh * bh * bin; }`);
+  };
+  M.stone.onBeforeCompile = bounce; M.wood.onBeforeCompile = bounce;
   // foliage: darken toward the silhouette (no pale fresnel/rim halo), keeps the canopy edge broken and dark
   M.foliage.onBeforeCompile = (sh) => {
-    sh.fragmentShader = sh.fragmentShader.replace('#include <aomap_fragment>', `#include <aomap_fragment>
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);').replace('#include <aomap_fragment>', `#include <aomap_fragment>
   { float fe = smoothstep(0.05, 0.65, clamp(dot(geometryNormal, geometryViewDir), 0.0, 1.0)); float em = mix(0.28, 1.0, fe);
     reflectedLight.directDiffuse *= em; reflectedLight.indirectDiffuse *= em;
     reflectedLight.directSpecular *= em * em * 0.35; reflectedLight.indirectSpecular *= em * em * 0.25; }`);
@@ -590,37 +630,56 @@ export async function buildLobby(ctx = {}) {
     BC(L.stone, px - s / 2, FY, pz - s / 2, px + s / 2, h, pz + s / 2, [0.38, 0.35, 0.33], 'planter', 'concrete');
     B(L.bronze, px - s / 2 - 0.02, h, pz - s / 2 - 0.02, px + s / 2 + 0.02, h + 0.05, pz + s / 2 + 0.02);
     B(L.misc, px - s / 2 + 0.06, h, pz - s / 2 + 0.06, px + s / 2 - 0.06, h + 0.03, pz + s / 2 - 0.06, [0.16, 0.11, 0.07]);
-    const th = 2.5 * tree, ccx = px, ccy = h + th + 0.15, ccz = pz;
-    L.misc.push(tint(at(new THREE.CylinderGeometry(0.06, 0.1, th, 7), px, h + th / 2, pz), 0.16, 0.12, 0.09));
-    for (let k = 0; k < 4; k++) {           // branches up into the canopy
-      const a = k * 1.7 + rng(), tl = 0.55 + rng() * 0.25, len = 1.0 + rng() * 0.3, y0 = h + th - 0.7;
-      const dx = -Math.sin(tl) * Math.cos(a), dy = Math.cos(tl), dz = Math.sin(tl) * Math.sin(a);
-      L.misc.push(tint(at(new THREE.CylinderGeometry(0.025, 0.045, len, 5), px + dx * len / 2, y0 + dy * len / 2, pz + dz * len / 2, 0, a, tl), 0.16, 0.12, 0.09));
-    }
-    const hsh = (x, y, z) => { const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return v - Math.floor(v); };
-    const RX = 1.35 * tree, RY_ = 0.95 * tree;
-    for (let k = 0; k < 18; k++) {
-      // clumps scattered in an ellipsoid shell -> lumpy, broken silhouette
-      const a = rng() * 6.283, el = (rng() - 0.35) * 1.6, rr = 0.45 + rng() * 0.5;
-      const ox = Math.cos(a) * Math.cos(el) * RX * rr, oy = Math.sin(el) * RY_ * rr, oz = Math.sin(a) * Math.cos(el) * RX * rr;
-      const cr = (0.34 + rng() * 0.26) * tree, hue = rng();
-      const g = new THREE.IcosahedronGeometry(cr, 1);
-      const p = g.attributes.position, col = [], nr = [];
-      for (let i = 0; i < p.count; i++) {
-        const lx = p.getX(i), ly = p.getY(i), lz = p.getZ(i);
-        const j = 0.8 + hsh(lx + k, ly, lz) * 0.4;                      // consistent per shared vertex
-        const wx = ox + lx * j, wy = oy + ly * j * 0.85, wz = oz + lz * j;
-        p.setXYZ(i, wx, wy, wz);
-        const n = new THREE.Vector3(wx / RX, wy / RY_, wz / RX).normalize().multiplyScalar(0.6).add(new THREE.Vector3(lx, ly, lz).normalize().multiplyScalar(0.4)).normalize();
-        nr.push(n.x, n.y, n.z);
-        const out = Math.min(1, Math.hypot(wx / RX, wy / RY_, wz / RX));   // interior clumps darker
-        const up = 0.6 + 0.5 * (n.y * 0.5 + 0.5);
-        const v = (0.55 + 0.45 * out) * up * (0.85 + hsh(wx, wy, wz) * 0.3);
-        col.push((0.08 + hue * 0.05) * v, (0.2 + hue * 0.04) * v, 0.06 * v);
+    const BARK = [0.15, 0.115, 0.085];
+    const limb = (p0, p1, r0, r1, seg = 6) => {
+      const d = new THREE.Vector3().subVectors(p1, p0), len = d.length();
+      const g = new THREE.CylinderGeometry(r1, r0, len, seg, 1, true); g.translate(0, len / 2, 0);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate(p0.x, p0.y, p0.z);
+      L.misc.push(tint(g, ...BARK));
+    };
+    const th = 2.5 * tree, base = new THREE.Vector3(px, h, pz);
+    const lean = new THREE.Vector3((rng() - 0.5) * 0.25, 0, (rng() - 0.5) * 0.25);
+    const top = new THREE.Vector3(px, h + th * 0.62, pz).add(lean);
+    limb(base, top, 0.1, 0.07, 8);
+    const ctr = new THREE.Vector3(px, h + th + 0.1, pz).add(lean);       // canopy centre (normals, shading)
+    const nodes = [];
+    const nl = 5, a0 = rng() * 6.283;
+    for (let k = 0; k < nl; k++) {
+      const a = a0 + k * 6.283 / nl + (rng() - 0.5) * 0.7, el = 0.55 + rng() * 0.45, len = (1.05 + rng() * 0.45) * tree;
+      const st = top.clone().add(new THREE.Vector3(0, -rng() * 0.35, 0));
+      const tip = st.clone().add(new THREE.Vector3(Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el)).multiplyScalar(len));
+      limb(st, tip, 0.05, 0.022, 5);
+      nodes.push(tip);
+      for (let j = 0; j < 2; j++) {              // twigs off the limb
+        const f = 0.45 + rng() * 0.3, sp = st.clone().lerp(tip, f), b2 = a + (j ? 1 : -1) * (0.5 + rng() * 0.6), e2 = el + (rng() - 0.3) * 0.7, l2 = (0.5 + rng() * 0.35) * tree;
+        const tw = sp.clone().add(new THREE.Vector3(Math.cos(b2) * Math.cos(e2), Math.sin(e2), Math.sin(b2) * Math.cos(e2)).multiplyScalar(l2));
+        limb(sp, tw, 0.024, 0.012, 4);
+        nodes.push(tw, sp.clone().lerp(tw, 0.5));
       }
-      g.setAttribute('normal', new THREE.Float32BufferAttribute(nr, 3));
-      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-      g.translate(ccx, ccy, ccz); L.foliage.push(g);
+    }
+    nodes.push(top.clone().add(new THREE.Vector3(0, 0.9 * tree, 0)), top.clone().add(new THREE.Vector3(0.1, 0.55 * tree, -0.1)));
+    const leafs = ['LEAF0', 'LEAF1', 'LEAF2'], up = new THREE.Vector3(0, 1, 0), RAD = 1.5 * tree;
+    for (const nd of nodes) {
+      const ncard = 3;
+      for (let c = 0; c < ncard; c++) {
+        const e = new THREE.Euler(rng() * 6.283, rng() * 6.283, rng() * 6.283), q = new THREE.Quaternion().setFromEuler(e);
+        const rv = new THREE.Vector3(1, 0, 0).applyQuaternion(q), uv_ = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+        const sz = (0.75 + rng() * 0.45) * tree, o = new THREE.Vector3((rng() - 0.5) * 0.3, (rng() - 0.3) * 0.25, (rng() - 0.5) * 0.3);
+        const cc = nd.clone().add(o);
+        const g = quad([cc.x, cc.y, cc.z], [rv.x, rv.y, rv.z], [uv_.x, uv_.y, uv_.z], sz, sz, uvr(A[leafs[Math.floor(rng() * 3)]], 2));
+        const P = g.attributes.position, nr = [], col = [];
+        const hue = rng(), card = 0.75 + rng() * 0.35;
+        for (let i = 0; i < 4; i++) {
+          const vp = new THREE.Vector3(P.getX(i), P.getY(i), P.getZ(i)), dv = vp.clone().sub(ctr);
+          const out = Math.min(1, dv.length() / RAD), n = dv.normalize().multiplyScalar(0.75).addScaledVector(up, 0.35).normalize();
+          nr.push(n.x, n.y, n.z);
+          const v = card * (0.5 + 0.55 * out) * (0.8 + 0.25 * (n.y * 0.5 + 0.5));   // interior + underside darker
+          col.push(v * (0.95 + hue * 0.12), v, v * (0.8 + hue * 0.1));
+        }
+        g.setAttribute('normal', new THREE.Float32BufferAttribute(nr, 3));
+        g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        L.foliage.push(g);
+      }
     }
   }
   planter(18.9, -99);
@@ -671,7 +730,6 @@ export async function buildLobby(ctx = {}) {
     }
     for (let z = Z0 + 1.6; z < Z1 - 1; z += 3) for (const x of [37.6, 40.4]) L.pools.push(quad([x, FY + 0.004, z], [1, 0, 0], [0, 0, -1], 2.2, 2.2, uvr(A.GLOW, 2)));
     // warm wash under the cove + reflection of the LED wall on the marble
-    L.pools.push(quad([29, FY + 0.004, -104], [1, 0, 0], [0, 0, -1], 15, 26, uvr(A.GLOW, 2)));
   }
 
   // ------------------------------------------------------------ sun shafts through the facade (subtle, fade at dusk)
@@ -693,7 +751,7 @@ export async function buildLobby(ctx = {}) {
       if (p.kind !== 'lobby' || rng() > 0.45) continue;
       const len = Math.min(16, (Z1 - 0.5 - p.c[2]) / Math.max(0.05, Ld.z));
       if (len < 3) continue;
-      const k = 0.05 + rng() * 0.05;
+      const k = 0.022 + rng() * 0.026;
       shaft([X0 + 0.02, p.c[1], p.c[2]], [0, 0, 1], p.w * 0.9, len, k);
       shaft([X0 + 0.02, p.c[1], p.c[2]], [0, 1, 0], p.h * 0.85, len, k * 0.8);
     }
@@ -744,6 +802,15 @@ export async function buildLobby(ctx = {}) {
   // debug: show the exported panes as glass (?panes)
   let debugPanes = false;
   try { debugPanes = typeof location !== 'undefined' && new URLSearchParams(location.search).has('panes'); } catch (e) { /* no location */ }
+  let debugDummies = false;
+  try { debugDummies = typeof location !== 'undefined' && new URLSearchParams(location.search).has('dummies'); } catch (e) { /* no location */ }
+  if (debugDummies) {          // soldier stand-ins to judge silhouettes against the floor/glass
+    const dm = new THREE.MeshStandardMaterial({ color: 0x4a4c42, roughness: 0.8 });
+    for (const [x, z] of [[21.5, -100], [24.8, -108.5], [19.6, -104.5], [27.2, -97.6], [22.8, -112]]) {
+      const c = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 1.2, 4, 10), dm); c.position.set(x, FY + 0.86, z); root.add(c);
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), dm); hd.position.set(x, FY + 1.72, z); root.add(hd);
+    }
+  }
   if (debugPanes) {
     const gs = panes.map(p => {
       const n = p.n, up = Math.abs(n[1]) > 0.5 ? [0, 0, -1] : [0, 1, 0];
@@ -779,6 +846,7 @@ export async function buildLobby(ctx = {}) {
     M.shafts.opacity = 1 - sstep(0.15, 0.45, k);
     const sun = 1 - sstep(0.28, 0.5, k);           // atrium sun: full to dusk ~0.3, gone by 0.5
     M.skyShafts.opacity = sun; M.sunPool.opacity = sun;
+    bounceU.value.setRGB(1.0, 0.68, 0.4).multiplyScalar(0.2 + 0.2 * sun);
     if (meshes.skyShafts) meshes.skyShafts.visible = sun > 0.01;
     if (meshes.sunPool) meshes.sunPool.visible = sun > 0.01;
   };

@@ -46,6 +46,7 @@ export async function create(E) {
   for (const m of Object.values(MAT)) for (const mm of [].concat(m)) warm.add(new THREE.Mesh(box, mm));
   warm.add(new THREE.Mesh(box, game.glass.shardMesh.material));
   for (const c of game.traffic.cars.slice(0, 1)) if (c.m.burntMaterials) for (const mm of c.m.burntMaterials) warm.add(new THREE.Mesh(box, mm));
+  warm.add(new THREE.Mesh(game.clouds.geometry, game.clouds.material));
   const { buildHeli } = await import('../../heli.js');
   const hw = buildHeli(); warm.add(hw.root);
 
