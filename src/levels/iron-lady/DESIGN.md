@@ -18,7 +18,9 @@ drizzle streaks, puddles with ring splashes.
    Two balcony snipers paint the cobbles during the title (they hold fire until the fight starts).
 2. **quay** — fight west along the lower quay (barges, a closed buvette, crates as cover; rusher). Once you're into
    it a **bateau-mouche** full of gunmen comes up the river behind you; shoot the stern fuel tank (or grenade it):
-   BATEAU FLAMBÉ — it burns and drifts to the bridge. If it survives it rams the bridge pier and blows anyway.
+   BATEAU FLAMBÉ — her back breaks (the hull mesh is cut in two at the saloon by triangle centroid, each half on a
+   pivot at the break: the bow rears, the stern settles, both slide apart and go down), a spray dome + radial
+   streaks instead of a ring, plank shards, a burning slick. If it survives it rams the bridge pier and blows anyway.
 3. **bridge** — up the north ramp, across the bridge through a traffic jam (explosive cars, police block at the
    south end), a laser sniper on the tower's first platform.
 4. **gunship** — WIDOWMAKER 3 comes up the river and fights around the tower; every ~20 s it threads straight
@@ -28,7 +30,9 @@ drizzle streaks, puddles with ring splashes.
    objective card comes 1.2 s after the crash).
 6. **collapse** — VR-safe trigger: waypoint on the tower, the radio says LOOK, and it goes when you're looking
    (or after 5 s). She stays lit and sparkles all the way down, falls north across the river and lands on the
-   bridge (slow-mo, every car on it cooks off), the spire goes through the north frontage; lights die on impact.
+   bridge (slow-mo, every car on it cooks off), the spire goes through the north frontage. On impact the legs go
+   dark, but a third of her bulbs hang on (warm, stuttering: `tower.state.wreck`) with the red aviation lights, so
+   the wreck still reads as her from the boat.
 7. **run** — a wall of spray and dust rolls east down the river after you (rubber-bands a few metres behind);
    the driver brings a speedboat to the pontoon at x 205. Step onto the pontoon next to it to board.
 8. **escape** — power turn, flat out east down the Seine; **outro** title card with stats.

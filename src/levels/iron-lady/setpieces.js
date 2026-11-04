@@ -233,7 +233,7 @@ export class SetPieces {
     const P = B.fuelW.clone();
     g.boom(P, 2.6, { radius: 14, dmg: 30, noRing: true });
     this.megaFireball(P.clone().setY(P.y + 2), 2.0);
-    g.fx.later(0.25, () => g.boom(P.clone().add(_v.set(range(-3, 3), 1, 0)).applyAxisAngle(UP, 0), 1.6, { radius: 10, dmg: 20, player: false }));
+    g.fx.later(0.25, () => g.boom(P.clone().add(_v.set(range(-3, 3), 1, 0)).applyAxisAngle(UP, 0), 1.6, { radius: 10, dmg: 20, player: false, noRing: true }));
     for (let k = 0; k < 7; k++) g.fx.later(0.3 + k * 0.18, () => { const p = _v.set(range(-2.5, 2.5), range(2, 4), range(-16, 14)).applyMatrix4(B.root.matrixWorld); g.fx.explosion(p.clone(), range(1.1, 1.6), { noRing: true }); g.smokeAfter(p, 1.2); });
     for (const s of B.gunmen) if (s.alive) { _v.set(range(-0.4, 0.4), 0.9, range(-0.4, 0.4)).normalize(); g.killSoldier(s, _v.clone(), 3.2, false, null); }
     for (let i = 0; i < 8; i++) g.fx.spawnDebris(_v.set(range(-3, 3), range(2.5, 4), range(-14, 18)).applyMatrix4(B.root.matrixWorld).clone(), range(-9, 9), range(9, 20), range(-9, 9), range(0.35, 0.9), chance(0.7));
@@ -577,7 +577,7 @@ export class SetPieces {
     g.lastExplosionT = g.time; g.lastExplosionShake = 0.7;
     g.audio.play('explosion_big', { x: I.x, y: I.y, z: I.z, volume: 1 });
     g.audio.play('metal_crash', { x: I.x, y: I.y, z: I.z, volume: 1 });
-    for (let k = 0; k < 140; k++) g.fx.sparks.spawn({ x: I.x + range(-6, 6), y: I.y + range(-4, 8), z: I.z + range(-6, 6), vx: range(-5, 5), vy: range(-2, 5), vz: range(-5, 5), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.15, life: range(2, 4), r: 2.6, g: 1.6, b: 0.6, a: 0.9, fadeOut: 0.5, ground: true });
+    for (let k = 0; k < 70; k++) g.fx.sparks.spawn({ x: I.x + range(-6, 6), y: I.y + range(-4, 8), z: I.z + range(-6, 6), vx: range(-5, 5), vy: range(-2, 5), vz: range(-5, 5), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.16, len: 0.6, life: range(2, 4), r: 2.6, g: 1.6, b: 0.6, a: 0.9, fadeOut: 0.5, ground: true });
     g.slowmo(1.8, 0.35, true);
     g.fx.later(1.6, () => !g.quietScore && g.addScore(1500, 'RIGHT IN THE LEG!', I.clone().lerp(g.headPos, 0.6).setY(g.headPos.y - 1), 'big'));
     g.fx.main.bigBudget += 90; g.fx.later(5, () => { g.fx.main.bigBudget -= 90; });
@@ -609,7 +609,7 @@ export class SetPieces {
     if (g.headPos.distanceToSquared(I) < 250 * 250) {
       if (rand() < dt * 22) g.fx.main.spawn({ x: I.x + range(-5, 5), y: I.y + range(-3, 3), z: I.z + range(-5, 5), vx: range(-1, 1), vy: range(3, 7), vz: range(-1, 1), drag: 1.2, frameKind: 1, s0: range(3, 5), s1: range(8, 12), ease: 0.6, life: range(0.9, 1.5), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.5, b: 1.0, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
       if (rand() < dt * 1.8) this.clouds.spawn({ x: I.x + range(-5, 5), y: I.y + 4, z: I.z + range(-5, 5), vx: range(-0.5, 0.5) + 1.0, vy: range(6, 9), vz: range(-0.5, 0.5), drag: 0.15, buoy: 0.4, s0: 10, s1: range(40, 54), life: range(13, 16), a: 0.95, fadeIn: 0.04, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.06, g: 0.053, b: 0.048, r1: 0.15, g1: 0.135, b1: 0.12, glow: 1.3, glowFade: 4 });
-      if (rand() < dt * 30) g.fx.sparks.spawn({ x: I.x + range(-4, 4), y: I.y + range(0, 8), z: I.z + range(-4, 4), vx: range(-1, 1), vy: range(-1, 2), vz: range(-1, 1), grav: -9.8, drag: 0.3, frame: CELL.SPARK, s0: 1, w: 0.04, len: 0.12, life: range(1.5, 3), r: 2.6, g: 1.5, b: 0.6, a: 1, fadeOut: 0.5, ground: true });
+      if (rand() < dt * 14) g.fx.sparks.spawn({ x: I.x + range(-4, 4), y: I.y + range(0, 8), z: I.z + range(-4, 4), vx: range(-1, 1), vy: range(-1, 2), vz: range(-1, 1), grav: -9.8, drag: 0.3, frame: CELL.SPARK, s0: 1, w: 0.16, len: 0.6, life: range(1.5, 3), r: 2.6, g: 1.5, b: 0.6, a: 1, fadeOut: 0.5, ground: true });
       g.audio.setLoop('fire_big', { x: I.x, y: I.y, z: I.z, volume: 0.8, intensity: 0.8 });
     }
   }

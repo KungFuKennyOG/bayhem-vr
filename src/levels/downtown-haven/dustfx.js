@@ -219,7 +219,7 @@ export class DustClouds {
       P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z;
       Q[i * 4] = sz; Q[i * 4 + 1] = p.rot; Q[i * 4 + 2] = a; Q[i * 4 + 3] = p.variant;
       C[i * 4] = p.r + (p.r1 - p.r) * t; C[i * 4 + 1] = p.g + (p.g1 - p.g) * t; C[i * 4 + 2] = p.b + (p.b1 - p.b) * t;
-      C[i * 4 + 3] = p.glow * (1 - t * p.glowFade);
+      C[i * 4 + 3] = p.glow * Math.max(0, 1 - t * p.glowFade);   // (went negative past 1/glowFade: it subtracted orange = teal/olive smoke)
       S[i] = p.st;
     }
     for (const a of [this.aPos, this.aP, this.aC, this.aS]) { a.clearUpdateRanges(); a.addUpdateRange(0, vis.length * a.itemSize); a.needsUpdate = true; }
