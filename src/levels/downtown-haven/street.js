@@ -137,7 +137,7 @@ function asphaltTex() {
     const bit = Math.max(0, fbm(n3, u + 0.31, v + 0.77, 3, 3) - 0.6) * 2.2; b -= bit * 0.12; hh -= bit * 0.3;   // bitumen-rich, smooth
     return [b * 255 * 1.02, b * 255, b * 255 * 0.95, hh];
   });
-  for (let k = 0; k < 9; k++) crack(g, r, r() * S, r() * S, 12 + r() * 30 | 0, 2.2, 'rgba(10,10,12,0.75)');
+  for (let k = 0; k < 9; k++) crack(g, r, r() * S, r() * S, 12 + r() * 30 | 0, 1.6, 'rgba(14,14,16,0.45)');
   for (let k = 0; k < 4; k++) { g.strokeStyle = 'rgba(8,8,10,0.85)'; g.lineWidth = 7; g.beginPath(); let x = r() * S, y = r() * S; g.moveTo(x, y); for (let s = 0; s < 14; s++) { x += (r() - 0.5) * 40; y += 18 + r() * 10; g.lineTo(x, y); } g.stroke(); } // sealed (tar) cracks
   const map = canvasTex(c, { aniso: 16 }), normal = heightToNormal(h, S, S, 2.4);
   normal.anisotropy = 16;
@@ -234,7 +234,7 @@ function markingsTex() {
   // patch: fresher darker asphalt with sealed seams
   { const [x, y, w, hh] = MK.patch; g.fillStyle = 'rgba(14,14,16,0.6)'; g.fillRect(x + 10, y + 10, w - 20, hh - 20); for (let k = 0; k < 700; k++) { g.fillStyle = `rgba(${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},0.25)`; g.fillRect(x + 10 + r() * (w - 20), y + 10 + r() * (hh - 20), 2, 2); } g.strokeStyle = 'rgba(4,4,6,0.9)'; g.lineWidth = 5; g.strokeRect(x + 10, y + 10, w - 20, hh - 20); }
   // crack network
-  { const [x, y, w, hh] = MK.cracks; g.save(); g.beginPath(); g.rect(x, y, w, hh); g.clip(); for (let k = 0; k < 7; k++) crack(g, r, x + w / 2 + (r() - 0.5) * 60, y + hh / 2 + (r() - 0.5) * 60, 14 + r() * 14 | 0, 1.8, 'rgba(10,10,12,0.6)'); g.restore(); }
+  { const [x, y, w, hh] = MK.cracks; g.save(); g.beginPath(); g.rect(x, y, w, hh); g.clip(); for (let k = 0; k < 7; k++) crack(g, r, x + w / 2 + (r() - 0.5) * 60, y + hh / 2 + (r() - 0.5) * 60, 14 + r() * 14 | 0, 1.4, 'rgba(14,14,16,0.42)'); g.restore(); }
   // manhole cover
   { const [x, y, w] = MK.manhole, cx = x + w / 2, cy = y + w / 2, R = w / 2 - 4;
     g.fillStyle = '#2a2826'; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
@@ -511,7 +511,7 @@ function markings(B, rng, anchors) {
   }
   const scatter = (count, fn) => { for (let k = 0; k < count; k++) { const z = 140 - rng() * 296, x = (rng() - 0.5) * 20; fn(x, z); } };
   scatter(16, (x, z) => decal(bk, x, z, 2 + rng() * 3, 2 + rng() * 5, (rng() - 0.5) * 0.1, MK.patch, [1, 1, 1], 0.005));
-  scatter(26, (x, z) => decal(bk, x, z, 2 + rng() * 2.5, 2 + rng() * 2.5, rng() * 6, MK.cracks, [1, 1, 1], 0.0055));
+  scatter(16, (x, z) => decal(bk, x, z, 2 + rng() * 2.5, 2 + rng() * 2.5, rng() * 6, MK.cracks, [1, 1, 1], 0.0055));
   scatter(40, (x, z) => { const lane = [-5.55, -1.85, 1.85, 5.55][(rng() * 4) | 0]; decal(bk, lane + (rng() - 0.5) * 0.4, z, 1 + rng() * 1.4, 1 + rng() * 2.4, rng() * 0.4, MK.oil[(rng() * 4) | 0], [1, 1, 1], 0.0058); });
   scatter(7, (x, z) => decal(bk, x, z, 0.7 + rng() * 0.6, 0.6 + rng() * 0.5, rng() * 6, MK.pothole, [1, 1, 1], 0.0062));
   scatter(10, (x, z) => decal(bk, x, z, 0.35, 4 + rng() * 5, (rng() - 0.5) * 0.6, MK.tar, [1, 1, 1], 0.0052, true));

@@ -365,14 +365,14 @@ function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.
       [w - 0.05, R0], [w - 0.004, R0 - 0.035], [w + 0.01, mid], [w - 0.02, rs]];
     const sw = rectUV(R.sidewall), tr = rectUV(R.tread);
     const scx = (sw[0] + sw[2]) / 2, scy = (sw[1] + sw[3]) / 2, shw = (sw[2] - sw[0]) / 2;
-    lathe(bk, m4, prof, 13, C.white, RM.rubber, (a, r, th, u) => {
+    lathe(bk, m4, prof, 12, C.white, RM.rubber, (a, r, th, u) => {
       if (Math.abs(a) < w - 0.03) return [lerp(tr[0], tr[2], u), lerp(tr[1], tr[3], (a + w) / tw)];
       const rr = r / R0 * shw * (a > 0 ? 1 : 0.999); return [scx + Math.cos(th) * rr, scy + Math.sin(th) * rr];
     });
   }
   // rim: flange, lip, dish
   const L = (a, r) => [a, r];
-  lathe(bk, m4, [L(w - 0.03, rimR + 0.014), L(w - 0.004, rimR + 0.012), L(w + 0.004, rimR - 0.006), L(w - 0.012, rimR - 0.028), L(w - 0.07, rimR - 0.036), L(-w + 0.03, rimR - 0.036)], 13, rimCol, rimRm, () => WHITE_UV);
+  lathe(bk, m4, [L(w - 0.03, rimR + 0.014), L(w - 0.004, rimR + 0.012), L(w + 0.004, rimR - 0.006), L(w - 0.012, rimR - 0.028), L(w - 0.07, rimR - 0.036), L(-w + 0.03, rimR - 0.036)], 12, rimCol, rimRm, () => WHITE_UV);
   // back plate (hides the void) + brake disc + caliper
   pushGeo(bk, CYL(rimR - 0.03, rimR - 0.03, 0.01, 10), m4.clone().multiply(M4(-w + 0.04, 0, 0, 0, 0, Math.PI / 2)), C.well, RM.under);
   if (brakes) pushGeo(bk, CYL(rimR - 0.05, rimR - 0.05, 0.022, 10), m4.clone().multiply(M4(-0.02, 0, 0, 0, 0, Math.PI / 2)), [0.1, 0.095, 0.09], RM.metal);
@@ -908,8 +908,8 @@ function buildBus(out, rng, lights) {
     pushGeo(out.body, RBOX(0.36, 0.16, 0.06, 0.03), M4(s * 0.9, 0.85, zF - 0.005), C.trim, RM.satin);
     for (const dx of [-0.08, 0.08]) pushGeo(out.body, CYL(0.055, 0.055, 0.03, 12), M4(s * 0.9 + dx, 0.85, zF - 0.03, Math.PI / 2, 0, 0), [1.2, 1.15, 1.05], [0.05, 0, 0.6]);
     lights.push({ p: [s * 0.9, 0.85, zF - 0.06], kind: 'head' });
-    pushGeo(out.body, CYL(0.02, 0.02, 0.7, 6), M4(s * (hw + 0.2), 2.45, zF + 0.25, 0, 0, s * 1.2), C.black, RM.satin);
-    pushGeo(out.body, RBOX(0.1, 0.42, 0.2, 0.04), M4(s * (hw + 0.5), 2.2, zF + 0.2), C.black, RM.satin);
+    pushGeo(THIN, CYL(0.02, 0.02, 0.7, 6), M4(s * (hw + 0.2), 2.45, zF + 0.25, 0, 0, s * 1.2), C.black, RM.satin);
+    pushGeo(THIN, RBOX(0.1, 0.42, 0.2, 0.04), M4(s * (hw + 0.5), 2.2, zF + 0.2), C.black, RM.satin);
     pushGeo(out.body, BOX(0.9, 0.012, 0.03), M4(s * 0.5, 1.15, gz - 0.02, 0, 0, s * 0.6), C.black, RM.satin);
     // rear lights
     pushGeo(out.body, RBOX(0.14, 0.42, 0.06, 0.03), M4(s * (hw - 0.14), 1.05, zR + 0.0), [0.55, 0.02, 0.015], [0.08, 0.2, 0.45]);

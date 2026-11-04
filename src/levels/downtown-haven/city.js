@@ -1149,7 +1149,7 @@ export async function buildMeridian(a, b) {
   const facade = facadeMaterial(fT);
   const store = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.5, metalness: 0, alphaTest: 0.5, vertexColors: true });
   store.userData.duskEmissive = 2.2;
-  const trim = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
+  const trim = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0x3a3632, roughness: 1, metalness: 0, envMapIntensity: 0.2 });
   const ember = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 2.6, roughness: 0.9, vertexColors: true });
   const root = new THREE.Group(); root.name = 'meridian';
   const pivot = new THREE.Vector3(0, M.breakY, ZF);
@@ -1183,11 +1183,11 @@ export async function buildMeridian(a, b) {
     w('-z', ZB + NT, xs(X - NT), xs(X), y0, y1, { ...O, yb: 0 });
     w('-z', ZB, Math.min(0, xs(X - NT)), Math.max(0, xs(X - NT)), y0, y1, { ...O, yb: 0 });
     // cut face (exposed when the halves part): floor slabs
-    w(cut, 0, ZB, ZF, y0, y1, { sw: SW.concrete });
+    w(cut, 0, ZB, ZF, y0, y1, { sw: SW.char });
     for (let fy = Math.ceil(y0 / 4.2) * 4.2; fy < y1; fy += 4.2) lwall(Bm, mkFace(cut, s * -0.02, ZB, ZF), 0, ZF - ZB, fy, Math.min(y1, fy + 0.5), 0, { sw: SW.interior });
     // caps (seen when chunks tumble)
     const xa = Math.min(0, xs(X)), xb = Math.max(0, xs(X));
-    if (o.bottom !== false) q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { sw: SW.concrete });
+    if (o.bottom !== false) q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { sw: SW.char });
     if (o.top !== false) q(Bm, [xa, y1, ZF], [xb - xa, 0, 0], [0, 0, -(ZF - ZB)], { sw: o.topSw ?? SW.roof });
     // LED strip in the front notch
     box(Bm, xs(X - NT) - s * 0.05, y0, ZF - NT + 0.02, xs(X - NT) + s * 0.25, y1, ZF - NT + 0.3, { sw: SW.led, skip: 'yY' });
@@ -1243,7 +1243,7 @@ export async function buildMeridian(a, b) {
   const upper = new THREE.Group(); upper.name = 'meridian-upper'; upper.position.copy(pivot);
   root.add(upper);
   const chunks = [], patches = [lp];
-  const CROWN0 = 116, NB = 6, bh = (CROWN0 - M.breakY) / NB;
+  const CROWN0 = 116, NB = 5, bh = (CROWN0 - M.breakY) / NB;
   const bands = [];
   for (let i = 0; i < NB; i++) bands.push([M.breakY + i * bh, M.breakY + (i + 1) * bh]);
   const logoY0 = 103.8, logoY1 = 110.2;
@@ -1267,7 +1267,7 @@ export async function buildMeridian(a, b) {
       band(Bm, patch, s, y0, y1, {});
       // gold belt at the crown base / mid tower
       if (i === NB - 1) box(Bm, Math.min(0, s * (X + 0.4)), y1 - 1.6, ZB - 0.4, Math.max(0, s * (X + 0.4)), y1, ZF + 1.0, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
-      if (i === 2) box(Bm, Math.min(0, s * (X + 0.2)), y1 - 0.8, ZB - 0.2, Math.max(0, s * (X + 0.2)), y1, ZF + 0.95, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
+      if (i === 1) box(Bm, Math.min(0, s * (X + 0.2)), y1 - 0.8, ZB - 0.2, Math.max(0, s * (X + 0.2)), y1, ZF + 0.95, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
       const extra = [];
       if (patch) { const pm = patch.mesh(facade); extra.push(pm); patches.push(pm); tris += patch.tris; }
       if (logoY0 >= y0 && logoY1 <= y1) {
@@ -1344,10 +1344,10 @@ export async function buildMeridian(a, b) {
     // broken slabs with jagged noses, rebar, sagging
     for (const fy of [-6.4, -2.2, 2.0, 6.2]) {
       if (fy < -hw || fy > hw) continue;
-      box(HB, -hw, fy - 0.35, -D, hw, fy, -2.5 - r() * 1.5, { c: [0.28, 0.26, 0.24] });
+      box(HB, -hw, fy - 0.35, -D, hw, fy, -2.5 - r() * 1.5, { c: [0.1, 0.09, 0.085] });
       for (let x = -hw + 0.4; x < hw - 0.6; x += 1 + r() * 1.4) {
         const reach = r() * 2.6, sag = r() * 0.9;
-        box(HB, x, fy - 0.35 - sag, -2.8, x + 0.6 + r() * 1.2, fy - sag * 0.6, -2.8 + reach, { c: [0.3, 0.28, 0.25] });
+        box(HB, x, fy - 0.35 - sag, -2.8, x + 0.6 + r() * 1.2, fy - sag * 0.6, -2.8 + reach, { c: [0.13, 0.11, 0.1] });
         if (r() < 0.6) beam(HM, [x + 0.3, fy - 0.2, -2.5], [x + 0.3 + (r() - 0.5), fy - 0.2 - r() * 1.6, -0.6 + r() * 1.5], 0.04, 0.04, { c: [0.25, 0.14, 0.08] });
       }
       // embers along the slab edge + burning interior
@@ -1355,7 +1355,7 @@ export async function buildMeridian(a, b) {
     }
     lwall(HE, mkFace('+z', -D + 0.05, -hw, hw), 0, 2 * hw, -hw, -hw + 3.5, 0, { uv: srUV(SR.ember, 2) });
     // broken columns
-    for (const x of [-3.8, 3.8]) { box(HB, x - 0.45, -hw, -5, x + 0.45, -1 + r() * 3, -4.1, { c: [0.32, 0.3, 0.27] }); beam(HM, [x, 1.5, -4.5], [x + 0.6, 3.5, -3.6], 0.05, 0.05, { c: [0.25, 0.14, 0.08] }); }
+    for (const x of [-3.8, 3.8]) { box(HB, x - 0.45, -hw, -5, x + 0.45, -1 + r() * 3, -4.1, { c: [0.12, 0.11, 0.1] }); beam(HM, [x, 1.5, -4.5], [x + 0.6, 3.5, -3.6], 0.05, 0.05, { c: [0.25, 0.14, 0.08] }); }
     // torn mullions / bent fins at the rim
     for (let k = 0; k < 26; k++) {
       const a = r() * Math.PI * 2, rr = hw * (0.75 + r() * 0.3);
