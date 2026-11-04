@@ -16,8 +16,8 @@ export class Player {
     this.mode = 'desktop';
     this.shake = 0;
     // desktop viewmodels
-    this.rifle.holder.position.set(0.19, -0.255, -0.53);
-    this.launcher.holder.position.set(-0.3, -0.335, -0.6);
+    this.rifle.holder.position.set(0.2, -0.27, -0.6);
+    this.launcher.holder.position.set(-0.31, -0.35, -0.67);
     camera.add(this.rifle.holder, this.launcher.holder);
     this.controllers = [];
     this.autoState = { target: null, retarget: 0, err: new THREE.Vector2(), grenadeT: 3, lookAway: 0, aimPoint: new THREE.Vector3(), wantFire: false };
@@ -150,7 +150,7 @@ export class Player {
       // viewmodel sway + converge onto the aim point
       this.camera.updateMatrixWorld();
       const aimDist = 30;
-      for (const [gun, base] of [[this.rifle, [0.19, -0.255, -0.53]], [this.launcher, [-0.3, -0.335, -0.6]]]) {
+      for (const [gun, base] of [[this.rifle, [0.2, -0.27, -0.6]], [this.launcher, [-0.31, -0.35, -0.67]]]) {
         gun.holder.position.set(base[0] - this.vyaw * 0.004, base[1] + this.vpitch * 0.004 - Math.abs(Math.sin(g.time * 3)) * 0.002, base[2]);
         // aim the gun at a point on the crosshair ray
         _v.set(0, 0, -aimDist);

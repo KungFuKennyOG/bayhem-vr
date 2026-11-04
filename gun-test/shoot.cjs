@@ -5,13 +5,14 @@ const { chromium } = require('playwright');
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   for (let i = 0; i < rest.length; i += 2) {
     const name = rest[i], q = rest[i + 1];
-    const p = await b.newPage({ viewport: { width: 960, height: 540 } });
+    const W = +(process.env.W || 960), H = +(process.env.H || 540);
+    const p = await b.newPage({ viewport: { width: W, height: H } });
     const logs = [];
     p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); });
     p.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message + '\n' + e.stack));
-    for (let attempt = 0; attempt < 2; attempt++) {
-      await p.goto('http://localhost:5173/gun-test/index.html?' + q);
-      const ok = await p.waitForFunction(() => window.__done, null, { timeout: 90000 }).then(() => true).catch(() => false);
+    for (let attempt = 0; attempt < 1; attempt++) {
+      await p.goto(`http://localhost:${process.env.PORT || 5183}/gun-test/index.html?w=${W}&h=${H}&` + q);
+      const ok = await p.waitForFunction(() => window.__done, null, { timeout: 40000 }).then(() => true).catch(() => false);
       if (ok) break;
     }
     const info = await p.evaluate(() => window.__info).catch(() => null);
