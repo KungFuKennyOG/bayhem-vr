@@ -453,7 +453,7 @@ export class Game {
     this.updateTraffic(dt, dz);
     for (const c of this.cars) this.updateCar(c, dt, dz);
     this.cars = this.cars.filter(c => {
-      if (c.state === 'gone' || c.pos.z > 170 || c.pos.z < -700) { this.scene.remove(c.root); for (const gm of c.gunmen) if (gm.alive) gm.g.dispose(); return false; }
+      if (c.state === 'gone' || c.pos.z > 470 || c.pos.z < -700) { this.scene.remove(c.root); for (const gm of c.gunmen) if (gm.alive) gm.g.dispose(); return false; }
       return true;
     });
     this.updateHeli(dt, dz);
@@ -511,7 +511,7 @@ export class Game {
       o.m.root.position.z += o.v * dt;
       for (const w of o.m.wheels) w.rotation.x -= (o.v - V) / 0.4 * dt;
     }
-    this.oncoming = this.oncoming.filter(o => { if (o.m.root.position.z > 160) { this.scene.remove(o.m.root); return false; } return true; });
+    this.oncoming = this.oncoming.filter(o => { if (o.m.root.position.z > 470) { this.scene.remove(o.m.root); return false; } return true; });
   }
 
   slotFor(c) {
@@ -977,7 +977,7 @@ export class Game {
       p.life -= dt;
       p.rb.step(dt, V);
       p.obj.position.copy(p.rb.pos); p.obj.quaternion.copy(p.rb.quat);
-      if (p.rb.pos.z > 160 || p.life <= 0) { p.dead = true; this.scene.remove(p.obj); }
+      if (p.rb.pos.z > 420 || p.life <= 0) { p.dead = true; this.scene.remove(p.obj); }
     }
     this.props = this.props.filter(p => !p.dead);
   }

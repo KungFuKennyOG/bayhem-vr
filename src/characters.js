@@ -896,7 +896,7 @@ export class Ragdoll {
   }
   get root() { return this._root; }
   get position() { return this._pos; }
-  get done() { return this.age > 8 || this._pos.z > 160; }
+  get done() { return this.age > 12 || this._pos.z > 320; }
 
   update(dt, groundV = 0) {
     this.impact = 0; this.gunImpact = 0;

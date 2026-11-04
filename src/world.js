@@ -19,7 +19,7 @@ import { SUN_DIR } from './atmosphere.js';
 // World layout (relative frame: truck at origin, driving toward -z; world scrolls toward +z)
 export const LANES = [-5.55, -1.85, 1.85, 5.55];
 export const ROAD_L = -9.0, ROAD_R = 10.0;
-export const Z_FAR = -620, Z_NEAR = 140;
+export const Z_FAR = -640, Z_NEAR = 480;
 const SPAN = Z_NEAR - Z_FAR;
 
 // Recycling instanced props
@@ -141,10 +141,10 @@ export class World {
     // posts
     {
       const g = merge([at(box(0.15, 0.85, 0.15), 10.68, 0.42, 0)]);
-      const mesh = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ color: 0x80807c }), 200);
+      const mesh = new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ color: 0x80807c }), 290);
       mesh.castShadow = false;
       this.group.add(mesh); mesh.frustumCulled = false;
-      this.scrollers.push(new Scroller(mesh, 190, 4, 0, () => {}));
+      this.scrollers.push(new Scroller(mesh, 280, 4, 0, () => {}));
     }
 
     // ---------------- lamp posts on the median ----------------
@@ -160,10 +160,10 @@ export class World {
         [at(box(0.9, 0.2, 0.42), -9.4 - 5.4, 12.95, 0), 1],
       ];
       const { geometry } = mergeGrouped(parts, 2);
-      const mesh = new THREE.InstancedMesh(geometry, [poleMat, headMat], 20);
+      const mesh = new THREE.InstancedMesh(geometry, [poleMat, headMat], 30);
       mesh.castShadow = true; mesh.frustumCulled = false;
       this.group.add(mesh);
-      const sc = new Scroller(mesh, 18, 42, 10, () => {});
+      const sc = new Scroller(mesh, 27, 42, 10, () => {});
       this.scrollers.push(sc);
       for (const it of sc.items) {
         this.glowList.push({ it, x: -9.4 + 5.4, y: 12.75, size: 1.6, c: [1.6, 0.75, 0.3], a: 0.45 });
@@ -227,7 +227,7 @@ export class World {
         variants.push(geometry);
       }
       variants.forEach((geo, vi) => {
-        const n = 34;
+        const n = 50;
         const mesh = new THREE.InstancedMesh(geo, [barkMat, frondMat], n);
         mesh.castShadow = true; mesh.frustumCulled = false;
         this.group.add(mesh);
@@ -279,7 +279,7 @@ export class World {
         variants.push({ geometry: geom, mats: [roofMat, mat, matSide, trimMat], w, d, h });
       }
       variants.forEach((v, vi) => {
-        const n = 8;
+        const n = 12;
         const mesh = new THREE.InstancedMesh(v.geometry, v.mats, n);
         mesh.castShadow = false; mesh.receiveShadow = false; mesh.frustumCulled = false;
         this.group.add(mesh);
@@ -331,7 +331,7 @@ export class World {
         const q3 = q1.clone(); q3.rotateY(Math.PI / 4);
         const g = merge([q1, q2, q3]);
         const mat = new THREE.MeshLambertMaterial({ map: tx, alphaTest: 0.45, side: THREE.DoubleSide });
-        const n = 60;
+        const n = 88;
         const mesh = new THREE.InstancedMesh(g, mat, n);
         mesh.frustumCulled = false; mesh.castShadow = false;
         this.group.add(mesh);
@@ -358,10 +358,10 @@ export class World {
           [at(box(13.4, 0.15, 1.2), 0, 7.7, 0.5), 1],
         ];
         const { geometry } = mergeGrouped(parts, 2);
-        const mesh = new THREE.InstancedMesh(geometry, [face, frame], 3);
+        const mesh = new THREE.InstancedMesh(geometry, [face, frame], 4);
         mesh.castShadow = true; mesh.frustumCulled = false;
         this.group.add(mesh);
-        this.scrollers.push(new Scroller(mesh, 3, SPAN / 3, 70 + k * 47, (it) => {
+        this.scrollers.push(new Scroller(mesh, 4, SPAN / 4, 70 + k * 47, (it) => {
           const r = makeRng(it.n + k * 3);
           const side = r() < 0.6 ? 1 : -1;
           it.data.x = side > 0 ? 24 + r() * 10 : -40 - r() * 8;
@@ -393,17 +393,17 @@ export class World {
       parts.push([at(box(0.2, 1.4, 0.2), -2, deckY + 2.2, deckD / 2 + 0.2), 1]);
       parts.push([at(box(0.2, 1.4, 0.2), 5, deckY + 2.2, deckD / 2 + 0.2), 1]);
       const { geometry } = mergeGrouped(parts, 3);
-      const mesh = new THREE.InstancedMesh(geometry, [m0, m1, m2], 2);
+      const mesh = new THREE.InstancedMesh(geometry, [m0, m1, m2], 3);
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
       this.group.add(mesh);
-      const sc = new Scroller(mesh, 2, SPAN / 2, 120, () => {});
+      const sc = new Scroller(mesh, 3, SPAN / 3, 120, () => {});
       this.scrollers.push(sc);
       this.overpassScroller = sc;
       // sign faces as separate textured planes (instanced too)
       const st = T.signTexture(['HAVEN CITY', 'NEXT 4 EXITS'], { arrow: false });
-      const sm = new THREE.InstancedMesh(at(new THREE.PlaneGeometry(8.8, 2.2), 1.5, deckY + 3.4, deckD / 2 + 0.32), new THREE.MeshLambertMaterial({ map: st, emissive: 0xffffff, emissiveMap: st, emissiveIntensity: 0.15 }), 2);
+      const sm = new THREE.InstancedMesh(at(new THREE.PlaneGeometry(8.8, 2.2), 1.5, deckY + 3.4, deckD / 2 + 0.32), new THREE.MeshLambertMaterial({ map: st, emissive: 0xffffff, emissiveMap: st, emissiveIntensity: 0.15 }), 3);
       sm.frustumCulled = false; this.group.add(sm);
-      this.scrollers.push(new Scroller(sm, 2, SPAN / 2, 120, () => {}));
+      this.scrollers.push(new Scroller(sm, 3, SPAN / 3, 120, () => {}));
       // cars parked on the overpass for life
       for (const it of sc.items) {
         this.glowList.push({ it, x: -20, y: deckY + 2.2, size: 1.2, c: [1, 0.9, 0.7], a: 0.6 });
@@ -420,10 +420,10 @@ export class World {
       ];
       for (let k = 0; k < 10; k++) parts.push([at(box(0.08, 1.9, 0.08), -8.5 + k * 2.1, 6.25, 0.5, 0, 0, 0.6), 0]);
       const { geometry } = mergeGrouped(parts, 1);
-      const mesh = new THREE.InstancedMesh(geometry, [steel], 3);
+      const mesh = new THREE.InstancedMesh(geometry, [steel], 4);
       mesh.castShadow = true; mesh.frustumCulled = false;
       this.group.add(mesh);
-      const sc = new Scroller(mesh, 3, SPAN / 3, 40, () => {});
+      const sc = new Scroller(mesh, 4, SPAN / 4, 40, () => {});
       this.scrollers.push(sc);
       const signs = [
         T.signTexture(['DOWNTOWN', 'HAVEN CITY'], { exit: 'EXIT 42A' }),
@@ -435,11 +435,11 @@ export class World {
         const g = merge([at(box(6.2, 3.1, 0.12), 0, 0, 0)]);
         const face = at(new THREE.PlaneGeometry(6.2, 3.1), 0, 0, 0.07);
         const { geometry: gg } = mergeGrouped([[g, 0], [face, 1]], 2);
-        const im = new THREE.InstancedMesh(gg, [steel, m], 3);
+        const im = new THREE.InstancedMesh(gg, [steel, m], 4);
         im.castShadow = true; im.frustumCulled = false;
         this.group.add(im);
-        const off = [-4.2, 2.6, 8.0][k];
-        this.scrollers.push(new Scroller(im, 3, SPAN / 3, 40, (it) => {
+        const off = [-5.4, 1.15, 7.7][k];
+        this.scrollers.push(new Scroller(im, 4, SPAN / 4, 40, (it) => {
           it.data.x = off; it.data.y = 6.3; it.data.dz = 0.9;
           const r = makeRng(it.n + k);
           it.data.hidden = r() < 0.15;
@@ -505,25 +505,31 @@ export class World {
         const x = Math.cos(a) * radius, z = Math.sin(a) * radius;
         const h = heights[i] * height + yOff;
         pos.push(x, yOff - 30, z, x, h, z);
-        col.push(color[0], color[1], color[2], color[0] * 1.15, color[1] * 1.1, color[2] * 1.1);
+        // aerial perspective: tint toward the horizon haze, warmer toward the sun
+        const d = Math.max(0, (Math.cos(a) * SUN_DIR.x + Math.sin(a) * SUN_DIR.z) / Math.hypot(SUN_DIR.x, SUN_DIR.z));
+        const sunK = Math.pow(d, 3);
+        const hz = [0.86 + (2.3 - 0.86) * sunK, 0.5 + (0.95 - 0.5) * sunK, 0.36 + (0.36 - 0.36) * sunK];
+        const k0 = color[0], k1 = color[1];
+        col.push(hz[0] * k0, hz[1] * k0, hz[2] * k0 * 1.15, hz[0] * k1, hz[1] * k1, hz[2] * k1 * 1.2);
       }
       for (let i = 0; i < seg; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
       g.setIndex(idx);
-      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, side: THREE.DoubleSide }));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }));
       m.renderOrder = -40;
       this.far.add(m);
       return m;
     };
-    ridge(1900, 260, 7, [0.32, 0.22, 0.30], 0, 0.22);
-    ridge(1500, 150, 9, [0.22, 0.15, 0.20], 0, 0.3);
+    // [bottom brightness, top brightness] relative to the horizon haze
+    ridge(2000, 300, 7, [0.64, 0.74], 0, 0.22);
+    ridge(1600, 170, 9, [0.46, 0.56], 0, 0.3);
     // skyline strips (cylindrical, alpha)
     const sky1 = T.skylineTexture(3);
-    const mkSky = (radius, height, arcStart, arcLen, tex, y = 0) => {
+    const mkSky = (radius, height, arcStart, arcLen, tex, y = 0, tint = null) => {
       const g = new THREE.CylinderGeometry(radius, radius, height, 96, 1, true, arcStart, arcLen);
-      const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.35, side: THREE.BackSide, fog: true, color: 0xb9a3a8 });
+      const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.35, side: THREE.BackSide, fog: false, color: tint ?? 0xb9a3a8 });
       const mesh = new THREE.Mesh(g, m);
       mesh.position.y = height / 2 - 6 + y;
       mesh.renderOrder = -30;
@@ -532,9 +538,14 @@ export class World {
     };
     // city ahead (toward the sun) across ~130 degrees
     const sunYaw = Math.atan2(SUN_DIR.x, SUN_DIR.z);
-    const cs = mkSky(1100, 150, sunYaw + Math.PI / 2 - 1.3, 2.6, sky1);
+    const cs = mkSky(1100, 150, sunYaw + Math.PI / 2 - 1.3, 2.6, sky1, 0, 0xc99a7a);
     const t2 = T.skylineTexture(17); t2.repeat.set(2, 1);
-    mkSky(780, 70, sunYaw + Math.PI / 2 + 1.1, 1.6, t2, -2);
+    mkSky(780, 70, sunYaw + Math.PI / 2 + 1.1, 1.6, t2, -2, 0x9a7c80);
+    // sprawl behind the truck too (the direction you look while fighting the chasers)
+    const t3 = T.skylineTexture(29); t3.repeat.set(3, 1);
+    mkSky(950, 95, sunYaw - Math.PI / 2 - 1.5, 3.0, t3, -4, 0x7c6a72);
+    const t4 = T.skylineTexture(41); t4.repeat.set(2, 1);
+    mkSky(1250, 140, sunYaw - Math.PI / 2 - 0.6, 1.3, t4, -6, 0x94808a);
     this.cityStrip = cs;
 
     // ground fill haze plane hiding the horizon seam

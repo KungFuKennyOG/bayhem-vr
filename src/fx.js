@@ -242,7 +242,7 @@ export class FX {
     for (const d of this.debris) {
       if (!d.alive) continue;
       d.life -= dt;
-      if (d.life <= 0 || d.z > 160) { d.alive = false; continue; }
+      if (d.life <= 0 || d.z > 320) { d.alive = false; continue; }
       d.vy -= 9.8 * dt;
       d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt + dz;
       if (d.y < d.sy * 0.5) {
@@ -292,7 +292,7 @@ export class FX {
     // scorch
     this.scorch.forEach((d, i) => {
       d.z += dz;
-      const vis = d.z < 160;
+      const vis = d.z < 470;
       p.set(d.x, 0.02, d.z); q.setFromEuler(new THREE.Euler(0, d.r, 0)); s.set(vis ? d.s : 0, 1, vis ? d.s : 0);
       m.compose(p, q, s); this.scorchMesh.setMatrixAt(i, m);
     });
