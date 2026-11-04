@@ -1,0 +1,8 @@
+["A.stats()",
+ "A.setup([['suv',0,0,0.5,{flip:true,charred:true}],['civ0',-3.6,-1.5,-0.4,{flip:true}],['civ2',3.8,-2,0.9,{flip:true,charred:true}]])",
+ "A.cam([-2.5,2.6,-8.5],[0,0.9,-0.5],52)", {"shot":"m_flipped"},
+ "A.setup([['suv',0,0,0,{flip:true}]])",
+ "A.cam([-3.2,2.9,-3.4],[0,1.7,0.3],48)", {"shot":"m_suv_under"},
+ "A.setup([['tanker',0,0,0.3,{flip:true}]])",
+ "A.cam([-9,4.5,-10],[0,2.5,0],55)", {"shot":"m_tanker_under"}
+]

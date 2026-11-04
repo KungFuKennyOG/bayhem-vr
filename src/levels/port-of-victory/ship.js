@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { box, at, cyl, merge, tint } from '../../geom.js';
 import { makeNoise, fbm, makeCanvas, canvasTex, heightToNormal } from '../../textures.js';
 import { makeRng } from '../../rng.js';
+import { hullDetailTexture, walkwayTextures, WALK, makeBurn, buildBreaches, lifeboatParts, beaconGlowTexture } from './ship-detail.js';
 
 const V = THREE.Vector3;
 const ZC = -166.5, B = 13.5, DECK = 9.0, FC_DECK = 11.7, FC_X = -81;
@@ -39,10 +40,12 @@ function hbAt(x, y) {
   return Math.max(0.12, B * secF(y) * fb * fa);
 }
 // top edge of the hull side (sheer): forecastle bulwark, low sheer strake + railings in the cargo zone, poop bulwark
+// cargo-zone bulwark top: flat aft of x -10, rising toward the forecastle step (sheer)
+const cargoSheer = (x) => 9.35 + (x < -10 ? 1.6 * ((-10 - x) / 66) ** 2 : 0);
 function topY(x) {
   if (x < FC_X) return 12.9 + 0.35 * clamp01((FC_X - x) / 14);
-  if (x < -76) return lerp(12.9, 9.35, sstep(FC_X, -76, x));
-  if (x < 37) return 9.35;
+  if (x < -76) return lerp(12.9, cargoSheer(-76), sstep(FC_X, -76, x));
+  if (x < 37) return cargoSheer(x);
   return lerp(9.35, 10.2, sstep(37, 40, x));
 }
 const deckYAt = (x) => (x < FC_X ? FC_DECK : DECK);
@@ -99,30 +102,77 @@ function hullTexture() {
     ctx.save(); ctx.beginPath(); ctx.rect(0, top, HW, HBAND); ctx.clip();
     // navy topsides
     let g = ctx.createLinearGradient(0, hpy(13, band), 0, hpy(-0.5, band));
-    g.addColorStop(0, '#222c3d'); g.addColorStop(0.5, '#1b2434'); g.addColorStop(1, '#161d2a');
+    g.addColorStop(0, '#55607a'); g.addColorStop(0.5, '#465064'); g.addColorStop(1, '#394052');
     ctx.fillStyle = g; ctx.fillRect(0, top, HW, HBAND);
-    // red oxide band + fouling
-    g = ctx.createLinearGradient(0, hpy(-0.55, band), 0, hpy(-10.6, band));
-    g.addColorStop(0, '#8a3020'); g.addColorStop(0.12, '#7a2a1d'); g.addColorStop(0.2, '#5a2a1c'); g.addColorStop(0.5, '#3a2a1e'); g.addColorStop(1, '#2a241c');
-    ctx.fillStyle = g; ctx.fillRect(0, hpy(-0.55, band), HW, hpy(-10.6, band) - hpy(-0.55, band));
-    // white boot-top stripe
-    ctx.fillStyle = '#d9d8cf'; ctx.fillRect(0, hpy(-0.22, band), HW, hpy(-0.55, band) - hpy(-0.22, band));
-    // faint plate seams (strakes every 2.4 m, butts every 12 m staggered)
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    for (let k = -5; k < 6; k++) ctx.fillRect(0, hpy(k * 2.4, band), HW, 1.2);
-    for (let k = -5; k < 6; k++) for (let xb = HX0 + ((k & 1) ? 6 : 0); xb < HX1; xb += 12) {
-      const px = band === 1 ? HW - hpx(xb) : hpx(xb);
-      ctx.fillRect(px, hpy(k * 2.4 + 2.4, band), 1.2, 2.4 * PYM);
+    // two-tone hull: red antifouling up to y 1.4 (she rides light, so the red shows above the quay coping)
+    g = ctx.createLinearGradient(0, hpy(1.4, band), 0, hpy(-10.6, band));
+    g.addColorStop(0, '#8e2a1e'); g.addColorStop(0.1, '#84281d'); g.addColorStop(0.17, '#6e2619'); g.addColorStop(0.26, '#4a2418'); g.addColorStop(0.6, '#33261c'); g.addColorStop(1, '#2a241c');
+    ctx.fillStyle = g; ctx.fillRect(0, hpy(1.4, band), HW, hpy(-10.6, band) - hpy(1.4, band));
+    // weathered red: lighter sun-faded mottling + darker drips from the topsides
+    for (let i = 0; i < (band === 2 ? 30 : 260); i++) {
+      const px = r() * bw, py = hpy(lerp(-1.8, 1.3, r()), band), w = (0.4 + r() * 3) * PXM, h = (0.1 + r() * 0.5) * PYM;
+      ctx.fillStyle = r() < 0.5 ? `rgba(170,70,50,${0.08 + r() * 0.1})` : `rgba(40,14,10,${0.08 + r() * 0.12})`; ctx.fillRect(px, py, w, h);
     }
-    // weathering streaks
-    for (let i = 0; i < (band === 2 ? 120 : 700); i++) {
-      const px = r() * bw, y0 = lerp(-1, 10, r()), len = (1 + r() * 5) * PYM;
+    // thin white boot-top line with a crisp cut-in
+    ctx.fillStyle = '#d6d3c8'; ctx.fillRect(0, hpy(1.56, band), HW, hpy(1.4, band) - hpy(1.56, band));
+    ctx.fillStyle = 'rgba(20,22,28,0.5)'; ctx.fillRect(0, hpy(1.56, band) - 1, HW, 1);
+    // shadow / grime band under the deck-edge rubbing strake (defines the sheer line)
+    g = ctx.createLinearGradient(0, hpy(8.75, band), 0, hpy(7.6, band));
+    g.addColorStop(0, 'rgba(8,10,16,0.45)'); g.addColorStop(1, 'rgba(8,10,16,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, hpy(8.75, band), HW, hpy(7.6, band) - hpy(8.75, band));
+    // large-scale paint tone variation: repainted / faded vertical panels
+    for (let i = 0; i < (band === 2 ? 4 : 26); i++) {
+      const px = r() * bw, w = (3 + r() * 14) * PXM, y0 = lerp(1.4, 6, r()), y1 = lerp(7, 9.4, r());
+      ctx.fillStyle = r() < 0.5 ? `rgba(22,28,40,${0.08 + r() * 0.1})` : `rgba(120,130,150,${0.04 + r() * 0.06})`;
+      ctx.fillRect(px, hpy(y1, band), w, (y1 - y0) * PYM);
+    }
+    // touched-up primer patches
+    for (let i = 0; i < (band === 2 ? 6 : 44); i++) {
+      const px = r() * bw, py = hpy(lerp(1.5, 8.5, r()), band), w = (0.6 + r() * 2.5) * PXM, h = (0.3 + r() * 1.2) * PYM;
+      ctx.fillStyle = r() < 0.55 ? 'rgba(30,36,50,0.26)' : 'rgba(120,64,44,0.2)'; ctx.fillRect(px, py, w, h);
+    }
+    // weathering streaks (grime runs + salt bloom)
+    for (let i = 0; i < (band === 2 ? 160 : 1100); i++) {
+      const px = r() * bw, y0 = lerp(0, 9.2, r()), len = (0.8 + r() * 5) * PYM;
       const py = hpy(y0, band), w = 1 + r() * 4;
       g = ctx.createLinearGradient(0, py, 0, py + len);
-      const dark = r() < 0.6;
-      const a = 0.04 + r() * 0.1;
-      g.addColorStop(0, dark ? `rgba(0,0,0,${a})` : `rgba(150,130,110,${a * 0.7})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      const dark = r() < 0.62;
+      const a = 0.07 + r() * 0.15;
+      g.addColorStop(0, dark ? `rgba(10,12,18,${a})` : `rgba(175,160,140,${a * 0.75})`); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(px, py, w, len);
+    }
+    // fender / tug scrapes: horizontal scuffs through the paint near quay level
+    for (let i = 0; i < (band === 2 ? 0 : 22); i++) {
+      const cx = r() * bw, cy = lerp(1.4, 3.6, r()), wz = (1.2 + r() * 2.8) * PXM;
+      for (let k = 0; k < 14; k++) {
+        const sx = cx + (r() - 0.5) * wz, sy = hpy(cy + (r() - 0.5) * 1.3, band), sl = (0.3 + r() * 1.8) * PXM;
+        ctx.fillStyle = r() < 0.55 ? `rgba(120,128,142,${0.12 + r() * 0.16})` : `rgba(140,72,38,${0.18 + r() * 0.22})`;
+        ctx.fillRect(sx, sy, sl, 1 + r() * 2.5);
+      }
+    }
+    // plate seams that read at distance (aligned with the uv1 detail tile: strakes every 2.4 m, butts every 12 m staggered)
+    if (band < 2) {
+      for (let j = 0; j <= 4; j++) {
+        const y = 2.4 * j, py = hpy(y, band);
+        ctx.fillStyle = 'rgba(5,7,12,0.42)'; ctx.fillRect(0, py - 2, HW, 3); ctx.fillStyle = 'rgba(150,160,180,0.16)'; ctx.fillRect(0, py + 1, HW, 1.5);
+        if (y + 2.4 > 9.4) continue;
+        const odd = [1, 3].includes(((j % 5) + 5) % 5);
+        for (let xx = odd ? -78 : -72; xx < 62; xx += 12) {
+          const px = X(xx, band), y0 = hpy(y + 2.4, band), hh = 2.4 * PYM;
+          ctx.fillStyle = 'rgba(5,7,12,0.4)'; ctx.fillRect(px - 1.5, y0, 3, hh); ctx.fillStyle = 'rgba(150,160,180,0.14)'; ctx.fillRect(px + 1.5, y0, 1.5, hh);
+          // rust bleeding from the butt / seam crossing
+          if (r() < 0.35) { const gg = ctx.createLinearGradient(0, py, 0, py + (0.6 + r() * 1.6) * PYM); gg.addColorStop(0, 'rgba(140,70,34,0.45)'); gg.addColorStop(1, 'rgba(120,60,30,0)'); ctx.fillStyle = gg; ctx.fillRect(px - 2, py, 4, 2.2 * PYM); }
+        }
+      }
+      // dented / oil-canned plates: soft shading blobs inside a few plates
+      for (let i = 0; i < 70; i++) {
+        const j = 1 + Math.floor(r() * 3), x = lerp(-76, 60, r()), y = 2.4 * j + 1.2 + (r() - 0.5) * 0.6;
+        const px = X(x, band), py = hpy(y, band), rx = (1.2 + r() * 2.5) * PXM, ry = (0.5 + r() * 0.5) * PYM;
+        const gg = ctx.createRadialGradient(px - rx * 0.25, py - ry * 0.35, 1, px, py, rx);
+        const dark = r() < 0.6;
+        gg.addColorStop(0, dark ? 'rgba(6,8,14,0.3)' : 'rgba(150,160,185,0.14)'); gg.addColorStop(0.6, dark ? 'rgba(6,8,14,0.12)' : 'rgba(150,160,185,0.05)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.save(); ctx.translate(px, py); ctx.scale(1, ry / rx); ctx.translate(-px, -py); ctx.fillStyle = gg; ctx.fillRect(px - rx, py - rx, rx * 2, rx * 2); ctx.restore();
+      }
     }
     // waterline scum
     g = ctx.createLinearGradient(0, hpy(-1.4, band), 0, hpy(-2.6, band));
@@ -134,7 +184,7 @@ function hullTexture() {
     for (let k = 0; k < 3; k++) {
       const ww = w * (0.5 + r() * 0.8), ox = (r() - 0.5) * w * 0.8, ll = len * (0.5 + r() * 0.6);
       const g = ctx.createLinearGradient(0, py, 0, py + ll);
-      g.addColorStop(0, `rgba(150,72,28,${a})`); g.addColorStop(0.3, `rgba(125,60,25,${a * 0.6})`); g.addColorStop(1, 'rgba(110,50,20,0)');
+      g.addColorStop(0, `rgba(150,80,42,${Math.min(1, a * 1.1)})`); g.addColorStop(0.3, `rgba(120,64,36,${a * 0.7})`); g.addColorStop(1, 'rgba(110,50,20,0)');
       ctx.fillStyle = g; ctx.fillRect(px + ox - ww / 2, py, ww, ll);
     }
   };
@@ -143,7 +193,27 @@ function hullTexture() {
     for (let x = -74; x < 63; x += 5.5 + r() * 2.5) {
       const px = X(x, band), py = hpy(8.75, band);
       ctx.fillStyle = '#07080a'; ctx.beginPath(); ctx.ellipse(px, py, 0.18 * PXM, 0.12 * PYM, 0, 0, Math.PI * 2); ctx.fill();
-      rust(px, py + 2, 0.35 * PXM, (2 + r() * 6) * PYM, 0.35 + r() * 0.3);
+      rust(px, py + 2, 0.4 * PXM, (2.5 + r() * 6.5) * PYM, 0.5 + r() * 0.35);
+      if (r() < 0.5) rust(px + (r() - 0.5) * 6, py + 2, 0.15 * PXM, (4 + r() * 4) * PYM, 0.5);
+    }
+    // rust bleeding from the deck edge / sheer strake welds (thin runs)
+    for (let i = 0; i < 160; i++) {
+      const x = lerp(-76, 62, r()), px = X(x, band), py = hpy(8.7, band);
+      const len = (0.4 + r() * 2.6) * PYM, w = 1 + r() * 2.5, a = 0.2 + r() * 0.35;
+      const gg = ctx.createLinearGradient(0, py, 0, py + len); gg.addColorStop(0, `rgba(140,72,36,${a})`); gg.addColorStop(1, 'rgba(120,60,30,0)');
+      ctx.fillStyle = gg; ctx.fillRect(px, py, w, len);
+    }
+    // overboard discharges: dark outlet + bolted ring + stain running down to the waterline
+    for (const [x, y, s] of [[-52, 2.6, 0.22], [-36, 3.4, 0.16], [-21, 2.2, 0.2], [9, 2.9, 0.26], [33.5, 3.2, 0.18], [50, 2.5, 0.22]]) {
+      const px = X(x, band), py = hpy(y, band);
+      let gg = ctx.createLinearGradient(0, py, 0, hpy(-0.6, band));
+      gg.addColorStop(0, 'rgba(14,16,18,0.5)'); gg.addColorStop(0.4, 'rgba(60,50,40,0.25)'); gg.addColorStop(1, 'rgba(40,36,30,0)');
+      ctx.fillStyle = gg; ctx.fillRect(px - s * 1.6 * PXM, py, s * 3.2 * PXM, hpy(-0.6, band) - py);
+      gg = ctx.createLinearGradient(0, py, 0, hpy(-0.6, band)); gg.addColorStop(0, 'rgba(190,185,170,0.22)'); gg.addColorStop(1, 'rgba(190,185,170,0)');
+      ctx.fillStyle = gg; ctx.fillRect(px - s * 2.4 * PXM, py + 4, s * 0.6 * PXM, (y - 0.2) * PYM);
+      rust(px, py + 4, s * 2 * PXM, (1.2 + r() * 1.6) * PYM, 0.5);
+      ctx.fillStyle = '#050606'; ctx.beginPath(); ctx.arc(px, py, s * PYM, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(150,150,145,0.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, s * PYM + 3, 0, Math.PI * 2); ctx.stroke();
     }
     // freeing ports / panama chocks at the bulwarks (bow + stern)
     for (const x of [-89, -84, 46, 52, 60]) {
@@ -157,8 +227,17 @@ function hullTexture() {
       const px = X(-88.6, band), py = hpy(8.1, band);
       ctx.fillStyle = '#050607'; ctx.beginPath(); ctx.ellipse(px, py, 1.15 * PXM, 0.9 * PYM, 0, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(120,70,40,0.8)'; ctx.lineWidth = 4; ctx.stroke();
-      rust(px, py + 0.9 * PYM, 1.6 * PXM, 9.5 * PYM, 0.55);
-      rust(px, py + 0.9 * PYM, 0.8 * PXM, 9 * PYM, 0.5);
+      rust(px, py + 0.9 * PYM, 1.6 * PXM, 10.2 * PYM, 0.7);
+      rust(px, py + 0.9 * PYM, 0.8 * PXM, 10 * PYM, 0.65);
+      rust(px + 0.6 * PXM, py + 0.9 * PYM, 0.3 * PXM, 9 * PYM, 0.6);
+    }
+    // portholes along the accommodation / engine-room flat below the superstructure
+    for (let x = 41.2; x < 61; x += 2.35) {
+      const px = X(x, band), py = hpy(7.15, band);
+      rust(px, py + 0.25 * PYM, 0.18 * PXM, (0.8 + r() * 1.6) * PYM, 0.4);
+      ctx.fillStyle = '#c9c7bd'; ctx.beginPath(); ctx.arc(px, py, 0.27 * PYM, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#121820'; ctx.beginPath(); ctx.arc(px, py, 0.2 * PYM, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(160,180,200,0.35)'; ctx.beginPath(); ctx.arc(px - 0.06 * PYM, py - 0.06 * PYM, 0.07 * PYM, 0, Math.PI * 2); ctx.fill();
     }
     // sheer strake highlight following the hull top
     ctx.strokeStyle = 'rgba(210,205,190,0.55)'; ctx.lineWidth = 3; ctx.beginPath();
@@ -172,6 +251,14 @@ function hullTexture() {
     ctx.font = `bold ${Math.round(3.6 * PYM)}px "Arial Black", Arial, Helvetica, sans-serif`;
     ctx.fillStyle = 'rgba(236,233,224,0.93)';
     ctx.fillText('VICTORY STAR LINE', X(-16, band), hpy(5.0, band));
+    // grime + rust runs over the livery (it's been through a few winters)
+    for (let i = 0; i < 70; i++) {
+      const px = X(lerp(-32, 0, r()), band), py = hpy(lerp(6.2, 8.8, r()), band), len = (1 + r() * 4) * PYM;
+      const gg = ctx.createLinearGradient(0, py, 0, py + len);
+      gg.addColorStop(0, r() < 0.5 ? 'rgba(20,24,32,0.3)' : 'rgba(130,68,34,0.32)'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gg; ctx.fillRect(px, py, 1 + r() * 3, len);
+    }
+    ctx.fillStyle = 'rgba(236,233,224,0.93)';
     // tug marks
     ctx.font = `bold ${Math.round(0.55 * PYM)}px Arial, Helvetica, sans-serif`;
     for (const x of [-66, 30, 56]) {
@@ -179,17 +266,21 @@ function hullTexture() {
       ctx.strokeStyle = '#e8e6dc'; ctx.lineWidth = 3; ctx.strokeRect(px - 0.9 * PXM, py - 0.4 * PYM, 1.8 * PXM, 0.8 * PYM);
       ctx.fillStyle = '#e8e6dc'; ctx.fillText('TUG', px, py);
     }
-    // draft marks (bow follows the stem rake, midship, stern)
-    ctx.font = `bold ${Math.round(0.42 * PYM)}px Arial, Helvetica, sans-serif`;
+    // draft marks (bow follows the stem rake, midship, stern): whole metres + even decimetres
     for (const kind of [0, 1, 2]) for (let d = 4; d <= 13; d++) {
-      const y = -10.2 + d, x = kind === 0 ? stemX(y) + 2.4 : kind === 1 ? -14 : 62.6;
+      const y = -10.2 + d, x = kind === 0 ? stemX(y) + 2.4 : kind === 1 ? -17.5 : 62.6;
       const px = X(x, band), py = hpy(y, band);
-      ctx.fillStyle = '#ecebe3'; ctx.fillText(d + 'M', px, py - 0.2 * PYM);
-      for (let s = 2; s <= 8; s += 2) ctx.fillRect(px + 0.35 * PXM, hpy(y + s / 10, band) - 1, 0.12 * PXM, 2);
+      ctx.fillStyle = '#ecebe3';
+      ctx.font = `bold ${Math.round(0.5 * PYM)}px Arial, Helvetica, sans-serif`; ctx.fillText(d + 'M', px, py - 0.25 * PYM);
+      ctx.font = `bold ${Math.round(0.2 * PYM)}px Arial, Helvetica, sans-serif`;
+      for (let s = 2; s <= 8; s += 2) ctx.fillText(String(s), px + 0.42 * PXM, hpy(y + s / 10, band) - 0.1 * PYM);
     }
+    // deck line mark (amidships, at deck level above the load line mark)
+    ctx.fillStyle = '#ecebe3'; ctx.fillRect(X(-13.0, band) - 0.9 * PXM, hpy(8.45, band), 1.8 * PXM, 0.1 * PYM);
     // plimsoll mark
     {
-      const px = X(-8, band), py = hpy(0.9, band);
+      const px = X(-12, band), py = hpy(2.45, band);
+      ctx.font = `bold ${Math.round(0.42 * PYM)}px Arial, Helvetica, sans-serif`;
       ctx.strokeStyle = '#ecebe3'; ctx.lineWidth = 0.08 * PYM; ctx.beginPath(); ctx.arc(px, py, 0.55 * PYM, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#ecebe3'; ctx.fillRect(px - 0.75 * PXM, py - 0.04 * PYM, 1.5 * PXM, 0.08 * PYM);
       ctx.fillRect(px - 1.0 * PXM, py - 1.0 * PYM, 2.0 * PXM, 0.08 * PYM);
@@ -226,7 +317,7 @@ function hullTexture() {
     ctx.restore();
   }
   // grime overlay
-  const nc = noiseCanvas(512, 256, 91, 6, 0.72, 1.0, 3);
+  const nc = noiseCanvas(512, 256, 91, 6, 0.8, 1.0, 3);
   ctx.save(); ctx.globalCompositeOperation = 'multiply';
   ctx.fillStyle = ctx.createPattern(nc, 'repeat'); ctx.fillRect(0, 0, HW, HH);
   ctx.restore();
@@ -258,7 +349,7 @@ function deckTextures() {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const u = x / W, v = y / H;
     const m = fbm(n, u, v, 4, 5), s = fbm(n2, u, v, 16, 3);
-    let col = [0.24, 0.29, 0.23];
+    let col = [0.3, 0.39, 0.28];
     const rustT = clamp01((m - 0.62) * 6) * (0.6 + s * 0.6);
     col = col.map((cv, k) => lerp(cv, [0.36, 0.2, 0.1][k], rustT));
     const wear = clamp01((fbm(n2, u * 0.5, v * 2, 4, 3) - 0.55) * 4);
@@ -320,6 +411,21 @@ function containerTextures() {
   return { map: canvasTex(c), normal: heightToNormal(h, W, H, 2.0) };
 }
 
+// patchy ember mask (black with hot cracks/blotches) used as emissiveMap; emissive colour stays black until setBurnt
+function emberTexture() {
+  const W = 256, c = makeCanvas(W, W), ctx = c.getContext('2d'), img = ctx.createImageData(W, W);
+  const n = makeNoise(71, 32), n2 = makeNoise(72, 64);
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+    const u = x / W, v = y / W;
+    const m = fbm(n, u, v, 3, 4), cr = Math.abs(fbm(n2, u, v, 6, 4) - 0.5);
+    const e = clamp01((m - 0.62) * 5) * 0.5 + clamp01(1 - cr * 30) * clamp01((m - 0.55) * 4);
+    const i = (y * W + x) * 4;
+    img.data[i] = Math.min(255, e * 255); img.data[i + 1] = Math.min(255, e * e * 150); img.data[i + 2] = Math.min(255, e * e * e * 60); img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvasTex(c);
+}
+
 // sign atlas
 const ATL = 1024;
 const REG = {
@@ -327,6 +433,8 @@ const REG = {
   name: [256, 320, 768, 128], nosmoke: [256, 448, 256, 128], fire: [512, 448, 256, 128], muster: [768, 448, 256, 128],
   imo: [0, 576, 512, 96], swl: [512, 576, 256, 96], danger: [0, 672, 512, 96], lifeboat: [512, 672, 256, 96],
   flag: [768, 576, 256, 192], ppe: [0, 768, 512, 96], gangway: [512, 768, 512, 96],
+  fuelword: [0, 864, 320, 160], flam: [320, 864, 160, 160],
+  hn1: [480, 864, 108, 160], hn2: [588, 864, 108, 160], hn3: [696, 864, 108, 160], hn4: [804, 864, 108, 160], hn5: [912, 864, 108, 160],
 };
 function atlasTexture() {
   const c = makeCanvas(ATL, ATL), ctx = c.getContext('2d');
@@ -369,6 +477,20 @@ function atlasTexture() {
   { const [x, y, w, h] = plate('lifeboat', '#f1efe8', '#111'); text('LIFEBOAT 1', x + w / 2, y + h / 2 + 3, 36, '#111'); }
   { const [x, y, w, h] = plate('ppe', '#1d4fa0', '#fff'); text('WEAR PPE AT ALL TIMES', x + w / 2, y + h / 2 + 3, 36, '#fff'); }
   { const [x, y, w, h] = plate('gangway', '#f2c21b', '#111'); text('GANGWAY — SWL 6 PERSONS', x + w / 2, y + h / 2 + 3, 34, '#111'); }
+  // big FUEL word plate, flammable-liquid diamond, hatch numbers
+  {
+    const [x, y, w, h] = plate('fuelword', '#c4161c', '#fff');
+    text('FUEL', x + w / 2, y + 62, 92, '#fff'); text('DANGER', x + w / 2, y + 126, 40, '#ffd21a');
+  }
+  {
+    const [x, y, w, h] = REG.flam; ctx.fillStyle = '#7a8088'; ctx.fillRect(x, y, w, h);
+    ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#fff'; ctx.fillRect(-56, -56, 112, 112); ctx.fillStyle = '#d0141a'; ctx.fillRect(-50, -50, 100, 100); ctx.restore();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); // flame
+    ctx.moveTo(x + 80, y + 36); ctx.quadraticCurveTo(x + 104, y + 70, x + 96, y + 92); ctx.quadraticCurveTo(x + 80, y + 104, x + 64, y + 92); ctx.quadraticCurveTo(x + 58, y + 70, x + 80, y + 36); ctx.fill();
+    text('3', x + 80, y + 124, 30, '#fff');
+  }
+  for (let i = 1; i <= 5; i++) { const [x, y, w, h] = REG['hn' + i]; ctx.fillStyle = '#52605e'; ctx.fillRect(x, y, w, h); text(String(i), x + w / 2, y + h / 2 + 8, 128, '#ecebe3'); }
   // Liberian ensign
   {
     const [x, y, w, h] = REG.flag;
@@ -405,19 +527,42 @@ export function buildShip(opts = {}) {
   const hullTex = hullTexture(), plateN = plateNormal();
   plateN.channel = 1;
   const deckT = deckTextures(), paintT = paintTextures(), contT = containerTextures(), atlas = atlasTexture();
-  const mHull = new THREE.MeshStandardMaterial({ map: hullTex, normalMap: plateN, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.55, metalness: 0.25 });
-  const mDeck = new THREE.MeshStandardMaterial({ map: deckT.map, normalMap: deckT.normal, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.8, metalness: 0.15 });
-  const mPaint = new THREE.MeshStandardMaterial({ map: paintT.map, normalMap: paintT.normal, normalScale: new THREE.Vector2(0.5, 0.5), vertexColors: true, roughness: 0.62, metalness: 0.2 });
-  const mCont = new THREE.MeshStandardMaterial({ map: contT.map, normalMap: contT.normal, roughness: 0.72, metalness: 0.3 });
+  const mHull = new THREE.MeshStandardMaterial({ map: hullTex, normalMap: plateN, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.58, metalness: 0.12,
+    emissive: 0xffffff, emissiveMap: hullTex, emissiveIntensity: 0.2 }); // self-lit floor: never pure black on the shadowed quay side
+  const emberT = emberTexture();
+  const mDeck = new THREE.MeshStandardMaterial({ map: deckT.map, normalMap: deckT.normal, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.8, metalness: 0.15, emissive: 0x000000, emissiveMap: emberT });
+  const mPaint = new THREE.MeshStandardMaterial({ map: paintT.map, normalMap: paintT.normal, normalScale: new THREE.Vector2(0.5, 0.5), vertexColors: true, roughness: 0.62, metalness: 0.2, emissive: 0x000000, emissiveMap: emberT });
+  const mCont = new THREE.MeshStandardMaterial({ map: contT.map, normalMap: contT.normal, roughness: 0.72, metalness: 0.3, emissive: 0x000000, emissiveMap: emberT });
   const mLit = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.22, metalness: 0.5, emissive: 0xffc27a, emissiveIntensity: 0 });
   mLit.userData.duskEmissive = 1.6;
   if (opts && opts.lit) mLit.emissiveIntensity = 1.6 * opts.lit;
   const mGlass = new THREE.MeshStandardMaterial({ color: 0x31404c, roughness: 0.12, metalness: 0.75 });
   const mSign = new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.6, metalness: 0.1 });
+  // quay-side walkway: unique non-slip paint / seams / rust / stencils texture
+  const walkT = walkwayTextures([
+    { t: 'NO SMOKING', x: 12.5, z: -155.35, size: 0.42, col: 'rgba(236,232,220,0.8)' },
+    { t: 'KEEP CLEAR', x: -2.2, z: -155.5, size: 0.4, col: 'rgba(240,200,40,0.85)' },
+    { t: 'KEEP CLEAR', x: -9.8, z: -155.5, size: 0.4, col: 'rgba(240,200,40,0.85)' },
+    { t: 'FUEL STATION', x: 0.6, z: -155.4, size: 0.34, col: 'rgba(236,232,220,0.75)' },
+    { arrow: true, x: 29.5, z: -155.3, len: 1.5, col: 'rgba(236,232,220,0.75)' },
+    { arrow: true, x: -17.5, z: -155.3, len: 1.5, col: 'rgba(236,232,220,0.75)' },
+    { t: 'MUSTER', x: 34.5, z: -155.3, size: 0.32, col: 'rgba(236,232,220,0.7)' },
+    { arrow: true, x: -36, z: -155.3, len: 1.5, col: 'rgba(236,232,220,0.75)' },
+  ]);
+  const mWalk = new THREE.MeshStandardMaterial({ map: walkT.map, normalMap: walkT.normal, normalScale: new THREE.Vector2(0.8, 0.8), roughness: 0.82, metalness: 0.12,
+    emissive: 0x000000, emissiveMap: emberT, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  // burn shader: scorch gradient around the blast, breaches + ember rims on the hull (setBurnt drives uBurn)
+  const BURN = makeBurn();
+  const hullDet = hullDetailTexture();
+  BURN.patch(mHull, 'hull', { tDet: hullDet });
+  for (const m of [mDeck, mPaint, mCont, mWalk]) BURN.patch(m, 'ember');
+  const mBeacon = new THREE.MeshStandardMaterial({ color: 0x5a1606, roughness: 0.3, metalness: 0.0, emissive: 0xff3a0a, emissiveIntensity: 2.2 });
 
-  const P = [], DK = [], LIT = [], GL = [], SG = [], HUL = [];
+  const P = [], DK = [], LIT = [], GL = [], SG = [], HUL = [], WALKG = [];
   const C = (hex) => new THREE.Color(hex);
-  const pnt = (g, hex) => { const c = C(hex); tint(g, c.r, c.g, c.b); P.push(g); return g; };
+  let SINK = P; // painted parts go to SINK (normally P; the wreckable jib / funnel top collect separately)
+  const JIB = [], FTOP = [];
+  const pnt = (g, hex) => { const c = C(hex); tint(g, c.r, c.g, c.b); SINK.push(g); return g; };
   const bx = (w, h, d, x, y, z, hex, rx = 0, ry = 0, rz = 0) => pnt(at(box(w, h, d, 4), x, y, z, rx, ry, rz), hex);
   const blk = (x0, x1, y0, y1, z0, z1, hex) => bx(x1 - x0, y1 - y0, Math.abs(z1 - z0), (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, hex);
   const tubeG = (a, b, r, seg = 8, open = true) => {
@@ -430,7 +575,7 @@ export function buildShip(opts = {}) {
   const tube = (a, b, r, hex, seg = 8) => pnt(tubeG(a, b, r, seg), hex);
   const line = (pts, r, hex, seg = 6) => { for (let i = 0; i < pts.length - 1; i++) tube(pts[i], pts[i + 1], r, hex, seg); };
   const catenary = (a, b, sag, n = 10) => { const pts = []; for (let i = 0; i <= n; i++) { const t = i / n; pts.push(new V().lerpVectors(a, b, t).add(new V(0, -sag * 4 * t * (1 - t), 0))); } return pts; };
-  const lamp = (x, y, z, s = 0.32) => { LIT.push(at(box(s, s * 0.6, s), x, y, z)); lights.push(new V(x, y, z)); };
+  const lamp = (x, y, z, s = 0.32) => { LIT.push(at(box(s * 0.78, s * 0.14, s * 0.5), x, y + s * 0.18, z)); lights.push(new V(x, y, z)); };
 
   const WHITE = 0xe9e5da, LGREY = 0xbfc2bf, GREY = 0x80868a, DGREY = 0x3e4448, BLACK = 0x18191b, RED = 0xb8231b,
     YEL = 0xe6ae1c, ORANGE = 0xff6510, HATCH = 0x52605e, NAVY = 0x1c2636, CRANE = 0xd99e1c, RUSTY = 0x6b3a22, GREEN = 0x3c4a3a;
@@ -500,8 +645,25 @@ export function buildShip(opts = {}) {
   // ---------- hull-side hardware (raised so it catches the rim light)
   for (const side of [0, 1]) {
     const sg = side === 0 ? 1 : -1, zs = ZC + sg * (B + 0.04);
-    // deck-edge gutter / sheer strake bar
-    bx(37 + 75.5, 0.16, 0.12, (-75.5 + 37) / 2, 8.85, zs + sg * 0.04, 0x232b38);
+    // deck-edge rubbing strake: half-round bar that catches the light along the sheer
+    pnt(tubeG(new V(-75.5, 8.85, zs + sg * 0.02), new V(37, 8.85, zs + sg * 0.02), 0.1, 8, true), 0x4a5468);
+    for (let x = -75.5; x < 37; x += 4) { const x2 = Math.min(37, x + 4); pnt(tubeG(new V(x, topY(x) - 0.05, zs + sg * 0.02), new V(x2, topY(x2) - 0.05, zs + sg * 0.02), 0.03, 4, true), 0x8c939c); } // sheer strake cap edge
+    // porthole rims (the glass is painted in the hull texture)
+    for (let x = 41.2; x < 61; x += 2.35) {
+      const z = ZC + sg * (hbAt(x, 7.15) + 0.02), ry = Math.atan2(sg * (hbAt(x + 0.1, 7.15) - hbAt(x - 0.1, 7.15)) / 0.2, 1) * -1;
+      const g = new THREE.TorusGeometry(0.235, 0.035, 5, 14); g.rotateY(ry); g.translate(x, 7.15, z); pnt(g, 0x9a9c98);
+    }
+    // hawse pipe bolster ring around the anchor pocket
+    {
+      const hx = -88.6, hy = 8.85, e = 0.05;
+      const hz = (x, y) => ZC + sg * hbAt(x, y);
+      const n = new V(-(hz(hx + e, hy) - hz(hx - e, hy)) / (2 * e), -(hz(hx, hy + e) - hz(hx, hy - e)) / (2 * e), 1).multiply(new V(1, 1, 1));
+      n.set(n.x * sg, n.y * sg, sg).normalize();
+      const q = new THREE.Quaternion().setFromUnitVectors(new V(0, 0, 1), n);
+      const p = new V(hx, hy, hz(hx, hy)).addScaledVector(n, 0.06);
+      const ring = new THREE.TorusGeometry(0.62, 0.14, 8, 22); ring.scale(1.15, 1, 1); ring.applyQuaternion(q); ring.translate(p.x, p.y, p.z); pnt(ring, 0x2a3140);
+      const lip = cyl(0.5, 0.5, 0.3, 18, true); lip.rotateX(Math.PI / 2); lip.scale(1.15, 1, 1); lip.applyQuaternion(q); lip.translate(p.x, p.y, p.z); pnt(lip, 0x121416);
+    }
     // pilot doors + side port frames
     for (const [x, y, w, h] of [[30.5, 3.2, 1.0, 1.9], [-40, 2.4, 1.6, 1.6], [48, 3.6, 1.0, 1.9]]) {
       bx(w + 0.16, 0.1, 0.1, x, y + h / 2, zs + sg * 0.03, 0x2c3546); bx(w + 0.16, 0.1, 0.1, x, y - h / 2, zs + sg * 0.03, 0x2c3546);
@@ -573,9 +735,16 @@ export function buildShip(opts = {}) {
   };
   {
     const zq = -153.0 - 0.12, zf = -180 + 0.12;
-    railing(-75.5, zq, 21.95, zq, 9.35, 0.75, 1.6, WHITE);
+    // forward of x -10 the rail rides the rising bulwark (sheer)
+    const railSheer = (xa, xb2, z, h = 0.75, sp = 1.6) => {
+      const n = Math.max(1, Math.round((xb2 - xa) / sp)), pts = [];
+      for (let i = 0; i <= n; i++) { const x = lerp(xa, xb2, i / n); pts.push([x, topY(x)]); bx(0.05, h, 0.05, x, topY(x) + h / 2, z, WHITE); }
+      for (const [hh, th] of [[h, 0.03], [h * 0.62, 0.02], [h * 0.3, 0.02]]) for (let i = 0; i < n; i++) tube(new V(pts[i][0], pts[i][1] + hh, z), new V(pts[i + 1][0], pts[i + 1][1] + hh, z), th, WHITE, 4);
+    };
+    railSheer(-75.5, -10, zq); railSheer(-75.5, -10, zf);
+    railing(-10, zq, 21.95, zq, 9.35, 0.75, 1.6, WHITE);
     railing(25.05, zq, 37.5, zq, 9.35, 0.75, 1.6, WHITE);
-    railing(-75.5, zf, 37.5, zf, 9.35, 0.75, 1.6, WHITE);
+    railing(-10, zf, 37.5, zf, 9.35, 0.75, 1.6, WHITE);
   }
 
   // ---------- hatch covers + containers
@@ -622,6 +791,7 @@ export function buildShip(opts = {}) {
   const palette = [0x2a5d8f, 0x8c2a20, 0x2f6b46, 0xc75a1a, 0x8a8f94, 0xd8d6cf, 0x6b4a2e, 0xc9a227, 0x1f3c66, 0x7a1d3a, 0x3d8fa0, 0xa8432c];
   const inst = [[], []];
   const contStacks = [[0, 4, 0.92], [1, 4, 0.85], [3, 3, 0.85], [4, 5, 0.9]];
+  const bayInfo = [];
   for (const [hi, maxH, fill] of contStacks) {
     const [x0, x1] = HATCHES[hi];
     const bays = []; let x = x0 + 0.4;
@@ -637,6 +807,7 @@ export function buildShip(opts = {}) {
         if (rng() > fill) h = 0;
         h = Math.max(0, Math.min(maxH, h));
         if (h) col(bx0 + off, HTOP, z - CWd / 2, bx0 + off + CL[kind], HTOP + h * (CHh + 0.02), z + CWd / 2);
+        if (h && rI >= 4) bayInfo.push([bx0 + off, bx0 + off + CL[kind], z, h]);
         for (let l = 0; l < h; l++) {
           const cx = bx0 + off + CL[kind] / 2, cy = HTOP + 0.04 + CHh / 2 + l * (CHh + 0.02);
           inst[kind].push([cx, cy, z, palette[Math.floor(rng() * palette.length)], (rng() - 0.5) * 0.008]);
@@ -665,6 +836,18 @@ export function buildShip(opts = {}) {
     for (let z = HZ0 + 0.6; z < HZ1 - 3; z += 2.52) for (const x of [x0 + 0.2, x1 - 0.2]) { tube(new V(x, HTOP, z), new V(x, HTOP + 5.0, z + 1.1), 0.025, GREY, 4); tube(new V(x, HTOP, z + 2.2), new V(x, HTOP + 5.0, z + 1.1), 0.025, GREY, 4); }
   }
 
+  // lashing rods + turnbuckles crossing the container ends of the rows nearest the walkway
+  for (const [x0, x1, z, h] of bayInfo) for (const [xe, sx] of [[x0 - 0.07, -1], [x1 + 0.07, 1]]) {
+    const yTop = HTOP + CHh + (h >= 2 ? 0.08 : -0.12);
+    for (const s of [-1, 1]) {
+      const a = new V(xe, HTOP + 0.05, z - s * 1.0), b = new V(xe + sx * 0.02, yTop, z + s * 1.12);
+      const m = new V().lerpVectors(a, b, 0.2);
+      tube(a, m, 0.04, YEL, 6);           // turnbuckle
+      tube(m, b, 0.022, 0x8d9296, 4);     // rod
+      bx(0.1, 0.06, 0.14, xe, HTOP + 0.03, z - s * 1.0, DGREY); // D-ring pad
+    }
+  }
+
   // ---------- quay-side walkway detail (x +23 -> -6)
   {
     const zP = -157.42;
@@ -680,11 +863,20 @@ export function buildShip(opts = {}) {
     line([new V(-6.5, 9.62, zP + 0.02), new V(-10, 9.62, zP + 0.02), new V(-10, 11.2, zP + 0.02), new V(-10, 11.2, -161.2), new V(-13.4, 11.2, -161.2)], 0.13, BLACK, 10);
     line([new V(-6.5, 9.32, zP), new V(-8, 9.32, zP), new V(-8, 11.5, zP), new V(-8, 11.5, -162.6), new V(-13.4, 11.5, -162.6)], 0.1, YEL, 10);
     col(-27, DECK, -157.6, 36, DECK + 1.0, -157.22);
-    // mushroom vents (against the bulwark)
-    for (const x of [11.5, -1.0, 30]) {
-      tube(new V(x, DECK, -153.9), new V(x, DECK + 0.9, -153.9), 0.18, WHITE, 10);
-      pnt(at(new THREE.SphereGeometry(0.4, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), x, DECK + 0.9, -153.9, 0, 0, 0), WHITE);
-      bx(0.85, 0.06, 0.85, x, DECK + 0.93, -153.9, WHITE);
+    // mushroom vents (against the bulwark): grey painted trunk, mesh-guarded gap, flat mushroom cap, rust at the joints
+    for (const x of [-14.0, -24.0, 30]) {
+      const z = -153.9, VG = 0x9da29e, VR = 0x6a3d26;
+      pnt(at(cyl(0.25, 0.27, 0.05, 14), x, DECK + 0.025, z), 0x5d6260);              // deck doubler
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; pnt(at(cyl(0.022, 0.022, 0.03, 5), x + Math.cos(a) * 0.22, DECK + 0.06, z + Math.sin(a) * 0.22), 0x3a3d3c); }
+      pnt(at(cyl(0.15, 0.16, 0.66, 14, true), x, DECK + 0.38, z), VG);                 // trunk
+      pnt(at(cyl(0.162, 0.168, 0.1, 14, true), x, DECK + 0.1, z), VR);                 // rust creeping up from the deck
+      pnt(at(cyl(0.18, 0.18, 0.04, 14), x, DECK + 0.7, z), VG);                         // top flange
+      pnt(at(cyl(0.2, 0.2, 0.13, 14, true), x, DECK + 0.785, z), 0x161718);            // dark gauze screen in the gap
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; bx(0.025, 0.14, 0.025, x + Math.cos(a) * 0.205, DECK + 0.785, z + Math.sin(a) * 0.205, 0x505452); }
+      pnt(at(cyl(0.3, 0.3, 0.12, 18, true), x, DECK + 0.905, z), VG);                  // cap skirt
+      pnt(at(cyl(0.302, 0.302, 0.03, 18, true), x, DECK + 0.855, z), VR);              // rust along the drip edge
+      const dome = new THREE.SphereGeometry(0.3, 18, 4, 0, Math.PI * 2, 0, Math.PI / 2); dome.scale(1, 0.32, 1);
+      pnt(at(dome, x, DECK + 0.963, z), VG);
       col(x - 0.4, DECK, -154.3, x + 0.4, DECK + 1.3, -153.4);
     }
     // bitts (double bollards) + chocks
@@ -697,7 +889,8 @@ export function buildShip(opts = {}) {
     for (const x of [8.5, -2.0, 27]) {
       pnt(at(cyl(0.45, 0.45, 0.45, 14), x, 10.4, -157.35, Math.PI / 2), RED);
       pnt(at(cyl(0.3, 0.3, 0.47, 14), x, 10.4, -157.35, Math.PI / 2), BLACK);
-      bx(0.08, 0.9, 0.3, x - 0.45, 10.1, -157.45, DGREY); bx(0.08, 0.9, 0.3, x + 0.45, 10.1, -157.45, DGREY);
+      bx(0.08, 1.4, 0.3, x - 0.45, DECK + 0.7, -157.42, DGREY); bx(0.08, 1.4, 0.3, x + 0.45, DECK + 0.7, -157.42, DGREY);
+      bx(1.0, 0.08, 0.36, x, DECK + 0.04, -157.42, DGREY);
     }
     for (const x of [4.5, -4.8, 33.5]) {
       bx(0.8, 1.1, 0.35, x, 10.0, -157.55, RED);
@@ -710,12 +903,21 @@ export function buildShip(opts = {}) {
     SG.push(decal('ppe', 1.6, 0.3, 18.3, 10.55, -157.59));
     SG.push(decal('muster', 0.7, 0.35, 38.7, 10.6, -156.47));
     SG.push(decal('nosmoke', 0.7, 0.35, -9.5, 10.6, -157.59));
-    // painted walkway edge lines
-    for (const z of [-153.55, -157.15]) pnt(at(box(60, 0.01, 0.1), 6, DECK + 0.006, z), YEL);
+    // walkway overlay (unique texture: seams, green non-slip, wear lane, rust, yellow safety edges, hazard zones, stencils)
+    {
+      const nx = 88, g = new THREE.PlaneGeometry(WALK.X1 - WALK.X0, WALK.ZB - WALK.ZI, nx, 1);
+      g.rotateX(-Math.PI / 2); g.translate((WALK.X0 + WALK.X1) / 2, DECK + 0.004, (WALK.ZB + WALK.ZI) / 2);
+      const p = g.attributes.position, uvA = g.attributes.uv;
+      for (let i = 0; i < p.count; i++) { const [u, w] = walkT.uv(p.getX(i), p.getZ(i)); uvA.setXY(i, u, w); }
+      WALKG.push(g);
+    }
+    // coaming top flat bar + hatch numbers on the pontoon skirts facing the walkway
+    for (const [x0, x1] of [[-50.5, -27], [-24, -6], [-3, 15], [20.5, 36]]) bx(x1 - x0 - 0.5, 0.06, 0.14, (x0 + x1) / 2, 10.06, -157.83, 0x7b8682);
+    for (const [hi, xm] of [[2, -38.75], [3, -15], [4, 6], [5, 28.25]]) { SG.push(decal('hn' + hi, 0.55, 0.42, xm - 3.5, 10.34, -157.585)); SG.push(decal('hn' + hi, 0.55, 0.42, xm + 3.5, 10.34, -157.585)); }
     // lashing cage + gear bin near crane B
     blk(13.5, 14.8, DECK, DECK + 1.0, -157.4, -156.8, YEL);
     // deck light posts on the railing
-    for (const x of [20, 8, -4, -16, -30, -44, -58, -72, 30]) {
+    for (const x of [-18, -30, -44, -58, -72, 34]) {
       const z = -153.2;
       tube(new V(x, 9.35, z), new V(x, 12.6, z), 0.06, WHITE, 6);
       tube(new V(x, 12.6, z), new V(x, 12.6, z - 0.6), 0.05, WHITE, 6);
@@ -728,6 +930,7 @@ export function buildShip(opts = {}) {
 
   // ---------- fuel bunker manifold (own object)
   const manifoldObj = new THREE.Group(); manifoldObj.name = 'fuelManifold';
+  const beaconGlows = [], beaconRef = {};
   manifoldObj.position.set(-6, DECK, -155.5);
   {
     const MP = [], MS = [];
@@ -774,22 +977,47 @@ export function buildShip(opts = {}) {
     mbx(0.08, 2.2, 0.08, -1.05, 1.1, -0.95, DGREY); mbx(0.08, 2.2, 0.08, 1.05, 1.1, -0.95, DGREY);
     mbx(2.2, 0.62, 0.04, 0, 1.75, -0.98, DGREY);
     MS.push(decal('fuel', 2.1, 0.52, 0, 1.75, -0.955));
-    // flexible hoses: one connected over the bulwark down to the quay, one coiled on the tray
-    const hosePts = [new V(-0.75, 1.15, 1.0), new V(-0.8, 1.3, 1.6), new V(-0.95, 1.55, 2.4), new V(-1.1, 1.0, 2.75), new V(-1.5, -2.5, 3.4), new V(-2.4, -6.5, 4.1), new V(-3.4, -8.75, 4.95), new V(-5.2, -8.9, 5.6), new V(-7, -8.92, 6.2)];
-    mp(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hosePts), 48, 0.13, 8), BLACK);
-    for (const t of [0.08, 0.95]) { const p = new THREE.CatmullRomCurve3(hosePts).getPoint(t); mp(at(cyl(0.18, 0.18, 0.2, 10), p.x, p.y, p.z, Math.PI / 2), 0x9a9a9a); }
+    // bunker hose: coupled to the port presentation flange, laid along the tray and coiled (not yet run ashore)
+    const hosePts = [new V(-0.75, 1.15, 1.02), new V(-0.8, 0.75, 1.3), new V(-0.6, 0.36, 1.25), new V(0.2, 0.33, 1.05), new V(0.95, 0.33, 0.75), new V(1.05, 0.33, 0.4)];
+    mp(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hosePts), 24, 0.1, 8), BLACK);
+    { const p = new THREE.CatmullRomCurve3(hosePts).getPoint(0.04); mp(at(cyl(0.17, 0.17, 0.2, 10), p.x, p.y, p.z, Math.PI / 2), 0x9a9a9a); }
     mp(at(new THREE.TorusGeometry(0.45, 0.1, 6, 18), 0.6, 0.34, 0.4, Math.PI / 2), BLACK);
     mp(at(new THREE.TorusGeometry(0.45, 0.1, 6, 18), 0.6, 0.48, 0.4, Math.PI / 2), BLACK);
+    mp(at(cyl(0.15, 0.15, 0.12, 10), 0.6, 0.58, 0.4), 0x9a9a9a); // blanked hose end
+    // warning beacons on short posts above the sign frame + extra signage facing the approach (+x) and the quay
+    const BEAC = [];
+    for (const [px, pz] of [[1.05, -0.95], [-1.05, -0.95]]) {
+      mbx(0.07, 0.55, 0.07, px, 2.47, pz, DGREY);
+      mp(at(cyl(0.13, 0.13, 0.06, 12), px, 2.77, pz), DGREY);                 // base
+      mp(at(cyl(0.12, 0.12, 0.03, 12), px, 3.04, pz), DGREY);                 // cap
+      for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4; mbx(0.018, 0.26, 0.018, px + Math.cos(a) * 0.115, 2.92, pz + Math.sin(a) * 0.115, DGREY); }
+      mp(at(cyl(0.02, 0.02, 0.06, 6), px, 3.08, pz), DGREY);
+      const lens = at(cyl(0.095, 0.095, 0.22, 14), px, 2.91, pz); BEAC.push(lens);
+      BEAC.push(at(new THREE.SphereGeometry(0.095, 12, 4, 0, Math.PI * 2, 0, Math.PI / 2), px, 3.02, pz));
+    }
+    const mbm = new THREE.Mesh(merge(BEAC), mBeacon); mbm.name = 'manifoldBeacon'; manifoldObj.add(mbm);
+    const glowMat = new THREE.SpriteMaterial({ map: beaconGlowTexture(), color: 0xff5a1a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+    for (const [px, pz] of [[1.05, -0.95], [-1.05, -0.95]]) { const sp = new THREE.Sprite(glowMat); sp.position.set(px, 2.93, pz); sp.scale.setScalar(1.4); sp.name = 'beaconGlow'; manifoldObj.add(sp); beaconGlows.push(sp); }
+    beaconRef.mat = glowMat;
+    // signs on the +x face of the frame (seen walking down the deck from the gangway) and the quay face
+    mbx(0.04, 1.0, 1.0, 1.11, 1.58, -0.6, DGREY);
+    MS.push(decal('fuelword', 0.92, 0.46, 1.135, 1.82, -0.6, Math.PI / 2));
+    MS.push(decal('flam', 0.34, 0.34, 1.135, 1.3, -0.6, Math.PI / 2));
+    MS.push(decal('danger', 2.1, 0.4, 0, 1.22, -0.955));
+    MS.push(decal('fuelword', 0.6, 0.3, 0, 1.75, -1.005, Math.PI));
+    mbx(2.2, 0.5, 0.04, 0, 1.22, -0.98, DGREY);
+    // hazard bands on the frame posts
+    for (const px of [-1.05, 1.05]) for (let k = 0; k < 4; k++) mbx(0.085, 0.1, 0.085, px, 0.15 + k * 0.22, -0.95, k % 2 ? BLACK : YEL);
     // stanchion barrier posts with hazard paint
     for (const [x, z] of [[-1.6, 0.9], [1.6, 0.9]]) { mp(at(cyl(0.05, 0.05, 1.0, 6), x, 0.5, z), YEL); mp(at(cyl(0.055, 0.055, 0.2, 6), x, 0.6, z), BLACK); }
     const mpm = new THREE.Mesh(merge(MP), mPaint); mpm.castShadow = mpm.receiveShadow = true; manifoldObj.add(mpm);
     const msm = new THREE.Mesh(merge(MS), mSign); manifoldObj.add(msm);
-    lights.push(new V(-6, DECK + 3.0, -153.3));
   }
   root.add(manifoldObj);
   col(-7.45, DECK, -156.5, -4.55, DECK + 2.0, -154.5);
 
   // ---------- deck cranes
+  const jibPivot = {};
   const cranes = [[-53.25, ZC, Math.PI, 0.22], [17.75, ZC, Math.PI * 0.42, 0.95]];
   for (const [cx, cz, yaw, el] of cranes) {
     pnt(at(cyl(1.55, 1.8, 7.5, 18), cx, DECK + 3.75, cz), CRANE);
@@ -817,8 +1045,9 @@ export function buildShip(opts = {}) {
       bx(0.4, 0.35, 0.4, lx1, hy + 4.0, lz1, DGREY); bx(0.4, 0.35, 0.4, lx2, hy + 4.0, lz2, DGREY);
       lamp(lx1, hy + 4.0, lz1, 0.28); lamp(lx2, hy + 4.0, lz2, 0.28);
       SG.push(at(decal('swl', 1.6, 0.6, 0, 0, 0), ...R(0.5, 2.21).flatMap((v, i) => (i === 0 ? [v, hy + 1.3] : [v])), 0, yaw, 0));
-      // jib: box section from heel to tip
+      // jib: box section from heel to tip (the raised crane's jib is its own mesh so setBurnt can drop it)
       const [jx, jz] = R(2.2, 0), heel = new V(jx, hy + 1.6, jz);
+      if (el > 0.5) { SINK = JIB; jibPivot.heel = heel.clone(); jibPivot.axis = new V(-sa, 0, -ca); }
       const L = 26, dir = new V(Math.cos(el) * ca, Math.sin(el), -Math.cos(el) * sa);
       const tip = heel.clone().addScaledVector(dir, L);
       for (const s of [-1, 1]) {
@@ -845,6 +1074,7 @@ export function buildShip(opts = {}) {
         const rp = heel.clone().addScaledVector(dir, 17);
         tube(new V(rp.x, HTOP, rp.z), new V(rp.x, rp.y - 0.5, rp.z), 0.15, CRANE, 8);
       }
+      SINK = P;
       lights.push(tip.clone().add(new V(0, -0.6, 0)));
     }
     col(cx - 1.85, DECK, cz - 1.85, cx + 1.85, DECK + 11.4, cz + 1.85);
@@ -904,7 +1134,7 @@ export function buildShip(opts = {}) {
   }
 
   // ---------- stern superstructure
-  const SX0 = 40, SX1 = 57;
+  const SX0 = 40, SX1 = 57, funnelPivot = new V();
   {
     // tier 0 (decks A, B), tier 1 (C, D, E), bridge
     blk(SX0, SX1, DECK, 14.6, -176.5, -156.5, WHITE);
@@ -1022,17 +1252,18 @@ export function buildShip(opts = {}) {
       g.translate(fx0 + ((y0 + y1) / 2 - 24.6) * Math.tan(rake), (y0 + y1) / 2, ZC);
       pnt(g, hex);
     };
-    seg(24.6, 28.6, NAVY); seg(28.6, 31.6, WHITE, 1.01); seg(31.6, 34.6, NAVY); seg(34.6, 36.4, BLACK, 1.0);
+    seg(24.6, 28.6, NAVY); seg(28.6, 31.6, WHITE, 1.01); seg(31.6, 34.6, NAVY);
+    SINK = FTOP; seg(34.6, 36.4, BLACK, 1.0);
     pnt(at(cyl(3.2, 3.2, 0.2, 22).scale(1.08, 1, 0.83), fxAt(36.4), 36.45, ZC), DGREY);
     for (const s of [-1, 1]) { const g = decal('star', 2.6, 2.6, fxAt(30.1), 30.1, ZC + s * 2.64, s > 0 ? 0 : Math.PI); g.rotateZ(0); SG.push(g); }
     for (const [dx, dz, r] of [[-0.8, -0.9, 0.38], [-0.8, 0.9, 0.38], [0.9, 0, 0.5]]) tube(new V(fxAt(36) + dx, 36.0, ZC + dz), new V(fxAt(37.6) + dx, 37.6, ZC + dz), r, BLACK, 10);
+    SINK = P; funnelPivot.set(fxAt(34.6), 34.6, ZC);
     // lifeboats on davits (quay + far side)
     for (const s of [1, -1]) {
       const z = s > 0 ? -155.0 : -178.0, yb = 16.3, xb = 48.5;
-      const hullG = new THREE.SphereGeometry(1, 18, 10); hullG.scale(4.1, 1.15, 1.3); pnt(at(hullG, xb, yb, z), ORANGE);
-      const canG = new THREE.SphereGeometry(1, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2); canG.scale(3.7, 1.0, 1.18); pnt(at(canG, xb, yb + 0.2, z), ORANGE);
-      bx(7.6, 0.12, 2.55, xb, yb + 0.15, z, WHITE);
-      for (let k = -2; k <= 2; k++) bx(0.5, 0.25, 2.4, xb + k * 1.2, yb + 0.7, z, 0x2a3036);
+      // enclosed lifeboat: lofted hull (white bottom, orange topsides), canopy with windows, conning hatch, hook blocks
+      for (const [g, hex] of lifeboatParts(xb, yb, z, 7.6, 2.5)) { if (hex === null) SINK.push(g); else pnt(g, hex); }
+      SG.push(decal('lifeboat', 1.1, 0.3, xb - 0.6, yb - 0.24, z + s * 1.25, s > 0 ? 0 : Math.PI));
       for (const dx of [-2.6, 2.6]) {
         bx(0.35, 4.5, 0.35, xb + dx, 14.6 + 2.25, z - s * 1.4, WHITE);
         tube(new V(xb + dx, 18.8, z - s * 1.4), new V(xb + dx, 18.8, z + s * 0.1), 0.17, WHITE, 6);
@@ -1088,9 +1319,12 @@ export function buildShip(opts = {}) {
     railing(25, -151.12, 25, -153.0, DECK, 1.0, 1.0, ALU);
     // platform brackets + davit with suspension wire
     for (const x of [22.3, 24.7]) tube(new V(x, DECK - 2.4, -153.05), new V(x, DECK - 0.1, -151.3), 0.07, ALU, 6);
-    tube(new V(25.4, DECK, -153.9), new V(25.4, DECK + 4.2, -153.9), 0.12, WHITE, 8);
-    tube(new V(25.4, DECK + 4.2, -153.9), new V(25.4, DECK + 4.2, -152.2), 0.1, WHITE, 8);
-    tube(new V(25.4, DECK + 4.2, -152.2), new V(6, sy(6) + 0.1, -152.0), 0.02, 0x222222, 3);
+    tube(new V(26.3, 9.35, -153.1), new V(26.3, DECK + 3.6, -153.1), 0.1, WHITE, 8);
+    tube(new V(26.3, DECK + 3.6, -153.1), new V(26.3, DECK + 3.6, -152.2), 0.08, WHITE, 8);
+    // lifebuoy hung on a bracket on the railing next to the gangway platform (faces the quay)
+    bx(0.08, 0.5, 0.08, 27.4, 9.35 + 0.55, -153.05, WHITE);
+    pnt(at(new THREE.TorusGeometry(0.34, 0.08, 8, 20), 27.4, 9.35 + 0.48, -152.96), 0xe0461c);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; bx(0.1, 0.17, 0.17, 27.4 + Math.cos(a) * 0.34, 9.83 + Math.sin(a) * 0.34, -152.96, WHITE, 0, 0, a); }
     // bottom landing on the quay + roller
     blk(-6, -2, 0.0, 0.08, -152.9, -150.8, ALU);
     for (let x = -5.8; x < -2; x += 0.35) pnt(at(box(0.04, 0.03, 2.0), x, 0.09, -151.85), 0x6a6e70);
@@ -1098,22 +1332,54 @@ export function buildShip(opts = {}) {
     railing(-6, -152.88, -2, -152.88, 0.08, 1.0, 1.0, ALU);
     SG.push(decal('gangway', 1.6, 0.18, 23.5, DECK + 0.65, -151.08));
     SG.push(decal('hazard', 2.9, 0.12, 23.5, DECK + 0.06, -151.07));
-    lamp(25.4, DECK + 4.0, -153.55, 0.28);
+    LIT.push(at(box(0.22, 0.14, 0.22), 26.3, DECK + 3.45, -152.3)); // gangway lamp lens (no glow anchor: glare)
   }
 
-  // ---------- mooring lines (ship -> quay bollards at z -150.1)
+  // ---------- mooring lines: taut head / spring / breast / stern lines from deck-edge chocks to the quay bollards
+  //            (bollards: x -88 + 12k, z -150.1; the gangway span x -6..25 is kept clear)
   {
-    const BZ = -150.1, BY = 0.7, ROPE = 0xd8cdb0;
+    const BZ = -150.1, EYE_Y = 0.4, HIVIS = 0xe0661a, DARK = 0x2e3032, GALV = 0xbfc3c3;
+    const hullPt = (x, y) => new V(x, y, ZC + hbAt(x, y) + 0.06);
+    // [ship end, bollard x, colour, bitt x (cargo-deck chock -> inboard bitts) | null, rat guard]
     const lines = [
-      [new V(-88.5, 12.3, ZC + hbAt(-88.5, 12.3)), new V(-76, BY, BZ), 0.6],
-      [new V(-86.5, 12.3, ZC + hbAt(-86.5, 12.3)), new V(-64, BY, BZ), 0.9],
-      [new V(-70, 9.3, -153.0), new V(-52, BY, BZ), 0.5],
-      [new V(-30, 9.3, -153.0), new V(-40, BY, BZ), 0.35],
-      [new V(36, 9.3, -153.0), new V(44, BY, BZ), 0.35],
-      [new V(61, 10.0, -153.0), new V(68, BY, BZ), 0.5],
-      [new V(63.5, 10.0, -153.4), new V(80, BY, BZ), 0.8],
+      [hullPt(-84, 12.2), -88, DARK, null, false],          // head line (forecastle panama chock)
+      [new V(-64.5, topY(-64.5) + 0.27, -153.1), -40, HIVIS, -66, false],  // forward spring
+      [new V(-46.5, topY(-46.5) + 0.27, -153.1), -28, HIVIS, -45, true],   // forward spring 2
+      [new V(34.0, 9.62, -153.1), 44, HIVIS, 32, true],      // after spring
+      [hullPt(52, 9.75), 56, DARK, null, false],             // stern breast
+      [hullPt(60, 9.75), 68, DARK, null, false],             // stern line
     ];
-    for (const [a, b, sag] of lines) line(catenary(a, b, sag, 10), 0.055, ROPE, 5);
+    const ropeG = (pts, r) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(4, pts.length * 2), r, 6);
+    for (const [a, bxp, hex, bitt, rat] of lines) {
+      const hd = new V(a.x - bxp, 0, a.z - BZ).normalize();
+      const b = new V(bxp + hd.x * 0.2, EYE_Y + 0.02, BZ + hd.z * 0.2);
+      const len = a.distanceTo(b);
+      pnt(ropeG(catenary(a, b, len * 0.008, 8), 0.06), hex);
+      // eye splice over the bollard neck + the splice where the eye legs meet
+      pnt(at(new THREE.TorusGeometry(0.21, 0.05, 6, 14), bxp, EYE_Y, BZ, Math.PI / 2), hex);
+      const sp = new V().lerpVectors(b, a, 0.6 / len);
+      pnt(ropeG([new V(bxp - hd.z * 0.2, EYE_Y, BZ + hd.x * 0.2), sp], 0.05), hex);
+      pnt(ropeG([new V(bxp + hd.z * 0.2, EYE_Y, BZ - hd.x * 0.2), sp], 0.05), hex);
+      if (rat) { // rat guard: galvanised cone clamped on the line, a few metres off the ship
+        const p = new V().lerpVectors(a, b, 0.3), d = new V().subVectors(b, a).normalize();
+        const g = cyl(0.08, 0.46, 0.14, 16, true); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new V(0, 1, 0), d)); g.translate(p.x, p.y, p.z); pnt(g, GALV);
+        const g2 = cyl(0.46, 0.46, 0.015, 16); g2.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new V(0, 1, 0), d)); g2.translate(p.x + d.x * 0.07, p.y + d.y * 0.07, p.z + d.z * 0.07); pnt(g2, 0x9ea3a3);
+      }
+      if (bitt !== null) {
+        // panama chock on the sheer strake + the line made fast on the bitts in figure-of-eight turns
+        bx(0.9, 0.12, 0.42, a.x, topY(a.x) + 0.06, -153.12, BLACK);
+        pnt(at(new THREE.TorusGeometry(0.2, 0.075, 6, 14).scale(1.5, 1, 1), a.x, topY(a.x) + 0.27, -153.12), BLACK);
+        const near = a.x > bitt ? bitt + 0.55 : bitt - 0.55;
+        pnt(ropeG([new V(a.x, a.y - 0.05, -153.25), new V((a.x + near) / 2, 9.58, -153.75), new V(near, 9.6, -154.05 + 0.25)], 0.055), hex);
+        for (const dx of [-0.55, 0.55]) for (const yy of [9.56, 9.7]) pnt(at(new THREE.TorusGeometry(0.27, 0.05, 5, 12), bitt + dx, yy, -154.05, Math.PI / 2), hex);
+        pnt(ropeG([new V(bitt - 0.5, 9.62, -153.8), new V(bitt + 0.5, 9.64, -154.3)], 0.05), hex);
+        pnt(ropeG([new V(bitt - 0.5, 9.66, -154.3), new V(bitt + 0.5, 9.68, -153.8)], 0.05), hex);
+      } else {
+        // fairlead ring at the hull opening
+        const n = new V(0, 0, 1);
+        const g = new THREE.TorusGeometry(0.26, 0.08, 6, 14); g.scale(1.6, 1, 1); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new V(0, 0, 1), n)); g.translate(a.x, a.y, a.z - 0.02); pnt(g, BLACK);
+      }
+    }
   }
 
   // ---------- hull side colliders (quay side open at the gangway gap) + walk areas
@@ -1137,10 +1403,20 @@ export function buildShip(opts = {}) {
     const m = new THREE.Mesh(merge(geos), mat); m.name = name; m.castShadow = cast; m.receiveShadow = recv; root.add(m); return m;
   };
   add(P, mPaint, 'paint');
+  // wreckable pieces: geometry re-centred on its pivot so a group transform can drop / tilt it
+  const pivotMesh = (geos, pivot, name) => {
+    const g = merge(geos); g.translate(-pivot.x, -pivot.y, -pivot.z);
+    const grp = new THREE.Group(); grp.name = name; grp.position.copy(pivot);
+    const m = new THREE.Mesh(g, mPaint); m.castShadow = true; m.receiveShadow = true; grp.add(m); root.add(grp); return grp;
+  };
+  const jibObj = pivotMesh(JIB, jibPivot.heel, 'craneJib');
+  const funnelTop = pivotMesh(FTOP, funnelPivot, 'funnelTop');
   add(DK, mDeck, 'deck', false, true);
+  add(WALKG, mWalk, 'walkway', false, true);
   add(LIT, mLit, 'lit', false, false);
   add(GL, mGlass, 'glass', false, false);
   add(SG, mSign, 'signs', false, true);
+  const breach = buildBreaches(); root.add(breach.mesh);
 
   // ---------- radar scanners (spin in update)
   const radar = new THREE.Object3D(); radar.name = 'radar'; radar.position.set(46.4, 29.15, ZC);
@@ -1166,6 +1442,12 @@ export function buildShip(opts = {}) {
     const q = new THREE.Mesh(new THREE.BoxGeometry(400, 2.2, 160), new THREE.MeshStandardMaterial({ color: 0x77736c, roughness: 0.9 }));
     q.position.set(0, -1.1, -151 + 80); q.receiveShadow = true; root.add(q);
   }
+  let burnt = false;
+  // global smoke-darkening (the localized char / breaches / embers come from the burn shader)
+  const burnSet = [[mHull, 0x3a2618, 0.45], [mDeck, 0x1e140d, 0.5], [mWalk, 0x1e140d, 0.5], [mPaint, 0x241810, 0.5], [mCont, 0x2e1c12, 0.5], [mGlass, 0x0c0907, 1], [mSign, 0x2a1d14, 0.6], [mLit, 0x0a0806, 1]]
+    .map(([m, hex, f]) => [m, m.color.clone(), new THREE.Color(hex), f]);
+  let T = 0, burnK = 0;
+  const syncRoot = () => { root.updateWorldMatrix(true, false); BURN.U.uRootInv.value.copy(root.matrixWorld).invert(); };
   // ---------- info
   let tris = 0, calls = 0;
   root.traverse((o) => {
@@ -1177,13 +1459,40 @@ export function buildShip(opts = {}) {
   const anchors = {
     manifold: new V(-6, DECK, -155.5), manifoldObj,
     gangwayBottom: new V(-4, 0, -151.5), gangwayTop: new V(23.5, DECK, -152),
-    radar, radar2, lights,
+    radar, radar2, lights, craneJib: jibObj, funnelTop,
     fuelHold: new V(-15, DECK, -166.8), bridge: new V(46, 24.6, ZC), funnel: new V(59.2, 36.4, ZC),
     bow: new V(-95, 12, ZC), stern: new V(65, 10, ZC),
   };
-  return {
+  const api = {
     root, colliders, walk, anchors,
-    update(dt) { radar.rotation.y += dt * 2.6; radar2.rotation.y -= dt * 3.4; },
+    update(dt) {
+      T += dt;
+      if (!burnt) { radar.rotation.y += dt * 2.6; radar2.rotation.y -= dt * 3.4; }
+      // manifold warning beacons: double-flash pulse
+      const ph = (T * 1.25) % 1, p = Math.max(Math.exp(-(((ph - 0.08) / 0.07) ** 2)), 0.75 * Math.exp(-(((ph - 0.32) / 0.07) ** 2)));
+      mBeacon.emissiveIntensity = 0.35 + 2.6 * p;
+      beaconRef.mat.opacity = 0.25 + 0.75 * p;
+      for (const sp of beaconGlows) sp.scale.setScalar(0.9 + 1.5 * p);
+      if (burnt) { BURN.U.uBurnT.value = T; breach.set(burnK, T); }
+    },
+    // k 0..1: char everything toward scorched black-brown with ember glow, kill windows, wreck a few parts
+    setBurnt(k) {
+      k = Math.max(0, Math.min(1, k));
+      burnt = k > 0;
+      burnK = k; syncRoot();
+      BURN.U.uBurn.value = k; BURN.U.uBurnT.value = T; breach.set(k, T);
+      for (const [m, c0, char, f] of burnSet) m.color.copy(c0).lerp(char, k * f);
+      for (const m of [mDeck, mPaint, mCont, mWalk]) m.emissive.setRGB(1.1 * k, 0.33 * k, 0.07 * k);
+      mHull.emissive.setRGB(1 - 0.55 * k, 1 - 0.85 * k, 1 - 0.95 * k); mHull.emissiveIntensity = 0.2 * (1 - 0.5 * k);
+      mHull.roughness = mPaint.roughness = 0.62 + 0.15 * k; mGlass.roughness = 0.12 + 0.8 * k; mGlass.metalness = 0.75 - 0.6 * k;
+      if (k > 0) { mLit.userData.burnt = true; mLit.emissiveIntensity = 0; } else { mLit.userData.burnt = false; }
+      radar.visible = radar2.visible = k < 0.05;
+      funnelTop.rotation.set(-0.12 * k, 0, 0.42 * k);
+      funnelTop.position.copy(funnelPivot).add(new V(-0.8 * k, -0.25 * k, 0));
+      jibObj.quaternion.setFromAxisAngle(jibPivot.axis, 0.75 * k);
+    },
     info: { tris: Math.round(tris), drawCalls: calls, colliders: colliders.length, lights: lights.length },
   };
+  if (opts && opts.burnt) api.setBurnt(opts.burnt); // viewer preview
+  return api;
 }

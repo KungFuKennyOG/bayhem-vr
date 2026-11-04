@@ -4,3 +4,8 @@ dist-single/
 *.wav
 char-test/shots/
 gun-test/out/
+car-test/shots/
+heli-test/shots/
+gun-test/*.jpg
+char2-test/shots/
+*.jpg
