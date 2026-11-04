@@ -96,7 +96,7 @@ export class World {
     map.anisotropy = aniso; normalMap.anisotropy = aniso;
     const reps = SPAN / T.ROAD.tileLen;
     map.repeat.set(1, reps); normalMap.repeat.set(1, reps);
-    const roadMat = new THREE.MeshStandardMaterial({ map, normalMap, normalScale: new THREE.Vector2(0.22, 0.22), roughness: 0.56, metalness: 0.0, envMapIntensity: 1.1 });
+    const roadMat = new THREE.MeshStandardMaterial({ map, normalMap, normalScale: new THREE.Vector2(0.22, 0.22), roughness: 0.7, metalness: 0.0, envMapIntensity: 0.65, color: 0xd2c8bc });
     const road = new THREE.Mesh(new THREE.PlaneGeometry(T.ROAD.width, SPAN), roadMat);
     road.rotation.x = -Math.PI / 2; road.position.set(ROAD_L + T.ROAD.width / 2, 0, (Z_NEAR + Z_FAR) / 2);
     road.receiveShadow = true;
@@ -175,7 +175,7 @@ export class World {
     {
       const frond = T.palmFrondTexture();
       const bark = T.palmBarkTexture();
-      const frondMat = new THREE.MeshLambertMaterial({ map: frond, alphaTest: 0.5, side: THREE.DoubleSide, color: 0x98a070 });
+      const frondMat = new THREE.MeshLambertMaterial({ map: frond, alphaTest: 0.5, side: THREE.DoubleSide, color: 0x98a070, emissive: 0x2c2a0c });
       const barkMat = new THREE.MeshLambertMaterial({ map: bark, color: 0xd8c4a8 });
       const variants = [];
       for (let v = 0; v < 3; v++) {
@@ -255,9 +255,9 @@ export class World {
         const bays = Math.max(3, Math.round(w / 3.6));
         const { map, emissiveMap } = T.facadeTextures2(700 + v * 13, floors, bays);
         map.anisotropy = 4;
-        const mat = new THREE.MeshLambertMaterial({ map, emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.0 });
+        const mat = new THREE.MeshLambertMaterial({ map, emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.75 });
         const side = T.facadeTextures2(900 + v * 13, floors, Math.max(3, Math.round(d / 3.6)));
-        const matSide = new THREE.MeshLambertMaterial({ map: side.map, emissiveMap: side.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.0 });
+        const matSide = new THREE.MeshLambertMaterial({ map: side.map, emissiveMap: side.emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.75 });
         const roofMat = new THREE.MeshLambertMaterial({ color: 0x5a524c });
         const trimMat = new THREE.MeshLambertMaterial({ color: 0x3c3632 });
         // box with per-face materials: +x,-x side; +z,-z front; y roof
@@ -295,9 +295,8 @@ export class World {
 
     // ---------------- sound walls (LA freeway canyon) ----------------
     {
-      const wt = T.soundWallTexture(21);
-      wt.anisotropy = aniso;
-      const wallMat = new THREE.MeshLambertMaterial({ map: wt });
+      // three wall variants (different block grime / ivy / tags) so the repetition breaks up
+      const wallMats = [21, 33, 47].map((sd) => { const t = T.soundWallTexture(sd); t.anisotropy = aniso; return new THREE.MeshLambertMaterial({ map: t }); });
       const capMat = new THREE.MeshLambertMaterial({ map: this.concMat.map, color: 0xd8cfc2 });
       const segL = 30, H = 4.6;
       const face = box(0.35, H, segL);
@@ -308,15 +307,18 @@ export class World {
       const parts = [[face, 0], [at(box(0.55, 0.22, segL, 2), 0, H + 0.11, 0), 1]];
       for (let k = 0; k < 6; k++) parts.push([at(box(0.5, H + 0.1, 0.45, 2), 0, H / 2, -segL / 2 + k * 5 + 2.5), 1]);
       const { geometry } = mergeGrouped(parts, 2);
-      for (const sideX of [12.9, -31.0]) {
+      for (const sideX of [12.9, -31.0]) for (let v = 0; v < wallMats.length; v++) {
         const n = Math.ceil(SPAN / segL);
-        const mesh = new THREE.InstancedMesh(geometry, [wallMat, capMat], n);
+        const mesh = new THREE.InstancedMesh(geometry, [wallMats[v], capMat], n);
         mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
         this.group.add(mesh);
         this.scrollers.push(new Scroller(mesh, n, segL, sideX > 0 ? 0 : 7, (it) => {
           const r = makeRng(it.n + (sideX > 0 ? 1 : 2));
-          it.data.x = sideX; it.data.hidden = r() < 0.14;
+          const gap = r() < 0.14;
+          const variant = Math.floor(r() * wallMats.length);
+          it.data.x = sideX; it.data.hidden = gap || variant !== v;
           it.data.sy = 0.9 + r() * 0.25;
+          it.data.ry = r() < 0.5 ? 0 : Math.PI; // flip so tags don't line up
           it.data.s = 1; it.data.sx = 1; it.data.sz = 1.0;
         }));
       }

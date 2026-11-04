@@ -1,0 +1,2 @@
+["(()=>{ const m = A.objs; A.setup([['suv',0,0]]); const g = A.objs[0].mesh.geometry; return g.groups.map(x=>x.materialIndex+':'+x.count/3).join(' '); })()",
+ "(()=>{ return import('/src/vehicles.js?x=4').then(m=>{ m.initMaterials(); globalThis.__kitDbg={}; m.buildSUV(); const d=globalThis.__kitDbg; return d['356']; }); })()"]

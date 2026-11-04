@@ -1,0 +1,7 @@
+["A.setup([['pickup',0,0],['suv',-3.7,0.6,0,{gunmen:true}]])",
+ "A.cam([0,2.56,1.4],[-3.7,1.0,0.3],70)", {"shot":"a_side_backlit"},
+ "A.setup([['pickup',0,0],['suv',3.7,0.6,0,{gunmen:true}]])",
+ "A.cam([0,2.56,1.4],[3.7,1.0,0.3],70)", {"shot":"a_side_frontlit"},
+ "A.setup([['suv',0,0,0]])",
+ "A.cam([-5.5,1.9,-8.5],[0,0.9,-0.5],50)", {"shot":"a_front34"}
+]
