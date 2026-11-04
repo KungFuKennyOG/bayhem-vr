@@ -11,7 +11,7 @@ import { CARS } from './layout.js';
 // =====================================================================================
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const PAINTS = [0x8a8f96, 0xd8d6d0, 0x1c2a44, 0x5a1414, 0x2b2f33, 0x6f6450, 0x123a2c, 0xa79f8d];
-const HP = { sedan: 13, taxi: 13, police: 15, suv: 17, van: 16, bus: Infinity, wreck: Infinity };
+const HP = { sedan: 13, taxi: 13, police: 15, suv: 17, van: 16, bus: 42, wreck: Infinity }; // buses take ~3x a car, then go up big
 
 export class Traffic {
   constructor(game, carMod, fallback) {
@@ -33,7 +33,7 @@ export class Traffic {
       const c = {
         i: k++, type, m, root: m.root, yaw, half, center, flags: f,
         hp: HP[type] ?? 14, maxHp: HP[type] ?? 14,
-        state: type === 'wreck' ? 'wreck' : 'ok', explosive: type !== 'bus' && type !== 'wreck',
+        state: type === 'wreck' ? 'wreck' : 'ok', explosive: type !== 'wreck',
         alarm: f.includes('alarm'), haz: f.includes('haz') || type === 'police', fuse: 0, burn: type === 'wreck' ? (z > 40 ? 999 : 0) : 0, smoke: 0,
         boxes: [], rb: null, holes: 0, alarmT: 0,
       };
@@ -90,7 +90,13 @@ export class Traffic {
     const g = this.g;
     const P = this.worldCenter(c, new THREE.Vector3());
     for (const b of c.boxes) this.col.remove(b); c.boxes.length = 0;
-    g.boom(P.clone().setY(P.y + 0.4), c.type === 'suv' || c.type === 'van' ? 1.35 : 1.2, { radius: 7.5, dmg: 70, src: c, car: true });
+    const bus = c.type === 'bus';
+    g.boom(P.clone().setY(P.y + 0.4), bus ? 1.9 : c.type === 'suv' || c.type === 'van' ? 1.35 : 1.2, { radius: bus ? 10 : 7.5, dmg: 70, src: c, car: true });
+    if (bus) { // the blast rolls down the length of the bus: front and rear go a beat later
+      _e.setFromQuaternion(c.root.quaternion, 'YXZ');
+      const fx0 = -Math.sin(_e.y), fz0 = -Math.cos(_e.y), L = c.half.z * 0.7;
+      for (const [k, t] of [[1, 0.18], [-1, 0.34]]) { const Q = P.clone().add(new THREE.Vector3(fx0 * L * k, 0.6, fz0 * L * k)); g.fx.later(t, () => g.fx.explosion(Q, 1.4, { noRing: true })); }
+    }
     g.carsBlown++;
     // launched: up, away from whatever hit it, spinning (Bay flips)
     const rb = new RigidBox(c.half.x, c.half.y, c.half.z, 4);
@@ -99,9 +105,16 @@ export class Traffic {
     // never into the player's face: close to the head, it goes up and away from you
     const toCar = _v.subVectors(P, g.headPos).setY(0), dh = toCar.length();
     if (dh < 10) { away.lerp(toCar.divideScalar(dh || 1), 1 - dh / 10).normalize(); }
-    rb.vel.set(away.x * range(2, 5) * (dh < 10 ? 1.4 : 1), range(7.5, 10.5), away.z * range(2, 5) * (dh < 10 ? 1.4 : 1));
-    const flip = chance(0.6);
-    rb.ang.set(flip ? range(3, 5.5) * (chance(0.5) ? -1 : 1) : range(-1.5, 1.5), range(-2.5, 2.5), flip ? range(-1, 1) : range(2.5, 5) * (chance(0.5) ? -1 : 1));
+    if (bus) { // too heavy to cartwheel: it heaves up and tips over onto its side
+      rb.vel.set(away.x * range(0.8, 1.6), range(3.8, 5.0), away.z * range(0.8, 1.6));
+      _e.setFromQuaternion(c.root.quaternion, 'YXZ');
+      const side = (Math.cos(_e.y) * away.x - Math.sin(_e.y) * away.z) >= 0 ? -1 : 1; // roll away from the hit
+      rb.ang.copy(new THREE.Vector3(0, 0, side * range(1.6, 2.1)).applyQuaternion(c.root.quaternion)).add(_v.set(0, range(-0.3, 0.3), 0));
+    } else {
+      rb.vel.set(away.x * range(2, 5) * (dh < 10 ? 1.4 : 1), range(7.5, 10.5), away.z * range(2, 5) * (dh < 10 ? 1.4 : 1));
+      const flip = chance(0.6);
+      rb.ang.set(flip ? range(3, 5.5) * (chance(0.5) ? -1 : 1) : range(-1.5, 1.5), range(-2.5, 2.5), flip ? range(-1, 1) : range(2.5, 5) * (chance(0.5) ? -1 : 1));
+    }
     rb.restitution = 0.18; rb.friction = 0.7;
     c.rb = rb; c.airT = 0;
     c.m.setBurnt?.();
@@ -109,7 +122,7 @@ export class Traffic {
     g.audio.stopLoop('car_alarm:' + c.i);
     g.events.push({ type: 'carBoom', c, P });
     // a door / hood / bumper comes off
-    for (let i = 0; i < 4; i++) g.fx.spawnDebris(P, range(-9, 9), range(8, 15), range(-9, 9), range(0.2, 0.42), chance(0.5));
+    for (let i = 0; i < (bus ? 9 : 4); i++) g.fx.spawnDebris(P, range(-9, 9), range(8, 15), range(-9, 9), range(0.2, bus ? 0.6 : 0.42), chance(0.5) ? (bus && chance(0.4) ? 2 : true) : false);
   }
 
   // ------------------------------------------------------------ per frame
