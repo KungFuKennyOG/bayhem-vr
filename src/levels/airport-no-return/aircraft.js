@@ -405,8 +405,8 @@ function holdTexture() {
   const img = x.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
     const q = 0.75 + 0.25 * Math.cos((xx % 32) / 32 * TAU) * Math.cos((y % 24) / 24 * TAU);
-    const v = (60 + T.fbm(n, xx / W, y / H, 2, 3) * 30) * q;
-    const i = (y * W + xx) * 4; img.data[i] = v * 1.02; img.data[i + 1] = v * 1.04; img.data[i + 2] = v * 0.88; img.data[i + 3] = 255;
+    const v = (118 + T.fbm(n, xx / W, y / H, 2, 3) * 34) * q;
+    const i = (y * W + xx) * 4; img.data[i] = v * 0.96; img.data[i + 1] = v * 1.02; img.data[i + 2] = v * 0.86; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);
   x.fillStyle = '#2a2c2e'; for (let k = 0; k < W; k += 64) x.fillRect(k, 0, 9, H);
@@ -431,13 +431,16 @@ function floorTexture() {
 }
 
 let _cargoMats = null;
+export const cargoHoldMaterial = () => cargoMats()[7];
 function cargoMats() {
   if (_cargoMats) return _cargoMats;
   const S = shared();
   const body = new THREE.MeshStandardMaterial({ map: cargoLivery(), roughness: 0.62, metalness: 0.35, envMapIntensity: 0.8 });
   const fin = new THREE.MeshStandardMaterial({ map: cargoFinTexture(), roughness: 0.6, metalness: 0.35 });
   const grey = new THREE.MeshStandardMaterial({ color: 0x6a7077, map: S.panel, roughness: 0.62, metalness: 0.22 });
-  const hold = new THREE.MeshStandardMaterial({ map: holdTexture(), roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide, emissive: 0x3a0806, emissiveIntensity: 0.0 });
+  const holdTex = holdTexture();
+  // the hold is lit from inside: the blanket texture doubles as its own emissive map (warm work lights; red at night)
+  const hold = new THREE.MeshStandardMaterial({ map: holdTex, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffd2a0, emissiveMap: holdTex, emissiveIntensity: 0.16 });
   const floorT = floorTexture(); floorT.repeat.set(1, 3);
   const floor = new THREE.MeshStandardMaterial({ map: floorT, roughness: 0.55, metalness: 0.6 });
   const yellow = new THREE.MeshStandardMaterial({ color: 0xd8a51c, roughness: 0.6, metalness: 0.2 });

@@ -5,13 +5,13 @@ import { RigidBox } from '../../physics.js';
 import { CELL } from '../../particles.js';
 import { MAT, buildSUV } from '../../vehicles.js';
 import { textTexture } from '../../textures.js';
-import { buildAirliner, buildCargoPlane, CARGO } from './aircraft.js';
+import { buildAirliner, buildCargoPlane, CARGO, cargoHoldMaterial } from './aircraft.js';
 import { buildJeep, gseMaterials, JEEP, JEEP_SEAT } from './gse.js';
 import { raySphere, rayOBB } from './game.js';
 import { TWY, RWY, TAXI, CARGO_HOLD, JEEP_STOP, LIFTOFF_Z } from './layout.js';
 import { loft } from './shapes.js';
 
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _e = new THREE.Euler();
+const _red = new THREE.Color(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -827,6 +827,11 @@ export class SetPieces {
     this._updCars(dt);
     this._updPallets(dt);
     this._updCredits(dt);
+    if (this.holdNight !== undefined && this.holdNight < 1) {
+      this.holdNight = Math.min(1, this.holdNight + dt / 4);
+      const m = cargoHoldMaterial(), k = this.holdNight * this.holdNight * (3 - 2 * this.holdNight);
+      m.emissive.setRGB(1, 0.82, 0.63).lerp(_red.setRGB(1, 0.16, 0.09), k); m.emissiveIntensity = 0.16 + 0.3 * k;
+    }
   }
   // after the player moved (so the rig rides the jeep / the plane this frame)
   afterPlayer(rdt, dt) {

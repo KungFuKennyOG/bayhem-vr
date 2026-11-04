@@ -519,6 +519,7 @@ export class AirportWorld {
     for (const [x, z, ry, w, hgt] of [[3000, -400, -Math.PI / 2, 4200, 260], [2200, 1800, -2.4, 2600, 180]]) {
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), cityMat); pl.position.set(x, hgt / 2 - 10, z); pl.rotation.y = ry; pl.renderOrder = -39; this.group.add(pl);
     }
+    this._cityLights();
     // tree lines along the airfield boundary (crossed billboards, instanced)
     const tt = treeTexture();
     const tg = mergeGeometries([new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0).rotateY(Math.PI / 2)]);
@@ -533,6 +534,59 @@ export class AirportWorld {
       im.setMatrixAt(i, m);
     }
     im.castShadow = false; im.receiveShadow = false; this.group.add(im);
+  }
+  // ---------------------------------------------------------------- city lights (blue hour: the sprawl around the field)
+  // Additive street-light texture on big ground planes around the airport; fades in with dusk (credits view from the ramp).
+  _cityLights() {
+    const S = 1024, c = T.makeCanvas(S, S), x = c.getContext('2d'), r = makeRng(8181);
+    x.fillStyle = '#000'; x.fillRect(0, 0, S, S);
+    // neighbourhood density (a few bright cores, dark parks / fields between)
+    const cores = []; for (let k = 0; k < 9; k++) cores.push([r() * S, r() * S, 120 + r() * 260, 0.4 + r() * 0.6]);
+    const dens = (px, py) => { let d = 0.08; for (const [cx, cy, rr, w] of cores) for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const q = Math.hypot(px - cx - ox, py - cy - oy) / rr; if (q < 1) d += w * (1 - q * q); } return Math.min(1, d); };
+    const dot = (px, py, sz, col) => { x.fillStyle = col; x.fillRect(((px % S) + S) % S, ((py % S) + S) % S, sz, sz); };
+    const SOD = ['rgba(255,150,55,', 'rgba(255,175,80,', 'rgba(255,205,140,'], WHT = 'rgba(235,240,255,';
+    // street grid in rotated districts
+    for (let d = 0; d < 6; d++) {
+      const cx = r() * S, cy = r() * S, ang = r() * Math.PI, step = 22 + r() * 18, ext = 260 + r() * 220;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      for (let u = -ext; u <= ext; u += step) for (let v = -ext; v <= ext; v += 6) for (const [a1, b1] of [[u, v], [v, u]]) {
+        const px = cx + a1 * ca - b1 * sa, py = cy + a1 * sa + b1 * ca, k = dens(((px % S) + S) % S, ((py % S) + S) % S) * (1 - Math.max(Math.abs(a1), Math.abs(b1)) / ext * 0.6);
+        if (r() < k * 0.85) dot(px, py, r() < 0.15 ? 3 : 2, (r() < 0.82 ? SOD[Math.floor(r() * 3)] : WHT) + (0.35 + 0.65 * k).toFixed(2) + ')');
+      }
+    }
+    // arterials + a highway with headlight / taillight strings
+    for (let k = 0; k < 7; k++) {
+      let px = r() * S, py = r() * S, a = r() * Math.PI * 2; const hw = k < 2;
+      for (let i = 0; i < 520; i++) {
+        a += (r() - 0.5) * 0.04; px += Math.cos(a) * 3; py += Math.sin(a) * 3;
+        if (i % (hw ? 2 : 3) === 0) dot(px, py, hw ? 3 : 2, SOD[1] + (hw ? 1 : 0.75) + ')');
+        if (hw && r() < 0.5) { dot(px + Math.sin(a) * 4, py - Math.cos(a) * 4, 2, WHT + '0.9)'); dot(px - Math.sin(a) * 4, py + Math.cos(a) * 4, 2, 'rgba(255,40,20,0.85)'); }
+      }
+    }
+    // red obstruction lights on the tall stuff
+    for (let k = 0; k < 40; k++) dot(r() * S, r() * S, 3, 'rgba(255,30,20,0.9)');
+    const tex = T.canvasTex(c, { aniso: 8 });
+    const mat = this.cityMat = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0, toneMapped: false });
+    mat.color.setScalar(4.2);
+    mat.polygonOffset = true; mat.polygonOffsetFactor = -8; mat.polygonOffsetUnits = -64; // kilometres out, 2 m over the grass is below depth precision // dots are sub-pixel at range: mip-averaged they need HDR punch
+    // west, east and south of the field (the airport itself + its approach stay dark)
+    const tile = 1700;
+    for (const [x0, x1, z0, z1, rot] of [[-7000, -720, -6800, 3600, 0.3], [820, 7000, -6800, 3600, 1.1], [-720, 820, 1150, 6500, 2.2], [-720, 820, -6800, -3300, 0.7]]) {
+      const w = x1 - x0, d = z1 - z0, g = new THREE.PlaneGeometry(w, d, 32, 32);
+      const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i) * w / tile, v = uv.getY(i) * d / tile; uv.setXY(i, u * Math.cos(rot) - v * Math.sin(rot) + rot * 3.1, u * Math.sin(rot) + v * Math.cos(rot)); }
+      // soft, ragged edge toward the airfield (no ruler-straight boundary); additive => vertex colour is the fade
+      const P = g.attributes.position, col = new Float32Array(P.count * 3), n = T.makeNoise(4700 + Math.round(rot * 10), 16);
+      for (let i = 0; i < P.count; i++) {
+        const wx = (x0 + x1) / 2 + P.getX(i), wz = (z0 + z1) / 2 - P.getY(i);
+        const dx = Math.max(-720 - wx, wx - 820, 0), dz = Math.max(wz - 1150, -3300 - wz, 0); // distance outside the dark airfield corridor
+        const edge = Math.max(dx, dz) - 160 * T.fbm(n, wx / 1400, wz / 1400, 3, 16);
+        const k = Math.min(1, Math.max(0, edge / 520)) * (0.55 + 0.45 * T.fbm(n, wx / 2300 + 7, wz / 2300, 3, 16) * 1.6);
+        col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = Math.min(1, k);
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.rotateX(-Math.PI / 2); g.translate((x0 + x1) / 2, 2, (z0 + z1) / 2);
+      const m = new THREE.Mesh(g, mat); m.renderOrder = -30; m.frustumCulled = false; this.group.add(m);
+    }
   }
   // ---------------------------------------------------------------- invisible bounds for the on-foot fight
   _bounds() {
@@ -573,6 +627,7 @@ export class AirportWorld {
     this.time += dt;
     const t = this.time, G = this.glow;
     const on = 0.55 + 0.45 * Math.min(1, dusk * 2.2); // runway lights are on at sunset, brighter at blue hour
+    if (this.cityMat) { const k = Math.min(1, Math.max(0, (dusk - 0.25) / 0.3)); this.cityMat.opacity = k * k * (3 - 2 * k); this.cityMat.visible = k > 0.001; }
     let gi = 0;
     for (const L of this.lights) {
       const p = L.p, d = Math.hypot(p.x - head.x, p.y - head.y, p.z - head.z);

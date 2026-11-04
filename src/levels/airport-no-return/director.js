@@ -129,6 +129,7 @@ export class Director {
         }, update: (t) => { if (g.cinematicLook && setp.jeep.rb) g.cinematicLook.copy(setp.jeep.rb.pos).setY(1); },
         until: (t) => t > (trailer ? 6.5 : 8) },
       { name: 'credits', wp: null, music: 0.6, dusk: 0.62, enter: () => {
+          setp.holdNight = 0; // the hold goes to red night lighting as the credits roll
           const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 'S'}`;
           setp.rollCredits([
             { text: 'BAYHEM', big: true, sub: 'A FILM BY EXPLOSIONS' },
