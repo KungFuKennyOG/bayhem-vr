@@ -41,7 +41,7 @@ export class Rain {
           vec3 dir = normalize(v);
           float len = 0.42 + 0.25 * aOff.w;
           vec3 toEye = normalize(uEye - p);
-          vec3 side = normalize(cross(dir, toEye)) * 0.0085;
+          vec3 side = normalize(cross(dir, toEye)) * 0.011;
           vec3 wp = p + side * position.x - dir * len * position.y;
           vD = distance(uEye, p);
           vA = smoothstep(1.2, 3.0, vD) * (1.0 - smoothstep(9.0, 13.0, vD));
@@ -51,7 +51,7 @@ export class Rain {
       fragmentShader: /* glsl */`
         uniform float uK; varying float vA; varying vec2 vQ; varying float vD;
         void main() {
-          float a = (1.0 - abs(vQ.x)) * (1.0 - vQ.y) * vA * 0.16 * uK;
+          float a = (1.0 - abs(vQ.x)) * (1.0 - vQ.y) * vA * 0.3 * uK;
           // a cool sheen with a hint of the sodium glow
           gl_FragColor = vec4(vec3(0.75, 0.78, 0.86) * a, a * 0.6);
         }`,

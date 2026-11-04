@@ -522,6 +522,8 @@ export class SetPieces {
     if (!F || (this.fall && this.fall.phase === 'down' && this.fall.t > 30)) return;
     F.t += dt;
     const I = this.fall ? this._legPoint(TOWER.crashLeg, TOWER.crashY, _v2) : F.P;
+    // the wreck stays wedged in the leg while the leg buckles and falls
+    if (this.wreck && this.fall && this.fall.phase !== 'wounded' || this.wreck && this.fall?.wound > 0) { this.wreck.m.root.position.copy(I).add(_v.set(-3, -1, 3)); this.wreck.m.root.updateMatrixWorld(true); }
     if (g.headPos.distanceToSquared(I) < 250 * 250) {
       if (rand() < dt * 22) g.fx.main.spawn({ x: I.x + range(-5, 5), y: I.y + range(-3, 3), z: I.z + range(-5, 5), vx: range(-1, 1), vy: range(3, 7), vz: range(-1, 1), drag: 1.2, frameKind: 1, s0: range(3, 5), s1: range(8, 12), ease: 0.6, life: range(0.9, 1.5), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.5, b: 1.0, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
       if (rand() < dt * 1.8) this.clouds.spawn({ x: I.x + range(-5, 5), y: I.y + 4, z: I.z + range(-5, 5), vx: range(-0.5, 0.5) + 1.0, vy: range(6, 9), vz: range(-0.5, 0.5), drag: 0.15, buoy: 0.4, s0: 10, s1: range(40, 54), life: range(13, 16), a: 0.95, fadeIn: 0.04, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.06, g: 0.053, b: 0.048, r1: 0.15, g1: 0.135, b1: 0.12, glow: 1.3, glowFade: 4 });
@@ -603,9 +605,10 @@ export class SetPieces {
       F.sink = Math.min(9, F.sink + dt * 1.6);
       F.slide = Math.min(16, F.slide + dt * F.th * 3);
       // power dies floor by floor from the feet up; flicker everywhere
-      F.powerLo = Math.min(400, F.powerLo + dt * (F.th > 0.25 ? 70 : 6));
-      R.u.uPowerLo.value = F.powerLo; R.u.uFlicker.value = 0.35;
-      T.state.light = F.th > 1.1 ? Math.max(0, T.state.light - dt * 0.5) : 1;
+      // she stays lit all the way down (the money shot); only the torn feet go dark, then everything dies on impact
+      F.powerLo = Math.min(400, F.powerLo + dt * (F.bridgeHit ? 160 : 9));
+      R.u.uPowerLo.value = F.powerLo; R.u.uFlicker.value = F.bridgeHit ? 0.7 : 0.2;
+      T.state.light = F.bridgeHit ? Math.max(0, T.state.light - dt * 0.45) : 1;
       if (F.th > 0.5) T.state.beacon = Math.max(0, T.state.beacon - dt * 0.15);
       if (F.th > 1.0) T.state.sparkle = Math.max(0, T.state.sparkle - dt * 0.4);
       // girders shed from the joints that bend most

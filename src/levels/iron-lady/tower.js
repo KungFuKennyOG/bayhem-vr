@@ -27,7 +27,10 @@ export const W = (y) => 6 + 51 * Math.exp(-y / 70);     // outer half-width of t
 export const IN = (y) => 43 * Math.pow(Math.max(0, 1 - y / HA), 1.3); // inner offset of a leg (0 at HA)
 export const LEGC = (y) => 0.5 * (W(y) + IN(y));        // leg centreline offset (both x and z)
 
-const IRON = 0x3b2c22, GOLD = new THREE.Color(1.0, 0.5, 0.16);
+const IRON = 0x33261d, GOLD = new THREE.Color(1.0, 0.52, 0.17);
+// sodium floods sit at the feet and on each platform, aimed up: the iron is brightest just above them
+const FLOODS = [[0, 1.0], [TOWER.p1.y - 3, 0.85], [TOWER.p2.y - 2, 0.8], [TOWER.p3.y - 2, 0.7]];
+const floodK = (y) => { let k = 0.18; for (const [yf, a] of FLOODS) if (y >= yf - 2) k += a * Math.exp(-(y - yf) / 38); return Math.min(1.25, k); };
 
 // ------------------------------------------------------------------ shared deformation (GLSL + JS)
 const DEFORM_GLSL = /* glsl */`
@@ -231,7 +234,7 @@ export async function buildTower(ctx = {}) {
       const C0 = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, b]) => legCorner(L, y0, a, b));
       const C1 = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, b]) => legCorner(L, y1, a, b));
       // light: brightest at the feet and around the first platform, the inner faces glow (floods inside the legs)
-      const yl = (y0 + y1) / 2, emi = 0.65 + 0.35 * Math.exp(-yl / 30) + 0.5 * Math.exp(-((yl - TOWER.p1.y) ** 2) / 200);
+      const yl = (y0 + y1) / 2, emi = floodK(yl);
       for (let c = 0; c < 4; c++) beam(C0[c], C1[c], c === 2 ? 1.25 : 1.0, emi * 1.1, c === 2 ? 1.25 : 1.0, 1); // corner chords (outer corner heavier)
       for (let f = 0; f < 4; f++) {
         const a0 = C0[f], b0 = C0[(f + 1) % 4], a1 = C1[f], b1 = C1[(f + 1) % 4];
@@ -247,7 +250,7 @@ export async function buildTower(ctx = {}) {
   const shaftC = (y) => { const w = W(y) * 0.98; return [V(-w, y, -w), V(w, y, -w), V(w, y, w), V(-w, y, w)]; };
   for (let k = 0; k < shaftY.length - 1; k++) {
     const y0 = shaftY[k], y1 = shaftY[k + 1], C0 = shaftC(y0), C1 = shaftC(y1);
-    const emi = 0.8 + 0.25 * Math.exp(-((y0 - 190) ** 2) / 1800);
+    const emi = floodK((y0 + y1) / 2);
     for (let c = 0; c < 4; c++) beam(C0[c], C1[c], 0.95, emi * 1.1, 0.95, 1);
     for (let f = 0; f < 4; f++) {
       const a0 = C0[f], b0 = C0[(f + 1) % 4], a1 = C1[f], b1 = C1[(f + 1) % 4];
@@ -319,7 +322,7 @@ export async function buildTower(ctx = {}) {
   beams.forEach((b, i) => {
     const e = b.m.elements;
     for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) iM[c][i * 4 + r] = e[c * 4 + r];
-    aEmi[i] = b.emi * (0.75 + rng() * 0.5);
+    aEmi[i] = b.emi * (0.45 + rng() * 0.9);
   });
   const iMa = iM.map(a => new THREE.InstancedBufferAttribute(a, 4).setUsage(THREE.DynamicDrawUsage));
   iMa.forEach((a, c) => geo.setAttribute('iM' + c, a));
@@ -371,10 +374,10 @@ export async function buildTower(ctx = {}) {
   deckRing(TOWER.p1.y, TOWER.p1.half, TOWER.p1.half - 13, 0.6, 0.15);
   deckRing(TOWER.p2.y, TOWER.p2.half, TOWER.p2.half - 7, 0.5, 0.15);
   // first-platform pavilions (glass restaurant boxes on the deck, warm lit) — they make the platform read as a place
-  for (const [x, z, sx, sz] of [[0, TOWER.p1.half - 6.5, 30, 8], [0, -TOWER.p1.half + 6.5, 30, 8], [TOWER.p1.half - 6.5, 0, 8, 22], [-TOWER.p1.half + 6.5, 0, 8, 22]]) addBox(x, TOWER.p1.y + 3.2, z, sx, 5.2, sz, 2.2, [0.55, 0.5, 0.45]);
-  addBox(0, TOWER.p2.y + 2.6, 0, TOWER.p2.half * 1.2, 4.6, TOWER.p2.half * 1.2, 1.6, [0.5, 0.46, 0.42]);
+  for (const [x, z, sx, sz] of [[0, TOWER.p1.half - 6.5, 30, 8], [0, -TOWER.p1.half + 6.5, 30, 8], [TOWER.p1.half - 6.5, 0, 8, 22], [-TOWER.p1.half + 6.5, 0, 8, 22]]) addBox(x, TOWER.p1.y + 3.2, z, sx, 5.2, sz, 0.75, [0.55, 0.5, 0.45]);
+  addBox(0, TOWER.p2.y + 2.6, 0, TOWER.p2.half * 1.2, 4.6, TOWER.p2.half * 1.2, 0.6, [0.5, 0.46, 0.42]);
   // top: lantern cabin + cornice
-  addBox(0, TOWER.p3.y + 2, 0, TOWER.p3.half * 2, 4, TOWER.p3.half * 2, 2.6, [0.5, 0.45, 0.4]);
+  addBox(0, TOWER.p3.y + 2, 0, TOWER.p3.half * 2, 4, TOWER.p3.half * 2, 1.2, [0.5, 0.45, 0.4]);
   addBox(0, TOWER.p3.y + 4.3, 0, TOWER.p3.half * 2 + 1.6, 0.6, TOWER.p3.half * 2 + 1.6, 0.6);
   // railings on the decks (dark, thick enough not to read as laser lines)
   const rail = (y, half) => { for (const s of [-1, 1]) { addBox(0, y + 1.2, s * half, half * 2, 0.16, 0.16, 0.4); addBox(s * half, y + 1.2, 0, 0.16, 0.16, half * 2, 0.4); } };
@@ -385,7 +388,7 @@ export async function buildTower(ctx = {}) {
   solidGeo.setAttribute('uv', new THREE.Float32BufferAttribute(solid.uv, 2));
   solidGeo.setAttribute('aEmi', new THREE.Float32BufferAttribute(solid.emi, 1));
   solidGeo.setAttribute('color', new THREE.Float32BufferAttribute(solid.col, 3));
-  const deckMat = rigMaterial(new THREE.MeshStandardMaterial({ color: 0x4a3a2e, roughness: 0.6, metalness: 0.4, emissive: new THREE.Color(1.0, 0.72, 0.42), emissiveIntensity: 1, vertexColors: true }), rig);
+  const deckMat = rigMaterial(new THREE.MeshStandardMaterial({ color: 0x2c221b, roughness: 0.85, metalness: 0.15, emissive: new THREE.Color(1.0, 0.62, 0.3), emissiveIntensity: 1, vertexColors: true }), rig);
   deckMat.userData.duskEmissive = 1;
   const decks = new THREE.Mesh(solidGeo, deckMat); decks.frustumCulled = false; decks.name = 'decks';
   root.add(decks);

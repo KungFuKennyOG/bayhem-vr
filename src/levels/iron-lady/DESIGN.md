@@ -13,6 +13,35 @@ comes from artificial light: sodium/gold floodlights on the tower, warm lit wind
 lamp reflections smeared on wet cobbles and on the river. Cool blue fill everywhere else. Rain: fine
 drizzle streaks, puddles with ring splashes.
 
+## Beats (director.js) — `?level=iron-lady&beat=<name>` jumps to any of them
+1. **intro** — north lower quay at x 172, title card over the river, the tower sparkling (hourly show), drizzle.
+   Two balcony snipers paint the cobbles during the title (they hold fire until the fight starts).
+2. **quay** — fight west along the lower quay (barges, a closed buvette, crates as cover; rusher). Once you're into
+   it a **bateau-mouche** full of gunmen comes up the river behind you; shoot the stern fuel tank (or grenade it):
+   BATEAU FLAMBÉ — it burns and drifts to the bridge. If it survives it rams the bridge pier and blows anyway.
+3. **bridge** — up the north ramp, across the bridge through a traffic jam (explosive cars, police block at the
+   south end), a laser sniper on the tower's first platform.
+4. **gunship** — WIDOWMAKER 3 comes up the river and fights around the tower; every ~20 s it threads straight
+   through the tower under the first platform. Killed, it spins into the **north-east leg** (y 24).
+5. **evac** — the leg buckles (rig: bow + crash kink), the tower lists, groans and sheds girders; the objective
+   sends you east along the south quay road and down the south ramp to the lower quay (spectacle first: the
+   objective card comes 1.2 s after the crash).
+6. **collapse** — VR-safe trigger: waypoint on the tower, the radio says LOOK, and it goes when you're looking
+   (or after 5 s). She stays lit and sparkles all the way down, falls north across the river and lands on the
+   bridge (slow-mo, every car on it cooks off), the spire goes through the north frontage; lights die on impact.
+7. **run** — a wall of spray and dust rolls east down the river after you (rubber-bands a few metres behind);
+   the driver brings a speedboat to the pontoon at x 205. Step onto the pontoon next to it to board.
+8. **escape** — power turn, flat out east down the Seine; **outro** title card with stats.
+
+## Collapse rig (tower.js)
+Every tower vertex goes through `twDeform()` in the vertex shader: above the second platform (y 112) it follows a
+25-node spine (position + rotation per node, solved on the CPU in `setpieces._solveSpine`); below it each leg is a
+quadratic curve from its foot (displacement `uFoot`) to where it meets the shaft, bowed by `uBow` — so legs buckle
+when compressed and tear their feet out of the plinths when stretched, and the shaft bends, kinks at the first
+platform, twists and drapes over the quays / bridge / river (nodes are laid on `towerFloor`). `TowerRig.deform()`
+is the same function on the CPU (glows, beacon, reflections, girder debris, the heli wreck). Torn girders are
+hidden instances (zeroed matrices) re-spawned as rigid debris (`Girders`).
+
 ## World frame (metres) — `layout.js` has every number; this is the picture
 - y up. Seine along x (east = +x, north = +z). Water `WATER_Y = -7`, river between quay walls at z = ±40.
 - **Lower quays** (cobbled berges) at `LOW_Y = -5.6`, |z| 40..52, both banks, both sides of the bridge (walkable
