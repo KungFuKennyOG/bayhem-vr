@@ -360,11 +360,12 @@ export class SetPieces {
     g.audio.stopLoop('heli'); this.glowB.commit(0);
     const I = new THREE.Vector3(...MERIDIAN.impact);
     // wedged in the facade, nose first, burnt
-    m.root.position.set(I.x, I.y - 0.5, I.z + 2.2); m.root.rotation.set(0.35, Math.PI * 0.12, 0.6); m.root.scale.setScalar(1.55);
+    m.root.position.set(I.x, I.y - 0.5, I.z + 0.6); m.root.rotation.set(0.35, Math.PI * 0.12, 0.6); m.root.scale.setScalar(1.55); // nose buried in the floor plates, tail boom out over the plaza
     m.tilt.rotation.set(0, 0, 0); m.body.material = [MAT.charred, MAT.charred, MAT.charred];
     for (const b of m.burnables || []) b.material = MAT.charred;
     m.rotorBlur?.(0, true);
-    m.rotor.rotation.set(0.2, 0.7, 0.3); m.cone.visible = false;
+    m.rotor.visible = false; m.cone.visible = false; // the rotor sheared off on the facade
+    for (let k = 0; k < 6; k++) g.fx.spawnDebris(I.clone().add(_v.set(range(-4, 4), 3, 6)), range(-8, 8), range(4, 10), range(4, 12), range(0.5, 0.9), true);
     m.root.updateMatrixWorld(true);
     this.wreck = m;
     if (this.world.meridian.hole) this.world.meridian.hole.visible = true;
