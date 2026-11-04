@@ -46,13 +46,13 @@ export class Director {
           A?.go([ground(226, 324, { slow: 0.6 }), ground(220, 308, { slow: 0.55 })]);
         }, until: (t) => (t > 4 && alive() === 0) || t > 70 * T || (t > 10 && pz() < 278) },
       { name: 'apronB', wp: V(186, 2.6, 214), hunt: true, music: 0.8, dusk: 0.06, enter: () => {
-          S({ x: 262, z: 252, delay: 0.4 });
+          S({ x: 240, z: 254, delay: 0.4 });
           S({ x: 240, z: 226, delay: 0.8, flanker: true });
           S({ x: 214, z: 246, delay: 0.2 });
           S({ x: 196, z: 232, delay: 1.5, role: 'rusher' });
-          S({ x: 272, z: 220, delay: 2.4, flanker: true });
+          S({ x: 252, z: 228, delay: 2.4, flanker: true });
           S({ x: 230, z: 204, delay: 3.6, entry: V(226, 0, 224) });
-          S({ x: 251, z: 268, delay: 5.0 });
+          S({ x: 236, z: 262, delay: 5.0 });
           later(0.8, () => say('More of them by the parked airliner. Don\'t hit the jet. Hit the TRUCK next to the jet.', 3.4));
           A?.go([ground(214, 272, { slow: 0.6 }), ground(222, 256, { slow: 0.55 }), ground(212, 238, { slow: 0.5 })]);
         }, until: (t) => (t > 5 && alive() === 0) || t > 75 * T || (t > 12 && pz() < 212 && alive() <= 2) },
