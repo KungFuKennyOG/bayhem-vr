@@ -197,6 +197,28 @@ const SFX = {
   ear_ring: { n: 1, gain: 0.15, verb: 0, max: 1, noTime: true, twoD: true, post: true },
   heli_flyby: { n: 1, gain: 0.9, verb: 0.3, max: 2, roll: 0.4, hrtf: true },
   ui_select: { n: 1, gain: 0.32, verb: 0.05, max: 2, noTime: true, twoD: true, post: true },
+  // --- Level 2 (Port of Victory). duck: dip the music like explosion_big; conc: [radius m, amount, hold s] concussion muffle.
+  step_concrete: { n: 6, gain: 0.2, verb: 0.02, max: 6, vary: 0.06, roll: 1.4 },
+  step_metal: { n: 6, gain: 0.22, verb: 0.05, max: 6, vary: 0.05, roll: 1.3 },
+  step_run: { n: 4, gain: 0.26, verb: 0.03, max: 6, vary: 0.06, roll: 1.3 },
+  container_slam: { n: 1, gain: 1.0, verb: 0.45, max: 2, vary: 0.04, roll: 0.3, hrtf: true, sub: 0.6, duck: true, conc: [28, 0.4, 0.5] },
+  container_dent: { n: 3, gain: 0.62, verb: 0.2, max: 4, vary: 0.08, roll: 0.55, hrtf: true },
+  container_doors: { n: 2, gain: 0.62, verb: 0.22, max: 2, vary: 0.05, roll: 0.55, hrtf: true },
+  crane_alarm: { n: 1, gain: 0.3, verb: 0.25, max: 2, vary: 0, roll: 0.45 },
+  crane_release: { n: 1, gain: 0.6, verb: 0.22, max: 2, vary: 0.04, roll: 0.5, hrtf: true },
+  barrel_hit: { n: 4, gain: 0.42, verb: 0.08, max: 6, vary: 0.08, roll: 0.9 },
+  barrel_hiss: { n: 1, gain: 0.32, verb: 0.06, max: 4, vary: 0.1, roll: 0.9 },
+  barrel_explode: { n: 2, gain: 0.95, verb: 0.35, max: 4, vary: 0.07, roll: 0.35, hrtf: true, sub: 0.4, duck: true, conc: [16, 0.3, 0.35] },
+  grenade_bounce: { n: 3, gain: 0.34, verb: 0.05, max: 4, vary: 0.08, roll: 1.1, hrtf: true },
+  grenade_pin: { n: 1, gain: 0.3, verb: 0.03, max: 3, vary: 0.06, roll: 1.2 },
+  glass_break: { n: 1, gain: 0.62, verb: 0.2, max: 2, vary: 0.05, roll: 0.6, hrtf: true },
+  ship_horn: { n: 1, gain: 0.8, verb: 0.5, max: 1, vary: 0, roll: 0.12, hrtf: true, sub: 0.35, duck: true },
+  metal_groan: { n: 2, gain: 0.6, verb: 0.4, max: 2, vary: 0.06, roll: 0.25, hrtf: true },
+  alarm_klaxon: { n: 1, gain: 0.32, verb: 0.3, max: 2, vary: 0, roll: 0.4 },
+  radio_squelch: { n: 1, gain: 0.22, verb: 0, max: 2, vary: 0.03, noTime: true, twoD: true, post: true },
+  body_fall: { n: 3, gain: 0.42, verb: 0.05, max: 4, vary: 0.07, roll: 1.0 },
+  gear_rattle: { n: 3, gain: 0.16, verb: 0.02, max: 6, vary: 0.08, roll: 1.5 },
+  fuel_whoomp: { n: 1, gain: 0.62, verb: 0.35, max: 3, vary: 0.05, roll: 0.4, hrtf: true, sub: 0.5 },
 };
 
 const LOOPS = {
@@ -206,6 +228,380 @@ const LOOPS = {
   rocket: { gain: 0.55, roll: 0.8, hrtf: true, rate: (i) => 0.9 + 0.2 * i, lp: () => 20000, verb: 0.15, doppler: true, max: 6 },
   suv: { gain: 0.45, roll: 0.7, rate: (i) => 0.8 + 0.6 * i, lp: (i) => 600 + 2200 * i, verb: 0.08, doppler: true, max: 8 },
   fire: { gain: 0.45, roll: 0.8, rate: () => 1, lp: (i) => 2500 + 9000 * i, verb: 0.15, max: 6 },
+  // --- Level 2. amb: 2D loop routed to the ambience bus (like truck).
+  harbor: { gain: 0.11, twoD: true, amb: true, rate: () => 1, lp: (i) => 2500 + 15000 * i, verb: 0 },
+  crane_motor: { gain: 0.42, roll: 0.6, rate: (i) => 0.7 + 0.6 * i, lp: (i) => 2000 + 8000 * i, verb: 0.15, max: 3 },
+  forklift: { gain: 0.42, roll: 0.75, rate: (i) => 0.75 + 0.75 * i, lp: (i) => 900 + 3500 * i, verb: 0.08, doppler: true, max: 3 },
+  fire_big: { gain: 0.7, roll: 0.5, rate: () => 1, lp: (i) => 1500 + 9000 * i, verb: 0.2, sub: 0.5, max: 4 },
+  sodium_hum: { gain: 0.06, roll: 1.8, rate: () => 1, lp: (i) => 2500 + 12000 * i, verb: 0, max: 8 },
+};
+
+// --- Level 2 one-shot bakes (Port of Victory)
+// modal ring: a set of decaying sine partials at base*ratios (hollow steel). det adds a detuned twin -> beating.
+// Synthesized in JS into one buffer (an oscillator+gain pair per partial costs far more bake time).
+function ring(b, dest, t, base, ratios, o = {}) {
+  const { peak = 0.3, tau = 0.3, tauFall = 0.5, spread = 0.025, a = 0.0005, det = 0 } = o;
+  const P = [];
+  ratios.forEach((r, k) => {
+    const f = base * r * b.r(1 - spread, 1 + spread), p = (peak * b.r(0.6, 1)) / (1 + k * 0.35), ta = (tau * b.r(0.75, 1.25)) / (1 + k * tauFall);
+    const ph = b.R() * 6.283;
+    P.push([f, p, ta, ph]); if (det) P.push([f * (1 + det), p * 0.6, ta, ph + 1.7]);
+  });
+  const sr = b.c.sampleRate, ny = sr * 0.45, A = Math.max(1, Math.round(a * sr));
+  const len = Math.max(1, Math.min(b.c.length - Math.floor(t * sr), Math.ceil((a + 7 * Math.max(...P.map((x) => x[2]))) * sr))), buf = b.c.createBuffer(1, len, sr), d = buf.getChannelData(0);
+  for (const [f, p, ta, ph] of P) {
+    if (f >= ny) continue;
+    const w = (6.283185307 * f) / sr, cw = Math.cos(w), sw = Math.sin(w), dk = Math.exp(-1 / (ta * sr)), n = Math.min(len, Math.ceil((a + 7 * ta) * sr));
+    let s = Math.sin(ph), c = Math.cos(ph), e = p;
+    for (let i = 0; i < n; i++) {
+      d[i] += s * (i < A ? (p * i) / A : e);
+      const s2 = s * cw + c * sw; c = c * cw - s * sw; s = s2;
+      if (i >= A) e *= dk;
+    }
+  }
+  const s = b.c.createBufferSource(); s.buffer = buf; s.connect(dest); s.start(t);
+}
+// grain cloud synthesized in JS into one buffer (replaces dozens of tn/nz node pairs).
+// each grain: { t, f, peak, tau, a?, k: 'sin' | 'tri' | 'bp' (resonant noise, Q) | 'hp' (bright click), Q? }
+function grains(b, dest, list) {
+  const sr = b.c.sampleRate, len = b.c.length, d = new Float32Array(len), R = b.R;
+  for (const g of list) {
+    const i0 = Math.floor(g.t * sr); if (i0 >= len) continue;
+    const A = Math.max(1, Math.round((g.a ?? 0.0004) * sr)), n = Math.min(len - i0, A + Math.ceil(7 * g.tau * sr)), dk = Math.exp(-1 / (g.tau * sr));
+    const k = g.k || 'sin', f = Math.min(g.f || 1000, sr * 0.45);
+    let e = g.peak;
+    if (k === 'sin' || k === 'tri') {
+      const w = (6.283185307 * f) / sr, cw = Math.cos(w), sw = Math.sin(w); let s = 0, c = 1;
+      for (let i = 0; i < n; i++) {
+        const v = k === 'tri' ? (2 / Math.PI) * Math.asin(s) : s;
+        d[i0 + i] += v * (i < A ? (g.peak * i) / A : e);
+        const s2 = s * cw + c * sw; c = c * cw - s * sw; s = s2; if (i >= A) e *= dk;
+      }
+    } else if (k === 'bp') { // RBJ bandpass (constant 0 dB peak) on white noise
+      const w = (6.283185307 * f) / sr, al = Math.sin(w) / (2 * (g.Q || 2)), a0 = 1 + al, b0 = al / a0, a1 = (-2 * Math.cos(w)) / a0, a2 = (1 - al) / a0;
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < n; i++) {
+        const x = R() * 2 - 1, y = b0 * x - b0 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x; y2 = y1; y1 = y;
+        d[i0 + i] += y * 1.7 * (i < A ? (g.peak * i) / A : e); if (i >= A) e *= dk;
+      }
+    } else { // 'hp': first-difference white noise ~ bright click
+      let xp = 0;
+      for (let i = 0; i < n; i++) { const x = R() * 2 - 1; d[i0 + i] += (x - xp) * 0.5 * (i < A ? (g.peak * i) / A : e); xp = x; if (i >= A) e *= dk; }
+    }
+  }
+  const buf = b.c.createBuffer(1, len, sr); buf.copyToChannel(d, 0);
+  const s = b.c.createBufferSource(); s.buffer = buf; s.connect(dest); s.start(0);
+}
+const PLATE = [1, 1.62, 2.31, 2.98, 3.87, 5.1];
+const DRUM = [1, 1.59, 2.14, 2.65, 3.16, 4.1];
+const L2_BAKES = {
+  step_concrete: { dur: 0.3, fn(b) {
+    const o = b.o, toe = b.r(0.055, 0.085);
+    b.nz(o, { kind: 'pink', type: 'lowpass', f: b.r(380, 520), peak: 1, a: 0.002, tau: b.r(0.012, 0.018) });
+    b.tn(o, { f: b.r(95, 120), f1: 60, fd: 0.03, peak: 0.45, a: 0.002, tau: 0.016 });
+    b.nz(o, { type: 'bandpass', f: b.r(1600, 2400), Q: 1.2, peak: 0.22, a: 0.001, tau: 0.007 });
+    b.nz(o, { t: toe, kind: 'pink', type: 'lowpass', f: b.r(600, 900), peak: 0.5, a: 0.003, tau: 0.011 });
+    b.nz(o, { t: 0.002, kind: 'crackle', type: 'highpass', f: 2500, peak: b.r(0.5, 0.8), a: 0.004, tau: 0.028, rate: b.r(1.6, 2.4) });
+    b.nz(o, { t: toe, kind: 'crackle', type: 'bandpass', f: b.r(3500, 6000), Q: 0.8, peak: b.r(0.4, 0.7), a: 0.006, tau: 0.032, rate: b.r(1.6, 2.4) });
+    b.nz(o, { t: toe + 0.03, type: 'bandpass', f: b.r(2500, 4000), Q: 1, peak: 0.07, a: 0.02, tau: 0.03 });
+  } },
+  step_metal: { dur: 0.6, sr: 32000, fn(b) {
+    const o = b.o, toe = b.r(0.05, 0.08), base = b.r(150, 230);
+    b.nz(o, { kind: 'pink', type: 'lowpass', f: 700, peak: 0.8, a: 0.0015, tau: 0.011 });
+    b.tn(o, { f: b.r(110, 140), f1: 70, fd: 0.03, peak: 0.35, a: 0.0015, tau: 0.018 });
+    b.nz(o, { type: 'highpass', f: 3500, peak: 0.22, a: 0.0004, tau: 0.004 });
+    ring(b, o, 0, base, PLATE, { peak: 0.42, tau: 0.15, tauFall: 0.25, a: 0.001, det: 0.01 });
+    ring(b, o, 0, b.r(900, 1400), [1, 1.41, 2.2, 3.05], { peak: 0.24, tau: 0.06, a: 0.0005 });
+    b.nz(o, { t: toe, kind: 'pink', type: 'lowpass', f: 1000, peak: 0.4, a: 0.002, tau: 0.009 });
+    ring(b, o, toe, base, PLATE, { peak: 0.2, tau: 0.1, tauFall: 0.3, a: 0.001 });
+    grains(b, o, Array.from({ length: 3 }, () => ({ t: b.r(0.01, 0.13), k: 'tri', f: b.r(600, 1100), peak: 0.08, tau: 0.007 })));
+  } },
+  step_run: { dur: 0.32, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.4), b.o);
+    const toe = b.r(0.028, 0.042);
+    b.nz(o, { kind: 'brown', type: 'lowpass', f: b.r(450, 600), peak: 1.1, a: 0.0015, tau: 0.022 });
+    b.tn(o, { f: b.r(100, 120), f1: 52, fd: 0.04, peak: 0.6, a: 0.0015, tau: 0.026 });
+    b.nz(o, { type: 'bandpass', f: b.r(1500, 2200), Q: 1, peak: 0.3, a: 0.0008, tau: 0.008 });
+    b.nz(o, { t: toe, kind: 'pink', type: 'lowpass', f: b.r(700, 1000), peak: 0.6, a: 0.002, tau: 0.012 });
+    b.nz(o, { kind: 'crackle', type: 'highpass', f: 2200, peak: b.r(0.6, 0.9), a: 0.003, tau: 0.04, rate: b.r(1.8, 2.6) });
+    b.nz(o, { t: toe + 0.05, type: 'bandpass', f: b.r(2500, 3500), Q: 0.9, peak: 0.14, a: 0.008, tau: 0.03 });
+    grains(b, o, [0, 1].map(() => ({ t: b.r(0.01, 0.06), f: b.r(2200, 3800), peak: 0.05, a: 0.0003, tau: 0.01 })));
+  } },
+  container_slam: { dur: 4.6, sr: 32000, fn(b) {
+    const o = b.g(1); o.connect(b.o);
+    const hot = b.g(1); b.ch(hot, b.sh(3), o);
+    const sb = b.g(1); b.ch(sb, b.sh(1.8), o);
+    const box = b.r(52, 58), wall = b.r(260, 300), tb = b.r(0.38, 0.46);
+    // corner castings smash the asphalt
+    b.nz(hot, { type: 'lowpass', f: 7000, peak: 0.9, a: 0.0005, tau: 0.012 });
+    b.nz(hot, { kind: 'brown', type: 'lowpass', f: 900, peak: 1.6, a: 0.002, tau: 0.09 });
+    b.tn(sb, { f: 72, f1: 31, fd: 0.7, peak: 0.75, a: 0.004, tau: 0.65 });
+    b.tn(sb, { f: 150, f1: 55, fd: 0.1, peak: 0.6, a: 0.002, tau: 0.12 });
+    // giant hollow box: low cavity/panel modes (beating pairs) + corrugated wall ring
+    ring(b, o, 0.005, box, [1, 1.48, 2.06, 2.71, 3.32, 4.13, 5.27, 6.6], { peak: 0.3, tau: 1.3, tauFall: 0.22, det: 0.012, a: 0.006 });
+    ring(b, o, 0.01, wall, [1, 1.37, 1.83, 2.41, 3.09, 3.94, 5.2], { peak: 0.3, tau: 0.85, tauFall: 0.25, det: 0.006 });
+    ring(b, o, 0.004, b.r(650, 800), [1, 1.29, 1.71, 2.26, 2.9], { peak: 0.16, tau: 0.35, tauFall: 0.3, det: 0.004 }); // frame / corner posts clang
+    // crunching / buckling steel
+    const G = [], GH = [];
+    for (let k = 0; k < 10; k++) {
+      const t = b.r(0, 0.35);
+      GH.push({ t, k: 'bp', f: b.r(600, 2500), Q: 1.5, peak: b.r(0.4, 0.9), a: 0.001, tau: b.r(0.02, 0.06) });
+      G.push({ t, k: 'bp', f: b.r(1500, 4000), Q: 3, peak: b.r(0.12, 0.3), a: 0.0005, tau: 0.015 });
+    }
+    b.nz(hot, { kind: 'crackle', type: 'bandpass', f: 1400, Q: 0.9, peak: 0.8, a: 0.002, tau: 0.12, rate: 0.8 });
+    { const s = b.src('white'), f = b.f('bandpass', 1100, 3), l = b.osc('sine', 11), lg = b.g(500), g = b.g(0);
+      b.ch(l, lg, f.frequency); g.gain.setValueAtTime(0, 0.02); g.gain.linearRampToValueAtTime(0.3, 0.08); g.gain.setTargetAtTime(0, 0.25, 0.15); b.ch(s, f, g, o); }
+    // rebound + settle
+    b.nz(hot, { t: tb, kind: 'brown', type: 'lowpass', f: 500, peak: 0.8, a: 0.003, tau: 0.08 });
+    b.tn(sb, { t: tb, f: 90, f1: 40, fd: 0.2, peak: 0.35, a: 0.003, tau: 0.2 });
+    ring(b, o, tb, box, [1, 2.06, 3.32, 5.27], { peak: 0.1, tau: 0.8, tauFall: 0.3 });
+    // rattling fittings (doors, locking bars, twistlocks)
+    for (let k = 0; k < 26; k++) {
+      const t = 0.12 + Math.min(2.2, -Math.log(1 - b.R() * 0.97) * 0.5), a = Math.exp(-t / 0.9) * b.r(0.1, 0.3), f0 = b.r(500, 2200);
+      G.push({ t, k: 'tri', f: f0, peak: a, tau: b.r(0.01, 0.04) }, { t, f: f0 * 2.71, peak: a * 0.5, a: 0.0003, tau: 0.02 });
+    }
+    // debris
+    { const s = b.src('crackle', 0, 1.3), f = b.f('highpass', 1500), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.5, 0.08); g.gain.setTargetAtTime(0, 0.3, 0.6); b.ch(s, f, g, o); }
+    for (let k = 0; k < 14; k++) { const t = b.r(0.2, 2.8); G.push({ t, k: 'bp', f: b.r(1500, 6000), Q: b.r(2, 5), peak: b.r(0.05, 0.25) * Math.exp(-t / 1.2), tau: b.r(0.004, 0.015) }); }
+    grains(b, o, G); grains(b, hot, GH);
+    { const s = b.src('brown'), f = b.f('lowpass', 220), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.45, 0.25); g.gain.setTargetAtTime(0, 0.5, 1.0); b.ch(s, f, g, o); }
+  } },
+  container_dent: { dur: 1.3, sr: 32000, fn(b) {
+    const o = b.g(1); o.connect(b.o); const hot = b.g(1); b.ch(hot, b.sh(2), o);
+    const base = b.r(80, 110);
+    b.nz(hot, { kind: 'brown', type: 'lowpass', f: 600, peak: 1, a: 0.002, tau: 0.04 });
+    b.nz(o, { type: 'highpass', f: 2500, peak: 0.35, a: 0.0004, tau: 0.005 });
+    b.tn(o, { f: base * 1.3, f1: base, fd: 0.07, peak: 0.55, a: 0.002, tau: 0.22 }); // oil-can "boing"
+    ring(b, o, 0.002, base, [1, 1.52, 2.23, 2.9, 3.7], { peak: 0.3, tau: 0.45, tauFall: 0.3, det: 0.01 });
+    ring(b, o, 0.002, b.r(320, 450), [1, 1.43, 2.1, 2.8], { peak: 0.12, tau: 0.25, tauFall: 0.3 });
+    grains(b, o, Array.from({ length: 6 }, () => ({ t: b.r(0.04, 0.5), k: 'tri', f: b.r(700, 2000), peak: 0.05, tau: 0.015 })));
+  } },
+  container_doors: { dur: 2.2, sr: 32000, fn(b) {
+    const o = b.g(1); o.connect(b.o); const hot = b.g(1); b.ch(hot, b.sh(2.5), o);
+    // blast whack on the doors / locking bars
+    b.nz(hot, { kind: 'brown', type: 'lowpass', f: 800, peak: 1, a: 0.002, tau: 0.05 });
+    b.nz(o, { type: 'highpass', f: 3000, peak: 0.45, a: 0.0004, tau: 0.004 });
+    ring(b, o, 0, b.r(400, 600), [1, 1.5, 2.2, 3.1], { peak: 0.18, tau: 0.15 });
+    grains(b, o, Array.from({ length: 4 }, () => ({ t: b.r(0.02, 0.12), k: 'tri', f: b.r(500, 1500), peak: 0.1, tau: 0.015 })));
+    // hinge screech: stick-slip sawtooth through resonances, pitch rising
+    const t0 = 0.07, t1 = b.r(0.55, 0.7), f0 = b.r(520, 700);
+    const os = b.osc('sawtooth', f0, t0);
+    os.frequency.setValueAtTime(f0, t0); os.frequency.linearRampToValueAtTime(f0 * 1.6, t0 + 0.25); os.frequency.linearRampToValueAtTime(f0 * 1.25, t1);
+    b.ch(b.src('white', t0), b.f('lowpass', 60), b.g(f0 * 1.2), os.frequency);
+    const am = b.g(0.5); b.ch(b.osc('square', b.r(28, 40), t0), b.g(0.5), am.gain);
+    const env = b.g(0); env.gain.setValueAtTime(0, t0); env.gain.linearRampToValueAtTime(1.6, t0 + 0.04); env.gain.setValueAtTime(1.6, t1 - 0.08); env.gain.linearRampToValueAtTime(0, t1);
+    const sum = b.g(1); os.connect(am);
+    [[1400, 4], [2600, 6], [4100, 8]].forEach(([f, Q]) => b.ch(am, b.f('bandpass', f * b.r(0.9, 1.1), Q), sum));
+    b.ch(sum, env, o); os.stop(t1 + 0.1);
+    // door swings into the container side: big clang + rebound
+    const tc = t1 + b.r(0.02, 0.08), base = b.r(180, 240);
+    b.nz(hot, { t: tc, kind: 'brown', type: 'lowpass', f: 700, peak: 1.1, a: 0.002, tau: 0.06 });
+    b.nz(o, { t: tc, type: 'highpass', f: 2500, peak: 0.5, a: 0.0004, tau: 0.005 });
+    ring(b, o, tc, base, [1, 1.48, 2.05, 2.6, 3.3, 4.4, 5.6], { peak: 0.35, tau: 0.6, tauFall: 0.25, det: 0.008 });
+    ring(b, o, tc, b.r(800, 1100), [1, 1.37, 2.2], { peak: 0.15, tau: 0.2 });
+    const tr = tc + b.r(0.18, 0.26);
+    b.nz(hot, { t: tr, kind: 'brown', type: 'lowpass', f: 600, peak: 0.35, a: 0.002, tau: 0.04 });
+    ring(b, o, tr, base, [1, 2.05, 3.3], { peak: 0.1, tau: 0.3 });
+  } },
+  crane_alarm: { dur: 1.6, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.6), b.o);
+    b.ch(o, b.dly(0.17), b.f('lowpass', 1800), b.g(0.22), b.o); // slap off the container stacks
+    [0, 0.5, 1.0].forEach((t) => {
+      const env = b.g(0); env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(0.5, t + 0.006); env.gain.setValueAtTime(0.5, t + 0.31); env.gain.linearRampToValueAtTime(0, t + 0.325);
+      const sum = b.g(1);
+      [[830, 1], [1245, 0.6]].forEach(([f, g]) => { const x = b.osc('square', f, t); b.ch(x, b.g(g), sum); x.stop(t + 0.35); });
+      b.ch(sum, b.f('bandpass', 1500, 0.9), b.f('lowpass', 4200), env, o);
+    });
+  } },
+  crane_release: { dur: 1.7, fn(b) {
+    const o = b.g(1); o.connect(b.o); const hot = b.g(1); b.ch(hot, b.sh(2), o);
+    b.nz(o, { type: 'bandpass', f: 3500, Q: 0.8, peak: 0.3, a: 0.01, tau: 0.08 }); // hydraulic valve
+    [0.04, 0.07, 0.15, 0.185].forEach((t, k) => { // twistlocks unlock, two pairs
+      const a = k < 2 ? 1 : 0.8;
+      b.nz(hot, { t, kind: 'brown', type: 'lowpass', f: 500, peak: 0.9 * a, a: 0.0015, tau: 0.035 });
+      b.tn(hot, { t, f: b.r(115, 130), f1: 70, fd: 0.04, peak: 0.5 * a, a: 0.0015, tau: 0.04 });
+      b.nz(o, { t, type: 'highpass', f: 2500, peak: 0.35 * a, a: 0.0003, tau: 0.003 });
+      ring(b, o, t, b.r(350, 500), [1, 1.6, 2.3], { peak: 0.14 * a, tau: 0.09 });
+    });
+    const G = [];
+    for (let k = 0; k < 45; k++) { // chain links rattling as the spreader goes slack
+      const t = 0.22 + 1.3 * Math.pow(b.R(), 1.4), a = 0.25 * Math.exp(-(t - 0.22) / 0.7) * b.r(0.4, 1), f0 = b.r(1800, 4200);
+      G.push({ t, f: f0, peak: a, a: 0.0003, tau: b.r(0.006, 0.02) }, { t, f: f0 * 1.53, peak: a * 0.5, a: 0.0003, tau: 0.01 });
+      if (k % 4 === 0) G.push({ t, k: 'tri', f: b.r(250, 450), peak: a * 0.8, a: 0.0005, tau: 0.012 });
+    }
+    grains(b, o, G);
+    { const s = b.src('pink'), f = b.f('bandpass', 600, 1.2), g = b.g(0); g.gain.setValueAtTime(0, 0.2); g.gain.linearRampToValueAtTime(0.12, 0.45); g.gain.setTargetAtTime(0, 0.6, 0.3); b.ch(s, f, g, o); }
+  } },
+  barrel_hit: { dur: 0.75, fn(b) {
+    const o = b.o, base = b.r(150, 210);
+    b.nz(o, { type: 'highpass', f: 4000, peak: 0.9, a: 0.0003, tau: 0.002 });
+    ring(b, o, 0, b.r(1800, 2600), [1, 1.47, 2.09], { peak: 0.55, tau: 0.035 }); // plink
+    ring(b, o, 0.001, base, DRUM, { peak: 0.42, tau: 0.3, tauFall: 0.35, det: 0.015 }); // hollow bong
+    b.tn(o, { f: b.r(85, 100), peak: 0.25, a: 0.001, tau: 0.04 });
+    b.nz(o, { kind: 'pink', type: 'bandpass', f: base * 2, Q: 4, peak: 0.3, a: 0.001, tau: 0.08 });
+  } },
+  barrel_hiss: { dur: 1.55, fn(b) {
+    const o = b.o;
+    b.nz(o, { type: 'highpass', f: 3000, peak: 0.6, a: 0.0003, tau: 0.003 });
+    const env = b.g(0); env.gain.setValueAtTime(0, 0.005); env.gain.linearRampToValueAtTime(1, 0.03); env.gain.setTargetAtTime(0.6, 0.05, 0.4); env.gain.setTargetAtTime(0, 1.15, 0.1);
+    const fl = b.g(0.7); b.ch(b.osc('sine', b.r(13, 19)), b.g(0.2), fl.gain); b.ch(b.src('white'), b.f('lowpass', 40), b.g(6), fl.gain);
+    const sum = b.g(1); b.ch(sum, fl, env, o);
+    const jet = b.f('bandpass', 4500, 1.2); b.sweep(jet.frequency, 0, b.r(4200, 5000), 3000, 1.4);
+    b.ch(b.src('white'), jet, b.g(0.8), sum);
+    b.ch(b.src('white'), b.f('highpass', 7000), b.g(0.3), sum);
+    const gl = b.g(0.3); b.ch(b.src('crackle', 0, 0.6), b.f('lowpass', 30), b.g(10), gl.gain); b.ch(b.src('pink'), b.f('bandpass', 900, 2), gl, sum); // liquid gurgle
+  } },
+  barrel_explode: { dur: 2.6, sr: 32000, fn(b) {
+    const o = b.g(1); o.connect(b.o); const hot = b.g(1); b.ch(hot, b.sh(3), o);
+    b.nz(hot, { type: 'lowpass', f: 12000, peak: 1, a: 0.0003, tau: 0.012 });
+    b.nz(hot, { type: 'bandpass', f: b.r(2500, 3500), Q: 0.8, peak: 1.1, a: 0.0006, tau: 0.06 });
+    b.nz(o, { type: 'highpass', f: 4000, peak: 0.5, a: 0.001, tau: 0.08 }); // bright fuel flash sizzle
+    const sb = b.g(1); b.ch(sb, b.sh(2), o);
+    b.tn(sb, { f: b.r(130, 150), f1: 48, fd: 0.25, peak: 0.6, a: 0.002, tau: 0.22 });
+    b.nz(hot, { kind: 'brown', type: 'lowpass', f: 1600, f1: 250, fd: 0.5, peak: 1.8, a: 0.002, tau: 0.22 });
+    b.nz(hot, { kind: 'pink', type: 'bandpass', f: b.r(900, 1400), Q: 0.7, peak: 0.9, a: 0.002, tau: 0.15 });
+    ring(b, o, 0, b.r(160, 220), DRUM.slice(0, 5), { peak: 0.12, tau: 0.25, det: 0.02 });
+    { const s = b.src('crackle'), f = b.f('highpass', 1500), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.45, 0.1); g.gain.setTargetAtTime(0, 0.3, 0.35); b.ch(s, f, g, o); }
+    // the drum flies off tumbling: whoosh with a doppler-ish band sweep + tumble AM
+    const tw = 0.12, w = b.f('bandpass', 400, 1.8), am = b.g(0.55), g = b.g(0);
+    w.frequency.setValueAtTime(400, tw); w.frequency.exponentialRampToValueAtTime(1600, tw + 0.55); w.frequency.exponentialRampToValueAtTime(450, tw + 1.5);
+    b.ch(b.osc('sine', b.r(6, 9)), b.g(0.45), am.gain);
+    g.gain.setValueAtTime(0, tw); g.gain.linearRampToValueAtTime(0.5, tw + 0.55); g.gain.setTargetAtTime(0, tw + 0.6, 0.4);
+    b.ch(b.src('pink'), w, am, g, o);
+    { const x = b.osc('triangle', 650, tw), xg = b.g(0); x.frequency.setValueAtTime(650, tw); x.frequency.linearRampToValueAtTime(780, tw + 0.5); x.frequency.linearRampToValueAtTime(520, tw + 1.2);
+      xg.gain.setValueAtTime(0, tw); xg.gain.linearRampToValueAtTime(0.05, tw + 0.5); xg.gain.setTargetAtTime(0, tw + 0.6, 0.3); b.ch(x, am, xg, o); }
+    const tl = b.r(1.6, 1.9); // lands somewhere off
+    b.nz(o, { t: tl, kind: 'pink', type: 'lowpass', f: 900, peak: 0.12, a: 0.002, tau: 0.03 });
+    ring(b, o, tl, b.r(160, 220), [1, 1.59, 2.14], { peak: 0.06, tau: 0.15 });
+  } },
+  grenade_bounce: { dur: 0.9, fn(b) {
+    const o = b.o; let t = 0, dt = b.r(0.18, 0.24), a = 1; const G = [];
+    for (let k = 0; k < 4; k++) {
+      G.push({ t, k: 'hp', peak: 0.7 * a, a: 0.0002, tau: 0.002 }, { t, k: 'tri', f: b.r(380, 520), peak: 0.5 * a, tau: 0.01 }, { t, k: 'bp', f: b.r(3500, 6000), Q: 1, peak: 0.35 * a, a: 0.002, tau: 0.015 });
+      ring(b, o, t, b.r(2600, 3400), [1, 1.52, 2.31], { peak: 0.3 * a, tau: 0.025 });
+      t += dt; dt *= 0.62; a *= 0.6;
+    }
+    { const s = b.src('crackle', t - 0.05, 1.8), f = b.f('bandpass', 3200, 0.9), g = b.g(0); g.gain.setValueAtTime(0, t - 0.05); g.gain.linearRampToValueAtTime(0.3, t + 0.02); g.gain.setTargetAtTime(0, t + 0.08, 0.08); b.ch(s, f, g, o); }
+    for (let k = 0; k < 5; k++) G.push({ t: t + b.r(-0.05, 0.25), f: b.r(2500, 4000), peak: 0.06, a: 0.0003, tau: 0.006 });
+    grains(b, o, G);
+  } },
+  grenade_pin: { dur: 0.7, fn(b) {
+    const o = b.o;
+    { const s = b.src('white'), f = b.f('bandpass', 5000, 3), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.25, 0.04); g.gain.linearRampToValueAtTime(0, 0.09); b.ch(s, f, g, o); }
+    b.nz(o, { t: 0.09, type: 'highpass', f: 4000, peak: 0.5, a: 0.0002, tau: 0.002 });
+    b.tn(o, { t: 0.09, f: 3800, peak: 0.25, a: 0.0003, tau: 0.01 });
+    const ts = b.r(0.24, 0.3), f0 = b.r(2600, 3100); // spoon flies off
+    b.nz(o, { t: ts, type: 'highpass', f: 3000, peak: 0.7, a: 0.0002, tau: 0.003 });
+    b.tn(o, { t: ts, f: f0, f1: f0 * 0.97, fd: 0.2, peak: 0.5, a: 0.0003, tau: 0.09 });
+    b.tn(o, { t: ts, f: f0 * 2.4, peak: 0.22, a: 0.0003, tau: 0.05 });
+    b.tn(o, { t: ts, f: f0 * 0.51, peak: 0.12, a: 0.0005, tau: 0.04 });
+    b.tn(o, { t: ts + 0.28, f: b.r(4000, 5000), peak: 0.12, a: 0.0003, tau: 0.015 });
+    b.nz(o, { t: ts + 0.28, type: 'highpass', f: 5000, peak: 0.2, a: 0.0002, tau: 0.002 });
+  } },
+  glass_break: { dur: 2.2, fn(b) {
+    const o = b.o, hot = b.g(1); b.ch(hot, b.sh(2), o);
+    b.nz(hot, { type: 'highpass', f: 1500, peak: 1, a: 0.0003, tau: 0.008 });
+    b.nz(o, { kind: 'pink', type: 'lowpass', f: 600, peak: 0.5, a: 0.001, tau: 0.03 });
+    b.nz(o, { type: 'bandpass', f: 3500, Q: 0.7, peak: 0.8, a: 0.001, tau: 0.09 });
+    b.nz(o, { type: 'highpass', f: 6000, peak: 0.45, a: 0.003, tau: 0.25 });
+    b.nz(o, { kind: 'crackle', type: 'highpass', f: 3000, peak: 0.6, a: 0.002, tau: 0.15, rate: 2 });
+    const G = [];
+    for (let k = 0; k < 44; k++) {
+      const t = Math.min(1.7, -Math.log(1 - b.R() * 0.98) * 0.35), a = b.r(0.06, 0.25) * Math.exp(-t / 1.1), f = b.r(2500, 10000);
+      G.push({ t, f, peak: a, a: 0.0003, tau: b.r(0.008, 0.05) });
+      if (b.R() < 0.5) G.push({ t, f: f * b.r(1.4, 2.2), peak: a * 0.5, a: 0.0003, tau: 0.012 });
+    }
+    for (let k = 0; k < 14; k++) G.push({ t: b.r(0.8, 1.9), k: 'bp', f: b.r(3000, 8000), Q: 3, peak: b.r(0.05, 0.12), a: 0.0003, tau: 0.006 }); // landing below
+    grains(b, o, G);
+  } },
+  ship_horn: { dur: 4.4, sr: 16000, fn(b) {
+    const out = b.g(1), lp = b.f('lowpass', 2400); b.ch(out, lp, b.o);
+    [[0.37, 900, 0.35], [0.82, 650, 0.22], [1.35, 500, 0.12]].forEach(([d, f, g]) => b.ch(out, b.dly(d), b.f('lowpass', f), b.g(g), b.o)); // harbour echoes
+    const f0 = 82, env = b.g(0), sum = b.g(1);
+    env.gain.setValueAtTime(0, 0); env.gain.linearRampToValueAtTime(0.25, 0.08); env.gain.linearRampToValueAtTime(1, 0.35); env.gain.setValueAtTime(1, 3.0); env.gain.setTargetAtTime(0, 3.0, 0.22);
+    const v = b.vib(0.6, 5); // slow pressure wobble
+    [[1, 1], [1.0045, 0.8], [0.997, 0.5]].forEach(([m, g]) => { // detuned reeds -> beating
+      const x = b.osc('sawtooth', f0 * m); x.frequency.setValueAtTime(f0 * m * 0.93, 0); x.frequency.linearRampToValueAtTime(f0 * m, 0.3); x.frequency.setValueAtTime(f0 * m, 3.0); x.frequency.linearRampToValueAtTime(f0 * m * 0.96, 3.6);
+      v.connect(x.detune); b.ch(x, b.g(g), sum);
+    });
+    const form = b.g(1);
+    [[165, 2, 1], [330, 3, 0.8], [620, 4, 0.45], [1050, 5, 0.18]].forEach(([f, Q, g]) => b.ch(sum, b.f('bandpass', f, Q), b.g(g), form));
+    b.ch(sum, b.f('lowpass', 140), b.g(0.9), form);
+    b.ch(b.src('pink'), b.f('bandpass', 300, 1), b.g(0.08), form);
+    b.ch(form, b.sh(2), env, out);
+  } },
+  metal_groan: { dur: 2.6, sr: 24000, fn(b) {
+    const o = b.g(1); o.connect(b.o);
+    b.ch(o, b.dly(0.12), b.f('lowpass', 800), b.g(0.3), b.o); // inside the hull
+    const f0 = b.r(38, 55), os = b.osc('sawtooth', f0);
+    os.frequency.setValueAtTime(f0, 0); os.frequency.linearRampToValueAtTime(f0 * b.r(1.3, 1.8), 0.9); os.frequency.linearRampToValueAtTime(f0 * b.r(0.8, 1.1), 1.6); os.frequency.linearRampToValueAtTime(f0 * b.r(1.2, 1.6), 2.3);
+    b.ch(b.src('white'), b.f('lowpass', 30), b.g(f0 * 4), os.frequency); // stick-slip jitter
+    const am = b.g(0.6); b.ch(b.src('white'), b.f('lowpass', 25), b.g(12), am.gain);
+    const env = b.g(0); env.gain.setValueAtTime(0, 0); env.gain.linearRampToValueAtTime(1, 0.4); env.gain.setValueAtTime(1, 1.9); env.gain.setTargetAtTime(0, 1.9, 0.22);
+    os.connect(am); const res = b.g(1);
+    [[b.r(110, 140), 6, 1], [b.r(230, 280), 8, 0.8], [b.r(380, 450), 10, 0.6], [b.r(640, 760), 10, 0.35], [b.r(1100, 1300), 12, 0.15]].forEach(([f, Q, g]) => b.ch(am, b.f('bandpass', f, Q), b.g(g), res));
+    b.ch(res, b.sh(1.5), env, o);
+    { const s = b.src('brown'), f = b.f('lowpass', 90), g = b.env(0.35, 0.5, 1.9, 0.3); b.ch(s, f, g, o); }
+    grains(b, o, Array.from({ length: 5 }, () => ({ t: b.r(0.2, 2.2), k: 'hp', peak: 0.3, a: 0.0003, tau: 0.003 })));
+    for (let k = 0; k < 4; k++) ring(b, o, b.r(0.2, 2.2), b.r(250, 400), [1, 1.6, 2.3], { peak: 0.06, tau: 0.1 });
+  } },
+  alarm_klaxon: { dur: 2.0, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.4), b.o);
+    const env = b.env(1, 0.008, 1.88, 0.03), am = b.g(0.25); rotorPulse(b.c, 18).connect(am.gain);
+    const base = b.r(920, 980);
+    [[1, 1], [2.76, 0.6], [5.4, 0.35], [8.9, 0.15]].forEach(([r, g]) => b.ch(b.osc('sine', base * r), b.g(g * 0.4), am));
+    const ck = b.g(0); rotorPulse(b.c, 18).connect(ck.gain); b.ch(b.src('white'), b.f('highpass', 3000), ck, b.g(0.08), am); // striker
+    b.ch(am, env, o);
+  } },
+  radio_squelch: { dur: 0.3, fn(b) {
+    const o = b.g(1); b.ch(o, b.f('highpass', 350), b.f('lowpass', 3600), b.o); // radio band
+    b.nz(o, { type: 'highpass', f: 2000, peak: 0.9, a: 0.0002, tau: 0.0015 });
+    b.tn(o, { type: 'square', f: 1200, peak: 0.2, a: 0.0002, tau: 0.004 });
+    const env = b.g(0); env.gain.setValueAtTime(0, 0.006); env.gain.linearRampToValueAtTime(0.6, 0.014); env.gain.setValueAtTime(0.55, 0.2); env.gain.setTargetAtTime(0, 0.21, 0.006);
+    const ch = b.g(0.7); b.ch(b.osc('square', 45), b.g(0.15), ch.gain); b.ch(b.src('white'), b.f('lowpass', 80), b.g(8), ch.gain);
+    b.ch(b.src('white'), b.f('bandpass', 1800, 0.6), b.sh(3), ch, env, o);
+    b.nz(o, { t: 0.222, type: 'highpass', f: 2500, peak: 0.5, a: 0.0002, tau: 0.0015 });
+  } },
+  body_fall: { dur: 0.9, sr: 32000, fn(b) {
+    const o = b.g(1); o.connect(b.o); const hot = b.g(1); b.ch(hot, b.sh(2), o);
+    b.nz(hot, { kind: 'brown', type: 'lowpass', f: 400, peak: 0.8, a: 0.003, tau: 0.04 }); // knees
+    b.tn(hot, { f: b.r(85, 105), f1: 50, fd: 0.06, peak: 0.45, a: 0.003, tau: 0.05 });
+    const t2 = b.r(0.1, 0.18); // torso
+    b.nz(hot, { t: t2, kind: 'brown', type: 'lowpass', f: 350, peak: 1.2, a: 0.004, tau: 0.06 });
+    b.tn(hot, { t: t2, f: 75, f1: 42, fd: 0.08, peak: 0.65, a: 0.004, tau: 0.07 });
+    b.nz(o, { t: t2, kind: 'pink', type: 'bandpass', f: 1200, Q: 0.8, peak: 0.35, a: 0.002, tau: 0.03 });
+    b.nz(o, { t: t2, kind: 'crackle', type: 'highpass', f: 2500, peak: 0.4, a: 0.003, tau: 0.05, rate: 2 });
+    const G = [];
+    for (let k = 0; k < 5; k++) { // rifle / mags / helmet
+      const t = Math.max(0, t2 + b.r(-0.05, 0.3)), f = b.r(700, 2200), a = b.r(0.06, 0.18), ta = b.r(0.02, 0.06);
+      G.push({ t, f, peak: a, tau: ta }, { t, f: f * 2.4, peak: a * 0.6, tau: ta * 0.7 }, { t, f: f * 3.9, peak: a * 0.4, tau: ta * 0.5 }, { t, k: 'tri', f: b.r(250, 450), peak: 0.15, a: 0.0005, tau: 0.01 });
+    }
+    grains(b, o, G);
+    { const s = b.src('pink'), f = b.f('bandpass', 2500, 1), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.12, t2); g.gain.setTargetAtTime(0, t2 + 0.05, 0.08); b.ch(s, f, g, o); }
+    const t3 = t2 + b.r(0.15, 0.28); // arm flops
+    b.nz(hot, { t: t3, kind: 'brown', type: 'lowpass', f: 500, peak: 0.35, a: 0.003, tau: 0.03 });
+  } },
+  gear_rattle: { dur: 0.55, fn(b) {
+    const o = b.o;
+    const G = [];
+    [0, b.r(0.26, 0.32)].forEach((t0) => {
+      for (let k = 0; k < 5; k++) { const t = t0 + b.r(0, 0.06), f = b.r(1800, 4500); G.push({ t, f, peak: b.r(0.1, 0.3), a: 0.0003, tau: b.r(0.006, 0.02) }, { t, f: f * 1.47, peak: 0.08, a: 0.0003, tau: 0.008 }); }
+      G.push({ t: t0, k: 'tri', f: b.r(300, 500), peak: 0.25, a: 0.0005, tau: 0.012 }, { t: t0, k: 'bp', f: b.r(1500, 2500), Q: 0.8, peak: 0.25, a: 0.02, tau: 0.05 });
+    });
+    grains(b, o, G);
+  } },
+  fuel_whoomp: { dur: 2.8, sr: 24000, fn(b) {
+    const o = b.g(1); o.connect(b.o); const sb = b.g(1); b.ch(sb, b.sh(1.6), o);
+    b.tn(sb, { f: 62, f1: 36, fd: 0.35, peak: 0.9, a: 0.03, tau: 0.25 });
+    b.nz(sb, { kind: 'brown', type: 'lowpass', f: 350, f1: 120, fd: 0.4, peak: 1.4, a: 0.025, tau: 0.2 });
+    { const s = b.src('pink'), f = b.f('lowpass', 250, 0.9), g = b.g(0), fl = b.g(0.75);
+      f.frequency.setValueAtTime(250, 0.05); f.frequency.exponentialRampToValueAtTime(2800, 0.9); f.frequency.setTargetAtTime(1400, 1.0, 0.6);
+      g.gain.setValueAtTime(0, 0.05); g.gain.linearRampToValueAtTime(0.7, 0.7); g.gain.setTargetAtTime(0.45, 0.8, 0.5); g.gain.setTargetAtTime(0, 1.8, 0.35);
+      b.ch(b.osc('sine', b.r(7, 10)), b.g(0.2), fl.gain); b.ch(b.src('white'), b.f('lowpass', 15), b.g(10), fl.gain);
+      b.ch(s, f, fl, g, o); }
+    { const s = b.src('brown'), f = b.f('lowpass', 300), g = b.g(0); g.gain.setValueAtTime(0, 0.1); g.gain.linearRampToValueAtTime(0.6, 0.8); g.gain.setTargetAtTime(0, 1.6, 0.4); b.ch(s, f, g, o); }
+    { const s = b.src('crackle'), f = b.f('highpass', 1200), g = b.g(0); g.gain.setValueAtTime(0, 0.2); g.gain.linearRampToValueAtTime(0.35, 1.0); g.gain.setTargetAtTime(0, 1.6, 0.35); b.ch(s, f, g, o); }
+  } },
 };
 
 // --- one-shot bakes
@@ -429,6 +825,68 @@ const LOOP_BAKES = {
     for (let k = 0; k < 20; k++) b.nz(b.o, { t: b.r(0, 3.2), type: 'bandpass', f: b.r(1000, 3000), Q: 3, peak: b.r(0.1, 0.4), a: 0.0003, tau: 0.01 });
   } },
 };
+// --- Level 2 loops (baked with L2_BAKES after the music, see _init)
+const L2_LOOP_BAKES = {
+  loop_harbor: { dur: 6.5, loop: [6, 0.5], ch: 2, sr: 24000, fn(b) {
+    const m = b.c.createChannelMerger(2); m.connect(b.o);
+    for (let side = 0; side < 2; side++) {
+      const o = b.g(1); o.connect(m, 0, side);
+      b.ch(b.src('pink'), b.f('bandpass', 700, 0.4), b.g(0.07), o); // gentle wind / air
+      const sw = b.g(0.12); b.ch(b.osc('sine', 1 / 6 * (side ? 1 : 2)), b.g(0.08), sw.gain); b.ch(b.src('brown'), b.f('bandpass', 220, 0.8), sw, o); // swell
+      let t = b.r(0, 0.4); const G = []; // water slapping the quay wall
+      while (t < 6.3) {
+        const a = b.r(0.25, 1);
+        G.push({ t, k: 'bp', f: b.r(140, 320), Q: 0.7, peak: 0.6 * a, a: b.r(0.04, 0.1), tau: b.r(0.1, 0.22) });
+        G.push({ t: t + b.r(0.03, 0.1), k: 'bp', f: b.r(700, 1600), Q: 0.9, peak: 0.22 * a, a: b.r(0.02, 0.05), tau: b.r(0.05, 0.12) });
+        if (b.R() < 0.5) G.push({ t: t + b.r(0.08, 0.2), k: 'bp', f: b.r(1800, 3500), Q: 1.2, peak: 0.07 * a, a: 0.01, tau: 0.04 }); // splash fizz
+        for (let k = 0; k < 3; k++) if (b.R() < 0.6) G.push({ t: t + b.r(0.1, 0.5), f: b.r(600, 1600), peak: 0.03 * a, a: 0.002, tau: 0.012 }); // drips / bubbles
+        t += b.r(0.45, 1.3);
+      }
+      grains(b, o, G);
+    }
+    const hum = b.g(1); hum.connect(b.o); // distant port machinery (centred)
+    [[60, 0.01], [120, 0.012], [180, 0.006]].forEach(([f, g]) => b.ch(b.osc('sine', f), b.g(g), hum));
+    b.ch(b.src('brown'), b.f('bandpass', 110, 1), b.g(0.05), hum);
+  } },
+  loop_crane_motor: { dur: 2.25, loop: [2, 0.25], sr: 24000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.3), b.o);
+    [[310, 0.12], [620, 0.06], [930, 0.035], [1860, 0.02]].forEach(([f, g]) => b.ch(b.osc('sine', f), b.g(g), o)); // motor whine
+    b.ch(b.osc('sawtooth', 120), b.f('lowpass', 500, 2), b.g(0.12), o); // field hum
+    const gm = b.g(0); rotorPulse(b.c, 38).connect(gm.gain); b.ch(b.src('white'), b.f('bandpass', 1500, 1.5), gm, b.g(0.25), o); // gear mesh
+    const gb = b.g(0.6); b.ch(b.osc('sine', 4.5), b.g(0.3), gb.gain); b.ch(b.osc('square', 76), b.f('lowpass', 300), gb, b.g(0.12), o); // gearbox
+    b.ch(b.src('brown'), b.f('lowpass', 200), b.g(0.25), o);
+    b.ch(b.src('pink'), b.f('highpass', 3000), b.g(0.03), o);
+  } },
+  loop_forklift: { dur: 2.25, loop: [2, 0.25], sr: 24000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.8), b.o);
+    const hz = 26; // ~780 rpm 4-cyl diesel idle
+    { const g = b.g(0); rotorPulse(b.c, hz).connect(g.gain); b.ch(b.src('brown'), b.f('lowpass', 380, 1), g, b.g(0.9), o); }
+    b.ch(b.osc('sawtooth', hz), b.f('highpass', 45), b.f('lowpass', 260, 1.5), b.g(0.35), o);
+    b.ch(b.osc('square', hz * 2), b.f('lowpass', 160), b.g(0.12), o);
+    { const g = b.g(0); rotorPulse(b.c, hz).connect(g.gain); b.ch(b.src('white'), b.f('bandpass', 2200, 1.2), g, b.g(0.22), o); } // injector clatter
+    b.ch(b.src('pink'), b.f('bandpass', 700, 1.2), b.g(0.1), o);
+    b.ch(b.osc('sine', 1450), b.g(0.008), o); // hydraulic pump whine
+  } },
+  loop_fire_big: { dur: 3.25, loop: [3, 0.25], sr: 32000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.3), b.o);
+    const am = b.g(0.6); [[2 / 3, 0.18], [5 / 3, 0.12], [10 / 3, 0.08]].forEach(([f, d]) => b.ch(b.osc('sine', f), b.g(d), am.gain)); // turbulent breathing
+    b.ch(b.src('brown'), b.f('bandpass', 90, 0.6), b.g(0.9), am, o);
+    b.ch(b.src('pink'), b.f('lowpass', 320), b.g(0.8), am);
+    { const fl = b.g(0.5); b.ch(b.src('white'), b.f('lowpass', 12), b.g(8), fl.gain); b.ch(b.src('pink'), b.f('bandpass', 700, 0.7), fl, b.g(0.3), o); } // flutter
+    b.ch(b.src('crackle', 0, 0.55), b.f('bandpass', 1400, 0.8), b.g(0.45), o); // deep pops
+    b.ch(b.src('crackle', 0, 0.9), b.f('highpass', 2500), b.g(0.25), o);
+    const G = [];
+    for (let k = 0; k < 10; k++) G.push({ t: b.r(0, 3.1), k: 'bp', f: b.r(150, 400), Q: 0.8, peak: b.r(0.15, 0.4), a: 0.05, tau: 0.15 }); // gusts
+    for (let k = 0; k < 14; k++) G.push({ t: b.r(0, 3.2), k: 'bp', f: b.r(800, 2500), Q: 3, peak: b.r(0.08, 0.3), a: 0.0003, tau: 0.012 });
+    grains(b, o, G);
+  } },
+  loop_sodium_hum: { dur: 1.1, loop: [1, 0.1], fn(b) {
+    const o = b.o;
+    [[120, 0.4], [240, 0.25], [360, 0.12], [480, 0.06]].forEach(([f, g]) => b.ch(b.osc('sine', f), b.g(g), o)); // ballast magnetostriction
+    const bz = b.g(0.7); b.ch(b.osc('sine', 3), b.g(0.25), bz.gain); b.ch(b.osc('sawtooth', 120), b.f('highpass', 2000), b.f('lowpass', 6000), bz, b.g(0.2), o); // arc buzz
+    b.ch(b.src('crackle', 0, 1.5), b.f('highpass', 4000), b.g(0.04), o);
+  } },
+};
 
 // --- music bakes
 const CHORDS = [
@@ -521,6 +979,7 @@ export class AudioSystem {
     this.mOn = false; this.mInt = 0; this.mStep = 0; this.mNext = 0; this.mStopAt = null; this.mActive = new Set(); this._mPending = null;
   }
   get ready() { return this._ready; }
+  get extrasReady() { return !!this._xReady; } // Level 2 sound set baked (see _init)
   _now() { return this._when ?? this.ctx.currentTime; }
 
   init(ctx) { if (!this._initP) this._initP = this._init(ctx); return this._initP; }
@@ -546,7 +1005,10 @@ export class AudioSystem {
       const p = this._mPending; this._mPending = null;
       if (p && p.start) this.startMusic();
     });
-    if (this._offline) await mp; else mp.catch((e) => console.warn('music bake failed', e));
+    // Level 2 sounds bake in the background after the music so they don't delay start-up; until they are in,
+    // play() of those names is a silent no-op and setLoop() retries on the next call.
+    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES))).then(() => { this._xReady = true; });
+    if (this._offline) { await mp; await xp; } else { mp.catch((e) => console.warn('music bake failed', e)); xp.catch((e) => console.warn('L2 bake failed', e)); }
   }
 
   _buildMaster() {
@@ -594,7 +1056,8 @@ export class AudioSystem {
       for (let i = 0; i < n; i++) jobs.push({ key, i, d });
     }
     const run = async (j) => {
-      const len = Math.ceil(j.d.dur * sr), oc = new OfflineAudioContext(j.d.ch || 1, len, sr);
+      const bsr = j.d.sr ? Math.min(sr, j.d.sr) : sr; // optional reduced bake rate for band-limited sounds (resampled on playback)
+      const len = Math.ceil(j.d.dur * bsr), oc = new OfflineAudioContext(j.d.ch || 1, len, bsr);
       j.d.fn(new Bk(oc, this.N, rng(hashStr(j.key) + j.i * 7919)), j.i);
       let buf = await oc.startRendering();
       if (j.d.loop) { buf = loopify(c, buf, j.d.loop[0], j.d.loop[1]); normalize(buf, 1, 0); }
@@ -645,6 +1108,7 @@ export class AudioSystem {
     if (bufs.length > 1 && vi === this._last[name]) vi = (vi + 1) % bufs.length;
     this._last[name] = vi;
     const buf = bufs[vi];
+    if (!buf) return; // variant still baking
     // voice limits
     const list = (this.byName[name] ||= []);
     for (let i = list.length - 1; i >= 0; i--) if (list[i].dead || list[i].end < t) list.splice(i, 1);
@@ -663,6 +1127,7 @@ export class AudioSystem {
       this._exRecent.push(t);
       this._duck(t);
     }
+    else if (def.duck) this._duck(t);
     if (!(vol > 0.0001)) return;
 
     const src = c.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
@@ -685,6 +1150,7 @@ export class AudioSystem {
         g.connect(lp); lp.connect(sg); sg.connect(bus); nodes.push(lp, sg);
       }
       if (name === 'explosion_big' && d < 25) this._conc(t, 0.35 * (1 - d / 25), 0.4);
+      else if (def.conc && d < def.conc[0]) this._conc(t, def.conc[1] * (1 - d / def.conc[0]) * clamp(opts.volume ?? 1, 0, 1), def.conc[2]);
     } else g.connect(bus);
     if (wet > 0.001) { const s = c.createGain(); s.gain.value = wet; g.connect(s); s.connect(this.verbIn); nodes.push(s); }
 
@@ -765,7 +1231,7 @@ export class AudioSystem {
         p.positionX.setValueAtTime(opts.x, t); p.positionY.setValueAtTime(y, t); p.positionZ.setValueAtTime(opts.z, t);
         fade.connect(dlp); dlp.connect(p); p.connect(bus);
         if (def.sub) { const sl = F('lowpass', 130), sg = G(0); L.subG = sg; fade.connect(sl); sl.connect(sg); sg.connect(bus); }
-      } else fade.connect(base === 'truck' ? this.amb : bus);
+      } else fade.connect(base === 'truck' || def.amb ? this.amb : bus);
       if (def.verb) { const w = G(0); L.send = w; fade.connect(w); w.connect(this.verbIn); }
     }
     srcs[0].onended = () => { for (const n of nodes) { try { n.disconnect(); } catch (e) {} } };
