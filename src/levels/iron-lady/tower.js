@@ -139,11 +139,11 @@ const _m3 = new THREE.Matrix3(), _m3b = new THREE.Matrix3();
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _o = new THREE.Vector3(), _ca = new THREE.Vector3(), _td = new THREE.Vector3(), _df = new THREE.Vector3(), _db = new THREE.Vector3();
 
 // patch a standard material so its vertices go through the rig (instanced = custom iM0..iM3 attributes)
-function rigMaterial(mat, rig, { instanced = false, emissive = true } = {}) {
+function rigMaterial(mat, rig, { instanced = false, emissive = true, girder = false } = {}) {
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, rig.u);
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', `#include <common>\n${DEFORM_GLSL}\n${instanced ? 'attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; attribute vec4 iM3; attribute float aEmi;' : 'attribute float aEmi;'}\nvarying float vEmi; varying float vH; varying float vSeed; varying vec3 vWN;`)
+      .replace('#include <common>', `#include <common>\n${DEFORM_GLSL}\n${instanced ? 'attribute vec4 iM0; attribute vec4 iM1; attribute vec4 iM2; attribute vec4 iM3; attribute float aEmi;' : 'attribute float aEmi;'}\nvarying float vEmi; varying float vH; varying float vSeed; varying vec3 vWN;${girder ? '\nattribute vec2 aGir; varying vec2 vGU; varying float vCut; varying float vGD;' : ''}`)
       .replace('#include <beginnormal_vertex>', `
         ${instanced ? 'mat4 IM = mat4(iM0, iM1, iM2, iM3); vec3 restP = (IM * vec4(position, 1.0)).xyz; vec3 objectNormal = normalize(mat3(IM) * normal);' : 'vec3 restP = position; vec3 objectNormal = normal;'}
         if (uActive > 0.5) objectNormal = normalize(twR(max(restP.y, 0.0)) * objectNormal);
@@ -151,19 +151,36 @@ function rigMaterial(mat, rig, { instanced = false, emissive = true } = {}) {
         #ifdef USE_TANGENT
           vec3 objectTangent = vec3(tangent.xyz);
         #endif`)
-      .replace('#include <begin_vertex>', `vec3 transformed = twDeform(restP); vEmi = aEmi; vH = restP.y; vSeed = fract(sin(dot(restP.xz, vec2(12.9898, 78.233))) * 43758.5453);`);
+      .replace('#include <begin_vertex>', `vec3 transformed = twDeform(restP); vEmi = aEmi; vH = restP.y; vSeed = fract(sin(dot(restP.xz, vec2(12.9898, 78.233))) * 43758.5453);${girder ? ' vGU = vec2(uv.x, uv.y * aGir.x); vCut = aGir.y; vGD = -(modelViewMatrix * vec4(transformed, 1.0)).z;' : ''}`);
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', `#include <common>\nvarying float vEmi; varying float vH; varying float vSeed; varying vec3 vWN;\nuniform float uLight; uniform float uPowerLo; uniform float uPowerHi; uniform float uTime; uniform float uFlicker;`)
+      .replace('#include <common>', `#include <common>\nvarying float vEmi; varying float vH; varying float vSeed; varying vec3 vWN;\nuniform float uLight; uniform float uPowerLo; uniform float uPowerHi; uniform float uTime; uniform float uFlicker;${girder ? '\nvarying vec2 vGU; varying float vCut; varying float vGD;' : ''}`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        float girK = 1.0;
+        ${girder ? `{
+          float ex = min(vGU.x, 1.0 - vGU.x);
+          // built-up lattice girders: an open web between the flanges (only up close; far away it reads solid, no shimmer)
+          if (vCut > 0.5 && vGD < 110.0) {
+            float d1 = abs(fract(vGU.y + vGU.x) - 0.5), d2 = abs(fract(vGU.y - vGU.x) - 0.5);
+            if (ex > 0.17 && min(d1, d2) > 0.1 + vGD * 0.0035) discard;
+          }
+          // rivet rows on the flanges, darker toward the edges, rust streaks
+          vec2 rq = vec2(ex - 0.085, (fract(vGU.y * 5.0) - 0.5) * 0.2);
+          float riv = 1.0 - smoothstep(0.018, 0.03, length(rq));
+          float edge = mix(0.62, 1.0, smoothstep(0.0, 0.1, ex));
+          float rust = 0.85 + 0.3 * fract(sin(floor(vGU.y * 2.0) * 17.3 + vSeed * 40.0) * 431.7);
+          girK = edge * rust * (1.0 + 0.7 * riv);
+          diffuseColor.rgb *= girK;
+        }` : ''}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         {
           float pw = step(uPowerLo, vH) * step(vH, uPowerHi);
           float fl = 1.0 - uFlicker * step(0.5, fract(sin(floor(uTime * 9.0 + vSeed * 31.0) * 12.7 + vSeed * 91.0) * 437.5));
           // floods sit at the feet and on the platforms, aimed up: faces looking down / out catch them
-          float fd = 0.38 + 0.62 * clamp(0.35 - vWN.y * 0.65 + 0.25 * length(vWN.xz), 0.0, 1.0);
-          totalEmissiveRadiance *= ${emissive ? 'vEmi * uLight * pw * fl * fd' : '0.0'};
+          float fd = 0.16 + 0.84 * clamp(0.3 - vWN.y * 0.75 + 0.3 * length(vWN.xz), 0.0, 1.0);
+          totalEmissiveRadiance *= ${emissive ? 'vEmi * uLight * pw * fl * fd * girK' : '0.0'};
         }`);
   };
-  mat.customProgramCacheKey = () => 'ironlady-rig-' + (instanced ? 'i' : 'p') + (emissive ? 'e' : '');
+  mat.customProgramCacheKey = () => 'ironlady-rig-' + (instanced ? 'i' : 'p') + (emissive ? 'e' : '') + (girder ? 'g' : '');
   return mat;
 }
 
@@ -327,8 +344,15 @@ export async function buildTower(ctx = {}) {
   const iMa = iM.map(a => new THREE.InstancedBufferAttribute(a, 4).setUsage(THREE.DynamicDrawUsage));
   iMa.forEach((a, c) => geo.setAttribute('iM' + c, a));
   geo.setAttribute('aEmi', new THREE.InstancedBufferAttribute(aEmi, 1));
+  // lattice web on the built-up girders (ties, arch chords, platform girders), rivet tiling along the length
+  const aGir = new Float32Array(NB * 2);
+  beams.forEach((b, i) => {
+    const L = b.a.distanceTo(b.b), cut = (b.kind === 2 && b.w >= 0.4) || (b.kind === 5 && b.w >= 0.5) || (b.kind === 6 && b.w >= 0.8) ? 1 : 0;
+    aGir[i * 2] = Math.max(1, Math.round(L / Math.max(0.5, b.w * (cut ? 1.4 : 2.2)))); aGir[i * 2 + 1] = cut;
+  });
+  geo.setAttribute('aGir', new THREE.InstancedBufferAttribute(aGir, 2));
   geo.instanceCount = NB;
-  const ironMat = rigMaterial(new THREE.MeshStandardMaterial({ color: IRON, roughness: 0.52, metalness: 0.62, emissive: GOLD, emissiveIntensity: 0.72 }), rig, { instanced: true });
+  const ironMat = rigMaterial(new THREE.MeshStandardMaterial({ color: IRON, roughness: 0.52, metalness: 0.62, emissive: GOLD, emissiveIntensity: 0.72, side: THREE.DoubleSide }), rig, { instanced: true, girder: true });
   ironMat.userData.duskEmissive = 0.72;
   const girders = new THREE.Mesh(geo, ironMat);
   girders.frustumCulled = false; girders.name = 'girders';
@@ -426,11 +450,52 @@ export async function buildTower(ctx = {}) {
     }
     const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
     const pg = mergeGeometries(parts.map(p => p.toNonIndexed()));
-    const pm = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ map: tex, color: 0xb9ad98, roughness: 0.7 }));
+    const pm = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ map: tex, color: 0xb9ad98, roughness: 0.7, emissive: 0x4a2a10, emissiveMap: tex, emissiveIntensity: 0.9 }));
     pm.position.set(-TOWER.x, 0, -TOWER.z); // plinth geometry was built in world xz offsets relative to tower; undo root offset below
     pm.position.set(0, 0, 0);
     pm.receiveShadow = true; pm.castShadow = true;
     root.add(pm);
+  }
+
+  // ---------------- floodlights on the plinths: the fixtures, and their beams climbing the legs through the drizzle
+  const floods = [];
+  {
+    const fixG = [], shaftG = [];
+    const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
+    for (const L of LEGS) {
+      const fx = L.x - TOWER.x, fz = L.z - TOWER.z, c0 = LEGC(0), c1 = LEGC(36);
+      const dir = new THREE.Vector3(L.sx * (c1 - c0), 36, L.sz * (c1 - c0)).normalize();
+      for (const [ox, oz] of [[-4.2, -4.2], [4.2, 4.2], [-4.2, 4.2], [4.2, -4.2]]) {
+        if (Math.sign(ox) === L.sx && Math.sign(oz) === L.sz) continue; // not on the outer corner
+        const p = new THREE.Vector3(fx + ox, 4.25, fz + oz);
+        const f = new THREE.BoxGeometry(0.9, 0.55, 0.9); f.translate(p.x, p.y, p.z); fixG.push(f.toNonIndexed());
+        floods.push(p.clone().add(new THREE.Vector3(0, 0.45, 0)));
+        const len = 48, cg = new THREE.CylinderGeometry(6.5, 0.35, len, 14, 1, true);
+        const pos = cg.attributes.position, al = new Float32Array(pos.count);
+        for (let i = 0; i < pos.count; i++) al[i] = (pos.getY(i) + len / 2) / len;
+        cg.setAttribute('aAlong', new THREE.BufferAttribute(al, 1));
+        cg.translate(0, len / 2, 0);
+        cg.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
+        cg.translate(p.x, p.y + 0.4, p.z);
+        cg.deleteAttribute('uv');
+        shaftG.push(cg.toNonIndexed());
+      }
+    }
+    const fixM = new THREE.Mesh(mergeGeometries(fixG), new THREE.MeshStandardMaterial({ color: 0x1d1c1b, roughness: 0.5, metalness: 0.6 }));
+    root.add(fixM);
+    const sm = new THREE.ShaderMaterial({
+      uniforms: { uK: { value: 1 } },
+      vertexShader: /* glsl */`attribute float aAlong; varying float vA; varying vec3 vN; varying vec3 vV;
+        void main(){ vA = aAlong; vec4 wp = modelMatrix * vec4(position, 1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }`,
+      fragmentShader: /* glsl */`uniform float uK; varying float vA; varying vec3 vN; varying vec3 vV;
+        void main(){ float side = abs(dot(vN, vV)); float a = pow(side, 1.8) * pow(1.0 - vA, 1.7) * smoothstep(0.0, 0.04, vA) * 0.11 * uK;
+          gl_FragColor = vec4(vec3(1.0, 0.7, 0.36) * a, a); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+    });
+    const shafts = new THREE.Mesh(mergeGeometries(shaftG), sm);
+    shafts.frustumCulled = false; shafts.renderOrder = 17; shafts.name = 'floodShafts';
+    root.add(shafts);
+    floods.mat = sm; floods.mesh = shafts;
   }
 
   // ---------------- lights: sparkle, aviation, beacon ----------------
@@ -498,6 +563,10 @@ export async function buildTower(ctx = {}) {
       const p = rig.deform(b, _w).add(rootPos);
       glow.set(gi++, p.x, p.y, p.z, 2.2, 2.2, 0, CELL.GLOW, 0, 2.4 * L, 1.45 * L, 0.6 * L, 0.8 * L);
     }
+    // floodlight lenses (die first when the feet tear out)
+    const fk = L * (rig.u.uPowerLo.value < 2 ? 1 : 0) * (1 - rig.u.uFlicker.value * (Math.sin(t * 37) > 0.2 ? 0.8 : 0));
+    floods.mat.uniforms.uK.value = fk; floods.mesh.visible = fk > 0.01;
+    if (fk > 0.01) for (const f of floods) glow.set(gi++, f.x + rootPos.x, f.y, f.z + rootPos.z, 2.6, 2.6, 0, CELL.GLOW, 0, 3.2 * fk, 2.0 * fk, 0.9 * fk, 0.9);
     // red aviation lights (blink)
     if (state.aviation > 0 && Math.sin(t * 3.1) > -0.2) for (const r of red) {
       const p = rig.deform(r, _w).add(rootPos);

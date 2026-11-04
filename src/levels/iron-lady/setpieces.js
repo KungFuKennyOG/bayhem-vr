@@ -616,6 +616,19 @@ export class SetPieces {
       if (F.tearT <= 0) { F.tearT = range(0.15, 0.3); this.tear(F.th > 0.4 ? 40 : 10, F.th > 0.4 ? 230 : 80, F.th > 0.6 ? 4 : 2, -1, 6); }
       if (F.th > 1.58 && F.t > 2 && !F.settled) { F.settled = true; F.phase = 'down'; F.t = 0; g.events.push({ type: 'fallDown' }); }
     } else if (F.phase === 'down') {
+      // the wreck burns along its length: fires in the lattice, black columns over the river
+      const head = g.headPos;
+      if (rand() < dt * 9) {
+        const i = 6 + ((rand() * (NODES - 7)) | 0), P = _v.copy(R.S[i]).add(T.root.position);
+        P.x += range(-8, 8); P.z += range(-6, 6); P.y += range(-4, 6);
+        if (head.distanceToSquared(P) < 320 * 320) g.fx.main.spawn({ x: P.x, y: P.y, z: P.z, vx: range(-1, 1), vy: range(3, 6), vz: range(-1, 1), drag: 1.2, frameKind: 1, s0: range(3, 6), s1: range(9, 15), ease: 0.6, life: range(1.0, 1.6), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.4, b: 0.9, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
+      }
+      F.colT = (F.colT || 0) - dt;
+      if (F.colT <= 0) {
+        F.colT = g.E.isQuest ? 1.4 : 0.8;
+        const i = 8 + ((rand() * (NODES - 9)) | 0), P = _v.copy(R.S[i]).add(T.root.position);
+        this.clouds.spawn({ x: P.x + range(-6, 6), y: P.y + 6, z: P.z + range(-6, 6), vx: range(-0.4, 0.4) + 1.3, vy: range(5, 7), vz: range(-0.4, 0.4) + 0.4, drag: 0.1, buoy: 0.3, s0: 9, s1: range(38, 52), life: range(14, 17), a: 0.9, fadeIn: 0.05, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.06, g: 0.055, b: 0.05, r1: 0.13, g1: 0.12, b1: 0.11, glow: 1.0, glowFade: 3 });
+      }
       T.state.light = Math.max(0, T.state.light - dt * 0.5); T.state.beacon = Math.max(0, T.state.beacon - dt * 0.5); T.state.sparkle = 0; T.state.aviation = Math.max(0, T.state.aviation - dt);
       R.u.uFlicker.value = 0.6;
     }
@@ -696,6 +709,7 @@ export class SetPieces {
   // a node of the falling tower hits the ground / water / bridge / buildings
   _impact(F, i) {
     const g = this.g, T = this.T, R = T.rig;
+    if (F.quiet) return;
     const P = R.S[i].clone().add(T.root.position);
     const gy = groundAt(P.x, P.z), water = gy <= WATER_Y + 0.01, h = i * NODE_H;
     const big = h > 140;
@@ -724,9 +738,9 @@ export class SetPieces {
   // ?beat= jumps: put the tower straight into its final pose
   collapsedState() {
     const F = this.woundTower();
-    F.phase = 'fall'; F.wound = 1;
+    F.phase = 'fall'; F.wound = 1; F.quiet = true;
     for (let k = 0; k < 500; k++) { F.om += 0.13 * Math.sin(Math.max(F.th, 0.06)) / 30; F.th = Math.min(1.62, F.th + F.om / 30); if (F.th >= 1.62) F.om = 0; F.slide = Math.min(16, F.slide + F.th * 0.1); F.sink = Math.min(9, F.sink + 0.05); F.twist = 0.32; F.dir.set(0.05, 0, 1).normalize(); this._solveSpine(F, 1 / 30); }
-    F.landed.fill(true);
+    F.landed.fill(true); F.quiet = false;
     F.phase = 'down'; F.t = 40; F.bridgeHit = F.spireHit = true;
     const S = this.T.state; S.light = 0; S.beacon = 0; S.sparkle = 0; S.aviation = 0;
     this.T.rig.u.uPowerLo.value = 400;

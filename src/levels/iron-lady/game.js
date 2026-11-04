@@ -11,6 +11,7 @@ import { LaserFX } from '../downtown-haven/snipers.js';
 import { Traffic } from './traffic.js';
 import { DustClouds } from '../downtown-haven/dustfx.js';
 import { Rain } from './rain.js';
+import { Birds } from '../downtown-haven/birds.js';
 import { nightShared } from './sky.js';
 import { START, LOW_Y, WATER_Y } from './layout.js';
 
@@ -86,6 +87,11 @@ export class IronGame {
     this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
     E.scene.add(this.dustDome);
     this.rain = new Rain(E.scene, { quest: E.isQuest, ground: world.fastGround, atlas: E.atlas, fog: E.scene.fog });
+    // pigeons pecking on the quay (they go up with the first shot), and a few on the bridge balustrade
+    { const spots = []; const r = (a, b) => a + rand() * (b - a);
+      for (let i = 0; i < 26; i++) spots.push(new THREE.Vector3(r(118, 162), LOW_Y, r(42, 50)));
+      for (let i = 0; i < 12; i++) spots.push(new THREE.Vector3(r(-8, 8), 0, r(-30, 40)));
+      this.birds = new Birds(this, spots); }
     world.buildNav();
     this.glass.blockNav(world.nav);
     // cover on both levels (lower quays and street / bridge / park)
@@ -165,6 +171,7 @@ export class IronGame {
   }
 
   playerShot(origin, dir) {
+    this.birds.spook(this.headPos, 0.5);
     const hit = this.fireRay(origin, dir);
     const P = hit.point;
     this.fx.tracer(origin, P, { speed: 520, width: 0.04, len: 5 });
@@ -462,6 +469,7 @@ export class IronGame {
     this.setpieces?.update(dt);
     this.lasers.update(dt);
     this.rain.update(dt, this.headPos, this.camera);
+    this.birds.update(dt);
     this._updateBodies(dt);
     this._ambient(dt);
     this.clouds.material.uniforms.uDim.value = this.sunBlock || 0;
