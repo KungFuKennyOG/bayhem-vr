@@ -22,7 +22,7 @@ export async function create(E) {
   // dusk + close quarters: orange cores fading to deep red, wrapped in dark oily smoke (no white blow-outs)
   fx.heat = 0.82; fx.fireHue = 1; fx.smokeMul = 1.3;
   // debris reads as lit, hot metal chunks (not black squares)
-  fx.debrisMesh.material = new THREE.MeshStandardMaterial({ color: 0x4a423c, roughness: 0.55, metalness: 0.55, emissive: 0x5a1a04, emissiveIntensity: 0.55 });
+  fx.debrisMesh.material = new THREE.MeshStandardMaterial({ color: 0x4a423c, roughness: 0.55, metalness: 0.55, emissive: 0x5a1a04, emissiveIntensity: 0.22 });
   const world = await new PortWorld(E).build();
   const game = new PortGame(E, world);
   const setp = new SetPieces(game);

@@ -135,7 +135,7 @@ export class Director {
           A?.go([deck(23.5, -154.6, { sprint: true }), { p: V(23.6, DECK_Y, -152), nav: null, sprint: true }, { p: V(21.5, DECK_Y, -152), nav: null, sprint: true }, { p: V(-2.2, 0, -152), nav: null, sprint: true }, { p: V(-3.9, 0, -150.2), nav: null, sprint: true }, ground(-4, -145, { sprint: true }), ground(-6, -133, { sprint: true }), ground(-6.5, -126, { sprint: true })]);
         }, update: (t) => {
           const left = Math.max(0, this.escape0 - t);
-          g.bossInfo = { frac: left / this.escape0, name: 'FUEL HOLD  —  ' + left.toFixed(1) + ' s' };
+          g.bossInfo = { frac: left / this.escape0, name: 'FUEL HOLD — GET CLEAR' }; g.countdown = left;
           if (t % 1.6 < 1 / 30) audio.play('alarm_klaxon', { x: -6, y: DECK_Y + 3, z: -160, volume: 0.7 });
           if (t % 2.3 < 1 / 30) audio.play('metal_groan', { x: -10, y: DECK_Y, z: -165, volume: 0.8 });
           setp.escapeFX(this.dt, t);
@@ -143,7 +143,7 @@ export class Director {
           if (!this.offShip && t > 3 && g.rig.position.y < 0.5 && pz() > -150) { this.offShip = true; hud.objective('Get clear!'); hud.setWaypoint(V(-6, 0.5, -130)); }
         }, until: (t) => t > this.escape0 || (t > 3 && g.rig.position.y < 0.5 && pz() > -138.5) },
       { name: 'kaboom', wp: null, music: 1.0, dusk: 0.84, enter: () => {
-          g.bossInfo = null;
+          g.bossInfo = null; g.countdown = null;
           if (g.rig.position.y > 4) g.hurt(70, V(-15, DECK_Y, -167)); // still on the ship: it hurts
           setp.escapeEnd();
           setp.kaboom();

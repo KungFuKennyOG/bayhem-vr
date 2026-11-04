@@ -127,30 +127,30 @@ export class Mushroom {
     const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
     const tc = Math.min(t, 6) + Math.max(0, t - 6) * 0.15;
     const capH = 12 + Math.min(t, 4.5) * 5.2 + Math.max(0, t - 4.5) * 0.8, capR = 6 + Math.min(t, 4.5) * 3.3 + Math.max(0, t - 4.5) * 0.6;
-    const cool = sm(0.25, 2.6, t), late = sm(6, 30, t);
+    const cool = sm(0.25, 2.6, t), late = sm(4.5, 13, t);
     for (const m of this.parts) m.material.uniforms.uTime.value = t;
     // core fireball: punches up out of the hold, then becomes the stem's foot
     {
       const u = this.core.material.uniforms, r = 3 + sm(0, 0.5, t) * 8 - sm(1.5, 5, t) * 3.5;
       this.core.position.set(0, 2 + sm(0, 2.4, t) * Math.max(0, capH - 7), 0); this.core.scale.set(r, r * 0.8, r);
-      u.uHeat.value = 1.2 - sm(0.8, 6, t) * 0.95; u.uGlow.value = 1.4 - sm(1, 7, t) * 1.1; u.uAlpha.value = sm(0, 0.06, t) * (1 - sm(4.5, 9, t)); u.uSoot.value = cool * 0.5;
+      u.uHeat.value = 1.2 - sm(0.8, 6, t) * 0.95; u.uGlow.value = 1.4 - sm(1, 7, t) * 1.1; u.uAlpha.value = sm(0, 0.06, t) * (1 - sm(2.8, 5.2, t)); u.uSoot.value = cool * 0.5;
     }
     // stem: a narrow column feeding the cap
     {
       const u = this.stem.material.uniforms, top = capH - 2, w = 2.6 + sm(0.2, 2, t) * 1.6 + late * 1.5;
       this.stem.position.set(0, 1, 0); this.stem.scale.set(w, Math.max(0.1, top * sm(0.15, 0.9, t)), w);
-      u.uHeat.value = 0.95 - cool * 0.6; u.uGlow.value = 1.1 - cool * 0.55 - late * 0.3; u.uAlpha.value = sm(0.15, 0.4, t) * (1 - late * 0.55); u.uSoot.value = cool;
+      u.uHeat.value = 0.95 - cool * 0.6; u.uGlow.value = 1.1 - cool * 0.55 - late * 0.3; u.uAlpha.value = sm(0.15, 0.4, t) * (1 - late); u.uSoot.value = cool;
     }
     // cap torus: rises and rolls outward; the dome closes its top
     {
       const u = this.cap.material.uniforms, s = capR * sm(0.25, 1.0, t);
       this.cap.position.set(0, capH, 0); this.cap.scale.set(s, s * 0.95, s);
-      u.uHeat.value = 0.95 - cool * 0.78; u.uGlow.value = 1.15 - cool * 0.75 - late * 0.2; u.uAlpha.value = sm(0.3, 0.7, t) * (1 - late * 0.6); u.uSoot.value = cool;
+      u.uHeat.value = 0.95 - cool * 0.78; u.uGlow.value = 1.15 - cool * 0.75 - late * 0.2; u.uAlpha.value = sm(0.3, 0.7, t) * (1 - late); u.uSoot.value = cool;
       const d = this.dome.material.uniforms, ds = capR * 1.08 * sm(0.35, 1.1, t);
       this.dome.position.set(0, capH + capR * 0.12, 0); this.dome.scale.set(ds, ds * 0.62, ds);
-      d.uHeat.value = 0.5 - cool * 0.48; d.uGlow.value = 0.35 - cool * 0.25; d.uAlpha.value = sm(0.45, 0.9, t) * (1 - late * 0.35); // keeps the torus hole closed (no donut) d.uSoot.value = cool;
+      d.uHeat.value = 0.5 - cool * 0.48; d.uGlow.value = 0.35 - cool * 0.25; d.uAlpha.value = sm(0.45, 0.9, t) * (1 - late); d.uSoot.value = cool; // dome keeps the torus hole closed (no donut)
     }
-    this.root.visible = t < 60;
+    this.root.visible = t < 13.5;
   }
   setLight(sunDir, sunCol, sky, ground) {
     for (const m of this.parts) { const u = m.material.uniforms; if (sunDir) u.uSunDir.value.copy(sunDir); if (sunCol) u.uSunCol.value.copy(sunCol); if (sky) u.uSky.value.copy(sky); if (ground) u.uGround.value.copy(ground); }

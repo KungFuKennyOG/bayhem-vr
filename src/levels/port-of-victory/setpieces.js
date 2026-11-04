@@ -79,7 +79,7 @@ export class SetPieces {
     C.op = op;
     // amber strobes on the spreader ends + a warm cab light (the operator is visible at dusk)
     C.strobes = [-5.6, 5.6].map(x => { const sp = glowSprite(0xffa020, 1.6); sp.position.set(x, 0.75, 0); sp.visible = false; rtg.spreader.add(sp); return sp; });
-    C.cabLight = glowSprite(0xffc080, 1.4); C.cabLight.position.set(0, 1.05, 0.55); (rtg.cabSeat || rtg.cab).add(C.cabLight); C.cabLight.material.opacity = 0.5;
+    C.cabLight = glowSprite(0xffc080, 2.4); C.cabLight.position.set(0, 1.0, 0.75); (rtg.cabSeat || rtg.cab).add(C.cabLight); C.cabLight.material.opacity = 0.5;
     // drop shadow decal (grows while the box falls)
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
     sh.renderOrder = 3; g.scene.add(sh); C.shadow = sh;
@@ -148,7 +148,7 @@ export class SetPieces {
     g.audio.setLoop('crane_motor', { x: RTG.x + C.trolley, y: 17, z: C.z, volume: C.mode === 'idle' ? 0 : 0.5 + Math.min(0.5, moving * 0.12), intensity: Math.min(1, moving * 0.2) });
     if (C.op && C.opAlive) C.op.update(dt, C.mode === 'idle' ? null : head);
     { const on = C.mode === 'track' || (C.fall && C.fall.y > 1); for (let i = 0; i < C.strobes.length; i++) { const sp = C.strobes[i], k = Math.max(0, Math.sin(C.t * 14 + i * Math.PI)); sp.visible = on; sp.material.opacity = k * k; sp.scale.setScalar(1.2 + k * 1.4); }
-      C.cabLight.material.opacity = C.opAlive ? 0.45 + 0.05 * Math.sin(C.t * 3) : 0.12; }
+      C.cabLight.material.opacity = C.opAlive ? 0.75 + 0.08 * Math.sin(C.t * 3) : 0.12; }
     if (C.mode === 'track') {
       // telegraph: the hanging box sways and its shadow paints a pulsing target on the asphalt
       const root = C.box.hc.root; root.rotation.z = Math.sin(C.t * 2.1) * 0.035; root.rotation.x = Math.sin(C.t * 1.6 + 1) * 0.025;
@@ -240,6 +240,8 @@ export class SetPieces {
     // rotating amber beacon + headlights (reads at range and at dusk)
     F.beacon = glowSprite(0xff9a18, 1.1); (model.anchors.beacon || F.root).add(F.beacon);
     F.heads = (model.anchors.headlights || []).map(o => { const sp = glowSprite(0xfff0d0, 0.9); o.add(sp); return sp; });
+    { const pool = glowSprite(0xffe0b0, 1); const pm = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 6.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: pool.material.map, color: 0x8a6a48, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+      pm.position.set(0, 0.03, -5.2); pm.renderOrder = 4; F.root.add(pm); F.pool = pm; }
     F.root.position.copy(F.pos); F.root.rotation.y = F.yaw; F.root.visible = false;
     // it is always seen backlit (the sun is behind it): a little fake bounce keeps the safety yellow readable
     const lifted = new Map();
@@ -319,7 +321,7 @@ export class SetPieces {
     F.state = 'runaway';
   }
   wreckForklift(cause) {
-    if (this.fork.beacon) { this.fork.beacon.visible = false; for (const h of this.fork.heads) h.visible = false; }
+    if (this.fork.beacon) { this.fork.beacon.visible = false; for (const h of this.fork.heads) h.visible = false; if (this.fork.pool) this.fork.pool.visible = false; }
     const F = this.fork, g = this.g;
     if (!F.alive) return;
     F.alive = false; F.state = 'wreck';
@@ -482,7 +484,7 @@ export class SetPieces {
     this.breaches.forEach(B => g.fx.later(B.t0, () => {
       const f = g.fx.main; f.spawn({ x: B.p.x, y: B.p.y, z: B.p.z + 1, frame: CELL.FLASH, s0: 4, s1: 9, life: 0.1, r: 2.4, g: 1.5, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.2, force: true });
       for (let i = 0; i < 5; i++) f.spawn({ x: B.p.x + range(-1, 1), y: B.p.y + range(-0.8, 0.8), z: B.p.z + 1, vx: range(-3, 3), vy: range(1, 4), vz: range(7, 13), drag: 2.2, frameKind: 1, s0: range(3, 4), s1: range(7, 10), ease: 0.55, life: range(1.0, 1.5), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 1.6, g: 0.75, b: 0.32, a: 1, fadeIn: 0.02, fadeOut: 0.8, force: true });
-      for (let i = 0; i < 10; i++) g.fx.spawnDebris(B.p.clone().setZ(B.p.z + 1), range(-5, 5), range(2, 9), range(6, 14), range(0.2, 0.5), rand() < 0.3);
+      for (let i = 0; i < 5; i++) g.fx.spawnDebris(B.p.clone().setZ(B.p.z + 1), range(-6, 6), range(1, 10), range(3, 15), range(0.15, 0.7), rand() < 0.2);
       g.audio.play('explosion_big', { x: B.p.x, y: B.p.y, z: B.p.z, volume: 0.9 }); g.lastExplosionT = g.time; g.lastExplosionShake = 0.9;
     }));
     // later secondary blasts marching along the deck (after the cap has formed)
@@ -491,7 +493,11 @@ export class SetPieces {
     // deck containers thrown into the sky
     for (let i = 0; i < 4; i++) g.fx.later(0.15 + i * 0.2, () => this._flingBox(new THREE.Vector3(-30 + i * 14 + range(-3, 3), DECK_Y + 3, -168 + range(-4, 4))));
     // heavy wreckage trailing fat black smoke (not a spray of glitter)
-    for (let i = 0; i < 12; i++) { const a = rand() * Math.PI * 2, sp = range(6, 16); g.fx.spawnDebris(P.clone().setY(P.y + 4), Math.cos(a) * sp, range(18, 30), Math.sin(a) * sp * 0.7 + 4, range(0.7, 1.5), 2); }
+    for (let i = 0; i < 16; i++) {
+      // uneven launch: mostly up and toward the quay, wide size spread, only some of it on fire
+      const a = range(-0.4, Math.PI + 0.4), sp = range(3, 18) * (rand() < 0.3 ? 1.5 : 1), sz = rand() < 0.25 ? range(1.4, 2.4) : range(0.3, 1.1);
+      g.fx.spawnDebris(P.clone().set(P.x + range(-4, 4), P.y + range(2, 7), P.z + range(-3, 3)), Math.cos(a) * sp, range(10, 32), Math.sin(a) * sp * 0.8 + range(0, 6), sz, rand() < 0.35 ? 2 : (rand() < 0.3));
+    }
     // the ship chars over a few seconds (ship.js setBurnt), windows die
     this.burnK = 0;
     // persistent fires along the ship
@@ -561,7 +567,9 @@ export class SetPieces {
         emit('brs' + B.p.x, 3, () => fx.smoke(_v.set(B.p.x, B.p.y + 2, B.p.z + 2.5), 2.2, 0.06, 6, 3, 0.85));
       }
       if (t > 0.1 && t < 0.4) g.hud.white.material.opacity = Math.max(0, 0.85 - (t - 0.1) * 3);
-      if (t > 18) this.mush = null;
+      if (t > 3.2) emit('col', 3.2, () => { const sh = range(0.05, 0.09), y0 = P.y + range(0, 4); fx.main.spawn({ x: P.x + range(-3, 3), y: y0, z: P.z + range(-3, 3), vx: range(-0.8, 0.8) - 0.6, vy: range(3.5, 5.5), vz: range(-0.8, 0.8), drag: 0.12, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(6, 8), s1: range(20, 28), ease: 0.6, life: range(10, 13), rot: rand() * 6, vrot: range(-0.08, 0.08), r: 0.55, g: 0.2, b: 0.07, r1: sh * 1.3, g1: sh, b1: sh * 0.9, a: 0.9, fadeIn: 0.06, fadeOut: 0.5, force: true }); });
+      if (t > 3.8 && t < 13) emit('capR', 2.6, () => { const a = rand() * Math.PI * 2, tc = Math.min(t, 4.5) + (t - 4.5) * 0.15, R = (6 + tc * 3.3) * range(0.2, 1.15), y = P.y + 12 + tc * 5.2 + range(-3, 6), sh = range(0.05, 0.1); fx.main.spawn({ x: P.x + Math.cos(a) * R, y, z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(0.5, 1.5) - 0.5, vy: range(0.6, 1.6), vz: Math.sin(a) * range(0.5, 1.5), drag: 0.1, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(14, 18), s1: range(30, 42), ease: 0.5, life: range(13, 17), rot: rand() * 6, vrot: range(-0.04, 0.04), r: sh * 2.6, g: sh * 1.3, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.92, a: 0.88, fadeIn: 0.12, fadeOut: 0.55, force: true }); });
+      if (t > 40) this.mush = null;
     }
     if (this.mushMesh) {
       this.mushMesh.update(dt);

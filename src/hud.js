@@ -136,6 +136,10 @@ export class HUD {
     this.bossTex = new THREE.CanvasTexture(this.bossCanvas); this.bossTex.colorSpace = THREE.SRGBColorSpace;
     this.boss = plane(this.bossTex, 0.7, 0.0656); this.boss.position.set(0, 0.42, -1.2); this.boss.visible = false;
     this.root.add(this.boss);
+    // big countdown numerals (game.countdown = seconds left, null = hidden)
+    this.cdCanvas = document.createElement('canvas'); this.cdCanvas.width = 512; this.cdCanvas.height = 192;
+    this.cdTex = new THREE.CanvasTexture(this.cdCanvas); this.cdTex.colorSpace = THREE.SRGBColorSpace;
+    this.cd = plane(this.cdTex, 0.3, 0.1125); this.cd.visible = false; this.root.add(this.cd); this.lastCd = null;
     this.lastBoss = -1;
     // world title
     this.title = null;
@@ -407,11 +411,29 @@ export class HUD {
     this.objT -= rdt; this.obj.material.opacity = Math.max(0, Math.min(1, this.objT * 1.5, (6 - this.objT) * 3 + 0.0));
     const b = game.boss;
     if (b) { this.boss.visible = true; this.drawBoss(b.frac, b.name); } else this.boss.visible = false;
+    const cd = game.countdown;
+    if (cd != null) {
+      this.cd.visible = true;
+      this.cd.position.set(this.obj.position.x, this.obj.position.y - 0.1, this.obj.position.z);
+      const txt = Math.max(0, cd).toFixed(1);
+      if (txt !== this.lastCd) {
+        this.lastCd = txt;
+        const c = this.cdCanvas, x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height);
+        x.font = '400 150px Anton, Impact'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.lineWidth = 14; x.strokeStyle = 'rgba(20,4,2,0.85)'; x.strokeText(txt, 256, 100);
+        const gr = x.createLinearGradient(0, 30, 0, 170); gr.addColorStop(0, '#ffd2a0'); gr.addColorStop(0.5, '#ff4a1c'); gr.addColorStop(1, '#a80c06');
+        x.shadowColor = 'rgba(255,40,10,0.9)'; x.shadowBlur = 24; x.fillStyle = gr; x.fillText(txt, 256, 100);
+        this.cdTex.needsUpdate = true;
+      }
+      // pulses faster as time runs out
+      const rate = 2 + Math.max(0, 10 - cd) * 0.5, pulse = 1 + 0.08 * Math.max(0, Math.sin((this._cdP = (this._cdP || 0) + rdt * rate * Math.PI * 2)));
+      this.cd.scale.setScalar(pulse); this.cd.material.opacity = (0.8 + 0.2 * pulse) * (1 - this.endK);
+    } else this.cd.visible = false;
     // end card: fade the gameplay HUD out (score/ammo panel, crosshair, boss bar, markers); subtitles stay
     this.endK += ((this.endCardOn ? 1 : 0) - this.endK) * Math.min(1, rdt * 6);
     const hk = 1 - this.endK, on = hk > 0.02;
     this.scorePanel.material.opacity = hk; this.scorePanel.visible = on;
     this.cross.material.opacity = hk; this.cross.visible = on && !this.vr;
-    if (!on) { this.boss.visible = false; this.marker.material.opacity = 0; this.warn.material.opacity = 0; this.obj.material.opacity = 0; this.wp.visible = false; }
+    if (!on) { this.boss.visible = false; this.cd.visible = false; this.marker.material.opacity = 0; this.warn.material.opacity = 0; this.obj.material.opacity = 0; this.wp.visible = false; }
   }
 }
