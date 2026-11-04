@@ -1320,13 +1320,27 @@ export class Gunman {
       const crouch = this.crouch, run = this.runK;
       if (sp > 0.4) { const my = Math.atan2(-this.vel.x, -this.vel.z); const back = Math.abs(wrap(my - this.yaw)) > 1.9; const tgtY = back ? wrap(my + Math.PI) : my; this.pelYaw = wrap(this.pelYaw + wrap(wrap(tgtY + (this.yaw - 0.25 - tgtY) * (1 - run) * 0.6) - this.pelYaw) * (dt > 0 ? 1 - Math.exp(-6 * dt) : 1)); }
       pelY = this.pelYaw;
-      const ph = this.gait * Math.PI * 4;
-      const bobA = (0.012 + 0.03 * run) * smoothstep(0.2, 1.2, sp);
-      P[B.pelvis].y = HEADS[B.pelvis].y - crouch * 0.38 - run * 0.05 - (1 - Math.cos(ph)) * bobA + bob * 0.3;
+      const G = this._gaitSolve(dt, sp);
+      const gw = G.gw, cyc2 = Math.PI * 2 * (this.gait - G.duty * 0.5); // 0 at left mid-stance, π at right mid-stance
+      // walk vaults over the stance leg (high at mid-stance); a run compresses into it (low at mid-stance)
+      const bobY = Math.cos(cyc2 * 2) * G.bobA;
+      P[B.pelvis].y = HEADS[B.pelvis].y - crouch * 0.38 - run * 0.05 - G.drop + bobY + bob * 0.3;
       P[B.pelvis].x += this.peek * 0.22 * (0.5 + 0.5 * crouch);
       P[B.pelvis].addScaledVector(_v1.set(-Math.sin(pelY), 0, -Math.cos(pelY)), 0.04 * run + 0.06 * crouch);
-      _q1.setFromAxisAngle(Z_AX, -this.peek * 0.08 + Math.sin(ph * 0.5) * 0.03 * smoothstep(0.3, 2, sp));
-      Q[B.pelvis].copy(qEuler(_qi, 0.03 + crouch * 0.25 + run * 0.12, pelY, 0)).multiply(_q1);
+      // weight shifts over the stance foot
+      const sway = -Math.cos(cyc2) * gw * 0.024 * (1 - run * 0.6) * (1 - crouch * 0.5);
+      P[B.pelvis].x += Math.cos(pelY) * sway; P[B.pelvis].z -= Math.sin(pelY) * sway;
+      // hips rotate with the swing leg (left hip leads at left heel strike) and the swing side drops
+      const hipRot = -Math.cos(Math.PI * 2 * this.gait) * gw * (0.06 + 0.07 * run) * G.fwd;
+      const list = -Math.cos(cyc2) * gw * (0.04 - 0.02 * run);
+      _q1.setFromAxisAngle(Z_AX, -this.peek * 0.08 + list);
+      Q[B.pelvis].copy(qEuler(_qi, 0.03 + crouch * 0.25 + run * 0.12, pelY + hipRot, 0)).multiply(_q1);
+      // shoulders counter-rotate against the hips (sells the run; tiny while aiming)
+      chestY += Math.cos(Math.PI * 2 * this.gait) * gw * (0.025 + 0.11 * run * this.ready) * G.fwd;
+      // the muzzle bobs a little with each footfall (much more when carried at low ready)
+      const carry = 0.006 + 0.05 * this.ready;
+      this._stepAimX = Math.cos(Math.PI * 2 * this.gait) * gw * carry * 0.8;
+      this._stepAimY = -Math.cos(cyc2 * 2) * gw * carry * (1 - run) + Math.sin(cyc2 * 2) * gw * carry * run * 0.7;
     } else {
       pelY = this.pelYaw;
       Q[B.pelvis].copy(qEuler(_qi, 0.03, pelY, 0));
@@ -1371,7 +1385,8 @@ export class Gunman {
     // sway, muzzle climb, recoil, stagger
     _v1.set(1, 0, 0).applyQuaternion(Q[B.chest]); _v2.set(0, 1, 0).applyQuaternion(Q[B.chest]);
     const st = this.hitT > 0 ? 3 : 1;
-    dir.addScaledVector(_v1, swayX * st + this.climbYaw).addScaledVector(_v2, swayY * st + this.climb + rec * 0.11).normalize();
+    const sAX = this.ground ? this._stepAimX || 0 : 0, sAY = this.ground ? this._stepAimY || 0 : 0;
+    dir.addScaledVector(_v1, swayX * st + this.climbYaw + sAX).addScaledVector(_v2, swayY * st + this.climb + rec * 0.11 + sAY).normalize();
     if (sa > 1e-5) dir.applyQuaternion(_q4.copy(_q3).slerp(QID, 0.4));
     const gunPos = P[B.gun].copy(pocket).addScaledVector(dir, -rec * 0.055);
     if (reloadW > 0.001) gunPos.add(_v3.set(-0.03, -0.07, 0.02).multiplyScalar(reloadW).applyQuaternion(Q[B.chest]));
@@ -1464,17 +1479,53 @@ export class Gunman {
     this._apply(P, Q);
   }
 
-  // ---- on-foot legs: procedural gait (stance/swing cycle along the travel direction) + 2-bone leg IK
-  _legs(dt, sp) {
-    const P = _P, Q = _Q, run = this.runK, crouch = this.crouch;
-    const cyc = 0.82 + 0.3 * sp;                        // gait cycles per second
-    if (dt > 0) this.gait = (this.gait + cyc * dt * smoothstep(0.02, 0.25, sp + 0.0)) % 1;
-    const L = sp / cyc;                                  // stride length
-    const duty = 0.62 - 0.22 * run;                      // stance fraction
+  // ---- on-foot gait solve: phase, cadence and pelvis drop, picked so every footfall is reachable.
+  // Stance excursion E (how far the planted foot travels under the hip) = speed * duty / cadence.
+  // A leg can only cover so much at a given hip height, so the soldier bends his knees (drop) and,
+  // past that, takes quicker steps instead of over-reaching (which made the IK lock the knees and
+  // leave the "planted" foot hanging and skating).
+  _gaitSolve(dt, sp) {
+    const crouch = this.crouch, G = this._G || (this._G = {});
+    // legs switch to a jog earlier than the upper body drops the gun to low ready (runK)
+    const run = Math.max(this.runK, smoothstep(1.8, 3.4, sp));
     const gw = smoothstep(0.08, 0.5, sp);
-    const dirX = sp > 1e-4 ? this.vel.x / sp : 0, dirZ = sp > 1e-4 ? this.vel.z / sp : -1;
+    const duty = 0.6 - 0.26 * run;                                    // stance fraction (run has flight phases)
+    const drop = gw * (0.025 + 0.06 * run) * (1 - crouch);            // tactical knee bend while moving
+    const bobA = gw * (0.025 * (1 - run) - 0.04 * run);               // >0: vault over the leg (walk), <0: compress (run)
+    // travel direction relative to the pelvis: heel/toe roll only makes sense going forward/back
+    const dx = sp > 1e-4 ? this.vel.x / sp : 0, dz = sp > 1e-4 ? this.vel.z / sp : -1;
+    const fwd = -(dx * Math.sin(this.pelYaw) + dz * Math.cos(this.pelYaw));
+    const fw = Math.abs(fwd);
+    const front = 0.4 - 0.04 * run;                                   // share of E in front of the hip
+    const lift = (0.6 + 0.2 * run) * fw;                              // toe-off heel lift (rad), extends reach behind
+    const toeUp = (0.28 - 0.22 * run) * fw;                           // heel-strike dorsiflexion
+    // hip height above the floor-level ankle at heel strike (pelvis is at the bottom of its walk bob there)
+    const hc = 0.92 - crouch * 0.38 - this.runK * 0.05 - drop + bobA * Math.cos(Math.PI * 2 * duty) - 0.085;
+    const R = TH + SH - 0.005;
+    const eF = Math.sqrt(Math.max(0.01, R * R - (hc - 0.094 * Math.sin(toeUp)) ** 2));
+    const hb = hc - (0.085 * (Math.cos(lift) - 1) + 0.15 * Math.sin(lift)); // ankle raised by the heel lift
+    const eB = Math.sqrt(Math.max(0.01, R * R - hb * hb)) + 0.15 * (1 - Math.cos(lift));
+    // sideways the legs have to pass each other: shorter steps (the swing foot also arcs in front, see _legs)
+    const eMax = Math.min(eF / front, eB / (1 - front)) * (1 - 0.3 * (1 - fw));
+    const cyc0 = 0.86 + 0.16 * sp;                                    // natural stride cycles per second
+    const cyc = Math.max(cyc0, sp * duty / Math.max(0.12, eMax), 0.5);
+    if (dt > 0) this.gait = (this.gait + cyc * dt * smoothstep(0.02, 0.25, sp)) % 1;
+    Object.assign(G, { gw, run, duty, drop, bobA, fwd, front, lift, toeUp, cyc, E: sp * duty / cyc, dx, dz, sp });
+    return G;
+  }
+
+  // ---- on-foot legs: planted stance feet (heel strike -> flat -> heel lift -> toe-off), a Hermite swing
+  // that leaves the ground at ground speed and reaches forward to land, then 2-bone leg IK.
+  _legs(dt, sp) {
+    const P = _P, Q = _Q, crouch = this.crouch;
+    const G = this._G || this._gaitSolve(0, sp), run = G.run;
+    const { gw, duty, E, front, dx: dirX, dz: dirZ } = G;
     const fy = Math.atan2(-Math.sin(this.pelYaw), -Math.cos(this.pelYaw)); // pelvis forward yaw
     const cy = Math.cos(this.pelYaw), sy = Math.sin(this.pelYaw);
+    const fw = Math.max(0, Math.abs(G.fwd)), fsign = G.fwd >= 0 ? 1 : -1;
+    const tSwing = (1 - duty) / G.cyc;
+    const toeUp = G.toeUp;                                        // heel strike dorsiflexion (runners land midfoot)
+    const clear = (0.05 + 0.2 * run) * (1 - crouch * 0.5);        // swing clearance (run: heel kicks up behind)
     for (let s = 0; s < 2; s++) {
       const thigh = s ? B.thighR : B.thighL, shin = thigh + 1, foot = thigh + 2;
       // hip (FK from the pelvis)
@@ -1484,28 +1535,55 @@ export class Gunman {
       // idle / crouch stance in pelvis-yaw space: left foot forward, right back (bladed rifle stance)
       const fwdOff = s ? 0.16 + crouch * 0.12 : -0.12 - crouch * 0.18, latOff = side * (0.13 + crouch * 0.07);
       _v1.set(cy * latOff + sy * fwdOff, 0.085, -sy * latOff + cy * fwdOff); // rotate (lat, fwd) by pelvis yaw
-      _v1.x += this.hip.x * 0 + P[B.pelvis].x * 0.6; _v1.z += P[B.pelvis].z * 0.6;
-      // gait
+      _v1.x += P[B.pelvis].x * 0.6; _v1.z += P[B.pelvis].z * 0.6;
+      // gait: along = ankle offset along the travel direction from the hip's neutral point
       const phi = (this.gait + s * 0.5) % 1;
-      let along, lift = 0;
-      if (phi < duty) along = L * (0.5 - phi / duty);
-      else { const u = (phi - duty) / (1 - duty); along = L * (-0.5 + u * u * (3 - 2 * u)); lift = Math.sin(Math.PI * u) * (0.1 + 0.12 * run) * (1 - crouch * 0.5); }
-      _v2.set(hip.x * 0.4 + side * 0.04 * (1 - run) * cy, 0.085 + lift, hip.z * 0.4 - side * 0.04 * (1 - run) * sy);
+      let along, y = 0.085, pitch = 0;
+      const ballUp = (q) => 0.085 * Math.cos(q) + 0.15 * Math.sin(q) - 0.085;   // ankle rise rolling onto the ball
+      const ballFwd = (q) => 0.15 * (1 - Math.cos(q)) + 0.085 * Math.sin(q);     // ...and its forward slide
+      const offStart = -(1 - front) * E;
+      if (phi < duty) {
+        const v = phi / duty;
+        along = front * E - v * E;                                // planted: moves back at exactly ground speed
+        // heel strike -> foot flat (pivot on the heel)
+        const hs = toeUp * (1 - smoothstep(0, 0.16, v));
+        // heel lift -> toe-off (pivot on the ball)
+        const hl = G.lift * smoothstep(0.55 - 0.15 * run, 1, v);
+        pitch = hs - hl;
+        y += 0.094 * Math.sin(hs) + ballUp(hl);
+        along += (ballFwd(hl) - 0.094 * (1 - Math.cos(hs))) * fsign;
+      } else {
+        const u = (phi - duty) / (1 - duty);
+        // Hermite: leaves at -ground speed (relative to the hip), arrives slightly slower than it, so the
+        // foot travels back a touch, swings through and reaches out to plant (no ice-skating at either end)
+        const p0 = offStart + ballFwd(G.lift) * fsign, p1 = front * E;
+        const m0 = -sp * tSwing * 0.9, m1 = -sp * tSwing * 0.8;
+        const u2 = u * u, u3 = u2 * u;
+        along = (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * m0 + (-2 * u3 + 3 * u2) * p1 + (u3 - u2) * m1;
+        const yStart = 0.085 + ballUp(G.lift);
+        y = yStart + (0.085 + 0.094 * Math.sin(toeUp) - yStart) * smoothstep(0.15, 0.95, u)
+          + clear * Math.sin(Math.PI * Math.pow(u, 0.7 + 0.25 * (1 - run)));
+        pitch = -G.lift + (G.lift + toeUp) * smoothstep(0.05, 0.85, u);
+      }
+      // sideways: wider base, and the swing foot arcs in front of the planted one instead of through it
+      const lw = 1 - fw, wide = side * (0.04 * (1 - run) + 0.1 * lw);
+      const arc = phi < duty ? 0 : 0.24 * lw * Math.sin(Math.PI * (phi - duty) / (1 - duty));
+      _v2.set(hip.x * 0.4 + wide * cy - sy * arc, y, hip.z * 0.4 - wide * sy - cy * arc);
       _v2.x += dirX * along; _v2.z += dirZ * along;
       const tgt = _v3.copy(_v1).lerp(_v2, gw);
       const down = phi < duty || gw < 0.5;
       if (down && !this._lastFootDown[s] && gw > 0.5) this.stepEvents++;
       this._lastFootDown[s] = down;
       // knee pole: forward of the pelvis, splayed out a little (more when crouched)
-      const pole = _v4.set(-sy + side * cy * (0.25 + crouch * 0.5), 0.05, -cy - side * sy * (0.25 + crouch * 0.5)).normalize();
+      const spl = 0.25 + crouch * 0.5 + 0.45 * lw * gw;
+      const pole = _v4.set(-sy + side * cy * spl, 0.05, -cy - side * sy * spl).normalize();
       ik2(hip, tgt, TH, SH, pole, _v5, _fy, _v6);
       _bn.copy(_fy);
       _v1.subVectors(_v5, hip); frameQuat(Q[thigh], _v1, _bn, BI_LEG);
       _v1.subVectors(_v6, _v5); frameQuat(Q[shin], _v1, _bn, BI_LEG);
       P[shin].copy(_v5); P[foot].copy(_v6);
-      // foot: flat, heel-toe roll during swing, pointing along the pelvis (toes out a bit)
-      const roll = phi < duty ? 0 : Math.sin(Math.PI * (phi - duty) / (1 - duty)) * 0.5 * gw;
-      Q[foot].copy(qEuler(_qi, -roll + 0.06, fy + Math.PI + side * -0.12, 0));
+      // foot: points along the pelvis (toes out a bit), heel-toe roll from the gait
+      Q[foot].copy(qEuler(_qi, pitch * fsign * gw + 0.06, fy + Math.PI + side * -0.12, 0));
     }
   }
 
