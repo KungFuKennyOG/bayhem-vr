@@ -3,6 +3,8 @@ import { textTexture } from './textures.js';
 
 const texCache = new Map();
 const _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _hm = new THREE.Matrix4(), _hu = new THREE.Vector3(), _hp = new THREE.Vector3();
+const _cv1 = new THREE.Vector3(), _cv2 = new THREE.Vector3(), _cq1 = new THREE.Quaternion(), _cq2 = new THREE.Quaternion();
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 // callout lanes: at most one 'big' (big/huge) and one 'small' line on screen; the rest queue, spaced in time
 const LANE_GAP = 0.55;          // s between two callouts of the same lane
 const LANE_MAX = { big: 3, small: 2 };
@@ -281,6 +283,15 @@ export class HUD {
       L.gap = q.style === 'huge' ? 1.3 : LANE_GAP; // a set-piece line gets to breathe before anything replaces it
     }
   }
+  _clampToView(pos) {
+    const cam = this.camera; if (!cam) return pos;
+    const cp = cam.getWorldPosition(_cv1), q = cam.getWorldQuaternion(_cq1);
+    const v = _cv2.subVectors(pos, cp).applyQuaternion(_cq2.copy(q).invert());
+    const d = Math.max(4, v.length());
+    const yaw = clamp(Math.atan2(v.x, -v.z), -0.36, 0.36), pit = clamp(Math.atan2(v.y, Math.hypot(v.x, v.z)), -0.08, 0.24);
+    v.set(Math.sin(yaw) * Math.cos(pit), Math.sin(pit), -Math.cos(yaw) * Math.cos(pit)).multiplyScalar(d).applyQuaternion(q);
+    return pos.copy(cp).add(v);
+  }
   _spawnCallout(text, pos, style, sub, lane) {
     const size = style === 'huge' ? 150 : style === 'big' ? 120 : 84;
     const color = style === 'small' ? '#fff3dc' : style === 'huge' ? 'fire' : 'chrome';
@@ -288,6 +299,8 @@ export class HUD {
     const mat = new THREE.SpriteMaterial({ map: tt.texture, depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false });
     const s = new THREE.Sprite(mat);
     s.renderOrder = 150;
+    // keep it readable: inside the central ~45 deg, a touch above the hands and past the guns
+    pos = this._clampToView(pos.clone());
     s.position.copy(pos);
     this.scene.add(s);
     const ang = style === 'huge' ? 0.22 : style === 'big' ? 0.13 : 0.07; // angular height (rad)

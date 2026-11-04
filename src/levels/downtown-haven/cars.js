@@ -9,12 +9,15 @@ import { blobShadowTexture } from '../../textures.js';
 //  all opaque parts in ONE mesh (shared material: atlas map × vertex colour, per-vertex roughness /
 //  metalness / emission in a `rm` attribute), glass in a second, contact shadow in a third → 3 draws.
 //  Model space: forward = -z, wheels on y = 0, left (driver) = -x.
+//  opts.city = 'paris' (Level 5): French liveries + long EU plates, its own atlas / body material; the default
+//  (no city) path is untouched.
 // =====================================================================================
 
 const AW = 2048;                                  // atlas size (px)
 const SIDE_ROW = { sedan: 0, taxi: 1, police: 2, suv: 3, van: 4, bus: 5 }; // 256 px rows of side livery
 const R = {};                                     // named atlas rects [x, y, w, h] in px
 let ATLAS = null, MAT = null, THIN = null;           // THIN: antenna / mirrors (kept out of the cover bounds)
+let PARIS = false, MAT_P = null;                     // PARIS: the car being built uses the Paris liveries
 
 // ---------------------------------------------------------------------- small math
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -113,7 +116,15 @@ const C = { black: [0.035, 0.035, 0.038], under: [0.07, 0.065, 0.06], well: [0.0
 const hex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };   // linear
 
 // ---------------------------------------------------------------------- materials (shared by every car)
-function materials() {
+function materials(paris = false) {
+  if (paris) {
+    if (MAT_P) return MAT_P;
+    const base = materials();
+    const body = rmMaterial(buildAtlas(true), { envMapIntensity: 1.25, coat: true });
+    body.userData.duskEmissive = 1.4;
+    MAT_P = { ...base, body };
+    return MAT_P;
+  }
   if (MAT) return MAT;
   ATLAS = buildAtlas();
   const body = rmMaterial(ATLAS, { envMapIntensity: 1.25, coat: true });
@@ -409,7 +420,7 @@ function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.
 }
 
 // ---------------------------------------------------------------------- atlas
-function buildAtlas() {
+function buildAtlas(paris = false) {
   const c = document.createElement('canvas'); c.width = c.height = AW;
   const g = c.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, AW, AW);
@@ -417,9 +428,11 @@ function buildAtlas() {
   const cell = (cx, cy, w = 256, h = 256) => [cx * 256, 1536 + cy * 256, w, h];
   R.white = cell(0, 0, 128, 128); WHITE_UV = [64 / AW, 1 - (1536 + 64) / AW];
   // licence plates 8 × (128×64)
-  R.plates = [];
+  if (!paris) R.plates = [];
+  R.platesFR = [0, 1, 2, 3].map((k) => [256, 1536 + k * 64, 256, 56]);
   const pr = makeRng(8128);
-  for (let k = 0; k < 8; k++) {
+  if (paris) parisPlates(g, FONT, FONT2);
+  else for (let k = 0; k < 8; k++) {
     const x = 256 + (k % 2) * 128, y = 1536 + Math.floor(k / 2) * 64;
     g.fillStyle = '#e9ecef'; g.fillRect(x, y, 128, 64);
     g.fillStyle = '#1e3a7a'; g.fillRect(x, y, 128, 12);
@@ -476,7 +489,9 @@ function buildAtlas() {
   }
   // taxi roof sign + door text
   R.taxiSign = [1280, 1536, 256, 96]; R.taxiDoor = [1280, 1648, 256, 80]; R.taxiNum = [1280, 1736, 128, 48];
-  {
+  R.taxiSignFR = [1280, 1536, 256, 64];
+  if (paris) parisTaxi(g, FONT, FONT2);
+  else {
     let [x, y, w, h] = R.taxiSign; g.fillStyle = '#ffe9a8'; g.fillRect(x, y, w, h);
     g.fillStyle = '#141414'; g.fillRect(x, y, w, 6); g.fillRect(x, y + h - 6, w, 6);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#121212'; g.font = `400 46px ${FONT}`; g.fillText('HAVEN CAB', x + w / 2, y + 40);
@@ -488,7 +503,8 @@ function buildAtlas() {
   }
   // police door + rear quarter + roof number
   R.pdDoor = [1536, 1536, 256, 128]; R.pdQuarter = [1536, 1664, 128, 64]; R.pdRoof = [1664, 1664, 128, 64];
-  {
+  if (paris) parisPolice(g, FONT, FONT2);
+  else {
     let [x, y, w, h] = R.pdDoor; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     // badge star
     g.save(); g.translate(x + 40, y + 62); g.fillStyle = '#c99a2e'; g.beginPath();
@@ -502,7 +518,8 @@ function buildAtlas() {
   }
   // van logo (fictional courier)
   R.vanLogo = [0, 1792, 512, 256];
-  {
+  if (paris) parisVanLogo(g, FONT, FONT2);
+  else {
     const [x, y, w, h] = R.vanLogo; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     g.fillStyle = '#d2461c'; g.beginPath(); g.moveTo(x + 20, y + 150); g.quadraticCurveTo(x + 250, y + 40, x + 500, y + 70); g.lineTo(x + 500, y + 95); g.quadraticCurveTo(x + 250, y + 70, x + 20, y + 175); g.fill();
     g.fillStyle = '#1d2f4f'; g.beginPath(); g.moveTo(x + 20, y + 185); g.quadraticCurveTo(x + 260, y + 85, x + 500, y + 110); g.lineTo(x + 500, y + 122); g.quadraticCurveTo(x + 260, y + 100, x + 20, y + 197); g.fill();
@@ -512,7 +529,8 @@ function buildAtlas() {
   }
   // bus destination LED + side lettering
   R.busDest = [512, 1792, 512, 64]; R.busSide = [512, 1856, 1024, 128]; R.busRoute = [1024, 1792, 128, 64];
-  {
+  if (paris) parisBus(g, FONT, FONT2);
+  else {
     let [x, y, w, h] = R.busDest; g.fillStyle = '#050505'; g.fillRect(x, y, w, h);
     g.fillStyle = '#ffb21e'; g.font = `400 40px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('42', x + 16, y + 33);
     g.font = `400 34px ${FONT}`; g.fillText('MERIDIAN SQ  via 5th AVE', x + 80, y + 33);
@@ -523,7 +541,8 @@ function buildAtlas() {
     [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ffb21e'; g.font = `400 46px ${FONT}`; g.textAlign = 'center'; g.fillText('42', x + w / 2, y + h / 2 + 2);
   }
   R.vanRear = [1792, 1536, 256, 256]; R.chevron = [1536, 1856, 512, 32];
-  {
+  if (paris) parisVanRear(g, FONT, FONT2, pr);
+  else {
     const [x, y, w, h] = R.vanRear;
     g.fillStyle = '#eceae4'; g.fillRect(x, y, w, h);
     const gr = g.createLinearGradient(0, y + h * 0.55, 0, y + h); gr.addColorStop(0, 'rgba(110,92,74,0)'); gr.addColorStop(1, 'rgba(96,80,64,0.65)'); g.fillStyle = gr; g.fillRect(x, y, w, h);
@@ -554,10 +573,88 @@ function buildAtlas() {
   R.reflector = [1152, 1792, 128, 64];
   { const [x, y, w, h] = R.reflector; const lg = g.createLinearGradient(x, y, x, y + h); lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.5, '#9aa0a8'); lg.addColorStop(1, '#f0f0f0'); g.fillStyle = lg; g.fillRect(x, y, w, h); g.strokeStyle = 'rgba(0,0,0,0.25)'; for (let k = 0; k < w; k += 8) { g.beginPath(); g.moveTo(x + k, y); g.lineTo(x + k, y + h); g.stroke(); } }
   // side livery rows
-  for (const [kind, row] of Object.entries(SIDE_ROW)) drawSide(g, kind, row);
+  for (const [kind, row] of Object.entries(SIDE_ROW)) drawSide(g, kind, row, paris);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
+}
+// ---------------------------------------------------------------------- Paris atlas content (Level 5)
+// long EU plates: white, blue band on the left (F + stars ring), AA-123-AA, regional blue band on the right
+function parisPlates(g, FONT, FONT2) {
+  const pr = makeRng(7505);
+  const L = 'ABCDEFGHJKLMNPQRSTVWXYZ';
+  R.platesFR.forEach(([x, y, w, h], k) => {
+    g.fillStyle = '#eef0f0'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#1d3f9a'; g.fillRect(x, y, 22, h); g.fillRect(x + w - 22, y, 22, h);
+    g.fillStyle = '#e8c21a'; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.fillRect(x + 11 + Math.cos(a) * 6 - 1, y + 17 + Math.sin(a) * 6 - 1, 2, 2); }
+    g.fillStyle = '#fff'; g.font = `600 14px ${FONT2}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('F', x + 11, y + 40);
+    g.fillText(['75', '92', '93', '94'][k], x + w - 11, y + 40);
+    g.fillStyle = '#e8c21a'; g.beginPath(); g.arc(x + w - 11, y + 18, 6, 0, 7); g.fill();
+    const txt = `${L[pr() * 23 | 0]}${L[pr() * 23 | 0]}-${100 + (pr() * 899 | 0)}-${L[pr() * 23 | 0]}${L[pr() * 23 | 0]}`;
+    g.fillStyle = '#121212'; g.font = `400 40px ${FONT}`; g.fillText(txt, x + w / 2, y + h / 2 + 2);
+    g.strokeStyle = '#333'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  });
+}
+// "TAXI PARISIEN" roof sign (white, black lettering; lit from inside)
+function parisTaxi(g, FONT, FONT2) {
+  const [x, y, w, h] = R.taxiSignFR;
+  g.fillStyle = '#f4f2ea'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#141414'; g.fillRect(x, y, w, 4); g.fillRect(x, y + h - 4, w, 4);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#121212';
+  fit(g, 'TAXI PARISIEN', 44, FONT, 236); g.fillText('TAXI PARISIEN', x + w / 2, y + h / 2 + 1);
+  // the three little tariff lamps (A / B / C) on the lower edge of the sign
+  ['A', 'B', 'C'].forEach((t, i) => { g.fillStyle = '#c9c2a8'; g.fillRect(x + 8 + i * 14, y + h - 16, 11, 10); g.fillStyle = '#333'; g.font = `600 8px ${FONT2}`; g.fillText(t, x + 13.5 + i * 14, y + h - 11); });
+}
+// police: "POLICE" door panel (drawn at half width: the decal stretches 2:1), "17" quarter, roof number
+function parisPolice(g, FONT, FONT2) {
+  let [x, y, w, h] = R.pdDoor;
+  g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.save(); g.translate(x + w / 2, y + h / 2); g.scale(0.5, 1);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#1b2f7a';
+  fit(g, 'POLICE', 112, FONT, 440); g.fillText('POLICE', 0, 4);
+  g.restore();
+  [x, y, w, h] = R.pdQuarter; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#1b2f7a'; g.font = `400 40px ${FONT}`; g.fillText('17', x + w / 2, y + h / 2 + 2);
+  [x, y, w, h] = R.pdRoof; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillStyle = '#111'; g.font = `400 40px ${FONT}`; g.fillText('75-12', x + w / 2, y + h / 2 + 2);
+}
+// van: a plain municipal-service livery (fictional)
+function parisVanLogo(g, FONT, FONT2) {
+  const [x, y, w, h] = R.vanLogo;
+  g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#1d3f7a'; g.fillRect(x + 20, y + 150, 470, 8);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#1d3f7a';
+  fit(g, 'SEINE  SERVICES', 64, FONT, 460); g.fillText('SEINE  SERVICES', x + 24, y + 130);
+  g.font = `500 22px ${FONT2}`; g.fillStyle = '#444'; g.fillText('MAINTENANCE  ·  ÉCLAIRAGE  ·  VOIRIE', x + 26, y + 196);
+  g.font = `500 18px ${FONT2}`; g.fillText('INTERVENTION 24H/24', x + 26, y + 228);
+}
+function parisVanRear(g, FONT, FONT2, pr) {
+  const [x, y, w, h] = R.vanRear;
+  g.fillStyle = '#eceae4'; g.fillRect(x, y, w, h);
+  const gr = g.createLinearGradient(0, y + h * 0.55, 0, y + h); gr.addColorStop(0, 'rgba(110,92,74,0)'); gr.addColorStop(1, 'rgba(96,80,64,0.65)'); g.fillStyle = gr; g.fillRect(x, y, w, h);
+  for (let k = 0; k < 70; k++) {
+    const sx = x + pr() * w, sy = y + [8, h * 0.33, h * 0.66][(pr() * 3) | 0], len = 20 + Math.pow(pr(), 1.5) * 110, a = 0.05 + pr() * 0.1;
+    const lg = g.createLinearGradient(0, sy, 0, sy + len); lg.addColorStop(0, `rgba(70,62,54,${a})`); lg.addColorStop(1, 'rgba(70,62,54,0)');
+    g.fillStyle = lg; g.fillRect(sx, sy, 2 + pr() * 4, len);
+  }
+  g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillRect(x + w / 2 - 1.5, y, 3, h);
+  g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2;
+  for (const x0 of [x + 8, x + w / 2 + 8]) { g.strokeRect(x0, y + 10, w / 2 - 16, h - 20); for (const t of [0.33, 0.66]) { g.beginPath(); g.moveTo(x0, y + h * t); g.lineTo(x0 + w / 2 - 16, y + h * t); g.stroke(); } }
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#1d3f7a'; g.font = `400 20px ${FONT}`; g.fillText('SEINE SERVICES', x + 18, y + 50);
+  // the French blind-spot sticker
+  g.fillStyle = '#f2f0ea'; g.fillRect(x + w / 2 + 12, y + 30, 104, 46); g.strokeStyle = '#111'; g.lineWidth = 2; g.strokeRect(x + w / 2 + 12, y + 30, 104, 46);
+  g.fillStyle = '#111'; g.font = `600 11px ${FONT2}`; g.fillText('ATTENTION', x + w / 2 + 20, y + 48); g.fillText('ANGLES MORTS', x + w / 2 + 20, y + 66);
+  g.fillStyle = '#c41a12'; g.beginPath(); g.moveTo(x + w / 2 + 96, y + 36); g.lineTo(x + w / 2 + 110, y + 62); g.lineTo(x + w / 2 + 82, y + 62); g.fill();
+  const tape = (tx, ty, tw, th) => { for (let k = 0; k * 12 < tw; k++) { g.fillStyle = k % 2 ? '#c41a12' : '#f4f2ee'; g.fillRect(tx + k * 12, ty, Math.min(12, tw - k * 12), th); } };
+  tape(x + 6, y + h - 26, w - 12, 10);
+}
+function parisBus(g, FONT, FONT2) {
+  let [x, y, w, h] = R.busDest; g.fillStyle = '#050505'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#ffb21e'; g.font = `400 40px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('72', x + 16, y + 33);
+  g.font = `400 34px ${FONT}`; g.fillText('HÔTEL DE VILLE', x + 80, y + 33);
+  g.fillStyle = 'rgba(0,0,0,0.55)'; for (let k = 0; k < w; k += 3) g.fillRect(x + k, y, 1, h); for (let k = 0; k < h; k += 3) g.fillRect(x, y + k, w, 1);
+  [x, y, w, h] = R.busSide; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#0f5a6e'; fit(g, 'LIGNES DE SEINE', 84, FONT, 540); g.textAlign = 'left'; g.fillText('LIGNES DE SEINE', x + 24, y + 62);
+  [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ffb21e'; g.font = `400 46px ${FONT}`; g.textAlign = 'center'; g.fillText('72', x + w / 2, y + h / 2 + 2);
 }
 function fit(g, txt, px, font, maxW) { g.font = `400 ${px}px ${font}`; const w = g.measureText(txt).width; if (w > maxW) g.font = `400 ${Math.floor(px * maxW / w)}px ${font}`; }
 function sideMap(kind) {
@@ -565,7 +662,7 @@ function sideMap(kind) {
   const z0 = S.zMin ?? S.zF, z1 = S.zMax ?? S.zR, row = SIDE_ROW[kind];
   return { S, X: (z) => (z - z0) / (z1 - z0) * AW, Y: (y) => row * 256 + 4 + (1 - Math.min(1, Math.max(0, y / S.H))) * 248, z0, z1, row };
 }
-function drawSide(g, kind, row) {
+function drawSide(g, kind, row, paris = false) {
   const sm2 = sideMap(kind), { S, X, Y } = sm2;
   const top = row * 256, r = makeRng(row * 77 + 5);
   g.save(); g.beginPath(); g.rect(0, top, AW, 256); g.clip();
@@ -575,14 +672,24 @@ function drawSide(g, kind, row) {
     g.strokeStyle = 'rgba(255,255,255,0.0)';
   };
   const rock = interp(S.sbKeys || [[0, 0.36]], 0);
-  if (kind === 'police') {   // black fenders/trunk, white doors and roof
+  if (paris && kind === 'police') {   // French: all white, blue band + red pinstripe along the flanks
+    g.fillStyle = '#1b2f7a'; g.fillRect(0, Y(0.5), AW, Y(0.4) - Y(0.5));
+    g.fillStyle = '#b3161a'; g.fillRect(0, Y(0.525), AW, Y(0.505) - Y(0.525));
+    g.fillStyle = '#1b2f7a'; g.fillRect(0, Y(0.8), AW, Y(0.785) - Y(0.8));
+  } else if (paris && kind === 'van') {
+    g.fillStyle = '#1d3f7a'; g.fillRect(X(-1.2), Y(0.9), X(3.4) - X(-1.2), 8);
+    for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
+    for (let z = -1.15; z < 3.4; z += 0.05) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X(z), Y(3.0), 2, 2); g.fillRect(X(z), Y(0.72), 2, 2); }
+  }
+  if (paris && (kind === 'police' || kind === 'taxi' || kind === 'van')) { /* French liveries above */ }
+  else if (kind === 'police') {   // black fenders/trunk, white doors and roof
     g.fillStyle = '#0b0b0c';
     g.fillRect(0, Y(1.02), X(S.doors[0][0] - 0.01), Y(0) - Y(1.02));
     g.fillRect(X(S.doors[1][1] + 0.01), Y(1.02), AW, Y(0) - Y(1.02));
     g.fillRect(0, Y(0.42), AW, Y(0) - Y(0.42));    // black rockers
     g.fillStyle = '#1b2c55'; g.fillRect(X(S.doors[0][0]), Y(0.47), X(S.doors[1][1]) - X(S.doors[0][0]), 4);
   }
-  if (kind === 'taxi') {     // checker band along the doors
+  if (kind === 'taxi' && !paris) {     // checker band along the doors
     const y0 = 0.6, y1 = 0.68, n = 2, cw = (Y(y0) - Y(y1)) / n;
     for (let zz = X(S.doors[0][0] + 0.06), k = 0; zz < X(S.doors[1][1] - 0.06); zz += cw, k++) for (let j = 0; j < n; j++) if ((k + j) % 2 === 0) { g.fillStyle = '#0c0c0c'; g.fillRect(zz, Y(y1) + j * cw, cw, cw); }
   }
@@ -598,7 +705,7 @@ function drawSide(g, kind, row) {
     // engine louvres at the rear
     for (let k = 0; k < 9; k++) line([[4.6, 0.55 + k * 0.05], [5.6, 0.55 + k * 0.05]], 3, 0.7);
   }
-  if (kind === 'van') {
+  if (kind === 'van' && !paris) {
     g.fillStyle = '#d2461c'; g.fillRect(X(-1.2), Y(0.95), X(3.4) - X(-1.2), 6);
     g.fillStyle = '#1d2f4f'; g.fillRect(X(-1.2), Y(0.86), X(3.4) - X(-1.2), 10);
     for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
@@ -720,7 +827,7 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
       if (cap && y < interp(S.sbKeys, z) + 0.12) return [C.trim, RM.plastic];
       if (isSUV && y < S.clad) return [C.trim, RM.plastic];
       if (isVan && y < 0.62) return [C.trim, RM.plastic];
-      if (kind === 'police' && (z < S.doors[0][0] || z > S.doors[1][1] || y < 0.42)) return [[0.012, 0.012, 0.014], RM.paint];
+      if (kind === 'police' && !PARIS && (z < S.doors[0][0] || z > S.doors[1][1] || y < 0.42)) return [[0.012, 0.012, 0.014], RM.paint];
       return [paint, RM.paint];
     },
     inner: (tag, z, y) => (z > c.zA + 0.02 && z < c.zC - 0.02 && y > S.inFloor && (tag === 's' || tag === 's0') ? { col: C.interior, rm: RM.plastic, off: 0.045 } : null),
@@ -869,7 +976,7 @@ function interior(bk, S, kind, rng, { rows = 2, wide = false } = {}) {
   if (kind !== 'van' || true) { seat(-0.38, fz, 0.5, 0.2 + rng() * 0.12); seat(0.38, fz, 0.5, 0.2 + rng() * 0.12); }
   if (rows > 1) { const rz = Math.min(zC - 0.42, fz + 0.95); seat(0, rz, iw * 2 - 0.12, 0.3); if (kind === 'suv') seat(0, rz + 0.85, iw * 2 - 0.12, 0.15); }
   if (kind === 'taxi') {   // partition + meter
-    pushGeo(bk, BOX(iw * 2 - 0.1, 0.4, 0.02), M4(0, belt + 0.18, fz + 0.4), [0.3, 0.32, 0.33], [0.1, 0.6, 0]);
+    if (!PARIS) pushGeo(bk, BOX(iw * 2 - 0.1, 0.4, 0.02), M4(0, belt + 0.18, fz + 0.4), [0.3, 0.32, 0.33], [0.1, 0.6, 0]);
     pushGeo(bk, BOX(0.16, 0.06, 0.08), M4(0.05, dTop + 0.03, dz1 - 0.04), [0.6, 0.06, 0.04], [0.3, 0, 0.8]);
   }
   if (kind === 'police') {
@@ -922,8 +1029,9 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
     pushGeo(bk, BOX(hw * 1.3, 0.1, 0.01), M4(0, yb + 0.14, zF - 0.004), C.white, RM.satin, R.grille);
     pushGeo(bk, RBOX(hw * 1.75, 0.05, 0.12, 0.02), M4(0, yb + 0.02, zF + 0.06), C.trim, RM.plastic);
   }
-  const plate = R.plates[(rng() * 8) | 0];
-  quad(bk, [0, yb + (kind === 'van' ? 0.06 : 0.155), zF - (kind === 'van' ? 0.115 : 0.012)], [-1, 0, 0], [0, 1, 0], 0.32, 0.155, plate, C.white, RM.satin);
+  const plate = PARIS ? R.platesFR[((rng() * 8) | 0) & 3] : R.plates[(rng() * 8) | 0];
+  if (PARIS) quad(bk, [0, yb + (kind === 'van' ? 0.06 : 0.155), zF - (kind === 'van' ? 0.115 : 0.012)], [-1, 0, 0], [0, 1, 0], 0.52, 0.11, plate, C.white, RM.satin);
+  else quad(bk, [0, yb + (kind === 'van' ? 0.06 : 0.155), zF - (kind === 'van' ? 0.115 : 0.012)], [-1, 0, 0], [0, 1, 0], 0.32, 0.155, plate, C.white, RM.satin);
   // ---------- rear: tail lamps, plate, bumper, exhaust
   const yR0 = interp(S.topKeys, zR - 0.05), rb = interp(S.sbKeys, zR);
   const ty = tall ? yR0 + 0.25 : yR0 - 0.09, tx = hw - 0.2;
@@ -937,7 +1045,8 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
       lights.push({ p: [s * tx, ty, zR + 0.03], kind: 'tail' });
     }
   }
-  quad(bk, [0, tall ? yR0 - 0.05 : yR0 - 0.25, zR + 0.012], [1, 0, 0], [0, 1, 0], 0.32, 0.155, plate, C.white, RM.satin);
+  if (PARIS) quad(bk, [0, tall ? yR0 - 0.05 : yR0 - 0.25, zR + 0.012], [1, 0, 0], [0, 1, 0], 0.52, 0.11, plate, C.white, RM.satin);
+  else quad(bk, [0, tall ? yR0 - 0.05 : yR0 - 0.25, zR + 0.012], [1, 0, 0], [0, 1, 0], 0.32, 0.155, plate, C.white, RM.satin);
   pushGeo(bk, RBOX(hw * 1.8, 0.06, 0.12, 0.02), M4(0, rb + 0.03, zR - 0.04), C.trim, RM.plastic);
   pushGeo(bk, CYL(0.035, 0.04, 0.2, 10), M4(hw * 0.55, rb + 0.02, zR - 0.02, Math.PI / 2, 0, 0), [0.6, 0.6, 0.6], RM.chrome);
   // ---------- sides: mirrors, handles, rub strip, wipers, antenna
@@ -1052,7 +1161,8 @@ function vanBox(out, paint, rng) {
     pushGeo(out.body, BOX(0.12, 0.18, zb1 - zb0 + 1.6), M4(s * 0.5, 0.52, (zb0 + zb1) / 2 - 0.8), C.under, RM.under);
     pushGeo(out.body, RBOX(0.3, 0.36, 0.02, 0.02), M4(s * 0.75, 0.62, ax + 0.48), C.black, RM.rubber);   // mud flaps
   }
-  quad(out.body, [0, 0.48, zb1 + 0.273], [1, 0, 0], [0, 1, 0], 0.32, 0.155, R.plates[(rng() * 8) | 0], C.white, RM.satin);
+  if (PARIS) quad(out.body, [0, 0.48, zb1 + 0.273], [1, 0, 0], [0, 1, 0], 0.52, 0.11, R.platesFR[((rng() * 8) | 0) & 3], C.white, RM.satin);
+  else quad(out.body, [0, 0.48, zb1 + 0.273], [1, 0, 0], [0, 1, 0], 0.32, 0.155, R.plates[(rng() * 8) | 0], C.white, RM.satin);
   return [{ p: [-(hw - 0.03), 0.98, zb1 + 0.11], kind: 'tail' }, { p: [hw - 0.03, 0.98, zb1 + 0.11], kind: 'tail' }];
 }
 
@@ -1122,7 +1232,8 @@ function buildBus(out, rng, lights) {
     pushGeo(out.body, RBOX(0.14, 0.42, 0.06, 0.03), M4(s * (hw - 0.14), 1.05, zR + 0.0), [0.55, 0.02, 0.015], [0.08, 0.2, 0.45]);
     lights.push({ p: [s * (hw - 0.14), 1.05, zR + 0.04], kind: 'tail' });
   }
-  quad(out.body, [0, 0.52, zF - 0.1], [-1, 0, 0], [0, 1, 0], 0.32, 0.155, R.plates[(rng() * 8) | 0], C.white, RM.satin);
+  if (PARIS) quad(out.body, [0, 0.52, zF - 0.1], [-1, 0, 0], [0, 1, 0], 0.52, 0.11, R.platesFR[((rng() * 8) | 0) & 3], C.white, RM.satin);
+  else quad(out.body, [0, 0.52, zF - 0.1], [-1, 0, 0], [0, 1, 0], 0.32, 0.155, R.plates[(rng() * 8) | 0], C.white, RM.satin);
   // rear window + engine grille + bike rack-ish bumper
   const rw = new THREE.PlaneGeometry(1.9, 0.6);
   pushGeo(out.glass, rw, M4(0, 2.3, zR + 0.008), C.white, RM.lens);
@@ -1153,6 +1264,12 @@ function buildBus(out, rng, lights) {
 }
 
 // ---------------------------------------------------------------------- per-type extras
+function taxiSignFR(bk, S) {   // small white "TAXI PARISIEN" box on a black base
+  const z = (S.cab.zW1 + S.cab.zB0) / 2 - 0.05, y = roofY(S, z) + S.cab.crown + 0.02;
+  pushGeo(bk, BOX(0.42, 0.03, 0.1), M4(0, y, z), C.black, RM.satin);
+  pushGeo(bk, RBOX(0.64, 0.16, 0.13, 0.03, 2), M4(0, y + 0.1, z), [1.0, 0.98, 0.92], RM.sign);
+  for (const s of [-1, 1]) quad(bk, [0, y + 0.1, z + s * 0.067], [s, 0, 0], [0, 1, 0], 0.6, 0.15, R.taxiSignFR, C.white, RM.sign);
+}
 function taxiSign(bk, S) {
   const z = (S.cab.zW1 + S.cab.zB0) / 2 + 0.05, y = roofY(S, z) + S.cab.crown + 0.03;
   pushGeo(bk, BOX(0.5, 0.03, 0.12), M4(0, y, z), C.black, RM.satin);
@@ -1164,11 +1281,18 @@ function policeKit(bk, S, lights) {
   pushGeo(bk, RBOX(1.36, 0.06, 0.3, 0.02, 1), M4(0, y + 0.02, z), C.black, RM.satin);
   for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
     const x = s * (0.13 + k * 0.19);
-    const col = s < 0 ? [0.8, 0.03, 0.02] : [0.03, 0.12, 0.9];
+    const col = s < 0 && !PARIS ? [0.8, 0.03, 0.02] : [0.03, 0.12, 0.9];
     pushGeo(bk, RBOX(0.17, 0.085, 0.24, 0.03, 1), M4(x, y + 0.095, z), col, [0.06, 0.1, 0.5]);
-    if (k !== 1) lights.push({ p: [x, y + 0.1, z], kind: s < 0 ? 'red' : 'blue' });
+    if (k !== 1) lights.push({ p: [x, y + 0.1, z], kind: s < 0 && !PARIS ? 'red' : 'blue' });
   }
   pushGeo(bk, RBOX(0.1, 0.08, 0.24, 0.03, 1), M4(0, y + 0.09, z), [1, 1, 1], [0.06, 0.1, 0.4]);
+  if (PARIS) {   // no push bar / A-pillar spot: two blue strobes in the grille instead
+    const zF = S.zF, yb = interp(S.sbKeys, zF);
+    for (const s of [-1, 1]) { pushGeo(bk, BOX(0.1, 0.04, 0.02), M4(s * 0.22, yb + 0.36, zF - 0.01), [0.03, 0.12, 0.9], [0.06, 0.1, 0.6]); lights.push({ p: [s * 0.22, yb + 0.36, zF - 0.04], kind: 'blue' }); }
+    const rz = c.zB0 - 0.25, ry = roofY(S, rz) + c.crown + 0.003;
+    quad(bk, [0, ry, rz], [1, 0, 0], [0, 0, -1], 0.7, 0.35, R.pdRoof, C.white, RM.paint);
+    return;
+  }
   // push bar
   const zF = S.zF, yb = interp(S.sbKeys, zF);
   for (const s of [-1, 1]) {
@@ -1205,7 +1329,8 @@ function suvKit(bk, S) {
 
 // ---------------------------------------------------------------------- public API
 export function buildCar(type, opts = {}) {
-  const M = materials();
+  PARIS = opts.city === 'paris';
+  const M = materials(PARIS);
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
   const out = { body: new Bucket(), glass: new Bucket(), glassW: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
@@ -1217,7 +1342,7 @@ export function buildCar(type, opts = {}) {
   const kind = wreck ? 'sedan' : type;
   let S;
   let paint = hex(opts.paint ?? (type === 'taxi' ? 0xf2b705 : type === 'police' ? 0xf4f4f2 : type === 'suv' ? 0x0d0e10 : type === 'van' ? 0xe8e6e0 : 0x6f7378));
-  if (type === 'taxi') paint = hex(0xf2b705);
+  if (type === 'taxi') paint = PARIS ? hex([0x17181b, 0x24262a, 0x101113, 0x2e3034][seed & 3]) : hex(0xf2b705);
   if (type === 'police') paint = hex(0xf4f4f2);
   if (type === 'bus') S = buildBus(out, rng, lights);
   else {
@@ -1246,13 +1371,15 @@ export function buildCar(type, opts = {}) {
       for (const s of [-1, 1]) pushGeo(out.body, BOX(0.34, 0.11, 0.1), M4(s * (S.hw - 0.27), interp(S.topKeys, S.zF) + 0.03, S.zF + 0.06), C.black, RM.under);
       pushGeo(out.body, RBOX(S.hw * 1.7, 0.06, 0.12, 0.02), M4(0.1, 0.16, S.zF + 0.1, 0, 0.1, 0.12), C.black, RM.under);
     }
-    if (type === 'taxi') {
+    if (type === 'taxi' && PARIS) taxiSignFR(out.body, S);
+    else if (type === 'taxi') {
       taxiSign(out.body, S);
       for (const s of [-1, 1]) { sideDecal(out.body, S, s, -0.82, 0.12, 0.44, 0.56, R.taxiDoor, paint); sideDecal(out.body, S, s, 1.72, 2.12, 0.62, 0.71, R.taxiNum, paint); }
     }
     if (type === 'police') {
       policeKit(out.body, S, lights);
-      for (const s of [-1, 1]) { sideDecal(out.body, S, s, -0.84, 0.16, 0.5, 0.75, R.pdDoor, C.white); sideDecal(out.body, S, s, 1.62, 2.06, 0.6, 0.71, R.pdQuarter, C.white); }
+      if (PARIS) for (const s of [-1, 1]) { sideDecal(out.body, S, s, -0.9, 0.2, 0.56, 0.77, R.pdDoor, C.white); sideDecal(out.body, S, s, 1.6, 2.1, 0.57, 0.71, R.pdQuarter, C.white); }
+      else for (const s of [-1, 1]) { sideDecal(out.body, S, s, -0.84, 0.16, 0.5, 0.75, R.pdDoor, C.white); sideDecal(out.body, S, s, 1.62, 2.06, 0.6, 0.71, R.pdQuarter, C.white); }
     }
     if (type === 'suv') suvKit(out.body, S);
     if (type === 'van') {
@@ -1331,6 +1458,7 @@ export function buildCar(type, opts = {}) {
   let tris = out.body.tris + (glass ? out.glass.tris : 0) + 2;
   mark('wheels'); delete bd._t;
   const info = { type, tris, draws: 2 + (glass ? 1 : 0), breakdown: bd, abandon };
+  if (PARIS) info.city = 'paris';
   const res = {
     root, half, center, anchors, info, mesh: body, glass, blob, burntMaterials: [M.charred], burnt: wreck,
     setBurnt() {
@@ -1341,4 +1469,4 @@ export function buildCar(type, opts = {}) {
   };
   return res;
 }
-export function carMaterials() { return materials(); }
+export function carMaterials(city) { return materials(city === 'paris'); }

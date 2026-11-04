@@ -78,16 +78,17 @@ const VS = /* glsl */`
 attribute vec3 iPos;
 attribute vec4 iP;   // size, rot, alpha, variant
 attribute vec4 iC;   // rgb tint, fire glow from below
+attribute float iSt; // horizontal stretch (sheets of spray / a rolling front); 1 = round
 uniform float uNearK;
 varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip; varying vec2 vQ;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
   float c = cos(iP.y), s = sin(iP.y);
-  vec2 p = position.xy * iP.x;
+  vec2 p = position.xy * iP.x * vec2(iSt, 1.0);
   vec3 offs = vec3(c * p.x - s * p.y, s * p.x + c * p.y, 0.0);
   mv.xyz += offs;
-  vQ = offs.xy / iP.x * 2.0;                       // view-space position across the puff, -1..1
+  vQ = vec2(c * position.x - s * position.y, s * position.x + c * position.y) * 2.0;   // view-space position across the puff, -1..1
   vWorldY = iPos.y + (offs * mat3(viewMatrix)).y;   // view → world rotation is the transpose
   // variants 4..7 are the mirrored atlas cells: twice the shapes, no visible repeats in a wall of them
   float vr = mod(iP.w, 4.0); vFlip = iP.w > 3.5 ? -1.0 : 1.0;
@@ -151,7 +152,8 @@ export class DustClouds {
     this.aPos = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3).setUsage(THREE.DynamicDrawUsage);
     this.aP = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
     this.aC = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
-    g.setAttribute('iPos', this.aPos); g.setAttribute('iP', this.aP); g.setAttribute('iC', this.aC);
+    this.aS = new THREE.InstancedBufferAttribute(new Float32Array(max).fill(1), 1).setUsage(THREE.DynamicDrawUsage);   // horizontal stretch (1 = round)
+    g.setAttribute('iPos', this.aPos); g.setAttribute('iP', this.aP); g.setAttribute('iC', this.aC); g.setAttribute('iSt', this.aS);
     g.instanceCount = 0;
     this.geometry = g;
     this.material = new THREE.ShaderMaterial({
@@ -195,6 +197,7 @@ export class DustClouds {
     p.variant = o.variant ?? (this.vid++ % 8);
     p.ride = o.ride || null; p.oz = o.oz || 0;
     p.bv = this.fillBudget ? 0 : 1; // with a fill budget, puffs fade in once they're granted a share of it
+    p.st = o.st ?? 1;
     return p;
   }
   update(dt, eye, ground = -50, fwd = null) {
@@ -220,16 +223,17 @@ export class DustClouds {
     vis.sort((a, b) => b.d2 - a.d2);
     if (this.occlusion) this._occlude(vis, eye);
     if (this.fillBudget && fwd) this._budget(vis, eye, fwd, dt);
-    const P = this.aPos.array, Q = this.aP.array, C = this.aC.array;
+    const P = this.aPos.array, Q = this.aP.array, C = this.aC.array, S = this.aS.array;
     for (let i = 0; i < vis.length; i++) {
       const p = vis[i], t = p.age / p.life;
       const sz = p.sz, a = p.al * p.bv;
       P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z;
       Q[i * 4] = sz; Q[i * 4 + 1] = p.rot; Q[i * 4 + 2] = a; Q[i * 4 + 3] = p.variant;
       C[i * 4] = p.r + (p.r1 - p.r) * t; C[i * 4 + 1] = p.g + (p.g1 - p.g) * t; C[i * 4 + 2] = p.b + (p.b1 - p.b) * t;
-      C[i * 4 + 3] = p.glow * (1 - t * p.glowFade);
+      C[i * 4 + 3] = p.glow * Math.max(0, 1 - t * p.glowFade);   // (went negative past 1/glowFade: it subtracted orange = teal/olive smoke)
+      S[i] = p.st;
     }
-    for (const a of [this.aPos, this.aP, this.aC]) { a.clearUpdateRanges(); a.addUpdateRange(0, vis.length * a.itemSize); a.needsUpdate = true; }
+    for (const a of [this.aPos, this.aP, this.aC, this.aS]) { a.clearUpdateRanges(); a.addUpdateRange(0, vis.length * a.itemSize); a.needsUpdate = true; }
     this.geometry.instanceCount = vis.length;
     // fog uniforms follow the (dust-mixed) scene fog
     const u = this.material.uniforms; u.fogNear.value = this.fog.near; u.fogFar.value = this.fog.far;

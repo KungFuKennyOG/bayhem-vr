@@ -4,6 +4,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 
 ## Status
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
+- **Level 5, "The Iron Lady" (on foot, Paris at blue hour, a fictional lattice tower falls across the Seine), is built** on branch `level-5-iron-lady` — see its section below and `src/levels/iron-lady/DESIGN.md`.
 - **Level 4, "Airport No Return" (on foot, ends in a jeep chase), is done** — see its section below.
 - **Level 3, "Downtown Haven City" (on foot, glass canyon at sunset), is done** — see its section below and `src/levels/downtown-haven/DESIGN.md`.
 - **Level 2, "Port of Victory" (on foot, docks at dusk), is done** — see its section below and `src/levels/port-of-victory/DESIGN.md`.
@@ -147,6 +148,25 @@ Original brief:
   - Large open space with long sightlines.
   - Huge jet explosions.
   - The truck-bed "rail" mode from Level 1 can be reused for the chase.
+
+### Level 5: THE IRON LADY (on foot, a European landmark comes down) — BUILT, in review
+Code: `src/levels/iron-lady/` — see its `DESIGN.md` (beats, world frame, collapse rig, asset contracts). `layout.js` (every number: river, quays, ramps, bridge, park, tower, snipers, cars, `groundAt`), `tower.js` (the 300 m lattice tower: ~2 660 instanced girders + cut-out skin panels, floodlight bands, sparkle / necklace bulbs, aviation lights, twin beacon; the collapse rig), `sky.js` (night sky shader + night env), `rain.js` (GPU drizzle + splash rings), `paris.js` (Haussmann frontages from a facade atlas, cross streets, far city, landmarks), `quays.js` / `quays-kit.js` (stone quays, ramps, lower quays, props), `river.js` + `reflections.js` (the Seine and the light columns on water / wet stone), `boats.js` (bateau-mouche, péniches, the speedboat), `world.js`, `game.js`, `ai.js`, `traffic.js`, `setpieces.js` (riverboat, gunship, tower fall, spray wall, escape), `director.js`, `auto.js`.
+Beats: intro (title over the river, balcony lasers) → quay (fight down the lower quay; a bateau-mouche full of gunmen: shoot its fuel tank, her back breaks) → bridge (traffic jam, police block, a sniper on the first platform) → gunship "WIDOWMAKER 3" (threads the tower; killed, it spins into the north-east leg) → evac (the leg buckles, she lists and sheds girders) → collapse (look-gated: she falls north across the Seine onto the bridge, spire through the north frontage) → run (a spray / dust wall rolls down the river after you) → escape (speedboat east, look back at the wreck) → outro. `?level=iron-lady&beat=<intro|quay|bridge|gunship|evac|collapse|run|escape|outro>`.
+New tech:
+- **Vertex-shader collapse rig** (`tower.js` `twDeform`): a 25-node spine above the second platform, per-leg Bézier curves below it (feet tear out, legs bow), solved on the CPU with ground draping (`setpieces._solveSpine`); `TowerRig.deform()` mirrors it for glows / reflections / debris. Torn girders = zeroed instances re-spawned as rigid `Girders`.
+- **Reflections** (`reflections.js`): analytic light columns for every lamp / window / the tower on water and wet cobbles (one draw).
+- **Boat split**: a hull mesh cut in two by triangle centroid at explosion time (same material, no new shader).
+Shared-engine changes: `hud.js` (callouts are clamped into the central ~45° and ≥ 4 m out — past the guns; affects every level), `downtown-haven/dustfx.js` (optional per-puff horizontal stretch `st`, default 1 = unchanged; the fire under-glow is clamped at 0 — it went negative late in a puff's life and **subtracted orange**, which was the teal / olive smoke reviewers flagged in Level 3 too), `downtown-haven/cars.js` (`city: 'paris'` liveries; the default build is bit-identical), `src/levels/index.js` (registry).
+Review status: five independent screenshot reviews went 5.5 → 6.2 → 6.3 → 6.5 → 6.3/10 (final frames in `docs/level5/`; fresh reviewer each round; the last two are within reviewer noise of each other, so this is an honest plateau, like Levels 2 and 3). Kept by every reviewer: the tower (gold lattice, bulbs, glow — "the best hero object in the project"), the blue-hour sky, wet cobbles with lamp reflections, lamp streaks on the river, the bridge framing, the fire light washing the plaza in the gunship crash, the mid-fall fold framed across the river, the radio writing.
+Fixed along the way: teal / olive smoke (root cause in `dustfx.js`, see above), river "TV static" (reflected window cells now average out under ripples), dark rain specks over fire (rain is additive), callouts clipping off-screen or sitting on the guns, the tour boat surviving its own blast (split hull), the wreck going dark (a third of the bulbs + aviation lights hang on), floating roof slabs in the frontages, the autopilot stalling at the ramps.
+Open issues (round 5, by impact):
+- The spray / dust wall still reads as haze, not a wall. Next lever: a structured front (stacked camera-facing ribbons with a noise-eroded top and a hard leading edge in a ShaderMaterial, a churned-water band ahead of it) instead of puffs.
+- The impact is never framed: from the south lower quay the wall hides the base and the bridge landing. Next lever: a landing stage 10–15 m out on the river for the collapse beat, a tall white water plume and a hinged bridge-deck break at contact.
+- Explosions: shared `fx.js` fireball sprites (band-shaped cores, a magenta rim on big blasts, black square debris chips). Same engine-level limit Level 3 hit.
+- The quay wall is the most-seen surface and read as a high-contrast tile in round 5 (block tone variance narrowed since, not yet re-reviewed; next: an algae / tide band at the foot, mooring rings, drains).
+- The gunship is small and lit flat by the tower (gunmetal paint + rim instead of the warm emissive lift; route it closer).
+- The bridge "jam" is a handful of cars; repeated facade grids along the river; low-poly planter shrubs; the speedboat needs a wake and bow spray.
+Headset checks needed: frame rate during the fall (2 660 instanced girders through the rig shader + rain + reflections + up to 320 cloud puffs), the look-gated collapse trigger, rain streak comfort within 1.2–13 m, callout placement with the new clamp, speedboat ride comfort (power turn), and the shared `VR_HOLD` grips.
 
 ## Quality bar and lessons from Level 1
 - **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).

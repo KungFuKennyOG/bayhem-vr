@@ -1,7 +1,7 @@
 // Generic asset viewer for procedural models, lit like the game (sky, sun, rim, grade, fog, dusk).
 // ?mod=/src/levels/port-of-victory/ship.js&fn=buildShip&args=[...json]
 //  camera: &cx&cy&cz (target) &az&el (deg) &dist  or  &px&py&pz (position) with target
-//  &dusk=0..1 &sunel=deg  &ground=0 to hide the ground plane  &w &h &fov
+//  &dusk=0..1 &sunel=deg &sunax&sunaz (sun azimuth vector)  &ground=0 to hide the ground plane  &w &h &fov
 import * as THREE from 'three';
 import { patchFog, createSky, createEnvironment, createLights, createSunFlare, updateSun, updateFogView, FOG_AWAY, SUN_DIR, applyDusk, setSunElevation } from '/src/atmosphere.js';
 import { initMaterials } from '/src/vehicles.js';
@@ -18,7 +18,7 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(FOG_AWAY.clone(), num('fogNear', 25), num('fogFar', 700));
 const camera = new THREE.PerspectiveCamera(num('fov', 60), W / H, 0.05, 4000);
-if (P.has('sunel')) setSunElevation(num('sunel', 6));
+if (P.has('sunel') || P.has('sunax')) setSunElevation(num('sunel', 6), P.has('sunax') ? new THREE.Vector3(num('sunax', -0.42), 0, num('sunaz', -1)) : SUN_DIR.clone());
 const sky = createSky(); scene.add(sky);
 const flare = createSunFlare(); scene.add(flare);
 const { sun, hemi } = createLights(scene, 2048);
@@ -37,6 +37,7 @@ else {
 }
 camera.lookAt(tgt);
 const t0 = performance.now();
+if (P.has('nogable')) window.__noGable = true;
 const mod = await import(/* @vite-ignore */ P.get('mod'));
 const args = P.has('args') ? JSON.parse(P.get('args')) : [];
 let res = await mod[P.get('fn')](...args, { renderer, scene, camera, sun, hemi });
