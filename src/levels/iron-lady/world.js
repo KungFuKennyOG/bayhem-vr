@@ -121,9 +121,9 @@ export class IronWorld {
     // retaining walls (lower quay <-> street), with the ramp openings; and the ramps' river-side walls
     const wall = (x0, x1, z0, z1, y0, y1) => this.col.add([x0, y0, z0], [x1, y1, z1], { kind: 'wall', mat: 'concrete' });
     // north: wall face at z 52 except where the ramp meets the street (x < RAMP_N.xHigh the ramp is at street level)
-    wall(LOWQ.x0, LOWQ.x1 + 40, LOWQ.wall, LOWQ.wall + 0.6, LOW_Y, 0);
+    wall(LOWQ.x0, RAMP_N.xHigh - 6, LOWQ.wall, LOWQ.wall + 0.6, LOW_Y, 0); wall(RAMP_N.xHigh + 1, LOWQ.x1 + 40, LOWQ.wall, LOWQ.wall + 0.6, LOW_Y, 0);
     wall(RAMP_N.xHigh - 6, RAMP_N.xLow, RAMP_N.z0 - 0.45, RAMP_N.z0, LOW_Y, 1.0);
-    wall(LOWQ.x0, LOWQ.x1 + 40, -LOWQ.wall - 0.6, -LOWQ.wall, LOW_Y, 0);
+    wall(LOWQ.x0, RAMP_S.xHigh - 6, -LOWQ.wall - 0.6, -LOWQ.wall, LOW_Y, 0); wall(RAMP_S.xHigh + 1, LOWQ.x1 + 40, -LOWQ.wall - 0.6, -LOWQ.wall, LOW_Y, 0);
     wall(RAMP_S.xHigh - 6, RAMP_S.xLow, RAMP_S.z1, RAMP_S.z1 + 0.45, LOW_Y, 1.0);
     // parapet along the upper quays (except where the ramps arrive and over the bridge head)
     const par = (x0, x1, z0, z1) => this.col.add([x0, 0, z0], [x1, 1.0, z1], { kind: 'parapet', mat: 'concrete' });
