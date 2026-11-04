@@ -796,7 +796,9 @@ export class SetPieces {
     g.audio.play('body_fall', { volume: 1 }); g.audio.play('metal_crash', { volume: 0.7, pitch: 1.3 });
     g.player.shake = 1.2; g.haptic(1, 200);
     if (g.player.mode !== 'vr') { g.player.camDip = 0.5; g.player.camDipRate = 1.2; }
-    g.addScore(10000, 'STICK THE LANDING!', this.cargo.root.localToWorld(V3(0, CARGO.floorY + 5.4, 13)), 'huge'); // high in the opening: the jeep crash plays out below it
+    // score now, callout a beat later and up in the ceiling band: the first image is the jeep going up, clean
+    g.addScore(10000, null, null);
+    g.fx.later(0.8, () => g.callout('STICK THE LANDING!', this.cargo.root.localToWorld(V3(0, CARGO.floorY + 5.9, 12)), 'huge', '+10000'));
     g.events.push({ type: 'landed' });
     // the jeep peels off into the grass and flips; the driver bails first (we hear him on the radio)
     J.state = 'crash'; J.t = 0;
