@@ -140,6 +140,8 @@ void main() {
     shimmer = pow(smoothstep(0.42, 0.85, n1 * 0.62 + n2 * 0.48), 1.5) * 2.2;
     // the core of the column stays more continuous; the flanks break up into flecks
     shimmer = mix(shimmer, 0.8, 0.2 * exp(-a * a * 8.0) * exp(-s * s));
+    // calmer in a headset: long continuous streaks, only a little fleck break-up (no high-frequency glitter)
+    shimmer = mix(shimmer, 0.85, 0.55);
   } else {
     // wet stone: soft column with a fine pocked grain (rain), barely moving
     a = lat / hw + (vn(vec2(th * 90.0, seed * 9.0)) - 0.5) * 0.25;

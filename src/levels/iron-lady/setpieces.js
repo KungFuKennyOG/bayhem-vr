@@ -203,7 +203,7 @@ export class SetPieces {
     B.m.setBurnt?.();
     g.boatsSunk++;
     g.slowmo(1.6, 0.3, true);
-    g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().setY(P.y + 16), 'huge');
+    g.fx.later(1.4, () => g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().add(_v.subVectors(g.headPos, P).setY(0).normalize().multiplyScalar(12)).setY(P.y + 1.5), 'huge'));
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.fx.light(P.clone().setY(P.y + 3), 500, 2, 0xff9040, true, 55);
     // a water column thrown up beside the hull
@@ -281,7 +281,7 @@ export class SetPieces {
     H.phase = 'dying'; H.t = 0; H.spin = 0.6;
     g.fx.explosion(H.pos.clone(), 1.3, { noRing: true });
     g.slowmo(2.4, 0.28, true);
-    g.addScore(5000, 'BIRD DOWN!', H.pos.clone().setY(H.pos.y + 4), 'huge');
+    const hp0 = H.pos.clone(); g.fx.later(1.4, () => g.addScore(5000, 'BIRD DOWN!', hp0.clone().lerp(g.headPos, 0.55).setY(g.headPos.y - 1.2), 'huge'));
     g.audio.play('metal_crash', { x: H.pos.x, y: H.pos.y, z: H.pos.z });
     g.bossInfo = null;
     g.events.push({ type: 'heliDying' });
@@ -527,9 +527,10 @@ export class SetPieces {
     g.audio.play('metal_crash', { x: I.x, y: I.y, z: I.z, volume: 1 });
     for (let k = 0; k < 140; k++) g.fx.sparks.spawn({ x: I.x + range(-6, 6), y: I.y + range(-4, 8), z: I.z + range(-6, 6), vx: range(-5, 5), vy: range(-2, 5), vz: range(-5, 5), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.15, life: range(2, 4), r: 2.6, g: 1.6, b: 0.6, a: 0.9, fadeOut: 0.5, ground: true });
     g.slowmo(1.8, 0.35, true);
-    g.addScore(1500, 'RIGHT IN THE LEG!', I.clone().add(_v.set(0, 10, 0)), 'big');
+    g.fx.later(1.6, () => g.addScore(1500, 'RIGHT IN THE LEG!', I.clone().lerp(g.headPos, 0.6).setY(g.headPos.y - 1), 'big'));
     g.fx.main.bigBudget += 90; g.fx.later(5, () => { g.fx.main.bigBudget -= 90; });
-    this.megaFireball(I.clone(), 2.0);
+    this.megaFireball(I.clone(), 3.0);
+    g.fx.later(0.3, () => this.megaFireball(I.clone().add(_v.set(range(-6, 6), 8, range(-6, 6))), 2.2));
     // tear girders off the struck leg
     this.tear(TOWER.crashY - 14, TOWER.crashY + 14, 26, TOWER.crashLeg, 9);
     this.legFire = { P: I.clone(), t: 0 };
@@ -719,8 +720,8 @@ export class SetPieces {
       const c = 1 - now / rest; // + compressed, - stretched
       const out = _vd.set(L.sx, 0, L.sz).normalize();
       const crash = i === TOWER.crashLeg ? F.wound : 0;
-      const bw = Math.max(0, c) * 55 + crash * 7;
-      R.bow[i].set(out.x * bw + (i === TOWER.crashLeg ? F.dir.x * 4 * crash : 0), -Math.max(0, c) * 18 - crash * 5, out.z * bw);
+      const bw = Math.max(0, c) * 55 + crash * 14;
+      R.bow[i].set(out.x * bw + (i === TOWER.crashLeg ? F.dir.x * 4 * crash : 0), -Math.max(0, c) * 18 - crash * 9, out.z * bw);
       if (c < -0.03 && F.phase !== 'wounded') {
         // stretched: the foot tears out of its plinth and follows
         const k = clamp((-c - 0.03) * 4, 0, 0.92);
@@ -764,7 +765,7 @@ export class SetPieces {
     // the bridge: every car on it gets crushed / cooks off in a chain
     if (Math.abs(P.x) < BRIDGE.half + 16 && Math.abs(P.z) < BRIDGE.z1 + 8) {
       for (const c of g.traffic.cars) if (c.explosive && c.root.position.distanceTo(P) < 26) { c.lastHitDir = _v.set(range(-1, 1), 0.5, range(-1, 1)).normalize().clone(); g.traffic.ignite(c, range(0.1, 1.2)); }
-      if (!F.bridgeHit) { F.bridgeHit = true; g.slowmo(2.6, 0.3, true); g.events.push({ type: 'bridgeHit', P }); g.addScore(10000, 'SHE\'S DOWN!', P.clone().setY(P.y + 30), 'huge'); }
+      if (!F.bridgeHit) { F.bridgeHit = true; g.slowmo(2.6, 0.3, true); g.events.push({ type: 'bridgeHit', P }); g.fx.later(2.2, () => g.addScore(10000, 'SHE\'S DOWN!', P.clone().lerp(g.headPos, 0.75).setY(g.headPos.y - 1), 'huge')); }
       for (const L of this.world.glowList) { const p = L._p || (L.p.isVector3 ? L.p : null); if (p && Math.abs(p.x) < BRIDGE.half + 2 && Math.abs(p.z - P.z) < 20) L.dead = true; }
     }
     if (P.z > 70 && !F.spireHit && i >= NODES - 3) { F.spireHit = true; this.megaFireball(P.clone().setY(P.y + 6), 1.8); g.events.push({ type: 'spireHit', P }); }
@@ -802,15 +803,16 @@ export class SetPieces {
     // the front: spray off the river + dust off the quays, rolling, crest higher than the foot
     Wl.spawnT -= dt;
     if (Wl.spawnT <= 0) {
-      Wl.spawnT = g.E.isQuest ? 0.07 : 0.04;
+      Wl.spawnT = g.E.isQuest ? 0.035 : 0.018;
       const z = range(-60, 60), onRiver = Math.abs(z) < 40;
       const y = (onRiver ? WATER_Y : groundAt(Wl.x, z)) + range(0, 4);
       const crest = rand() < 0.4;
       const k = range(0.8, 1.1);
       // a low rolling front: many smaller puffs hugging the water/quay, a ragged crest, no clean cumulus
-      this.clouds.spawn({ x: Wl.x + range(-5, 2), y: crest ? y + range(6, 16) : y + range(0.5, 4), z, vx: range(8, 12), vy: crest ? range(-0.5, 1.5) : range(0.3, 2), vz: range(-1.5, 1.5), drag: 0.4, buoy: 0, s0: range(4, 7), s1: range(12, 20), life: range(3.5, 5), a: 0.85, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.4, 0.4), spray: true, r: (onRiver ? 0.11 : 0.13) * k, g: (onRiver ? 0.11 : 0.11) * k, b: (onRiver ? 0.12 : 0.09) * k, r1: 0.07, g1: 0.065, b1: 0.06, glow: 0.12, glowFade: 1.5 });
+      this.clouds.spawn({ x: Wl.x + range(-5, 2), y: crest ? y + range(8, 22) : y + range(0.5, 6), z, vx: range(8, 12), vy: crest ? range(-0.5, 1.5) : range(0.3, 2), vz: range(-1.5, 1.5), drag: 0.4, buoy: 0, s0: range(6, 9), s1: range(16, 26), life: range(3.5, 5), a: 0.95, fadeIn: 0.04, fadeOut: 0.45, vrot: range(-0.4, 0.4), spray: true, r: (onRiver ? 0.11 : 0.13) * k, g: (onRiver ? 0.11 : 0.11) * k, b: (onRiver ? 0.12 : 0.09) * k, r1: 0.07, g1: 0.065, b1: 0.06, glow: 0.12, glowFade: 1.5 });
       // spray sheets and grit streaking ahead of it
-      if (rand() < 0.6) g.fx.main.spawn({ x: Wl.x + range(0, 6), y: y + range(0.3, 3), z: z * 0.8, vx: range(10, 16), vy: range(0, 2), vz: range(-1, 1), drag: 0.8, frame: CELL.WISP, s0: 1.5, s1: range(5, 9), life: range(1.2, 2), rot: rand() * 6, r: 0.3, g: 0.31, b: 0.33, a: 0.45, fadeIn: 0.05, fadeOut: 0.5 });
+      if (rand() < 0.8) g.fx.main.spawn({ x: Wl.x + range(0, 8), y: (onRiver ? WATER_Y : y) + range(0.2, 2.5), z: z * 0.8, vx: range(12, 18), vy: range(0, 1.5), vz: range(-1, 1), drag: 0.7, frame: CELL.WISP, s0: 2.5, s1: range(8, 14), life: range(1.2, 2), rot: rand() * 6, r: 0.42, g: 0.46, b: 0.52, a: 0.5, fadeIn: 0.05, fadeOut: 0.5 });
+      if (rand() < 0.15) g.fx.spawnDebris(new THREE.Vector3(Wl.x + range(-2, 4), y + range(1, 6), z * 0.6), range(10, 16), range(1, 5), range(-2, 2), range(0.2, 0.5), false);
     }
     const d = head.x - Wl.x;
     g.fogMix.k = damp(g.fogMix.k, clamp(1 - (d - 3) / 18, 0, 0.85) * (riding ? 0.4 : 1), 1.5, dt);

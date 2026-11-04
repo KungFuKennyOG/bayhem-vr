@@ -251,10 +251,11 @@ export class IronGame {
   // ---------------------------------------------------------------- explosions
   // every fireball ends as smoke: dark, fire-lit underneath while young, climbing from where it went off
   smokeAfter(P, size = 1) {
-    const x = P.x, y = P.y, z = P.z, n = Math.round(3 + size * 2);
-    for (let i = 0; i < n; i++) this.fx.later(0.15 + i * 0.07, () => {
-      const s0 = range(1.6, 2.6) * size;
-      this.clouds.spawn({ x: x + range(-1.2, 1.2) * size, y: y + range(0.5, 2.5) * size, z: z + range(-1.2, 1.2) * size, vx: range(-1.5, 1.5), vy: range(3, 6) * Math.sqrt(size), vz: range(-1.5, 1.5), drag: 0.7, buoy: 0.4, s0, s1: s0 * range(3.5, 5), life: range(5, 7), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, vrot: range(-0.3, 0.3), r: 0.07, g: 0.06, b: 0.055, r1: 0.2, g1: 0.18, b1: 0.16, glow: 1.6, glowFade: 3.5 });
+    // fewer, bigger, spread-out puffs (no vertical string of pearls), a dark cap and a low skirt
+    const x = P.x, y = P.y, z = P.z, n = Math.round(2 + size * 1.5);
+    for (let i = 0; i < n; i++) this.fx.later(0.12 + i * 0.12, () => {
+      const s0 = range(2.4, 3.6) * size, low = i === 0;
+      this.clouds.spawn({ x: x + range(-2.2, 2.2) * size, y: y + (low ? 0.4 : range(1.5, 3.5)) * size, z: z + range(-2.2, 2.2) * size, vx: range(-2, 2) + 0.6, vy: (low ? range(0.5, 1.5) : range(2, 4)) * Math.sqrt(size), vz: range(-2, 2), drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3, 4.2), life: range(5, 7), a: 0.8, fadeIn: 0.05, fadeOut: 0.55, vrot: range(-0.3, 0.3), r: 0.075, g: 0.06, b: 0.05, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.2, glowFade: 3 });
     });
   }
   boom(P, size = 1, { radius = 7, dmg = 60, src = null, car = false, noRing = false, shake = null, player = true, glass = true } = {}) {

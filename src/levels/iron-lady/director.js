@@ -165,9 +165,12 @@ export class Director {
       // 8 ---- the getaway
       { name: 'escape', wp: null, music: 1.0, dusk: 0.8, enter: () => {
           hud.setWaypoint(null);
+          // desktop / trailer: look back at her lying across the bridge (VR: the radio tells you to)
+          if (A) { g.cinematicLook = V(0, 12, 6); g.cinematicW = 1.4; }
+          later(1.6, () => say('Look back. Look at her. Across the bridge like she\'s taking a nap.', 3.2));
           g.slowmo(1.6, 0.35, true);
           later(0.8, () => say('Hold on to something!', 1.8));
-          later(3.8, () => say('...I\'ll miss her. She had a good run. Mostly before you showed up.', 3.6));
+          later(5.2, () => say('...I\'ll miss her. She had a good run. Mostly before you showed up.', 3.6));
         }, until: (t) => t > (trailer ? 9 : 11) },
       { name: 'outro', music: 1.0, dusk: 0.85, enter: () => {
           audio.musicStinger('victory');

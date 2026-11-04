@@ -32,7 +32,7 @@ export async function create(E) {
   fx.heat = Math.min(fx.heat ?? 1, 0.85);
   // fire sprites: push toward orange and cool into near-black soot (the grade's teal shadows put cyan / olive rims on
   // pale fire edges against the night sky) — level-local patch, fx.js untouched
-  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.09; o.g1 = 0.07; o.b1 = 0.06; } } return spawn(o); }; }
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.15; o.b = (o.b ?? 0.5) * 0.78; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.09; o.g1 = 0.07; o.b1 = 0.06; } } return spawn(o); }; }
   const world = await new IronWorld(E).build();
   const game = new IronGame(E, world);
   // dark smoke puffs: keep them warm brown-black (the grade's teal split-tone turns neutral greys teal at night)
