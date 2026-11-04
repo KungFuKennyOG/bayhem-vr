@@ -68,7 +68,9 @@ Original brief:
   - Building collapse: a chunked mesh plus a particle dust wall.
   - Cars as cover that explode.
 
-### Level 4: AIRPORT NO RETURN (on foot, ending in a vehicle)
+### Level 4: AIRPORT NO RETURN (on foot, ending in a vehicle) — DONE
+Built on top of Level 2's framework (branch `level-4-airport`). Code: `src/levels/airport-no-return/` (`layout.js` positions, `world.js` airfield / lights / collision, `aircraft.js` airliner + cargo plane, `gse.js` jeep / refuelers / tugs / carts / stairs, `game.js` combat, `setpieces.js` jets / cargo plane / jeep ride / chase SUVs / leap / credits, `director.js` beats, `auto.js` demo autopilot). Beats: hangar intro → apron fight (2 waves, exploding JET A-1 refuelers) → two jets taxi up and blow on the taxiway (break into burning pieces) → FOLLOW-ME jeep pulls up → rail chase down runway 27 (SUVs, ramp crew, drum pallets) → jump onto the ramp as the plane rotates → credits behind the ramp. Test any beat with `?level=airport-no-return&beat=<name>`; see `DESIGN.md` there. Soldier AI is imported from `port-of-victory/ai.js` (should move to `src/` once Level 2 lands). Shared-file changes: `src/audio.js` (jet / cargo loops, spool-up), `src/levels/index.js` (registry).
+Original brief:
 - **Setting:** a sunset tarmac with hangars, jets and fuel trucks.
 - **Beats:**
   1. Fight across the apron.

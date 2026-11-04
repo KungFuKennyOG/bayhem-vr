@@ -88,8 +88,10 @@ export class AirportGame {
 
   // ---------------------------------------------------------------- explosive drums
   _initDrums() {
-    const geo = new THREE.CylinderGeometry(0.29, 0.29, 0.88, 14); geo.translate(0, 0.44, 0);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xa3170f, metalness: 0.5, roughness: 0.45 });
+    // 200 L drum: lathe profile with rolling hoops + chimes, painted, hazard band, stencil
+    const prof = [[0, 0], [0.27, 0], [0.29, 0.02], [0.29, 0.05], [0.28, 0.07], [0.285, 0.29], [0.3, 0.3], [0.285, 0.31], [0.285, 0.57], [0.3, 0.58], [0.285, 0.59], [0.28, 0.81], [0.29, 0.83], [0.29, 0.86], [0.27, 0.88], [0.0, 0.88]].map(([r, y]) => new THREE.Vector2(r, y));
+    const geo = new THREE.LatheGeometry(prof, 18);
+    const mat = new THREE.MeshStandardMaterial({ map: drumTexture(), metalness: 0.45, roughness: 0.5 });
     this.drumGeo = geo; this.drumMat = mat; this.drumBurnt = MAT.charred || mat;
     const list = [];
     for (const [cx, cz, n, lay] of this.world.drumSpots || []) {
@@ -542,7 +544,10 @@ export class AirportGame {
       this._appliedDusk = this.dusk;
       setSunElevation(sunElevation(this.dusk), SUN_AZ);
       applyDusk(this.dusk, { sun: this.E.sun, hemi: this.E.hemi, fog: this.scene.fog, renderer: this.E.renderer });
-      this.scene.environmentIntensity = 0.8 - this.dusk * 0.4;
+      this.scene.environmentIntensity = 0.62 - this.dusk * 0.3;
+      // airport look: less cool sky fill on the concrete, a touch more sun (golden floor, blue-violet only in shadow)
+      const H = this.E.hemi; H.intensity *= 0.72; H.color.lerp(_warmSky, 0.35); H.groundColor.lerp(_warmGround, 0.4);
+      this.E.sun.intensity *= 1.12;
     }
     this.world.update(dt, this.headPos, this.dusk);
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
@@ -574,16 +579,21 @@ export class AirportGame {
   }
   // persistent smoke columns + fires from wrecks (jets, trucks, cars)
   _ambient(dt) {
+    if (this.headPos.z > 336 && this.headPos.x > 200 && this.headPos.x < 264 && rand() < dt * 14) {
+      const p = _v.set(this.headPos.x + range(-6, 6), range(0.5, 4), this.headPos.z + range(-14, 2));
+      this.fx.main.spawn({ x: p.x, y: p.y, z: p.z, vx: range(-0.05, 0.05), vy: range(-0.02, 0.05), vz: range(-0.05, 0.05), drag: 0.2, frame: CELL.GLOW, s0: 0.03, s1: 0.05, life: range(3, 5), r: 1.4, g: 1.1, b: 0.7, a: 0.9, fadeIn: 0.3, fadeOut: 0.4 });
+    }
     this._colT = (this._colT || 0) - dt;
     const emit = this._colT <= 0;
     if (emit) this._colT = 0.12;
     for (const c of this.smokeCols) {
       c.life -= dt;
       if (c.life <= 0) continue;
+      if (c.follow) c.p.set(c.follow.pos.x, 0.5, c.follow.pos.z);
       const near = this.headPos.distanceTo(c.p) < 260;
       if (emit) {
         const k = c.k;
-        if (near || rand() < 0.35) this.fx.main.spawn({ x: c.p.x + range(-2, 2) * k, y: c.p.y + 2 * k, z: c.p.z + range(-2, 2) * k, vx: range(-0.5, 0.5) + 1.8, vy: range(3.5, 5.5), vz: range(-0.5, 0.5) + 0.6, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 4 * k, s1: range(16, 26) * k, ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.13, g: 0.11, b: 0.1, a: 0.82, fadeIn: 0.06, fadeOut: 0.55 });
+        if (near || rand() < 0.6) this.fx.main.spawn({ x: c.p.x + range(-2, 2) * k, y: c.p.y + 2 * k, z: c.p.z + range(-2, 2) * k, vx: range(-0.5, 0.5) + 1.8, vy: range(3.5, 5.5), vz: range(-0.5, 0.5) + 0.6, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 4 * k, s1: range(16, 26) * k, ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.13, g: 0.11, b: 0.1, a: 0.82, fadeIn: 0.06, fadeOut: 0.55 });
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire);
       }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
@@ -647,3 +657,17 @@ export class AirportGame {
   }
 }
 const _hitOut = { hit: false, nx: 0, ny: 0, nz: 0 };
+const _warmSky = new THREE.Color(0.95, 0.72, 0.55), _warmGround = new THREE.Color(0.75, 0.5, 0.3);
+
+function drumTexture() {
+  const W = 256, H = 128, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  // lathe uv: u around, v up the profile (0 bottom .. 1 top)
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#5a0b07'); g.addColorStop(0.15, '#a3170f'); g.addColorStop(0.85, '#a8190f'); g.addColorStop(1, '#4a0a06');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(${i % 2 ? 40 : 200},${i % 2 ? 20 : 120},10,${0.05 + (i % 7) * 0.01})`; x.fillRect((i * 73) % W, (i * 37) % H, 3 + (i % 5), 2 + (i % 3)); }
+  // hazard band
+  x.fillStyle = '#e0a812'; x.fillRect(0, H * 0.36, W, H * 0.12);
+  x.fillStyle = '#151311'; for (let k = -2; k < 20; k++) { x.beginPath(); x.moveTo(k * 16, H * 0.48); x.lineTo(k * 16 + 8, H * 0.48); x.lineTo(k * 16 + 20, H * 0.36); x.lineTo(k * 16 + 12, H * 0.36); x.fill(); }
+  x.fillStyle = 'rgba(245,235,220,0.9)'; x.font = '700 15px Oswald, sans-serif'; x.fillText('JET A-1', 20, H * 0.28); x.fillText('FLAMMABLE', 150, H * 0.28);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}

@@ -31,7 +31,7 @@ export class Director {
           audio.play('ship_horn', { x: 0, y: 8, z: 168, volume: 0.25, pitch: 2.2 });
           later(0.8, () => say('Last stop. Their boss is on that grey cargo plane, wheels-up in five.', 3.4));
           later(4.4, () => say('I\'m gonna find us a ride. You go make some noise on the apron.', 3.2));
-          A?.go([ground(229, 336, { slow: 0.8 })]);
+          A?.go([ground(226, 352, { slow: 0.75 }), ground(228, 334, { slow: 0.8 })]);
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 6.0 : 8.0) },
       { name: 'apronA', wp: V(212, 2.6, 288), hunt: true, music: 0.6, dusk: 0.03, enter: () => {
@@ -128,7 +128,7 @@ export class Director {
           later(trailer ? 4.5 : 5.5, () => { g.cinematicLook = null; });
         }, update: (t) => { if (g.cinematicLook && setp.jeep.rb) g.cinematicLook.copy(setp.jeep.rb.pos).setY(1); },
         until: (t) => t > (trailer ? 6.5 : 8) },
-      { name: 'credits', wp: null, music: 0.6, dusk: 0.42, enter: () => {
+      { name: 'credits', wp: null, music: 0.6, dusk: 0.62, enter: () => {
           const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 'S'}`;
           setp.rollCredits([
             { text: 'BAYHEM', big: true, sub: 'A FILM BY EXPLOSIONS' },
@@ -154,7 +154,8 @@ export class Director {
           later(3.0, () => say('...Is that a question I should be worried about?', 2.8, 'DRIVER'));
           A?.go([]);
         }, update: (t) => {
-          g.cinematicLook = setp.cargo.root.localToWorld(V(0, CARGO.floorY + 4.5, 34)); g.cinematicW = 2;
+          g.cinematicLook = setp.cargo.root.localToWorld(V(0, CARGO.floorY + 2.4, 30)); g.cinematicW = 2;
+          g.scene.fog.far = Math.min(7000, g.scene.fog.far + (1 / 30) * 300); // open up the view: airport lights on the horizon
           // last shot: the ramp starts closing on the sunset
           if (t > (trailer ? 18 : 24)) { setp.rampA = Math.max(-0.42, setp.rampA - (1 / 30) * 0.06); setp.cargo.setRamp(setp.rampA); }
           if (t > (trailer ? 22 : 30)) hud.black.material.opacity = Math.min(1, (t - (trailer ? 22 : 30)) / 2);
@@ -169,7 +170,7 @@ export class Director {
       const p = START_AT[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
       if (ji >= this.steps.findIndex(s => s.name === 'getaway')) {
         for (const J of setp.jets) { J.a.root.position.z = J.z = TAXI.zBlow - J.idx * 20; setp.explodeJet(J); }
-        g.slowT = 0; g.timeScale = 1; game.fx.queue.length = 0;
+        g.slowT = 0; g.timeScale = 1;
         setp.startTakeoff();
       }
       if (ji >= this.steps.findIndex(s => s.name === 'chase1')) {

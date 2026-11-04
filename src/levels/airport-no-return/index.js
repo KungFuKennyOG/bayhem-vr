@@ -23,13 +23,15 @@ export async function create(E) {
   scene.fog.near = 70; scene.fog.far = 2600;
   // a slightly wider shadow frustum: big aircraft, long shadows
   const sc = E.sun.shadow.camera; sc.left = -46; sc.right = 46; sc.top = 46; sc.bottom = -46; sc.far = 320; sc.updateProjectionMatrix();
+  // tighter sun glare: the low sun sits right down the runway and the default halo washes out the plane
+  { const [g2, g1, st] = E.flare.children; g1.scale.setScalar(420); g2.scale.setScalar(1250); g2.material.opacity = 0.55; st.material.opacity = 0.5; }
   const world = await new AirportWorld(E).build();
   const game = new AirportGame(E, world);
   game.dusk = dusk0;
   const setp = new SetPieces(game);
   game.setpieces = setp;
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });
-  player.yaw = START.yaw; player.pitch = -0.03;
+  player.yaw = START.yaw; player.pitch = 0.06;
   game.onHaptic = (i, ms) => player.pulse(i, ms);
   const loco = new Locomotion(rig, world.col, { walk: 3.2, sprint: 5.4 });
   player.enableLocomotion(loco);

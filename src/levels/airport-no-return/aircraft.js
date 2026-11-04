@@ -33,7 +33,7 @@ function shared() {
 
 // light grey panel lines + rivets (wings, stabilisers), 4 m tile
 function panelTexture() {
-  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(911, 32);
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(911, 3);
   const img = x.createImageData(S, S);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const v = 232 + (T.fbm(n, xx / S, y / S, 3, 3) - 0.5) * 26;
@@ -296,6 +296,10 @@ export function buildAirliner(liveryKey = 'haven') {
     return g;
   };
   const parts = { nose: mk(nose, 'nose'), aft: mk(aft, 'aft'), wingL: mk(wl, 'wingL'), wingR: mk(wr, 'wingR') };
+  // intact airframe = one merged mesh (≈9 draw calls instead of ≈26); the four parts only appear for the breakup
+  const whole = new THREE.Mesh(mergeGrouped([...nose, ...aft, ...wl, ...wr], NM).geometry, mats); whole.castShadow = true; whole.receiveShadow = true;
+  root.add(whole);
+  for (const p of Object.values(parts)) p.userData.mesh.visible = false;
   // spinning fans
   const fans = [];
   for (const [side, part] of [[1, parts.wingR], [-1, parts.wingL]]) {
@@ -322,7 +326,8 @@ export function buildAirliner(liveryKey = 'haven') {
     { name: 'wingL', min: [-17.2, 1.7, -3.6], max: [-1.9, 3.3, 5.8] },
     { name: 'wingR', min: [1.9, 1.7, -3.6], max: [17.2, 3.3, 5.8] },
   ];
-  return { root, parts, fans, anchors, hit, info: { len: 38, span: 34.8 } };
+  return { root, parts, fans, anchors, hit, whole, info: { len: 38, span: 34.8 },
+    breakApart() { whole.visible = false; for (const p of Object.values(parts)) p.userData.mesh.visible = true; } };
 }
 
 // =====================================================================================
@@ -347,7 +352,7 @@ function cargoLivery() {
   const n = T.makeNoise(7310, 64), img = x.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
     const th = (1 - y / H) * TAU, low = Math.max(0, -Math.cos(th));
-    let v = 138 + (T.fbm(n, xx / W * 6, y / H * 1.5, 4, 3) - 0.5) * 22 - low * 14;
+    let v = 104 + (T.fbm(n, xx / W * 6, y / H * 1.5, 4, 3) - 0.5) * 18 - low * 14;
     // exhaust soot streaks behind the engines along the upper sides
     const i = (y * W + xx) * 4; img.data[i] = v * 0.98; img.data[i + 1] = v * 1.02; img.data[i + 2] = v * 1.07; img.data[i + 3] = 255;
   }
@@ -396,11 +401,11 @@ function cargoFinTexture() {
 }
 function holdTexture() {
   // ribs, quilted insulation blankets, a stencil here and there (u = along the hull, v = around)
-  const W = 1024, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(3121, 32);
+  const W = 1024, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(3121, 2);
   const img = x.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
     const q = 0.75 + 0.25 * Math.cos((xx % 32) / 32 * TAU) * Math.cos((y % 24) / 24 * TAU);
-    const v = (60 + T.fbm(n, xx / W * 8, y / H * 2, 4, 3) * 30) * q;
+    const v = (60 + T.fbm(n, xx / W, y / H, 2, 3) * 30) * q;
     const i = (y * W + xx) * 4; img.data[i] = v * 1.02; img.data[i + 1] = v * 1.04; img.data[i + 2] = v * 0.88; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);
@@ -409,11 +414,11 @@ function holdTexture() {
   return T.canvasTex(c);
 }
 function floorTexture() {
-  const W = 256, H = 512, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(3170, 32);
+  const W = 256, H = 512, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(3170, 3);
   const img = x.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
     const plate = ((xx >> 3) + (y >> 3)) % 2 ? 1 : 0.94;
-    const v = (78 + T.fbm(n, xx / W * 3, y / H * 6, 4, 3) * 40) * plate;
+    const v = (78 + T.fbm(n, xx / W, y / H, 3, 3) * 40) * plate;
     const i = (y * W + xx) * 4; img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v * 1.04; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);

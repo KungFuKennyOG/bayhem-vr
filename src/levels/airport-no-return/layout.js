@@ -25,7 +25,7 @@ export const HANGARS = [
   { x: 232, z: 340, w: 58, d: 46, h: 21, door: 0.8, id: 2 },
   { x: 296, z: 340, w: 58, d: 46, h: 21, door: 0.3, id: 3 },
 ];
-export const START = { x: 229, z: 352, yaw: 0.12 };     // inside hangar 2, looking out of the door
+export const START = { x: 224, z: 371, yaw: 0.1 };     // inside hangar 2, looking out of the door
 export const JEEP_STOP = { x: 127, z: 146 };            // where the driver pulls up for you
 export const TOWER = { x: 360, z: 70 };
 export const FUEL_FARM = { x: 300, z: 30 };

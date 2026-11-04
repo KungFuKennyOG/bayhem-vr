@@ -102,8 +102,10 @@ export class AirportWorld {
       m({ color: 0xff5a10, roughness: 0.6 }),
       m({ color: 0x302820, emissive: 0xffb060, emissiveIntensity: 1.4, roughness: 0.3 }),
       m({ color: 0xd9a514, roughness: 0.55 }),
+      m({ map: crateTexture(), roughness: 0.85 }),
+      m({ color: 0x9fb0b8, roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.92, map: wrapTexture() }),
     ];
-    this.W = { corr: 0, roof: 1, conc: 2, steel: 3, dark: 4, glass: 5, lamp: 6, floor: 7, red: 8, white: 9, tank: 10, sign: 11, orange: 12, lit: 13, yellow: 14 };
+    this.W = { corr: 0, roof: 1, conc: 2, steel: 3, dark: 4, glass: 5, lamp: 6, floor: 7, red: 8, white: 9, tank: 10, sign: 11, orange: 12, lit: 13, yellow: 14, crate: 15, wrap: 16 };
   }
   _w(geo, mat, matrix = null) { const g = geo; if (!g.attributes.color) { const n = g.attributes.position.count; g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3)); } const { geometry } = mergeGrouped([[g, mat]], this.wm.length); this.wb.add(geometry, matrix); }
   _place(builder, x, z, ry = 0, opts = {}) {
@@ -142,7 +144,7 @@ export class AirportWorld {
 
     // asphalt (runway + taxiway + connectors + roads share one material, world-space uvs)
     const asph = asphaltTexture(); asph.map.anisotropy = aniso; asph.map.repeat.set(1 / 24, 1 / 24); asph.normal.repeat.set(1 / 24, 1 / 24);
-    this.asphMat = new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.1, 0.1), roughness: 0.66, metalness: 0, color: 0xc4bdb2, envMapIntensity: 0.9 });
+    this.asphMat = new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.1, 0.1), roughness: 0.78, metalness: 0, color: 0xc4bdb2, envMapIntensity: 0.9 });
     const quads = [];
     const rect = (x0, z0, x1, z1, y = 0) => quads.push([[x0, z0], [x1, z0], [x1, z1], [x0, z1], y]);
     const RW = RWY.halfW + RWY.shoulder;
@@ -170,7 +172,7 @@ export class AirportWorld {
 
     // apron concrete (slabs) + hangar aprons
     const conc = slabTexture(); conc.anisotropy = aniso; conc.repeat.set((APRON.x1 - APRON.x0) / 10, (APRON.z1 - APRON.z0) / 10);
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(APRON.x1 - APRON.x0, APRON.z1 - APRON.z0), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.86, color: 0xd8d0c4, envMapIntensity: 0.55 }));
+    const apron = new THREE.Mesh(new THREE.PlaneGeometry(APRON.x1 - APRON.x0, APRON.z1 - APRON.z0), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.88, color: 0xe8d6bf, envMapIntensity: 0.35 }));
     apron.rotation.x = -Math.PI / 2; apron.position.set((APRON.x0 + APRON.x1) / 2, 0.012, (APRON.z0 + APRON.z1) / 2); apron.receiveShadow = true;
     this.group.add(apron);
     // rubber deposits on the touchdown zones (both ends) + tyre streaks
@@ -308,7 +310,7 @@ export class AirportWorld {
     this._w(box(0.3, 1.0, 0.3), w.steel, M4(ex, 1.1, ez - 1.2)); this._w(box(0.3, 1.0, 0.3), w.steel, M4(ex, 1.1, ez + 1.2));
     this.col.add([ex - 1.8, 0, ez - 2.6], [ex + 1.8, 3.3, ez + 2.6], { kind: 'gse', mat: 'metal' });
     for (const [cx, cz, s] of [[h2.x - 9, h2.z + 12, 1.2], [h2.x - 7.6, h2.z + 12.3, 0.9], [h2.x - 8.4, h2.z + 13.6, 1.0], [h2.x + 16, h2.z + 8, 1.1], [h2.x + 17.3, h2.z + 8.4, 1.1]]) {
-      this._w(box(s, s, s), w.red - 0 === w.red ? w.orange : w.orange, M4(cx, s / 2, cz));
+      this._w(box(s, s, s, 1), w.crate, M4(cx, s / 2, cz));
       this.col.add([cx - s / 2, 0, cz - s / 2], [cx + s / 2, s, cz + s / 2], { kind: 'crate', mat: 'wood' });
     }
     this._w(box(4, 1.0, 1.2), w.steel, M4(h2.x - 18, 0.5, h2.z + 30)); this.col.add([h2.x - 20, 0, h2.z + 29.4], [h2.x - 16, 1.0, h2.z + 30.6], { kind: 'gse', mat: 'metal' });
@@ -331,8 +333,8 @@ export class AirportWorld {
   // ---------------------------------------------------------------- apron dressing (the cover for the fight)
   _apron() {
     const r = makeRng(9090);
-    this.refuelerSpots = [[252, 300, 0.25], [236, 236, -1.45], [158, 214, 1.7]];  // game spawns these (they blow up)
-    this.drumSpots = [[264, 314, 6, 'pallet'], [206, 262, 5, 'row'], [146, 196, 7, 'stack'], [190, 330, 4, 'pallet'], [287, 270, 4, 'row']];
+    this.refuelerSpots = [[252, 300, 0.25], [236, 236, -1.45], [158, 214, 1.7], [300, 312, 1.45]];  // game spawns these (they blow up)
+    this.drumSpots = [[264, 314, 6, 'pallet'], [206, 262, 5, 'row'], [152, 240, 7, 'stack'], [190, 330, 4, 'pallet'], [287, 270, 4, 'row'], [244, 248, 4, 'pallet'], [180, 206, 5, 'row'], [226, 290, 4, 'pallet']];
     // parked airliner at the stand (static; big cover piece in the middle of the apron)
     const jet = buildAirliner('pacifica');
     jet.root.position.set(298, 0, 236); jet.root.rotation.y = Math.PI / 2; // nose toward -x (taxiway)
@@ -354,6 +356,22 @@ export class AirportWorld {
     train(176, 324, 0.05, 3, 11); train(214, 280, 1.62, 3, 21); train(170, 246, -0.3, 4, 31); train(262, 196, 1.4, 2, 41); train(146, 120, 0.2, 3, 51);
     // ULD dollies
     for (const [x, z, ry, n] of [[282, 330, 1.57, 4], [152, 286, 0.1, 3], [232, 196, -0.2, 3], [196, 160, 1.2, 2]]) for (let k = 0; k < n; k++) this._place(G.buildULD(), x + Math.sin(ry + Math.PI / 2) * k * 2.2, z + Math.cos(ry + Math.PI / 2) * k * 2.2, ry + (r() - 0.5) * 0.15);
+    // more traffic along the walking line: trains of carts, ULD rows, a second belt loader, tugs
+    train(244, 322, 1.35, 4, 61); train(196, 238, 2.9, 3, 71); train(272, 256, 0.1, 2, 81); train(160, 168, 1.55, 3, 91);
+    for (const [x, z, ry, n] of [[216, 214, 1.57, 4], [252, 336, 0, 3], [174, 270, 0.3, 3]]) for (let k = 0; k < n; k++) this._place(G.buildULD(), x + Math.sin(ry + Math.PI / 2) * k * 2.2, z + Math.cos(ry + Math.PI / 2) * k * 2.2, ry);
+    this._place(G.buildBeltLoader(), 186, 228, 2.2); this._place(G.buildTug(), 238, 206, 0.8); this._place(G.buildTug(), 206, 320, -1.2); this._place(G.buildGPU(), 252, 270, 1.9);
+    // cargo pallets: wooden crates on pallets, shrink-wrapped stacks (waist / chest-high cover)
+    const W = this.W;
+    for (const [x, z, ry, n] of [[232, 312, 0.2, 3], [198, 296, 1.3, 2], [262, 280, -0.4, 3], [186, 252, 0.7, 2], [226, 226, 1.1, 3], [204, 196, 0.3, 2], [168, 182, -0.9, 2], [252, 214, 0.5, 2]]) {
+      for (let k = 0; k < n; k++) {
+        const ox = Math.cos(ry) * k * 2.4, oz = -Math.sin(ry) * k * 2.4, h = 1.0 + r() * 0.9, w = 1.9, d = 1.6;
+        const m = M4(x + ox, 0, z + oz, ry + (r() - 0.5) * 0.2);
+        this._w(box(2.0, 0.14, 1.7), W.steel, m.clone().multiply(new THREE.Matrix4().makeTranslation(0, 0.07, 0)));
+        this._w(box(w, h, d, 1), k % 2 ? W.crate : W.wrap, m.clone().multiply(new THREE.Matrix4().makeTranslation(0, 0.14 + h / 2, 0)));
+        if (r() < 0.5) this._w(box(0.9, 0.6, 0.8, 1), W.crate, m.clone().multiply(new THREE.Matrix4().makeTranslation(0.3, 0.14 + h + 0.3, 0.1)));
+        this.col.addFromObject([{ min: [-1.0, 0, -0.85], max: [1.0, 0.14 + h, 0.85] }], M4(x + ox, 0, z + oz, Math.round(ry / (Math.PI / 2)) * Math.PI / 2), { kind: 'crate', mat: 'wood' });
+      }
+    }
     // GPUs, belt loader, blast fence near the taxiway edge
     for (const [x, z, ry] of [[232, 330, 0.3], [182, 288, 2.0], [140, 232, 1.0]]) this._place(G.buildGPU(), x, z, ry);
     this._place(G.buildBeltLoader(), 230, 265, 0.9);
@@ -494,7 +512,7 @@ export class AirportWorld {
     for (let z = TWY.z0; z >= -900; z -= 30) for (const s of [-1, 1]) L.push({ p: new THREE.Vector3(TWY.x + s * (TWY.halfW + 0.6), 0.3, z), kind: 'blue', size: 0.7 });
     for (let z = TWY.z0; z >= -900; z -= 15) L.push({ p: new THREE.Vector3(TWY.x, 0.04, z), kind: 'twycl', size: 0.4 });
     for (const m of this.masts) for (const p of m.lamps) L.push({ p, kind: 'sodium', size: 3.2 });
-    for (const p of this.hangarLamps) L.push({ p, kind: 'hangar', size: 3.0 });
+    for (const p of this.hangarLamps) L.push({ p, kind: 'hangar', size: 1.9 });
     for (const h of HANGARS) for (const s of [-1, 1]) L.push({ p: new THREE.Vector3(h.x + s * (h.w / 2 - 0.5), 14.9, h.z - 0.2), kind: 'obst', size: 1.2 });
     for (const t of this.tanks) L.push({ p: t.clone().setY(12.7), kind: 'obst', size: 1.0 });
     L.push({ p: this.towerBeacon, kind: 'beacon', size: 5 });
@@ -526,7 +544,7 @@ export class AirportWorld {
         case 'blue': r = 0.35; g = 0.6; b = 2.6; a *= 0.85; break;
         case 'twycl': r = 0.4; g = 2.0; b = 0.9; a *= 0.6; break;
         case 'sodium': r = SODIUM[0] * 2.4; g = SODIUM[1] * 2.4; b = SODIUM[2] * 2.4; a = 0.12 + 0.88 * Math.min(1, dusk * 2.2); break;
-        case 'hangar': r = 2.4; g = 2.2; b = 1.8; a = 0.9; break;
+        case 'hangar': r = 1.6; g = 1.45; b = 1.1; a = 0.55; break;
         case 'obst': r = 2.8; g = 0.2; b = 0.1; a = Math.sin(t * 3 + p.x) > -0.2 ? 0.95 : 0.15; break;
         case 'beacon': { const ph = (t * 0.75) % 1; const white = ph > 0.5; const fl = Math.max(0, 1 - Math.abs((ph % 0.5) - 0.12) * 9); r = white ? 3 : 0.4; g = 3; b = white ? 3 : 0.8; a = 0.15 + fl; break; }
         case 'papi': { const red = L.phase >= 2; r = red ? 2.8 : 2.6; g = red ? 0.3 : 2.4; b = red ? 0.2 : 2.0; break; }
@@ -544,13 +562,13 @@ export class AirportWorld {
 // =====================================================================================
 function asphaltTexture() {
   const S = 512, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S);
-  const n = T.makeNoise(611, 64), n2 = T.makeNoise(612, 16), r = makeRng(613);
+  const n = T.makeNoise(611, 4), n2 = T.makeNoise(612, 2), r = makeRng(613);
   const h = new Float32Array(S * S);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const u = xx / S, v = y / S;
     const m = T.fbm(n, u, v, 4, 5), g = r();
     let b = 0.42 + (m - 0.5) * 0.16 + (g - 0.5) * 0.07;
-    const patch = T.fbm(n2, u * 0.7, v * 0.7, 2, 3) > 0.64 ? -0.06 : 0;  // repair patches
+    const patch = T.fbm(n2, u, v, 2, 3) > 0.64 ? -0.06 : 0;  // repair patches
     b += patch;
     const seam = Math.abs(u - 0.5) < 0.002 ? -0.08 : 0;                 // longitudinal paving seam
     b += seam;
@@ -564,12 +582,12 @@ function asphaltTexture() {
 function slabTexture() {
   // one 10 m tile = 2x2 slabs of 5 m: joints, stains, tyre marks
   const S = 512, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S);
-  const n = T.makeNoise(731, 64), n2 = T.makeNoise(732, 16), r = makeRng(733);
+  const n = T.makeNoise(731, 4), n2 = T.makeNoise(732, 6), r = makeRng(733);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const u = xx / S, v = y / S;
     const slab = (u > 0.5 ? 1 : 0) + (v > 0.5 ? 2 : 0);
     let b = 0.74 + (T.fbm(n, u, v, 4, 5) - 0.5) * 0.12 + (r() - 0.5) * 0.06 + (slab % 2 ? 0.02 : -0.01) + (slab > 1 ? -0.015 : 0.01);
-    b -= Math.max(0, T.fbm(n2, u * 2, v * 2, 3, 3) - 0.6) * 0.5;      // oil stains
+    b -= Math.max(0, T.fbm(n2, u, v, 6, 3) - 0.6) * 0.5;      // oil stains
     const j = Math.min(Math.abs(u - 0.5), Math.abs(v - 0.5), u, 1 - u, v, 1 - v);
     if (j < 0.004) b -= 0.28; else if (j < 0.008) b -= 0.08;
     const i = (y * S + xx) * 4;
@@ -582,10 +600,10 @@ function slabTexture() {
   return T.canvasTex(c);
 }
 function grassTexture() {
-  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(821, 32), r = makeRng(822);
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(821, 4), r = makeRng(822);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const m = T.fbm(n, xx / S, y / S, 4, 4), g = r();
-    const b = 0.75 + (m - 0.5) * 0.4 + (g - 0.5) * 0.35;
+    const b = 0.8 + (m - 0.5) * 0.25 + (g - 0.5) * 0.3;
     const i = (y * S + xx) * 4; img.data[i] = 235 * b; img.data[i + 1] = 228 * b; img.data[i + 2] = 205 * b; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);
@@ -608,17 +626,17 @@ function rubberTexture() {
 function wornPaintTexture() {
   const W = 256, H = 32, c = T.makeCanvas(W, H), x = c.getContext('2d'), img = x.createImageData(W, H), n = T.makeNoise(57, 32);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
-    const a = Math.min(1, Math.max(0, (T.fbm(n, xx / W, y / H, 8, 4) - 0.25) * 3.2)) * (1 - Math.pow(Math.abs(y / H - 0.5) * 2, 8));
+    const a = Math.min(1, Math.max(0, (T.fbm(n, xx / W, y / H, 8, 4) - 0.12) * 4.5)) * (1 - Math.pow(Math.abs(y / H - 0.5) * 2, 8));
     const i = (y * W + xx) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = a * 240;
   }
   x.putImageData(img, 0, 0);
   return T.canvasTex(c);
 }
 function corrugatedTexture(dark = false) {
-  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(dark ? 961 : 962, 32);
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(dark ? 961 : 962, 4);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const rib = 0.82 + 0.18 * Math.sin((xx / S) * 32 * TAU);
-    const streak = Math.max(0, T.fbm(n, xx / S * 3, y / S * 0.4, 3, 3) - 0.55) * (y / S) * 1.6; // rust / grime running down
+    const streak = Math.max(0, T.fbm(n, xx / S, y / S, 4, 3) - 0.55) * (y / S) * 1.6; // rust / grime running down
     const v = (dark ? 150 : 205) * rib * (1 - streak * 0.5) + (T.fbm(n, xx / S, y / S, 4, 3) - 0.5) * 20;
     const i = (y * S + xx) * 4; img.data[i] = v * (1 + streak * 0.25); img.data[i + 1] = v * (1 - streak * 0.05); img.data[i + 2] = v * (1 - streak * 0.25); img.data[i + 3] = 255;
   }
@@ -628,7 +646,7 @@ function corrugatedTexture(dark = false) {
   return T.canvasTex(c);
 }
 function hangarFloorTexture() {
-  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(971, 32);
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(971, 3);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) { const v = 150 + (T.fbm(n, xx / S, y / S, 3, 4) - 0.5) * 50; const i = (y * S + xx) * 4; img.data[i] = v * 0.86; img.data[i + 1] = v * 0.95; img.data[i + 2] = v * 0.88; img.data[i + 3] = 255; }
   x.putImageData(img, 0, 0);
   x.fillStyle = '#e0b020'; x.fillRect(0, 0, S, 5); x.fillRect(0, 0, 5, S);
@@ -656,4 +674,18 @@ function treeTexture() {
   }
   const t = T.canvasTex(c, { repeat: false });
   return t;
+}
+
+function crateTexture() {
+  const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(1301, 4), img = x.createImageData(S, S);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) { const g = T.fbm(n, xx / S, y / S, 4, 3), plank = (y % 32) < 2 ? 0.55 : 1; const v = (150 + g * 70) * plank; const i = (y * S + xx) * 4; img.data[i] = v * 0.86; img.data[i + 1] = v * 0.66; img.data[i + 2] = v * 0.42; img.data[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  x.fillStyle = 'rgba(30,20,10,0.8)'; x.font = '700 18px Oswald, sans-serif'; x.fillText('THIS SIDE UP', 14, 70);
+  return T.canvasTex(c);
+}
+function wrapTexture() {
+  const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(1311, 4), img = x.createImageData(S, S);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) { const g = T.fbm(n, xx / S, y / S, 4, 4); const v = 120 + g * 120 + Math.sin(y * 0.4 + g * 6) * 12; const i = (y * S + xx) * 4; img.data[i] = v * 0.95; img.data[i + 1] = v; img.data[i + 2] = v * 1.05; img.data[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  return T.canvasTex(c);
 }

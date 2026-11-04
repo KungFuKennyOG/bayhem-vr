@@ -150,12 +150,13 @@ export class SetPieces {
     for (let k = 0; k < 22; k++) g.fx.later(0.15 + k * 0.035, () => { const a = rand() * 6.28, r = range(3, 16); g.fx.explosion(V3(C.x + Math.cos(a) * r, 0.5, C.z + Math.sin(a) * r * 1.3), range(0.4, 0.75), { noRing: true }); });
     g.slowmo(1.8, 0.28, true);
     g.addScore(5000, J.idx === 0 ? 'JET SET!' : 'DOUBLE TAXI!', C.clone().setY(C.y + 12), 'huge');
-    g.callout(cause === 'crash' ? 'NO BRAKES!' : 'GROUNDED!', C.clone().setY(C.y + 18), 'big');
+    if (cause === 'crash') g.callout('NO BRAKES!', C.clone().setY(C.y + 20), 'big');
     // breakup: the four pieces become rigid bodies with the jet's velocity + blast impulses
     const vel = V3(0, 0, J.v); // nose toward +z
     const kicks = { nose: V3(range(-2, 2), 7, 9), aft: V3(range(-2, 2), 5, -5), wingL: V3(-6 * (wE === 0 ? 1.6 : 1), 9, 0), wingR: V3(6 * (wE === 1 ? 1.6 : 1), 9, 0) };
     const spins = { nose: V3(range(-0.6, 0.6), range(-1.2, 1.2), range(-0.8, 0.8)), aft: V3(range(-0.9, -0.5), range(-0.6, 0.6), range(-0.4, 0.4)), wingL: V3(range(-1, 1), range(-1, 1), range(1.5, 2.5)), wingR: V3(range(-1, 1), range(-1, 1), -range(1.5, 2.5)) };
     J.pieces = [];
+    J.a.breakApart();
     for (const [name, part] of Object.entries(J.a.parts)) {
       const com = part.userData.com, half = part.userData.half;
       const rb = new RigidBox(half.x, half.y, half.z, name.startsWith('wing') ? 5 : 9);
@@ -165,29 +166,32 @@ export class SetPieces {
       const pivot = new THREE.Group(); g.scene.add(pivot); pivot.position.copy(rb.pos); pivot.quaternion.copy(rb.quat);
       part.position.copy(com).negate(); pivot.add(part);
       J.pieces.push({ name, rb, pivot, fire: 1, smokeT: 0, settled: false });
-      g.fx.later(1.0, () => { part.userData.mesh.material = part.userData.mesh.material.map((m, i) => (i === 0 || i === 1 || i === 2 || i === 6 ? this._scorched(m) : m)); });
+      g.fx.later(1.0, () => { part.userData.mesh.material = part.userData.mesh.material.map((m, i) => (i === 0 || i === 1 || i === 2 || i === 6 || i === 11 ? this._scorched(m, i === 1 || i === 11) : m)); });
     }
     // a detached engine cartwheels across the apron
-    const eng = this._looseEngine(root.localToWorld(V3(s0 * 5.05, 1.42, -3)), V3(s0 > 0 ? 9 : 14, 8, J.v * 0.6 + range(-2, 2)));
+    const eng = this._looseEngine(J, root.localToWorld(V3(s0 * 5.05, 1.42, -3)), V3(range(9, 12), 7, J.v * 0.6 + range(-2, 2)));
     J.pieces.push(eng);
     for (const f of J.a.fans) f.visible = true;
     g.smokeCols.push({ p: C.clone().setY(1), k: 2.4, life: 400, fire: 2.2 });
     g.events.push({ type: 'jetBoom', J, P: C.clone() });
   }
-  _scorched(m) { // darken + ember glow (shared per source material)
-    if (!m.userData.scorched) { const s = m.clone(); s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(0.28); s.emissive = new THREE.Color(0x3a0d02); s.emissiveIntensity = 0.5; s.roughness = 0.9; s.metalness = 0.2; m.userData.scorched = s; }
+  _scorched(m, plain = false) { // darken + ember glow (shared per source material); plain drops panel-line maps
+    if (!m.userData.scorched) { const s = m.clone(); if (plain) s.map = null; s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(0.28); s.emissive = new THREE.Color(0x3a0d02); s.emissiveIntensity = 0.5; s.roughness = 0.9; s.metalness = 0.2; m.userData.scorched = s; }
     return m.userData.scorched;
   }
-  _looseEngine(P, vel) {
+  _looseEngine(J, P, vel) {
     const g = this.g;
     if (!this._engGeo) {
-      this._engGeo = loft([{ z: -2.3, cy: 0, rx: 0.86, ry: 0.86 }, { z: -2.2, cy: 0, rx: 1.0, ry: 1.0 }, { z: 0, cy: 0, rx: 1.0, ry: 1.0 }, { z: 1.8, cy: 0, rx: 0.72, ry: 0.72 }, { z: 2.6, cy: 0, rx: 0.4, ry: 0.4 }], { segs: 20 });
-      this._engMat = MAT.charred;
+      this._engGeo = loft([{ z: -2.3, cy: 0, rx: 0.86, ry: 0.86 }, { z: -2.2, cy: 0, rx: 1.0, ry: 1.0 }, { z: -0.5, cy: 0, rx: 1.02, ry: 1.02 }, { z: 1.4, cy: 0, rx: 0.86, ry: 0.86 }, { z: 2.1, cy: 0, rx: 0.62, ry: 0.62 }, { z: 2.9, cy: 0, rx: 0.3, ry: 0.3 }], { segs: 22 });
+      this._engFace = new THREE.CircleGeometry(0.84, 22); this._engFace.rotateY(Math.PI); this._engFace.translate(0, 0, -2.0);
     }
-    const mesh = new THREE.Mesh(this._engGeo, this._engMat); mesh.castShadow = true;
-    const pivot = new THREE.Group(); pivot.add(mesh); g.scene.add(pivot);
-    const rb = new RigidBox(1.0, 1.0, 2.3, 3); rb.pos.copy(P); rb.vel.copy(vel); rb.ang.set(range(-2, 2), range(4, 7), range(-9, -6)); rb.restitution = 0.35; rb.friction = 0.35;
-    return { name: 'engine', rb, pivot, fire: 0.8, smokeT: 0, settled: false, engine: true };
+    const nacMat = this._scorched(J.a.parts.wingR.userData.mesh.material[2]);
+    const pivot = new THREE.Group();
+    const mesh = new THREE.Mesh(this._engGeo, nacMat); mesh.castShadow = true; pivot.add(mesh);
+    const face = new THREE.Mesh(this._engFace, J.a.fans[0].material); pivot.add(face);
+    g.scene.add(pivot);
+    const rb = new RigidBox(1.0, 1.0, 2.4, 3); rb.pos.copy(P); rb.vel.copy(vel); rb.ang.set(range(-1, 1), range(3, 5), range(-6, -4)); rb.restitution = 0.35; rb.friction = 0.35;
+    return { name: 'engine', rb, pivot, fire: 0.9, smokeT: 0, settled: false, engine: true };
   }
   _updJets(dt) {
     const g = this.g;
@@ -209,6 +213,11 @@ export class SetPieces {
         J.a.root.rotation.x = Math.sin(J.t * 3.1) * 0.002 + (J.braking ? 0.012 : 0);
         J.spool = damp(J.spool, J.state === 'hold' ? 0.3 : 0.75, 0.6, dt);
         for (const f of J.a.fans) f.rotation.z -= dt * (8 + J.spool * 30);
+        // nav / beacon / taxi lights
+        const A = J.a.anchors, lit = (p, sz, r, gg, b, al = 1) => this.w.addGlow(J.a.root.localToWorld(_v.copy(p)), sz, r, gg, b, al);
+        lit(A.navL, 1.3, 2.8, 0.2, 0.1); lit(A.navR, 1.3, 0.2, 2.8, 0.6); lit(A.tail, 1.0, 2.4, 2.4, 2.4);
+        if (Math.sin(g.time * 6.5 + J.idx) > 0.55) { lit(A.beaconTop, 2.0, 3, 0.25, 0.1); lit(A.beaconBot, 2.0, 3, 0.25, 0.1); }
+        if (J.state !== 'hold') { lit(A.landL, 4.5, 3, 2.9, 2.6, 0.9); lit(A.landR, 4.5, 3, 2.9, 2.6, 0.9); lit(A.taxi, 3.5, 3, 2.9, 2.6, 0.9); }
         // damaged engines smoke / burn; a dead engine cooks the wing until the tank goes
         J.eng.forEach((E, e) => {
           if (!E.smoke) return;
@@ -306,13 +315,13 @@ export class SetPieces {
     c.t += dt;
     const accel = c.state === 'roll' ? (c.v < 20 ? 1.5 : c.v < 45 ? 1.35 : 1.15) * (this.ride.state === 'chase' ? this._cargoBoost : 1) : 0;
     if (c.state === 'roll' || c.state === 'rotate' || c.state === 'climb') c.v += accel * dt;
-    if (c.state === 'climb') c.v = Math.min(c.v + dt * 1.2, 80);
+    if (c.state === 'climb') c.v = c.alt < 80 ? Math.min(c.v + dt * 1.2, 80) : damp(c.v, 62, 0.3, dt);
     if (c.state === 'roll') c.v = Math.min(c.v, this.allowRotate ? 64 : 56.5); // holds just under rotation speed until the jeep is close
     c.z -= c.v * dt;
     // rotate: nose up about the main gear, tail (and the ramp lip) sinks toward the runway
     if (c.state === 'roll' && this.allowRotate && c.v > 52 && ((this.gap ?? 99) < 16 || c.z < RWY.z1 + 700)) { c.state = 'rotate'; c.t = 0; g.events.push({ type: 'rotate' }); }
     if (c.state === 'rotate') { c.pitch = Math.min(this.leapT !== undefined && this.ride.state === 'onPlane' ? 0.15 : 0.07, c.pitch + dt * 0.05); this.rampA = damp(this.rampA, 0.05, 1.5, dt); c.setRamp(this.rampA); if (c.t > (this.leapT !== undefined || this.ride.state !== 'chase' ? 2.2 : 4.5)) { c.state = 'climb'; c.t = 0; g.events.push({ type: 'liftoff' }); } }
-    if (c.state === 'climb') { c.vy = Math.min(9, c.vy + dt * 2.2); c.alt += c.vy * dt; c.pitch = damp(c.pitch, 0.13, 0.5, dt); }
+    if (c.state === 'climb') { c.vy = c.alt < 80 ? Math.min(9, c.vy + dt * 2.2) : damp(c.vy, 1.2, 0.4, dt); c.alt += c.vy * dt; c.pitch = damp(c.pitch, c.alt < 80 ? 0.13 : 0.05, 0.5, dt); }
     c.vel.set(0, c.state === 'climb' ? c.vy : 0, -c.v);
     // place: pivot about the main gear contact point (c.z = the root's z at zero pitch)
     const gz = CARGO.gearZ, th = c.pitch;
@@ -328,6 +337,8 @@ export class SetPieces {
     if (Math.sin(g.time * 6) > 0.6) { lit(c.anchors.beaconTop, 2.4, 3, 0.25, 0.1); lit(c.anchors.beaconBot, 2.4, 3, 0.25, 0.1); }
     if (c.state !== 'hold') { lit(c.anchors.landL, 6, 3, 2.9, 2.6); lit(c.anchors.landR, 6, 3, 2.9, 2.6); }
     for (const p of c.anchors.holdLamps) lit(p, 0.9, 2.6, 0.25, 0.1, 0.8);
+    if (c.state !== 'hold') for (const p of c.anchors.exhausts) lit(p, 2.2 + c.spool * 1.2, 2.4, 1.0, 0.35, 0.55 * c.spool);
+    if ((g.time * 1.1) % 1 < 0.06) { lit(c.anchors.navL, 4, 4, 4, 4); lit(c.anchors.navR, 4, 4, 4, 4); }
     // exhaust heat / thrust: smoke-ish shimmer behind the engines, dust kicked off the runway
     if (c.state !== 'hold' && c.alt < 40) {
       for (const p of c.anchors.exhausts) if (rand() < dt * 18 * c.spool) { const w = c.root.localToWorld(_v.copy(p)); g.fx.main.spawn({ x: w.x, y: w.y, z: w.z, vx: range(-1, 1), vy: range(0, 1), vz: c.vel.z * 0.2 + 30, drag: 1.5, frame: CELL.WISP, s0: 1.2, s1: 4, life: 0.8, rot: rand() * 6, r: 0.5, g: 0.45, b: 0.4, a: 0.12, fadeOut: 0.6 }); }
@@ -370,9 +381,10 @@ export class SetPieces {
     const root = new THREE.Group();
     const mesh = new THREE.Mesh(b.geometry, mats); mesh.castShadow = true; mesh.receiveShadow = true; root.add(mesh);
     const driver = new THREE.Mesh(b.driver, mats); driver.position.copy(b.driverPos); driver.castShadow = true; root.add(driver);
+    const sign = new THREE.Mesh(b.sign, mats); sign.position.copy(b.signPos); sign.castShadow = true; root.add(sign);
     root.position.set(110, 0, -60); root.visible = false;
     g.scene.add(root);
-    const J = this.jeep = { root, mesh, driver, b, pos: root.position, yaw: Math.PI, v: 0, state: 'away', t: 0, s: 0, wheelSpin: 0, roll: 0, pitch: 0, sway: 0, lat: 0, vel: new THREE.Vector3(), lastPos: new THREE.Vector3() };
+    const J = this.jeep = { root, mesh, driver, sign, signFold: 0, b, pos: root.position, yaw: Math.PI, v: 0, state: 'away', t: 0, s: 0, wheelSpin: 0, roll: 0, pitch: 0, sway: 0, lat: 0, vel: new THREE.Vector3(), lastPos: new THREE.Vector3() };
     J.randomHullPoint = () => J.root.localToWorld(V3(range(-1, 1), range(0.7, 1.2), range(-2.5, 2.4)));
   }
   jeepArrive() {
@@ -457,7 +469,8 @@ export class SetPieces {
       rb.floorY = 0; rb.step(dt, 0);
       J.root.position.copy(rb.pos).sub(_v.set(0, 0.9, 0).applyQuaternion(rb.quat)); J.root.quaternion.copy(rb.quat);
       if (rb.contactSpeed > 4 && (J.lastHit ?? -9) < g.time - 0.3) { J.lastHit = g.time; g.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z, volume: 0.9 }); }
-      if (!J.boomed && J.t > 1.6) { J.boomed = true; g.boom(rb.pos.clone().setY(1), 1.6, { radius: 8, dmg: 0, player: false }); g.smokeCols.push({ p: rb.pos.clone().setY(0.5), k: 0.9, life: 200, fire: 1.2 }); }
+      if (!J.boomed && J.t > 0.9) { J.boomed = true; g.boom(rb.pos.clone().setY(1), 2.4, { radius: 8, dmg: 0, player: false }); g.fx.later(0.15, () => g.fx.explosion(rb.pos.clone().setY(2), 1.4)); J.mesh.material = J.mesh.material.map(() => MAT.charred); J.sign.visible = false; g.smokeCols.push({ p: rb.pos.clone().setY(0.5), k: 1.0, life: 200, fire: 1.3, follow: rb }); }
+      if (J.boomed) g.fx.trailEmit(J, rb.pos, 0.7, (q) => { g.fx.flame(q, 1.1); if (rand() < 0.5) g.fx.smoke(q, 1.3, 0.1, 3, 2, 0.7); }, 0);
       return this._jeepVisuals(dt, true);
     }
     // velocity / pose
@@ -474,11 +487,14 @@ export class SetPieces {
       J.root.position.copy(J.pos); J.root.position.y = bump;
       J.root.rotation.set(J.pitch + bump * 0.5, J.yaw, J.roll, 'YXZ');
     }
+    J.signFold = damp(J.signFold, this.riding ? 1 : 0, 3, dt);
+    J.sign.rotation.x = -J.signFold * Math.PI / 2; // the driver folds it down when you climb in...
+    J.sign.visible = J.signFold < 0.7;             // ...and it's gone (out of your sightline)
     J.root.updateMatrixWorld(true);
     // amber beacons + headlights
     if (J.state !== 'away' && !(crashed && J.boomed)) {
       const on = Math.sin(g.time * 9) > 0;
-      const bl = J.root.localToWorld(_v.copy(J.b.anchors.beaconL)), br = J.root.localToWorld(_v2.copy(J.b.anchors.beaconR));
+      const bl = J.sign.localToWorld(_v.set(-0.6, 0.5, 0)), br = J.sign.localToWorld(_v2.set(0.6, 0.5, 0));
       this.w.addGlow(on ? bl : br, 1.6, 3.2, 1.6, 0.2, 1);
       this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 1.4, 2.6, 2.5, 2.2, 0.9);
       this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 1.4, 2.6, 2.5, 2.2, 0.9);
@@ -748,7 +764,7 @@ export class SetPieces {
     // the jeep peels off into the grass and flips; the driver bails first (we hear him on the radio)
     J.state = 'crash'; J.t = 0;
     const rb = new RigidBox(1.05, 0.7, 2.6, 2); rb.pos.copy(J.root.localToWorld(V3(0, 0.9, 0))); rb.quat.copy(J.root.quaternion);
-    rb.vel.copy(J.vel).add(V3(14, 3, 0)); rb.ang.set(range(-1, 1), range(1.5, 2.5), range(-7, -5)); rb.restitution = 0.25; rb.linDamp = 0.15;
+    rb.vel.copy(J.vel).multiplyScalar(0.8).add(V3(16, 6, 0)); rb.ang.set(range(-2, 2), range(2, 3), range(-10, -8)); rb.restitution = 0.3; rb.linDamp = 0.1;
     J.rb = rb; J.driver.visible = false;
     g.invuln = false;
   }
@@ -762,26 +778,26 @@ export class SetPieces {
     for (const L of lines) {
       if (!L) { y -= 3.2; continue; }
       const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big ? 'chrome' : (L.dim ? 'rgba(255,214,168,0.92)' : '#fff3df'), stroke: big ? 10 : 5, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.75)', padding: 30 });
-      const h = big ? 5.2 : L.sub ? 3.2 : 1.9;
+      const h = big ? 5.2 : L.sub ? 3.4 : 1.9;
       const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: 0 });
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * tt.aspect, h), mat);
       pl.rotation.y = 0; pl.position.set(0, y, 0); pl.renderOrder = 170;
       grp.add(pl); items.push(pl);
       y -= h + 1.0;
     }
-    grp.position.set(0, CARGO.floorY + 6, 34);
+    grp.position.set(0, CARGO.floorY, 30);
     this.credits = { grp, items, t: 0, span: -y };
   }
   _updCredits(dt) {
     const C = this.credits; if (!C) return;
     C.t += dt;
-    const speed = 2.1;
-    C.grp.position.y = CARGO.floorY - 10 + C.t * speed;
+    const speed = 1.5;
+    C.grp.position.y = CARGO.floorY - 5 + C.t * speed;
     // face the player (plane frame: player looks toward +z out of the ramp)
     C.grp.rotation.set(-this.cargo.pitch, Math.PI, 0);
     for (const it of C.items) {
       const wy = C.grp.position.y + it.position.y - CARGO.floorY;
-      it.material.opacity = clamp(1.6 - Math.abs(wy - 7) / 6, 0, 1);
+      it.material.opacity = clamp(1.8 - Math.abs(wy - 2.6) / 3.2, 0, 1);
     }
   }
 
@@ -798,6 +814,11 @@ export class SetPieces {
   afterPlayer(rdt, dt) {
     this._updRide(dt, rdt);
     const g = this.g;
+    if (this.riding && this.ride.state === 'chase' && dt > 0) {
+      // sense of speed: grit and heat haze on the runway stream past, a little road buzz in the camera
+      const J = this.jeep, k = clamp(J.v / 60, 0, 1);
+      if (g.player.mode === 'desktop') g.player.shake = Math.max(g.player.shake, 0.04 + 0.1 * k);
+    }
     if (this.riding) {
       g.rig.updateMatrixWorld(true);
       g.carrier = this.ride.state === 'onPlane' ? { vel: this.cargo.vel, randomHullPoint: () => null } : this.jeep;

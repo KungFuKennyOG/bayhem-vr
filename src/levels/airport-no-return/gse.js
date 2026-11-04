@@ -90,7 +90,7 @@ function tankTexture() {
   return T.canvasTex(c, { repeat: false });
 }
 function uldTexture() {
-  const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(733, 16);
+  const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(733, 3);
   const img = x.createImageData(S, S);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) { const v = 200 + (T.fbm(n, xx / S, y / S, 3, 3) - 0.5) * 40 + ((xx % 16) < 1 ? -60 : 0); const i = (y * S + xx) * 4; img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v * 1.02; img.data[i + 3] = 255; }
   x.putImageData(img, 0, 0);
@@ -184,18 +184,20 @@ export function buildJeep() {
     L.push([strut([s * 0.9, 1.75, 0.3], [s * 0.94, 1.86, -0.95], 0.035), GM.plastic]);
   }
   L.push([strut([-0.9, 2.12, 0.3], [0.9, 2.12, 0.3], 0.045), GM.plastic]);
-  // sign on a short mast above the cage: above your eye line, so it never blocks the view of the plane
-  for (const s of [-1, 1]) L.push([strut([s * 0.5, 2.12, 0.3], [s * 0.5, 2.98, 0.3], 0.03), GM.plastic]);
-  L.push([at(box(1.5, 0.36, 0.1), 0, 3.14, 0.3), GM.plastic]);
+  // FOLLOW ME sign on two short masts; it is a separate part so the driver can fold it flat once you're aboard
+  const SG = [];
+  for (const s of [-1, 1]) SG.push([strut([s * 0.5, -0.84, 0], [s * 0.5, 0.02, 0], 0.03), GM.plastic]);
+  SG.push([at(box(1.5, 0.36, 0.1), 0, 0.18, 0), GM.plastic]);
   const sg = new THREE.PlaneGeometry(1.44, 0.34);
-  L.push([at(sg.clone(), 0, 3.14, 0.25, 0, Math.PI), GM.follow]); L.push([at(sg, 0, 3.14, 0.356), GM.follow]);
-  for (const s of [-1, 1]) L.push([at(cyl(0.09, 0.1, 0.16, 12), s * 0.6, 3.4, 0.3), GM.amber]);
+  SG.push([at(sg.clone(), 0, 0.18, -0.051, 0, Math.PI), GM.follow]); SG.push([at(sg, 0, 0.18, 0.051), GM.follow]);
+  for (const s of [-1, 1]) SG.push([at(cyl(0.09, 0.1, 0.16, 12), s * 0.6, 0.44, 0), GM.amber]);
   // lights, mirrors, spare wheel, jerry cans
   for (const s of [-1, 1]) { L.push([at(cyl(0.12, 0.12, 0.06, 14), s * 0.72, 1.06, -2.66, Math.PI / 2), GM.head]); L.push([at(box(0.14, 0.22, 0.05), s * 0.86, 0.98, 2.49), GM.tail]); L.push([at(box(0.18, 0.12, 0.06), s * 1.1, 1.62, -0.98), GM.glass]); }
   const { tire, hub } = wheelGeo(0.4, 0.26); L.push([tire.clone().rotateY(Math.PI / 2).translate(0, 0.92, 2.62), GM.tire]); L.push([hub.clone().rotateY(Math.PI / 2).translate(0, 0.92, 2.62), GM.rim]);
   for (const s of [-1, 1]) L.push([at(box(0.18, 0.4, 0.3), s * 0.62, JEEP.bedY + 0.2, 2.18), GM.red]);
   wheels(L, [[-0.98, -1.75], [0.98, -1.75], [-0.98, 1.45], [0.98, 1.45]], JEEP.wheelR, 0.34);
   const geometry = finish(L);
+  const sign = finish(SG);
   // driver (seen from behind / above): shoulders, neck, cap, headset, arms on the wheel
   const D = [];
   D.push([at(cyl(0.2, 0.17, 0.56, 12), 0, 0.3, 0), GM.olive]);
@@ -208,7 +210,7 @@ export function buildJeep() {
   D.push([at(box(0.2, 0.035, 0.02), 0, 0.83, -0.125), GM.glass]);
   for (const s of [-1, 1]) { D.push([strut([s * 0.22, 0.52, 0], [s * 0.2, 0.3, -0.25], 0.055), GM.olive]); D.push([strut([s * 0.2, 0.3, -0.25], [s * 0.14, 0.34, -0.5], 0.045), GM.olive]); }
   const driver = finish(D);
-  return { geometry, driver, driverPos: new THREE.Vector3(-0.45, 0.98, -0.18), colliders: [{ min: [-1.1, 0, -2.75], max: [1.1, 1.3, 2.7] }],
+  return { geometry, driver, sign, signPos: new THREE.Vector3(0, 2.96, 0.3), driverPos: new THREE.Vector3(-0.45, 0.98, -0.18), colliders: [{ min: [-1.1, 0, -2.75], max: [1.1, 1.3, 2.7] }],
     anchors: { beaconL: new THREE.Vector3(-0.6, 3.46, 0.3), beaconR: new THREE.Vector3(0.6, 3.46, 0.3), headL: new THREE.Vector3(-0.72, 1.06, -2.72), headR: new THREE.Vector3(0.72, 1.06, -2.72), exhaust: new THREE.Vector3(0.7, 0.45, 2.6) } };
 }
 
