@@ -37,6 +37,7 @@ else {
 }
 camera.lookAt(tgt);
 const t0 = performance.now();
+if (P.has('nogable')) window.__noGable = true;
 const mod = await import(/* @vite-ignore */ P.get('mod'));
 const args = P.has('args') ? JSON.parse(P.get('args')) : [];
 let res = await mod[P.get('fn')](...args, { renderer, scene, camera, sun, hemi });

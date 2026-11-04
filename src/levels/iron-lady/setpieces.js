@@ -285,6 +285,7 @@ export class SetPieces {
     g.events.push({ type: 'heliDying' });
     // it goes into the north-east leg of the tower, where the lattice meets the first arch
     H.crash = this.crashPoint();
+    H.lookT = 0; H.commit = false;
   }
   crashPoint() { const c = LEGC(TOWER.crashY), L = LEGS[TOWER.crashLeg]; return new THREE.Vector3(TOWER.x + L.sx * c, TOWER.crashY, TOWER.z + L.sz * c); }
   _updHeli(dt) {
@@ -342,9 +343,16 @@ export class SetPieces {
     if (H.phase === 'dying') {
       H.spin = Math.min(5.5, H.spin + dt * 2.2);
       H.yaw += H.spin * dt;
+      // VR: the crash waits until you're looking at the leg (or 5 s): it limps in a burning circle near it
+      if (!H.commit) {
+        g.camera.getWorldDirection(_v3); const to = _v2.subVectors(H.pos, g.headPos).normalize();
+        H.lookT = _v3.dot(to) > 0.8 ? H.lookT + dt : 0;
+        if (H.lookT > 0.3 || H.t > 5 || g.auto) H.commit = true;
+      }
+      const goal = H.commit ? H.crash : _v.copy(H.crash).add(_v3.set(Math.cos(H.t * 0.9) * 26, 10 + Math.sin(H.t * 1.3) * 3, Math.sin(H.t * 0.9) * 26));
       const d = H.pos.distanceTo(H.crash);
-      const sp = Math.min(30, 10 + H.t * 7);
-      _v2.subVectors(H.crash, H.pos).normalize();
+      const sp = H.commit ? Math.min(30, 12 + H.t * 6) : 14;
+      _v2.subVectors(goal, H.pos).normalize();
       _v2.x += Math.sin(H.t * 2.3) * 0.25; _v2.y += Math.sin(H.t * 3.1) * 0.15; _v2.normalize();
       H.vel.lerp(_v2.multiplyScalar(sp), 1 - Math.exp(-dt * 2.5));
       g.fx.trailEmit(H, m.smokePt.getWorldPosition(_v3), 0.7, (q) => { g.fx.flame(q, 1.2); g.fx.smoke(q, 1.6, 0.1, 3.5, 1, 0.85); }, 0);
@@ -353,7 +361,7 @@ export class SetPieces {
         const tb = m.breakTail();
         if (tb) { H.tail = { o: tb.object, v: tb.velocityHint.clone().add(H.vel), w: tb.spinHint.clone() }; g.fx.smallExplosion(tb.object.getWorldPosition(new THREE.Vector3()), 0.9); }
       }
-      if (d < 3 || H.t > 12) { this._heliCrash(); return; }
+      if ((H.commit && d < 3) || H.t > 14) { this._heliCrash(); return; }
     } else {
       _v2.subVectors(target, H.pos).multiplyScalar(speedK);
       if (_v2.length() > maxV) _v2.setLength(maxV);
@@ -625,9 +633,9 @@ export class SetPieces {
       F.slide = Math.min(16, F.slide + dt * F.th * 3);
       // power dies floor by floor from the feet up; flicker everywhere
       // she stays lit all the way down (the money shot); only the torn feet go dark, then everything dies on impact
-      F.powerLo = Math.min(400, F.powerLo + dt * (F.bridgeHit ? 160 : 3.5));
+      F.powerLo = Math.min(F.bridgeHit ? 150 : 400, F.powerLo + dt * (F.bridgeHit ? 160 : 3.5));
       R.u.uPowerLo.value = F.powerLo; R.u.uFlicker.value = F.bridgeHit ? 0.7 : 0.2;
-      T.state.light = F.bridgeHit ? Math.max(0, T.state.light - dt * 0.45) : 1;
+      T.state.light = F.bridgeHit ? Math.max(0.55, T.state.light - dt * 0.45) : 1;
       if (F.th > 0.5) T.state.beacon = Math.max(0, T.state.beacon - dt * 0.15);
       if (F.th > 1.0) T.state.sparkle = Math.max(0, T.state.sparkle - dt * 0.4);
       // the bend: rivets let go in showers at the first platform and the second
@@ -653,8 +661,9 @@ export class SetPieces {
         const i = 8 + ((rand() * (NODES - 9)) | 0), P = _v.copy(R.S[i]).add(T.root.position);
         this.clouds.spawn({ x: P.x + range(-6, 6), y: P.y + 6, z: P.z + range(-6, 6), vx: range(-0.4, 0.4) + 1.3, vy: range(5, 7), vz: range(-0.4, 0.4) + 0.4, drag: 0.1, buoy: 0.3, s0: 9, s1: range(38, 52), life: range(14, 17), a: 0.9, fadeIn: 0.05, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.06, g: 0.055, b: 0.05, r1: 0.13, g1: 0.12, b1: 0.11, glow: 1.0, glowFade: 3 });
       }
-      T.state.light = Math.max(0, T.state.light - dt * 0.5); T.state.beacon = Math.max(0, T.state.beacon - dt * 0.5); T.state.sparkle = 0; T.state.aviation = Math.max(0, T.state.aviation - dt);
-      R.u.uFlicker.value = 0.6;
+      // a third of her lights hang on, flickering, so the wreck still reads as the Iron Lady
+      T.state.light = damp(T.state.light, 0.55, 0.8, dt); T.state.beacon = Math.max(0, T.state.beacon - dt * 0.5); T.state.sparkle = 0; T.state.aviation = Math.max(0, T.state.aviation - dt);
+      R.u.uPowerLo.value = 150; R.u.uFlicker.value = 0.45;
     }
     this._solveSpine(F, dt);
   }
@@ -766,8 +775,8 @@ export class SetPieces {
     for (let k = 0; k < 500; k++) { F.om += 0.13 * Math.sin(Math.max(F.th, 0.06)) / 30; F.th = Math.min(1.62, F.th + F.om / 30); if (F.th >= 1.62) F.om = 0; F.slide = Math.min(16, F.slide + F.th * 0.1); F.sink = Math.min(9, F.sink + 0.05); F.twist = 0.32; F.dir.set(0.05, 0, 1).normalize(); this._solveSpine(F, 1 / 30); }
     F.landed.fill(true); F.quiet = false;
     F.phase = 'down'; F.t = 40; F.bridgeHit = F.spireHit = true;
-    const S = this.T.state; S.light = 0; S.beacon = 0; S.sparkle = 0; S.aviation = 0;
-    this.T.rig.u.uPowerLo.value = 400;
+    const S = this.T.state; S.light = 0.55; S.beacon = 0; S.sparkle = 0; S.aviation = 0;
+    this.T.rig.u.uPowerLo.value = 150;
     for (const c of this.g.traffic.cars) if (Math.abs(c.root.position.x) < BRIDGE.half && Math.abs(c.root.position.z) < BRIDGE.z1) { c.state = 'wreck'; c.burn = range(20, 60); c.m.setBurnt?.(); }
     this.tear(40, 260, 60, -1, 3);
   }

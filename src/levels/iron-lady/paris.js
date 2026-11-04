@@ -298,7 +298,17 @@ function frontage(B, f, s0, s1, gaps, opts, rng, out) {
     if (s + w > next - BAY * 2) w = next - s;
     const T = 0.9 + rng() * 0.12;
     const tint = [T, T * (0.96 + rng() * 0.03), T * (0.9 + rng() * 0.05)];
-    building(B, f, s, s + w, { ...opts, tint, tall: rng() < 0.3 }, rng, out);
+    const r = building(B, f, s, s + w, { ...opts, tint, tall: rng() < 0.3 }, rng, out);
+    // the end of a run (a cross street, the park corner): close the block with a windowed side wall
+    const atStart = s <= s0 + 0.01 || gaps.some(([, g1]) => Math.abs(g1 - s) < 0.01), atEnd = s + w >= next - 0.01;
+    for (const [se, sg, on] of [[s, -1, atStart], [s + w, 1, atEnd]]) if (on) {
+      const n = [f.A[0] * sg, 0, f.A[2] * sg], yC = r.yC;
+      for (let d = 0; d < 25.9; d += BAY) {
+        const v = (rng() * 8) | 0, d1 = Math.min(26, d + BAY);
+        B.fac.quad(f.P(se, d, 0), f.P(se, d1, 0), f.P(se, d1, yC), f.P(se, d, yC), n, [v / 8, 0, (v + 1) / 8, yC / 22.2], [0.62, 0.58, 0.52], [0.78, 0.74, 0.68]);
+      }
+      B.zinc.quad(f.P(se, 0.3, yC + 0.55), f.P(se, 26, yC + 0.55), f.P(se, 26, r.yT), f.P(se, 2.6, r.yT), n, [0, 0, 6, 1.4], [0.45, 0.47, 0.52]);
+    }
     s += w;
   }
 }

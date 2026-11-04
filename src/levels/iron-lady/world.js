@@ -58,7 +58,7 @@ export class IronWorld {
     // moored barges along the north lower quay (scenery + cover along the water edge)
     this.barges = [];
     if (boatsM?.buildBoat) {
-      for (const [x, z, seed] of [[96, 36.6, 3], [146, 36.4, 7], [-120, 36.5, 11], [-170, -36.5, 13], [250, 36.5, 17]]) {
+      for (const [x, z, seed] of [[48, 36.6, 3], [262, 36.4, 7], [-120, 36.5, 11], [-170, -36.5, 13], [300, -36.5, 17]]) { // the quay-fight stretch (x 70..200) stays open to the river
         try {
           const b = boatsM.buildBoat('peniche', { seed });
           b.root.position.set(x, WATER_Y, z);

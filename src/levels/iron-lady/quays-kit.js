@@ -11,7 +11,7 @@ import { makeNoise, fbm, makeCanvas, canvasTex, heightToNormal } from '../../tex
 //  (= baked lamp light × albedo), so light pools, lit walls and warm undersides cost nothing.
 // =====================================================================================
 
-export const TS = 4.8;   // stone ashlar tile (m): 8 courses of 0.6 m, blocks 0.8-1.7 m
+export const TS = 3.4;   // stone ashlar tile (m): 8 courses of ~0.42 m, blocks 0.6-1.2 m
 export const TC = 4;     // cobbles tile
 export const TA = 5;     // asphalt tile
 export const TG = 3;     // gravel tile

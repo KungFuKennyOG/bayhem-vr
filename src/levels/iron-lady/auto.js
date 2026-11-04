@@ -55,7 +55,7 @@ export class Auto {
     if (dGoal < (G.tol ?? 0.6)) { this.goals.shift(); this.path = null; return; }
     // fighting: walk (it's a shooter, not a marathon); otherwise jog / sprint
     const engaged = p.autoState.target && p.autoState.target.kind !== 'look';
-    let mag = (G.sprint ?? this.sprint) ? 1.5 : engaged ? 0.55 : 1.0;
+    let mag = (G.sprint ?? this.sprint) ? 1.5 : engaged ? 0.8 : 1.0;
     if (G.slow) mag = Math.min(mag, G.slow);
     mag *= clamp(dGoal / 1.5, 0.35, 1);
     if (d > 1e-3) p.autoMove.set(dx / d * mag, 0, dz / d * mag);

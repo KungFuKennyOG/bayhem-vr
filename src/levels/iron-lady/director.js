@@ -100,14 +100,14 @@ export class Director {
           later(0.4, () => audio.play('heli_flyby', { x: -150, y: 20, z: 0, volume: 0.6 }));
           later(1.2, () => setp.spawnHeli());
           later(2.2, () => say('Gunship — up the river! WIDOWMAKER again?! How many of these does this guy OWN?', 3.4));
-          later(9.0, () => say('Grenades! And stay under the lattice, it can\'t see through all that iron!', 3));
+          later(9.0, () => { if (setp.heli?.alive && setp.heli.phase !== 'dying') say('Grenades! And stay under the lattice, it can\'t see through all that iron!', 3); });
           S({ x: -20, z: -92, delay: 6 }); S({ x: 26, z: -118, delay: 9, flanker: true }); S({ x: -30, z: -150, delay: 14 }); S({ x: 18, z: -166, delay: 18 });
           sniper('t2', { delay: 12, lockTime: 2.8 });
           A?.go([go(4, -50, { slow: 0.7 }), go(10, -82, { slow: 0.6 }), go(-6, -112, { slow: 0.5 })]);
         }, update: (t) => {
           for (const e of g.events) {
             if (e.type === 'thread') later(0.3, () => say('It\'s going THROUGH the tower! Between the legs!', 2.4));
-            if (e.type === 'heliDying') { later(0.3, () => say('Hit! It\'s going down— no no no, not into the TOWER—', 3)); g.cinematicLook = setp.heli.pos; g.cinematicW = 3.5; }
+            if (e.type === 'heliDying') { later(0.3, () => say('Hit! It\'s going down— LOOK — it\'s going into the TOWER—', 3)); hud.setWaypoint(setp.crashPoint().setY(TOWER.crashY + 6)); g.cinematicLook = setp.heli.pos; g.cinematicW = 3.5; }
             if (e.type === 'heliCrash') {
               g.cinematicLook = e.P.clone(); g.cinematicW = 3;
               later(trailer ? 2.6 : 3.2, () => { g.cinematicLook = null; });
