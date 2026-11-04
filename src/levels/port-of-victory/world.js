@@ -65,8 +65,8 @@ export class PortWorld {
   _ground() {
     const aniso = this.aniso;
     // asphalt (yard): tiled detail + a painted-markings overlay
-    const asph = asphaltTexture(); asph.map.anisotropy = aniso; asph.map.repeat.set(160 / 9, 150 / 9); asph.normal.repeat.copy(asph.map.repeat);
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(160, 150), new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.3, 0.3), roughness: 0.8, metalness: 0, color: 0xa8a098, envMapIntensity: 0.6 }));
+    const asph = asphaltTexture(); asph.map.anisotropy = aniso; asph.map.repeat.set(160 / 4.5, 150 / 4.5); asph.normal.repeat.copy(asph.map.repeat);
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(160, 150), new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.14, 0.14), roughness: 0.78, metalness: 0, color: 0x9a9894, envMapIntensity: 0.6 }));
     yard.rotation.x = -Math.PI / 2; yard.position.set(0, 0, 40 - 75); yard.receiveShadow = true;
     this.group.add(yard);
     // concrete apron (quay)
@@ -100,6 +100,10 @@ export class PortWorld {
     for (const z of [-24.0, -31.6, -67.0, -74.6]) quad(-60, z, 60, z, 0.18, 0, 0);
     // quay: yellow safety line 2 m from the edge, crane rail markings
     quad(-80, QUAY_Z + 2, 80, QUAY_Z + 2, 0.22, 0, 0);
+    // apron: painted lanes and bay grid under the cranes (white), hatched pedestrian strip by the gangway
+    for (let x = -70; x <= 70; x += 14) quad(x, -112, x, -146, 0.12, 0.25, 0.25);
+    for (const z of [-114, -132, -146]) quad(-72, z, 72, z, 0.14, 0.25, 0.25);
+    for (let x = -6; x <= -1; x += 0.9) quad(x, -142, x + 0.5, -149.5, 0.35, 0, 0);
     const pos = [], uv = [], col = [], idx = [];
     lines.forEach((l, i) => {
       const y = 0.012;
@@ -133,7 +137,7 @@ export class PortWorld {
   _water() {
     const nrm = waterNormal(); nrm.repeat.set(60, 40);
     this.waterNormal = nrm;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x0c1a20, roughness: 0.06, metalness: 0.15, normalMap: nrm, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.5 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x06121a, roughness: 0.1, metalness: 0.1, normalMap: nrm, normalScale: new THREE.Vector2(0.5, 0.5), envMapIntensity: 0.55 });
     const w = new THREE.Mesh(new THREE.PlaneGeometry(2600, 1400), mat);
     w.rotation.x = -Math.PI / 2; w.position.set(0, WATER_Y, QUAY_Z - 700);
     w.receiveShadow = true;
@@ -314,7 +318,7 @@ export class PortWorld {
         if (w.type === 'box') this.col.walk.push({ type: 'box', x0: w.min[0], z0: w.min[1], x1: w.max[0], z1: w.max[1], y: w.y });
         else this.col.walk.push({ ...w });
       }
-      for (const p of (s.anchors?.lights || [])) this.lampGlows.push({ p: p.isVector3 ? p.clone() : p.getWorldPosition(new THREE.Vector3()), size: 2.2, color: [2.0, 1.6, 1.1], dusk: true });
+      for (const p of (s.anchors?.lights || [])) this.lampGlows.push({ p: p.isVector3 ? p.clone() : p.getWorldPosition(new THREE.Vector3()), size: 1.15, color: [1.9, 1.25, 0.6], dusk: true });
     } else {
       // stand-in hull + deck + gangway so the level is playable
       const hull = new THREE.Mesh(box(160, 13, 27), new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.6, metalness: 0.4 }));
@@ -369,9 +373,9 @@ export class PortWorld {
       const mesh = new THREE.Mesh(g, mt); mesh.position.y = height / 2 - 8 + y; mesh.renderOrder = -30; far.add(mesh); return mesh;
     };
     const t1 = T.skylineTexture(5); t1.repeat.set(2, 1);
-    this.skyline = [mkSky(1150, 170, sunYaw + Math.PI / 2 - 0.9, 1.8, t1, 0, 0xb38a78)];
+    this.skyline = [mkSky(1150, 170, sunYaw + Math.PI / 2 - 0.9, 1.8, t1, 0, 0x9c8aa0)];
     const t2 = T.skylineTexture(23); t2.repeat.set(3, 1);
-    this.skyline.push(mkSky(900, 80, sunYaw - Math.PI / 2 - 1.2, 2.4, t2, -2, 0x7c6a72));
+    this.skyline.push(mkSky(900, 80, sunYaw - Math.PI / 2 - 1.2, 2.4, t2, -2, 0x80778e));
     // refinery flare stacks + distant cranes on the far shore (simple silhouettes, unfogged dark)
     const sil = [];
     const rr = makeRng(5);
@@ -436,7 +440,9 @@ export class PortWorld {
     this.far.position.set(head.x * 0.9, 0, head.z * 0.9);
     // emissive windows / signs come up with the dusk
     const em = THREE.MathUtils.smoothstep(dusk, 0.1, 0.7);
-    for (const m of this.duskMats) m.emissiveIntensity = m.userData.duskEmissive * (0.15 + 0.85 * em);
+    for (const m of this.duskMats) m.emissiveIntensity = m.userData.burnt ? 0 : m.userData.duskEmissive * (0.15 + 0.85 * em);
+    // the sun's lens flare fades once the sun is down; the skyline lifts into the blue haze
+    if (this.E.flare) { const fk = 1 - THREE.MathUtils.smoothstep(dusk, 0.4, 0.78); this.E.flare.traverse(o => { if (o.material) { o.material.userData.o0 ??= o.material.opacity; o.material.opacity = o.material.userData.o0 * fk; } }); this.E.flare.visible = fk > 0.01; }
     this.silMat.color.setRGB(0.16 - 0.1 * dusk, 0.125 - 0.08 * dusk, 0.15 - 0.07 * dusk);
     // masts: per-mast on/off state is driven by the level (flicker on in sequence)
     let gi = 0;
@@ -449,7 +455,7 @@ export class PortWorld {
       ms.cur = k;
       const kk = k * (0.35 + 0.65 * Math.min(1, dusk * 1.6));
       poolCol.setXYZ(i, SODIUM[0] * kk * 0.2, SODIUM[1] * kk * 0.2, SODIUM[2] * kk * 0.2);
-      for (const p of ms.lamps) if (gi < G.max - 1) G.set(gi++, p.x, p.y, p.z, 3.2, 3.2, 0, CELL.GLOW, 0, 2.6 * k, 1.5 * k, 0.5 * k, 0.9 * k);
+      for (const p of ms.lamps) if (gi < G.max - 1) G.set(gi++, p.x, p.y, p.z, 1.9, 1.9, 0, CELL.GLOW, 0, 2.3 * k, 1.05 * k, 0.32 * k, 0.85 * k);
       if (k > 0.05) nearest.push([ms, (ms.x - head.x) ** 2 + (ms.z - head.z) ** 2]);
     });
     poolCol.needsUpdate = true;
@@ -467,8 +473,8 @@ export class PortWorld {
     this.sodium.forEach((l, i) => {
       const n = nearest[i];
       if (!n) { l.intensity = 0; return; }
-      l.position.set(n[0].x, 16, n[0].z);
-      l.intensity = 150 * n[0].cur * (0.3 + 0.7 * Math.min(1, dusk * 1.6));
+      l.position.set(n[0].x, 22, n[0].z);
+      l.intensity = 110 * n[0].cur * (0.3 + 0.7 * Math.min(1, dusk * 1.6));
     });
   }
 }

@@ -130,6 +130,14 @@ export class SetPieces {
     if (C.mode === 'after') { C.tz = -96; C.tTrolley = 7; if (C.hoist < 14.5) C.hoist = Math.min(14.5, C.hoist + dt * 2); rtg.setHoist?.(C.hoist); }
     g.audio.setLoop('crane_motor', { x: RTG.x + C.trolley, y: 17, z: C.z, volume: C.mode === 'idle' ? 0 : 0.5 + Math.min(0.5, moving * 0.12), intensity: Math.min(1, moving * 0.2) });
     if (C.op && C.opAlive) C.op.update(dt, C.mode === 'idle' ? null : head);
+    if (C.mode === 'track') {
+      // telegraph: the hanging box sways and its shadow paints a pulsing target on the asphalt
+      const root = C.box.hc.root; root.rotation.z = Math.sin(C.t * 2.1) * 0.035; root.rotation.x = Math.sin(C.t * 1.6 + 1) * 0.025;
+      rtg.spreader.updateWorldMatrix(true, false); rtg.spreader.getWorldPosition(_v);
+      C.shadow.position.set(_v.x, 0.04, _v.z); C.shadow.scale.set(CW * 1.25, 1, C40 * 1.1);
+      C.shadow.material.opacity = 0.18 + 0.14 * (0.5 + 0.5 * Math.sin(C.t * 9));
+      C.shadow.material.color.setRGB(0.25 * (0.5 + 0.5 * Math.sin(C.t * 9)), 0.02, 0);
+    } else if (!C.fall) C.shadow.material.opacity = 0;
     // falling box
     const F = C.fall;
     if (F) {
@@ -152,6 +160,7 @@ export class SetPieces {
     g.scene.attach(root);
     const L = C40;
     const e = new THREE.Euler().setFromQuaternion(root.quaternion, 'YXZ');
+    C.shadow.material.color.setRGB(0, 0, 0);
     C.fall = { obj: root, y: wp.y, y0: wp.y, v: 0, rx: 0, wr: range(-0.35, 0.35), yaw: e.y, Lx: CW, Lz: L };
     C.shadow.position.set(wp.x, 0.04, wp.z);
     g.audio.play('crane_release', { x: wp.x, y: wp.y + 3, z: wp.z, volume: 1 });
@@ -251,6 +260,7 @@ export class SetPieces {
   forkliftStart() {
     const F = this.fork, g = this.g;
     F.state = 'charge'; F.root.visible = true; F.t = 0; F.speed = 0; F.hp = 22;
+    if (g.auto) { g.cinematicLook = F.root.position.clone().setY(1.6); g.cinematicW = 5; g.fx.later(1.4, () => { if (g.cinematicLook && g.cinematicLook.y === 1.6) g.cinematicLook = null; }); }
     // pallet of fuel drums on the forks
     const forks = F.model.anchors.forks;
     for (let i = 0; i < 4; i++) {
@@ -407,6 +417,8 @@ export class SetPieces {
     // deck containers thrown into the sky
     for (let i = 0; i < 4; i++) g.fx.later(0.15 + i * 0.2, () => this._flingBox(new THREE.Vector3(-30 + i * 14 + range(-3, 3), DECK_Y + 3, -168 + range(-4, 4))));
     for (let i = 0; i < 40; i++) g.fx.spawnDebris(P.clone().setY(P.y + 3), range(-25, 25), range(14, 34), range(-10, 30), range(0.3, 0.9), rand() < 0.5);
+    // the ship chars over a few seconds (ship.js setBurnt), windows die
+    this.burnK = 0;
     // persistent fires along the ship
     this.shipFires = [];
     for (let i = 0; i < 14; i++) this.shipFires.push({ p: new THREE.Vector3(range(-80, 34), DECK_Y + range(0.5, 2.5), range(-158, -176)), s: range(1.5, 3.5) });
@@ -439,19 +451,20 @@ export class SetPieces {
       const P = mu.P, t = mu.t, fx = g.fx;
       const emit = (k, rate, fn) => { mu[k] = (mu[k] || 0) + rate * dt; while (mu[k] >= 1) { mu[k] -= 1; fn(); } };
       // initial fireball: a column of huge puffs punching up out of the hold, clearing the hull
-      if (t < 0.45) emit('core', 30, () => fx.main.spawn({ x: P.x + range(-6, 6), y: P.y + range(0, 5), z: P.z + range(-5, 5), vx: range(-7, 7), vy: range(16, 30), vz: range(-6, 6), drag: 1.1, grav: 1.5, frameKind: 1, s0: range(10, 14), s1: range(30, 42), ease: 0.5, life: range(2.6, 3.6), rot: rand() * 6, vrot: range(-0.4, 0.4), r: 1.6, g: 1.15, b: 0.8, a: 1, fadeIn: 0.01, fadeOut: 0.72 }));
+      if (t < 0.45) emit('core', 30, () => fx.main.spawn({ x: P.x + range(-6, 6), y: P.y + range(0, 5), z: P.z + range(-5, 5), vx: range(-7, 7), vy: range(24, 40), vz: range(-6, 6), drag: 1.0, grav: 1.5, frameKind: 1, s0: range(12, 16), s1: range(36, 50), ease: 0.5, life: range(2.6, 3.6), rot: rand() * 6, vrot: range(-0.4, 0.4), r: 1.6, g: 1.15, b: 0.8, a: 1, fadeIn: 0.01, fadeOut: 0.72 }));
       // stem: fire column rising into the cap, wrapped in dark smoke
-      if (t < 3.6) emit('stem', 9, () => fx.main.spawn({ x: P.x + range(-3, 3), y: P.y + range(2, 10), z: P.z + range(-3, 3), vx: range(-1, 1), vy: range(15, 22), vz: range(-1, 1), drag: 0.5, frameKind: 1, s0: range(7, 9), s1: range(14, 20), ease: 0.6, life: range(2.0, 2.6), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 1.5, g: 1.0, b: 0.68, a: 1, fadeOut: 0.7 }));
+      if (t < 3.6) emit('stem', 9, () => fx.main.spawn({ x: P.x + range(-3, 3), y: P.y + range(2, 12), z: P.z + range(-3, 3), vx: range(-1, 1), vy: range(22, 32), vz: range(-1, 1), drag: 0.5, frameKind: 1, s0: range(7, 9), s1: range(14, 20), ease: 0.6, life: range(2.0, 2.6), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 1.5, g: 1.0, b: 0.68, a: 1, fadeOut: 0.7 }));
       if (t > 0.3 && t < 4) emit('stemS', 4, () => { const sh = range(0.08, 0.13); fx.main.spawn({ x: P.x + range(-5, 5), y: P.y + range(4, 20), z: P.z + range(-5, 5), vx: range(-1.5, 1.5), vy: range(7, 12), vz: range(-1.5, 1.5), drag: 0.4, frameKind: 2, frame: rand() * 40, frames: 16, s0: 10, s1: range(22, 30), ease: 0.6, life: range(6, 8), rot: rand() * 6, vrot: range(-0.1, 0.1), r: sh * 1.4, g: sh, b: sh * 0.8, a: 0.85, fadeIn: 0.1, fadeOut: 0.6 }); });
       // cap: a rolling ring of fire turning into black smoke at 30-55 m
       if (t > 0.5 && t < 4.6) {
-        emit('capF', 9, () => { const a = rand() * Math.PI * 2, R = range(6, 12) + t * 3.5, cy = P.y + 26 + t * 6; fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(-3, 3), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(3, 6), vy: range(1, 3), vz: Math.sin(a) * range(3, 6), drag: 0.4, frameKind: 1, s0: range(12, 15), s1: range(24, 32), ease: 0.6, life: range(2.2, 3.2), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 1.45, g: 0.9, b: 0.55, a: 1, fadeOut: 0.65 }); });
-        emit('capS', 5, () => { const a = rand() * Math.PI * 2, R = range(8, 15) + t * 4, cy = P.y + 30 + t * 6, sh = range(0.07, 0.14); fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(0, 8), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(2, 4.5), vy: range(1.5, 4), vz: Math.sin(a) * range(2, 4.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 18, s0: range(16, 22), s1: range(40, 56), ease: 0.6, life: range(10, 14), rot: rand() * 6, vrot: range(-0.08, 0.08), r: sh * 1.5, g: sh * 1.05, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.9, a: 0.9, fadeIn: 0.1, fadeOut: 0.6 }); });
+        emit('capF', 9, () => { const a = rand() * Math.PI * 2, R = range(8, 15) + t * 5, cy = P.y + 46 + t * 9; fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(-3, 3), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(3, 6), vy: range(1, 3), vz: Math.sin(a) * range(3, 6), drag: 0.4, frameKind: 1, s0: range(15, 19), s1: range(30, 40), ease: 0.6, life: range(2.2, 3.2), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 1.45, g: 0.9, b: 0.55, a: 1, fadeOut: 0.65 }); });
+        emit('capS', 5, () => { const a = rand() * Math.PI * 2, R = range(10, 18) + t * 5.5, cy = P.y + 52 + t * 9, sh = range(0.07, 0.14); fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(0, 8), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(2, 4.5), vy: range(1.5, 4), vz: Math.sin(a) * range(2, 4.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 18, s0: range(20, 26), s1: range(50, 70), ease: 0.6, life: range(10, 14), rot: rand() * 6, vrot: range(-0.08, 0.08), r: sh * 1.5, g: sh * 1.05, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.9, a: 0.9, fadeIn: 0.1, fadeOut: 0.6 }); });
       }
       if (t > 0.1 && t < 0.4) g.hud.white.material.opacity = Math.max(0, 0.85 - (t - 0.1) * 3);
       if (t > 16) this.mush = null;
     }
     // burning ship after the blast
+    if (this.burnK !== undefined && this.burnK < 1) { this.burnK = Math.min(1, this.burnK + dt * 0.6); this.w.ship.setBurnt?.(this.burnK); }
     if (this.shipFires) {
       for (const f of this.shipFires) if (rand() < dt * 9) { g.fx.flame(_v.copy(f.p).add(_v2.set(range(-1, 1), 0, range(-1, 1))), f.s); if (rand() < 0.35) g.fx.smoke(_v.setY(f.p.y + f.s * 1.5), f.s * 1.4, 0.09, 7, 3, 0.85); }
       g.audio.setLoop('fire_big', { x: -12, y: DECK_Y, z: -165, volume: 1, intensity: 1 });

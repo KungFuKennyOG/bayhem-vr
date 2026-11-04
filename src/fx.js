@@ -59,6 +59,8 @@ export class FX {
     this.onSound = () => {};
     // on-foot levels: fast floor height (x,z)=>y used by particles, debris, casings, scorch decals, dust rings
     this.groundAt = null;
+    // fire emission multiplier for explosions (levels at dusk / close-quarters can tame white blow-outs)
+    this.heat = 1;
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._s = new THREE.Vector3(); this._p = new THREE.Vector3();
   }
 
@@ -81,12 +83,12 @@ export class FX {
     const P = pos;
     const gy = this.groundAt ? this.groundAt(P.x, P.z) : 0, hy = P.y - gy;
     // sizes grow with s but are capped (fill rate); counts grow with sqrt(s)
-    const ss = Math.min(s, 1.8), cs = Math.sqrt(s);
+    const ss = Math.min(s, 1.8), cs = Math.sqrt(s), H = this.heat;
     this.onSound('explosion_big', P);
     this.light(_v.copy(P).setY(P.y + 1.5), 260 * s, 1.1, 0xff9040, true, 60 * s);
     // flash
-    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * ss, s1: 11 * ss, life: 0.2, r: 3.0, g: 2.1, b: 1.2, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
-    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * ss, s1: 16 * ss, life: 0.14, r: 2.8, g: 2.0, b: 1.1, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
+    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * ss, s1: 11 * ss, life: 0.2, r: 3.0 * H, g: 2.1 * H, b: 1.2 * H, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
+    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * ss, s1: 16 * ss, life: 0.14, r: 2.8 * H, g: 2.0 * H, b: 1.1 * H, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
     // main fireballs, staggered
     const n = Math.round(5 * cs + 2);
     for (let i = 0; i < n; i++) {
@@ -97,14 +99,14 @@ export class FX {
           x: P.x + range(-0.8, 0.8) * s, y: P.y + range(0.2, 1.4) * s, z: P.z + range(-0.8, 0.8) * s,
           vx: Math.cos(a) * Math.cos(el) * sp + (carVel ? carVel.x * 0.5 : 0), vy: Math.sin(el) * sp + range(1, 4), vz: Math.sin(a) * Math.cos(el) * sp + (carVel ? carVel.z * 0.5 : 0),
           drag: 2.6, grav: 2.2, frameKind: 1, s0: range(3.6, 5.0) * ss, s1: range(9.5, 14) * ss, ease: 0.55, life: range(1.1, 1.9), rot: rand() * 6.28, vrot: range(-0.8, 0.8),
-          r: 2.3, g: 1.9, b: 1.6, a: 1, fadeIn: 0.02, fadeOut: 0.85,
+          r: 2.3 * H, g: 1.9 * H * H, b: 1.6 * H * H, a: 1, fadeIn: 0.02, fadeOut: 0.85,
         });
       };
       if (d === 0) fn(); else this.later(d, fn);
     }
     // rising mushroom core
     for (let i = 0; i < 3; i++) this.later(0.1 + i * 0.08, () => {
-      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 5.5 * ss, s1: 15 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1, g: 1.8, b: 1.5, fadeOut: 0.8 });
+      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 5.5 * ss, s1: 15 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1 * H, g: 1.8 * H * H, b: 1.5 * H * H, fadeOut: 0.8 });
     });
     // dark smoke column
     for (let i = 0; i < Math.round(6 * cs + 2); i++) this.later(range(0.25, 0.9), () => {
@@ -261,7 +263,7 @@ export class FX {
       }
       if (!d.ground) { d.rx += d.wx * dt; d.ry += d.wy * dt; d.rz += d.wz * dt; }
       if (d.burning) {
-        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.5, (q) => { this.flame(q, 0.3); this.smoke(q, 0.45, 0.16, 1.5, 0.5, 0.55); }, dz);
+        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.24, (q) => { this.flame(q, 0.34); if (rand() < 0.5) this.smoke(q, 0.6, 0.16, 1.5, 0.5, 0.5); }, dz);
       }
       p.set(d.x, d.y, d.z); q.setFromEuler(new THREE.Euler(d.rx, d.ry, d.rz)); s.set(d.sx, d.sy, d.sz);
       m.compose(p, q, s); this.debrisMesh.setMatrixAt(n++, m);

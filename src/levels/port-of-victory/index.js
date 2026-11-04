@@ -18,6 +18,9 @@ export async function create(E) {
   setSunElevation(5.5 - 0.12 * 9.5, new THREE.Vector3(-0.42, 0, -1));
   applyDusk(0.12, { sun: E.sun, hemi: E.hemi, fog: scene.fog, renderer });
   scene.fog.near = 30; scene.fog.far = 640;
+  fx.heat = 0.72; // dusk + close quarters: keep fireballs orange, not white
+  // debris reads as lit, hot metal chunks (not black squares)
+  fx.debrisMesh.material = new THREE.MeshStandardMaterial({ color: 0x4a423c, roughness: 0.55, metalness: 0.55, emissive: 0x5a1a04, emissiveIntensity: 0.55 });
   const world = await new PortWorld(E).build();
   const game = new PortGame(E, world);
   const setp = new SetPieces(game);
