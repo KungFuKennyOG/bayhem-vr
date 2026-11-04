@@ -380,8 +380,8 @@ export class HUD {
       const t = this.title; t.t += rdt;
       const k = t.t / t.life;
       const d = t.s.position.distanceTo(camPos);
-      const pop = t.t < 0.35 ? 0.6 + (t.t / 0.35) * 0.4 : 1 + (t.t - 0.35) * 0.02;
-      const h = d * (t.life > 900 ? 0.5 : 0.3) * pop * (t.hk || 1);
+      const pop = t.t < 0.35 ? 0.6 + (t.t / 0.35) * 0.4 : Math.min(1.06, 1 + (t.t - 0.35) * 0.02);
+      const h = d * (t.life > 900 ? 0.4 : 0.3) * pop * (t.hk || 1);
       t.s.scale.set(h * t.aspect, h, 1);
       t.s.material.opacity = t.t < 0.2 ? t.t / 0.2 : k > 0.8 ? Math.max(0, 1 - (k - 0.8) / 0.2) : 1;
       if (k >= 1 && t.life < 900) { this.scene.remove(t.s); this.title = null; }
