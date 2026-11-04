@@ -3,6 +3,7 @@ import { makeRng } from '../../rng.js';
 import { makeNoise, fbm, makeCanvas, canvasTex, heightToNormal } from '../../textures.js';
 import { AVE, CROSS, PLAZA, SUBWAY, streetGround } from './layout.js';
 import { Bucket, M4, rmMaterial } from './cars.js';
+import { buildSubwayInterior } from './subway.js';
 
 // =====================================================================================
 //  DOWNTOWN HAVEN — street surfaces, markings, street furniture (buildStreet) and the
@@ -1030,103 +1031,28 @@ export async function buildSubway(ctx = {}) {
   const ramp = (z) => streetGround((x0 + x1) / 2, z);
   const W = x1 - x0, xc = (x0 + x1) / 2;
   const P = B.props;
-  // ---- stairs: treads centred on the ramp (|error| ≤ half a riser), nosings, risers
-  const n = 28, tl = (zB - zT) / n;
-  for (let i = 0; i < n; i++) {
-    const za = zT + i * tl, zb = za + tl, y = ramp((za + zb) / 2), yPrev = i ? ramp(za - tl / 2) : SW;
-    const tone = 0.9 + rng() * 0.12, wear = [0.38 * tone, 0.37 * tone, 0.35 * tone];
-    addStone(B.stone, BOX(W, 0.06, tl), M4(xc, y - 0.03, (za + zb) / 2), wear);
-    addGeo(P, BOX(W, Math.max(0.01, yPrev - y), 0.03), M4(xc, (y + yPrev) / 2, za + 0.015), [0.22, 0.21, 0.2], RM.stone);
-    addGeo(P, BOX(W - 0.02, 0.012, 0.06), M4(xc, y + 0.004, za + 0.04), [0.55, 0.45, 0.12], [0.5, 0.6, 0]);   // nosing strip
-  }
-  // stringer fill under the treads (closes the side gaps against the walls)
-  for (const x of [x0 + 0.05, x1 - 0.05]) {
-    const g = new THREE.BufferGeometry();
-    const pts = [[zT, SW], [zB, yB], [zB, yB - 0.6], [zT, SW - 0.6]];
-    g.setAttribute('position', new THREE.Float32BufferAttribute([x, pts[0][1], pts[0][0], x, pts[1][1], pts[1][0], x, pts[2][1], pts[2][0], x, pts[0][1], pts[0][0], x, pts[2][1], pts[2][0], x, pts[3][1], pts[3][0]], 3));
-    g.computeVertexNormals();
-    addGeo(P, g, new THREE.Matrix4(), [0.2, 0.2, 0.19], RM.stone);
-  }
-  // ---- landing + tunnel floor (terrazzo-ish), tunnel turning +x out of sight
-  const zT2 = zE + 7;                              // tunnel runs +z to here, then turns toward +x
-  addStone(B.stone, BOX(W, 0.1, zT2 - zB + 0.4), M4(xc, yB - 0.05, (zB + zT2) / 2 + 0.2), [0.3, 0.29, 0.27]);
-  addStone(B.stone, BOX(8, 0.1, W), M4(x1 + 4, yB - 0.05, zT2 - W / 2), [0.3, 0.29, 0.27]);
-  // ---- tiled walls (inner faces), vertex-colour grime & darkness falloff along the tunnel
-  const dark = (z, x = 0) => { const d = Math.max(0, z - zE + 1) + Math.max(0, x - x1); return Math.exp(-d * 0.22); };
-  const tileWall = (pts, nrm, y0f, y1f, darkF, grime = 1) => {
-    // pts: list of [x, z] along the wall; y0f/y1f(x,z) heights; uv world-based (1.2 m per tile repeat)
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [xa, za] = pts[i], [xb, zb] = pts[i + 1];
-      const ya0 = y0f(xa, za), ya1 = y1f(xa, za), yb0 = y0f(xb, zb), yb1 = y1f(xb, zb);
-      const ua = (xa + za) / 1.2, ub = (xb + zb) / 1.2;
-      const c = (x, z, y) => { const k = darkF(z, x) * (0.75 + 0.25 * Math.min(1, (y - yB) / 2.5)) * grime; return [0.95 * k, 0.93 * k, 0.86 * k]; };
-      const a = [xa, ya0, za], b = [xb, yb0, zb], cc = [xb, yb1, zb], d = [xa, ya1, za];
-      B.tiles.tri(a, b, cc, nrm, nrm, nrm, [ua, ya0 / 1.2], [ub, yb0 / 1.2], [ub, yb1 / 1.2], [...c(xa, za, ya0), ...c(xb, zb, yb0), ...c(xb, zb, yb1)], RM.stone);
-      B.tiles.tri(a, cc, d, nrm, nrm, nrm, [ua, ya0 / 1.2], [ub, yb1 / 1.2], [ua, ya1 / 1.2], [...c(xa, za, ya0), ...c(xb, zb, yb1), ...c(xa, za, ya1)], RM.stone);
-    }
-  };
-  const zs = range(zT, zT2, 1.0);
-  const ceil = (z) => (z < zB - 3.4 ? SW : Math.min(SW, ramp(Math.min(z, zB)) + 2.75, yB + 2.6));   // soffit following the stairs, then flat
-  const ceilY = (x, z) => Math.max(ceil(z), z < zB - 3.6 ? SW : -99);
-  void ceilY;
-  const floorY = (x, z) => ramp(Math.min(z, zE - 0.001)) - 0.02;
-  // left wall (x = x0) runs the full length; right wall (x = x1) until the turn
-  tileWall(zs.map((z) => [x0, z]), [1, 0, 0], floorY, () => SW, dark);
-  tileWall(range(zT, zT2 - W, 1.0).map((z) => [x1, z]), [-1, 0, 0], floorY, () => SW, dark);
-  // end wall of the tunnel (faces -z) + the turn's far wall
-  tileWall([[x0, zT2], [x1 + 8, zT2]], [0, 0, -1], () => yB, () => yB + 2.6, dark, 0.8);
-  tileWall([[x1, zT2 - W], [x1 + 8, zT2 - W]], [0, 0, 1], () => yB, () => yB + 2.6, dark, 0.8);
-  // green mosaic band with the station name (both walls)
-  for (const [x, s] of [[x0 + 0.004, 1], [x1 - 0.004, -1]]) for (let z = zB - 3.5; z < zE + 4; z += 3.3) {
-    const y = Math.max(ramp(Math.min(z, zE)) + 1.85, yB + 1.85);
-    if (y > SW - 0.2) continue;
-    quad(P, [x, y, z], [0, 0, -s], [0, 1, 0], 3.0, 0.38, A.station, COL.white.map((v) => v * Math.max(0.15, dark(z))), [0.35, 0, 0.05]);
-  }
-  // ceiling: soffit over the lower half of the stairs and the landing/tunnel (grimy, stained concrete)
-  const cz = range(zB - 3.4, zT2, 0.8);
-  for (let i = 0; i < cz.length - 1; i++) {
-    const za = cz[i], zb = cz[i + 1], ya = ceil(za), yb = ceil(zb), k = Math.max(0.12, dark(zb)) * (0.45 + rng() * 0.1);
-    const nn = new THREE.Vector3(0, -(zb - za), (yb - ya)).normalize().toArray();
-    const col = [0.32 * k, 0.3 * k, 0.28 * k];
-    P.tri([x0, ya, za], [x1, ya, za], [x1, yb, zb], nn, nn, nn, WHITE, WHITE, WHITE, col, RM.concrete);
-    P.tri([x0, ya, za], [x1, yb, zb], [x0, yb, zb], nn, nn, nn, WHITE, WHITE, WHITE, col, RM.concrete);
-  }
-  addGeo(P, BOX(8, 0.05, W), M4(x1 + 4, yB + 2.6, zT2 - W / 2), [0.04, 0.04, 0.04], RM.concrete);
-  // solid fill above the soffit up to sidewalk level (seen from the street through the canopy)
-  addStone(B.stone, BOX(W, 0.06, zE - (zB - 3.4) + 0.2), M4(xc, SW - 0.03, (zE + zB - 3.4) / 2 + 0.1), [0.2, 0.2, 0.2]);
-  // fluorescent fixtures along the ceiling (dim; underground lights stay on)
-  for (let z = zB - 2; z < zT2 - 0.5; z += 2.4) {
-    const y = ceil(z) - 0.06, k = Math.max(0.1, dark(z));
-    addGeo(P, BOX(0.22, 0.06, 1.25), M4(xc, y, z), [0.3, 0.3, 0.3], RM.metal);
-    addGeo(B.lens, BOX(0.16, 0.012, 1.15), M4(xc, y - 0.031, z), [0.75 * k, 0.95 * k, 0.85 * k], [0.3, 0, 1.4]);
-  }
-  // darkness: black cards fading the end of the tunnel (and the turn) into nothing
-  const fade = (x, z, w, h, rotY, a0, a1) => {
+  // ---- underground (stairs, tiled walls, landing, tunnel, turnstiles): baked-light interior, see subway.js
+  const zT2 = zE + 7;
+  const inner = buildSubwayInterior({ atlas: textures(ctx.renderer).atlas, A, PA });
+  // fill above the soffit at sidewalk level (seen from the street inside the headhouse): sidewalk slab
+  addStone(B.stone, BOX(W, 0.06, zE - (zB - 3.4) + 0.2), M4(xc, SW - 0.03, (zE + zB - 3.4) / 2 + 0.1), [0.7, 0.67, 0.62]);
+  addGeo(P, BOX(W, 0.012, 0.3), M4(xc, SW + 0.006, zB - 3.4 + 0.15), [0.6, 0.45, 0.08], RM.paint); // yellow edge at the drop
+  // the turn fades into the dark
+  const fade = (x, z, w, h, rotY, a0) => {
     const c = Math.cos(rotY), s = Math.sin(rotY), nn = [s, 0, c];
     const p = (dx, y) => [x + dx * c, y, z - dx * s];
     const A0 = p(-w / 2, yB), B0 = p(w / 2, yB), C0 = p(w / 2, yB + h), D0 = p(-w / 2, yB + h);
     B.dark.tri(A0, B0, C0, nn, nn, nn, WHITE, WHITE, WHITE, [0, 0, 0, 0, 0, 0, 0, 0, 0], [a0, 0, 0]);
     B.dark.tri(A0, C0, D0, nn, nn, nn, WHITE, WHITE, WHITE, [0, 0, 0, 0, 0, 0, 0, 0, 0], [a0, 0, 0]);
-    void a1;
   };
-  for (let k = 0; k < 5; k++) fade(xc, zE + 1.5 + k * 1.2, W, 2.62, 0, 0.18 + k * 0.08);
-  fade(x1 + 1.5, zT2 - W / 2, W, 2.62, Math.PI / 2, 0.6); fade(x1 + 3, zT2 - W / 2, W, 2.62, Math.PI / 2, 0.95);
-  // ---- handrails on both walls (brackets + rail parallel to the stairs)
-  for (const [x, s] of [[x0 + 0.08, 1], [x1 - 0.08, -1]]) {
-    const pts = [[zT + 0.2, SW + 0.9], [zB, yB + 0.9], [zE + 1.5, yB + 0.9]];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [za, ya] = pts[i], [zb, yb] = pts[i + 1], L = Math.hypot(zb - za, yb - ya), ang = Math.atan2(ya - yb, zb - za);
-      addGeo(P, CYL(0.025, 0.025, L, 8).rotateX(Math.PI / 2), M4(x, (ya + yb) / 2, (za + zb) / 2, ang, 0, 0), [0.7, 0.68, 0.62], RM.alu);
-      for (let t = 0.1; t < 1; t += 0.3) addGeo(P, BOX(0.08, 0.02, 0.02), M4(x - s * 0.04, ya + (yb - ya) * t - 0.03, za + (zb - za) * t), [0.5, 0.5, 0.5], RM.alu);
-    }
-  }
+  fade(x1 + 4.2, zT2 - W / 2, W, 2.8, Math.PI / 2, 0.55); fade(x1 + 6.2, zT2 - W / 2, W, 2.8, Math.PI / 2, 0.92);
   // ---- above ground: side walls (granite) at x0-0.2..x0 and x1..x1+0.2, balustrade on top, rear headhouse
   const zH = zB - 3.4;                    // rear (enclosed) part starts here
   const gran = [0.5, 0.48, 0.46], coping = [0.62, 0.6, 0.57];
   for (const xw of [x0 - 0.1, x1 + 0.1]) {
     const so = xw < xc ? -1 : 1;
     // wall body below grade (outer face hidden; the tile wall is the inner face)
-    addGeo(P, BOX(0.2, SW - yB + 0.1, zE - zT), M4(xw, (SW + yB - 0.1) / 2, (zT + zE) / 2), [0.2, 0.2, 0.2], RM.concrete);
+    addGeo(P, BOX(0.2, SW - yB + 0.1, zE - zT), M4(xw + so * 0.012, (SW + yB - 0.1) / 2, (zT + zE) / 2), [0.2, 0.2, 0.2], RM.concrete);
     // front part: granite parapet 0.5 + glass/steel railing
     addStone(B.stone, BOX(0.26, 0.5, zH - zT), M4(xw, SW + 0.25, (zT + zH) / 2), gran);
     addStone(B.stone, BOX(0.32, 0.06, zH - zT + 0.06), M4(xw, SW + 0.53, (zT + zH) / 2), coping);
@@ -1184,6 +1110,7 @@ export async function buildSubway(ctx = {}) {
   if (dm) dm.frustumCulled = false;
   add(B.glass, M.glass, { order: 3, receive: false });
   let tris = 0, draws = 0;
+  root.add(inner.root); glows.push(...inner.glows);
   root.traverse((o) => { if (o.isMesh) { draws++; tris += o.geometry.attributes.position.count / 3; } });
   glows.push(...globes);
   return {
