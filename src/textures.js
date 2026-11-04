@@ -97,7 +97,7 @@ export function roadTextures() {
       height[y * W + x] = fine * 0.6 + grain * 0.4;
       const i = (y * W + x) * 4;
       // slightly cool asphalt
-      img.data[i] = base * 255 * 0.98; img.data[i + 1] = base * 255 * 0.99; img.data[i + 2] = base * 255 * 1.05;
+      img.data[i] = base * 255 * 1.06; img.data[i + 1] = base * 255 * 1.0; img.data[i + 2] = base * 255 * 0.92;
       img.data[i + 3] = 255;
     }
   }
@@ -577,7 +577,7 @@ export function facadeTextures2(seed, floors, bays) {
     ctx.fillStyle = `rgba(255,255,255,0.08)`; ctx.fillRect(0, j * fh + fh * 0.07, W, fh * 0.03);
     for (let i = 0; i < bays; i++) {
       const x = i * bw + bw * (1 - winW) / 2, y = j * fh + fh * (1 - winH) * 0.6, w = bw * winW, h = fh * winH;
-      const lit = r() < 0.2;
+      const lit = r() < 0.12;
       const blinds = r() < 0.3;
       const gl = 30 + r() * 26;
       // frame

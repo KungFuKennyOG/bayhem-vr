@@ -4,9 +4,12 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { makeRng } from './rng.js';
 
 // =====================================================================================
-//  BAYHEM soldiers: one SkinnedMesh (1 draw call) per goon, 21 bones, procedural aim/IK,
-//  and a verlet/PBD ragdoll that tumbles down the treadmill road.
-//  Model space: forward = -z, up = +y, the soldier's right = +x.
+//  BAYHEM characters: one SkinnedMesh (1 draw call) per person, one shared vertex-coloured
+//  material. Sculpted lofted bodies (superellipse rings), a sculpted head (skull, jaw, nose,
+//  brow, cheekbones, ears), plate carrier gear, and a bake of AO + cavity + cloth folds into
+//  vertex colours. Gunmen: procedural aim/IK + verlet/PBD ragdoll. Driver: seated hero
+//  sidekick for the player's pickup (steering, mirror checks, glances back, talking).
+//  Model space: forward = -z, up = +y, the character's right = +x.
 // =====================================================================================
 
 // ---------------- skeleton ----------------
@@ -31,7 +34,7 @@ const HEADS = [
   [GUN0.x, GUN0.y, GUN0.z], [GUN0.x + MAG_OFF.x, GUN0.y + MAG_OFF.y, GUN0.z + MAG_OFF.z],
 ].map(a => new THREE.Vector3(...a));
 const OFF = HEADS.map((h, i) => (PARENT[i] < 0 ? h.clone() : h.clone().sub(HEADS[PARENT[i]])));
-const HEAD_C = new THREE.Vector3(0, 1.69, -0.012); // head centre (bind)
+const HEAD_C = new THREE.Vector3(0, 1.672, -0.012); // head centre (bind)
 const HEAD_C_LOCAL = HEAD_C.clone().sub(HEADS[B.head]);
 
 // rifle-space constants (origin = butt pad, barrel along -z)
@@ -44,176 +47,601 @@ const PALM_R = new THREE.Vector3(0.05, -0.014, 0); // palm centre relative to wr
 const PALM_L = new THREE.Vector3(-0.05, -0.014, 0);
 
 // ---------------- colour slots / surface ----------------
-const S = { FAT: 0, FAT2: 1, VEST: 2, VEST2: 3, GLOVE: 4, BOOT: 5, SOLE: 6, SKIN: 7, SKIN2: 8, MASK: 9, HAT: 10, LENS: 11, STRAP: 12, POLY: 13, GMET: 14, FURN: 15, MAGC: 16, HW: 17, BELT: 18, HAIR: 19, KNEE: 20, BEARD: 21 };
-const NS = 22;
+const S = {
+  FAT: 0, FAT2: 1, VEST: 2, VEST2: 3, GLOVE: 4, BOOT: 5, SOLE: 6, SKIN: 7, SKIN2: 8, MASK: 9, HAT: 10, LENS: 11, STRAP: 12, POLY: 13, GMET: 14, FURN: 15,
+  MAGC: 16, HW: 17, BELT: 18, HAIR: 19, KNEE: 20, BEARD: 21, LIP: 22, EYE: 23, IRIS: 24, TEE: 25, JEANS: 26, JACKET: 27, RIB: 28, WATCH: 29, BROW: 30, GOLD: 31, ALENS: 32,
+};
+const NS = 33;
 // [roughness, metalness]
-const SURF = [[0.92, 0], [0.92, 0], [0.84, 0], [0.86, 0], [0.62, 0], [0.5, 0], [0.9, 0], [0.55, 0], [0.62, 0], [0.95, 0], [0.55, 0], [0.07, 0.9], [0.7, 0], [0.52, 0.08], [0.38, 0.75], [0.6, 0.02], [0.45, 0.3], [0.32, 0.85], [0.78, 0], [0.85, 0], [0.45, 0], [0.8, 0]];
+const SURF = [[0.9, 0], [0.92, 0], [0.82, 0], [0.85, 0], [0.6, 0], [0.55, 0], [0.9, 0], [0.5, 0], [0.6, 0], [0.95, 0], [0.78, 0], [0.06, 0.9], [0.72, 0], [0.5, 0.08], [0.36, 0.75], [0.58, 0.02],
+  [0.45, 0.3], [0.32, 0.85], [0.78, 0], [0.8, 0], [0.45, 0], [0.82, 0], [0.42, 0], [0.18, 0], [0.12, 0], [0.88, 0], [0.86, 0], [0.62, 0], [0.95, 0], [0.24, 0.9], [0.85, 0], [0.22, 0.95], [0.04, 0.55]];
 
-// ---------------- geometry helpers (build-time only) ----------------
+// ---------------- build-time math ----------------
+const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const lerp = (a, b, t) => a + (b - a) * t;
+const sat = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const sst = (a, b, x) => { const t = sat((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const gs = (t) => Math.exp(-t * t);
 const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _be = new THREE.Euler(), _bt = new THREE.Vector3(), _bs = new THREE.Vector3();
 const YAX = new THREE.Vector3(0, 1, 0);
+function hash3(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
+
+// ---------------- geometry helpers (build-time only) ----------------
 function place(g, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
   _bm.compose(_bt.set(x, y, z), _bq.setFromEuler(_be.set(rx, ry, rz)), _bs.set(sx, sy, sz));
   return g.applyMatrix4(_bm);
 }
-// indexed rounded box (56 verts, one bevel step with smooth normals); tiny radii fall back to a plain box
-function rbox(w, h, d, r) {
+// indexed rounded box: one bevel step, n* = segments per axis (>= 3; extra segments subdivide the flat faces for bending)
+function rbox(w, h, d, r, nx = 3, ny = 3, nz = 3) {
   r = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
-  if (r < 0.0055) return new THREE.BoxGeometry(w, h, d);
-  const g = new THREE.BoxGeometry(1, 1, 1, 3, 3, 3);
+  if (r < 0.0055 && nx === 3 && ny === 3 && nz === 3) return new THREE.BoxGeometry(w, h, d);
+  r = Math.max(r, 0.002);
+  const N = [nx, ny, nz], g = new THREE.BoxGeometry(1, 1, 1, nx, ny, nz);
   g.deleteAttribute('uv');
-  const pos = g.attributes.position, nor = g.attributes.normal, hw = [w / 2, h / 2, d / 2], u = [0, 0, 0], n = [0, 0, 0];
+  const pos = g.attributes.position, nor = g.attributes.normal, hw = [w / 2, h / 2, d / 2], u = [0, 0, 0], n = [0, 0, 0], e = [0, 0, 0];
   for (let i = 0; i < pos.count; i++) {
     u[0] = pos.getX(i); u[1] = pos.getY(i); u[2] = pos.getZ(i);
     let l = 0;
-    for (let a = 0; a < 3; a++) { n[a] = Math.abs(u[a]) > 0.4 ? Math.sign(u[a]) : 0; l += n[a] * n[a]; }
+    for (let a = 0; a < 3; a++) { e[a] = Math.abs(Math.abs(u[a]) - 0.5) < 1e-4; n[a] = e[a] ? Math.sign(u[a]) : 0; l += n[a] * n[a]; }
     l = Math.sqrt(l) || 1;
-    for (let a = 0; a < 3; a++) n[a] /= l;
-    pos.setXYZ(i, Math.sign(u[0]) * (hw[0] - r) + n[0] * r, Math.sign(u[1]) * (hw[1] - r) + n[1] * r, Math.sign(u[2]) * (hw[2] - r) + n[2] * r);
+    const p = [0, 0, 0];
+    for (let a = 0; a < 3; a++) { n[a] /= l; p[a] = e[a] ? Math.sign(u[a]) * (hw[a] - r) + n[a] * r : (u[a] / (0.5 - 1 / N[a])) * (hw[a] - r); }
+    pos.setXYZ(i, p[0], p[1], p[2]);
     nor.setXYZ(i, n[0], n[1], n[2]);
   }
   return mergeVertices(g, 1e-5);
 }
 function box(w, h, d) { return new THREE.BoxGeometry(w, h, d); }
+// curve a part around the body: z += k * x^2 (and optionally y += ky * x^2)
+function bend(g, k, ky = 0, by = 'x') {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = by === 'x' ? p.getX(i) : p.getY(i); p.setZ(i, p.getZ(i) + k * x * x); if (ky) p.setY(i, p.getY(i) + ky * x * x); }
+  g.computeVertexNormals();
+  return g;
+}
 function segGeo(g, a, b, sx = 1, sz = 1) {
   const d = _bt.subVectors(b, a); const L = d.length(); d.divideScalar(L);
   const q = new THREE.Quaternion().setFromUnitVectors(YAX, d);
   const m = new THREE.Matrix4().compose(new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5), q, new THREE.Vector3(sx, 1, sz));
   return g.applyMatrix4(m);
 }
-function capsuleAB(a, b, r, rad = 10, cap = 3, sx = 1, sz = 1) { return segGeo(new THREE.CapsuleGeometry(r, a.distanceTo(b), cap, rad), a, b, sx, sz); }
-function taperAB(a, b, ra, rb, rad = 10, cap = 3, sx = 1, sz = 1) {
-  const L = a.distanceTo(b), pts = [];
-  for (let i = 0; i <= cap; i++) { const t = -Math.PI / 2 + (i / cap) * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(1e-4, Math.cos(t) * ra), -L / 2 + Math.sin(t) * ra)); }
-  for (let i = 0; i <= cap; i++) { const t = (i / cap) * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(1e-4, Math.cos(t) * rb), L / 2 + Math.sin(t) * rb)); }
-  return segGeo(new THREE.LatheGeometry(pts, rad), a, b, sx, sz);
-}
 function cylAB(a, b, r1, r2, seg = 10, open = false) { return segGeo(new THREE.CylinderGeometry(r2, r1, a.distanceTo(b), seg, 1, open), a, b); }
 function ellip(r, x, y, z, sx = 1, sy = 1, sz = 1, ws = 12, hs = 8) { return place(new THREE.SphereGeometry(r, ws, hs), x, y, z, 0, 0, 0, sx, sy, sz); }
-const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
-const soft = (b, j, ax, r) => ({ b, j: v3(...j), ax: v3(...ax).normalize(), r });
 
-// ---------------- body template ----------------
-// kind: 0 = helmet + goggles + balaclava, 1 = cap + sunglasses (bare face), 2 = balaclava + headset
-function buildParts(kind) {
+// closed-loop rings -> indexed surface (outward winding is fixed up automatically)
+function loftGeo(rings, capA = false, capB = false) {
+  const M = rings[0].length, R = rings.length, pos = [], idx = [];
+  for (const r of rings) for (const p of r) pos.push(p[0], p[1], p[2]);
+  for (let i = 0; i < R - 1; i++) for (let j = 0; j < M; j++) {
+    const a = i * M + j, b = i * M + (j + 1) % M, c = (i + 1) * M + j, d = (i + 1) * M + (j + 1) % M;
+    idx.push(a, c, b, b, c, d);
+  }
+  const cent = (r) => { const c = [0, 0, 0]; for (const p of r) { c[0] += p[0] / M; c[1] += p[1] / M; c[2] += p[2] / M; } return c; };
+  const capIdx = [];
+  if (capA) { const c = cent(rings[0]), ci = pos.length / 3; pos.push(...c); for (let j = 0; j < M; j++) capIdx.push(ci, (j + 1) % M, j); }
+  if (capB) { const c = cent(rings[R - 1]), ci = pos.length / 3, o = (R - 1) * M; pos.push(...c); for (let j = 0; j < M; j++) capIdx.push(ci, o + j, o + (j + 1) % M); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx.concat(capIdx));
+  g.computeVertexNormals();
+  // orientation: normals should point away from each ring's centroid
+  let sgn = 0;
+  const nor = g.attributes.normal;
+  for (let i = 0; i < R; i++) {
+    const c = cent(rings[i]);
+    for (let j = 0; j < M; j++) { const k = i * M + j; sgn += (pos[k * 3] - c[0]) * nor.getX(k) + (pos[k * 3 + 1] - c[1]) * nor.getY(k) + (pos[k * 3 + 2] - c[2]) * nor.getZ(k); }
+  }
+  if (sgn < 0) {
+    const ix = g.index.array;
+    for (let t = 0; t < ix.length; t += 3) { const tmp = ix[t + 1]; ix[t + 1] = ix[t + 2]; ix[t + 2] = tmp; }
+    g.computeVertexNormals();
+  }
+  return g;
+}
+// superellipse ring. C centre, U/V unit axes, ru along U, rvp/rvn along +V/-V; n exponent (or [n+V, n-V]); tw(t) warps the angle
+function seRing(C, U, V, ru, rvp, rvn, n, M, post, tw) {
+  const pts = [], nP = Array.isArray(n) ? n[0] : n, nN = Array.isArray(n) ? n[1] : n;
+  for (let j = 0; j < M; j++) {
+    const th = (tw ? tw(j / M) : j / M) * Math.PI * 2;
+    const c = Math.cos(th), s = Math.sin(th), ne = s >= 0 ? nP : nN;
+    const u = ru * Math.sign(c) * Math.pow(Math.abs(c), 2 / ne), v = (s >= 0 ? rvp : rvn) * Math.sign(s) * Math.pow(Math.abs(s), 2 / ne);
+    const p = [C[0] + U[0] * u + V[0] * v, C[1] + U[1] * u + V[1] * v, C[2] + U[2] * u + V[2] * v];
+    pts.push(post ? post(p, th, u, v) : p);
+  }
+  return pts;
+}
+// smooth (Hermite / Catmull-Rom) profile lookup: keys rows [s, v1, v2, ...]
+function prof(keys, s) {
+  const n = keys.length;
+  if (s <= keys[0][0]) return keys[0].slice(1);
+  if (s >= keys[n - 1][0]) return keys[n - 1].slice(1);
+  let i = 0; while (keys[i + 1][0] < s) i++;
+  const k0 = keys[Math.max(0, i - 1)], k1 = keys[i], k2 = keys[i + 1], k3 = keys[Math.min(n - 1, i + 2)];
+  const h = k2[0] - k1[0], t = (s - k1[0]) / h, t2 = t * t, t3 = t2 * t, out = [];
+  for (let c = 1; c < k1.length; c++) {
+    const m1 = (k2[c] - k0[c]) / ((k2[0] - k0[0]) || 1) * h, m2 = (k3[c] - k1[c]) / ((k3[0] - k1[0]) || 1) * h;
+    out.push((2 * t3 - 3 * t2 + 1) * k1[c] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * k2[c] + (t3 - t2) * m2);
+  }
+  return out;
+}
+// stacked horizontal rings [[y, rx, rBack, rFront, cz], ...] (open ends) e.g. collars
+function ringStack(list, M = 16, post) { return loftGeo(list.map(([y, rx, rb, rf, cz], i) => seRing([0, y, cz], [1, 0, 0], [0, 0, 1], rx, rb, rf, 2, M, post ? (p, th) => post(p, th, i) : null)), false, false); }
+const lin = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+// tube along a straight axis A + D*s. keys rows: [s, ru, rv+, rv-, cu, cv, n]
+function tubeLoft(o) {
+  const { A, D, U, V, keys, ss, M = 12, capA = true, capB = true, post, tw } = o;
+  const rings = ss.map((s) => {
+    const p = prof(keys, s);
+    const C = [A[0] + D[0] * s + U[0] * p[3] + V[0] * p[4], A[1] + D[1] * s + U[1] * p[3] + V[1] * p[4], A[2] + D[2] * s + U[2] * p[3] + V[2] * p[4]];
+    return seRing(C, U, V, p[0], p[1], p[2], p[5], M, post ? (q, th, u, v) => post(q, th, s, u, v) : null, tw);
+  });
+  return loftGeo(rings, capA, capB);
+}
+// tube along a polyline (parallel-transport frames). pr(t) -> [ru, rv, n]
+function pathTube(pts, U0, pr, M = 8, capA = true, capB = true) {
+  const P = pts.map(p => v3(...p)), N = P.length, rings = [];
+  const U = v3(...U0), T = new THREE.Vector3(), Vv = new THREE.Vector3();
+  for (let i = 0; i < N; i++) {
+    T.subVectors(P[Math.min(N - 1, i + 1)], P[Math.max(0, i - 1)]).normalize();
+    U.addScaledVector(T, -U.dot(T)).normalize();
+    Vv.crossVectors(T, U);
+    const [ru, rv, n] = pr(i / (N - 1));
+    rings.push(seRing(P[i].toArray(), U.toArray(), Vv.toArray(), ru, rv, rv, n, M));
+  }
+  return loftGeo(rings, capA, capB);
+}
+function mirrorGeo(g) {
+  const m = g.clone();
+  const p = m.attributes.position, n = m.attributes.normal;
+  for (let i = 0; i < p.count; i++) { p.setX(i, -p.getX(i)); if (n) n.setX(i, -n.getX(i)); }
+  const ix = m.index.array;
+  for (let t = 0; t < ix.length; t += 3) { const tmp = ix[t + 1]; ix[t + 1] = ix[t + 2]; ix[t + 2] = tmp; }
+  return m;
+}
+const MIR_S = [0, 1, 2, 3, 4, 9, 10, 11, 12, 5, 6, 7, 8, 16, 17, 18, 13, 14, 15, 19, 20];
+
+// weights along a chain: pts [[s, bone], ...] (blend linearly between differing neighbours)
+function chainW(s, pts, W) {
+  if (s <= pts[0][0]) { W[0] = pts[0][1]; W[1] = 1; return 1; }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (s <= b[0]) {
+      if (a[1] === b[1]) { W[0] = a[1]; W[1] = 1; return 1; }
+      const t = sst(a[0], b[0], s);
+      W[0] = a[1]; W[1] = 1 - t; W[2] = b[1]; W[3] = t; return 2;
+    }
+  }
+  W[0] = pts[pts.length - 1][1]; W[1] = 1; return 1;
+}
+
+// ---------------- head sculpt ----------------
+// head-local space (origin = head centre, eye level); front = -z. Horizontal rings from the chin up.
+// rows: [y, half-width, back, front, cz, nBack, nFront]
+const HEAD_KEYS = [
+  [-0.108, 0.02, 0.014, 0.012, -0.06, 2, 2.4],
+  [-0.1, 0.036, 0.026, 0.022, -0.05, 2, 2.6],
+  [-0.088, 0.05, 0.046, 0.034, -0.033, 2, 2.8],
+  [-0.072, 0.059, 0.068, 0.056, -0.016, 2.1, 2.8],
+  [-0.055, 0.064, 0.082, 0.074, -0.005, 2.1, 2.8],
+  [-0.035, 0.068, 0.092, 0.083, 0.0, 2.1, 2.8],
+  [-0.012, 0.071, 0.1, 0.087, 0.003, 2.1, 2.7],
+  [0.012, 0.074, 0.104, 0.088, 0.005, 2.1, 2.6],
+  [0.035, 0.075, 0.106, 0.087, 0.007, 2.1, 2.5],
+  [0.06, 0.073, 0.103, 0.08, 0.008, 2.1, 2.4],
+  [0.082, 0.064, 0.092, 0.066, 0.01, 2.1, 2.2],
+  [0.098, 0.05, 0.074, 0.048, 0.012, 2, 2.1],
+  [0.109, 0.031, 0.047, 0.028, 0.014, 2, 2],
+  [0.115, 0.012, 0.018, 0.011, 0.015, 2, 2],
+];
+const HEAD_YS = [-0.108, -0.1, -0.092, -0.084, -0.076, -0.068, -0.061, -0.054, -0.047, -0.04, -0.033, -0.026, -0.019, -0.012, -0.005, 0.002, 0.009, 0.017, 0.026, 0.037, 0.05, 0.065, 0.08, 0.094, 0.106, 0.115];
+const HS = 1.05; // heads read a touch large, PS2 style
+// angle warp: ring parameter t (0 = +x side) -> denser sampling at the face (t = 0.75 is -V = front)
+const headWarp = (t) => { const s = (t - 0.75); const w = s - 0.11 * Math.sin(s * Math.PI * 2); return 0.75 + w; };
+function faceFeatures(p, o) {
+  let [x, y, z] = p;
+  const ax = Math.abs(x), sx = x < 0 ? -1 : 1;
+  const fr = sst(-0.02, -0.07, z); // frontness
+  // lower face forward (maxilla / chin), jaw angle flare
+  z -= 0.006 * gs(x / 0.04) * gs((y + 0.06) / 0.03) * fr;
+  // chin
+  z -= 0.008 * gs(x / 0.022) * gs((y + 0.09) / 0.014) * fr;
+  x += sx * 0.006 * gs((y + 0.068) / 0.02) * gs((z - 0.01) / 0.03);
+  // lips (upper / lower) and the mouth line
+  z -= 0.0045 * gs(x / 0.021) * gs((y + 0.046) / 0.0055) * fr;
+  z -= 0.004 * gs(x / 0.019) * gs((y + 0.061) / 0.006) * fr;
+  z += 0.0025 * gs(x / 0.024) * gs((y + 0.0535) / 0.0028) * fr;
+  // nose: bridge -> tip -> base
+  if (y > -0.04 && y < 0.02) {
+    const t = sat((0.014 - y) / 0.044);
+    let h = 0.004 + 0.02 * Math.pow(t, 1.25);
+    if (t > 0.8) h *= 1 - Math.pow((t - 0.8) / 0.2, 2) * 0.85;
+    const w = 0.0075 + 0.0085 * t;
+    z -= h * gs(x / w) * fr;
+    // nostril wings
+    z -= 0.005 * gs((ax - 0.013) / 0.006) * gs((y + 0.027) / 0.006) * fr;
+    x += sx * 0.003 * gs((ax - 0.013) / 0.007) * gs((y + 0.027) / 0.006) * fr;
+  }
+  // brow ridge + eye sockets + cheekbones + temples
+  z -= 0.0065 * gs((y - 0.024) / 0.01) * sst(0.07, 0.03, ax) * fr;
+  z += 0.011 * gs((ax - 0.031) / 0.015) * gs((y - 0.006) / 0.011) * fr;
+  z -= 0.005 * gs((ax - 0.05) / 0.013) * gs((y + 0.012) / 0.011) * fr;
+  x += sx * 0.003 * gs((ax - 0.058) / 0.012) * gs((y + 0.012) / 0.014) * fr;
+  x -= sx * 0.004 * gs((ax - 0.058) / 0.014) * gs((y + 0.045) / 0.015) * fr; // cheek hollow
+  x -= sx * 0.003 * gs((y - 0.03) / 0.02) * gs((z + 0.045) / 0.03);
+  // occiput
+  z += 0.005 * gs((y - 0.005) / 0.03) * sst(0.04, 0.09, z);
+  // hair volume (displaced outward above the hairline)
+  if (o && o.hairVol) {
+    const hv = o.hairVol(x, y, z);
+    if (hv > 0) { const l = Math.hypot(x, y - 0.0, z - 0.01) || 1; x += x / l * hv; y += y / l * hv; z += (z - 0.01) / l * hv; }
+  }
+  return [x, y, z];
+}
+function headGeo(o) {
+  const rings = HEAD_YS.map((y) => {
+    const p = prof(HEAD_KEYS, y);
+    return seRing([0, y, p[3]], [1, 0, 0], [0, 0, 1], p[0], p[1], p[2], [p[4], p[5]], o.M || 22, (q) => faceFeatures(q, o), headWarp);
+  });
+  return loftGeo(rings, true, true);
+}
+// hairline height as a function of position (short cut): front 0.06, sides 0.02, nape -0.05
+function hairline(x, z) {
+  const a = Math.atan2(x, -z); // 0 = front
+  const c = Math.cos(a);
+  return c > 0 ? lerp(0.016, 0.058, Math.pow(c, 1.5)) : lerp(0.016, -0.064, Math.pow(-c, 0.8));
+}
+// paint the head. o.face: 'skin' | 'mask' | 'eyes' (mask with an eye opening). o.beard 0..1, o.hair (bool), o.brows
+function paintHead(P, N, out, o) {
+  const x = P.x, y = P.y, z = P.z, ax = Math.abs(x), fr = sst(-0.02, -0.07, z);
+  const socket = gs((ax - 0.031) / 0.016) * gs((y - 0.005) / 0.012) * fr;
+  out.k *= 1 - 0.28 * socket;
+  if (o.face === 'mask') { out.s1 = S.MASK; return; }
+  if (o.face === 'eyes') {
+    const open = sst(0.012, 0.004, Math.abs(y - 0.005) - 0.008 * gs(x / 0.05)) * sst(0.068, 0.058, ax) * sst(-0.03, -0.05, z);
+    out.s1 = S.MASK; out.s2 = S.SKIN; out.m = open; out.k *= 1 - 0.25 * socket; return;
+  }
+  out.s1 = S.SKIN;
+  // lips
+  const lip = gs(x / 0.019) * (gs((y + 0.047) / 0.005) * 0.45 + gs((y + 0.061) / 0.006) * 0.7) * fr;
+  out.k *= 1 - 0.3 * gs(x / 0.02) * gs((y + 0.0535) / 0.0035) * fr;
+  // warm flush on nose, cheeks
+  const flush = (gs(x / 0.012) * gs((y + 0.02) / 0.012) * 0.5 + gs((ax - 0.045) / 0.015) * gs((y + 0.025) / 0.015) * 0.35) * fr;
+  let m = 0, s2 = S.LIP;
+  if (lip > 0.05) { m = Math.min(1, lip) * 0.7; }
+  else m = flush * 0.3;
+  // beard / stubble
+  if (o.beard > 0) {
+    const bl = -0.038 + 0.3 * Math.max(0, ax - 0.012) - 0.004 * gs(x / 0.01);
+    let bm = sst(bl + 0.004, bl - 0.008, y) * sst(0.045, 0.015, z);
+    const side = sst(0.055, 0.066, ax) * sst(0.03, 0.012, y) * sst(-0.015, -0.005, z) * sst(0.032, 0.022, z);
+    bm = Math.max(bm, side) * (1 - sat(lip * 1.6));
+    if (bm > m) { m = bm * o.beard; s2 = S.BEARD; }
+  }
+  // eyebrows
+  if (o.brows) {
+    const br = gs((y - 0.027 + 0.004 * Math.pow((ax - 0.01) / 0.05, 2)) / 0.0055) * sst(0.008, 0.014, ax) * sst(0.066, 0.05, ax) * fr;
+    if (br > 0.3 && br > m) { m = Math.min(1, br * 1.2); s2 = S.BROW; }
+  }
+  // hair
+  if (o.hair) {
+    const hl = hairline(x, z);
+    const h = sst(hl - 0.009, hl + 0.011, y) * (y > -0.07 ? 1 : 0) * (1 - sst(-0.02, -0.035, z) * sst(0.045, 0.058, ax) * sst(0.035, 0.02, y));
+    if (h > 0.02) { m = Math.max(m * (1 - h), h); s2 = S.HAIR; if (h > 0.5) out.k *= 0.92 + 0.12 * hash3(x * 300, y * 300, z * 300); }
+  }
+  out.s2 = s2; out.m = m;
+}
+// ear (right side): flattened cup with a rim
+function earGeo() {
+  const g = new THREE.SphereGeometry(1, 8, 6);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const rim = y * y + z * z;
+    if (x > 0) x *= 0.25 + 0.75 * Math.pow(rim, 1.5);
+    y *= y < 0 ? 0.85 : 1;
+    p.setXYZ(i, x * 0.011, y * 0.03, z * 0.019);
+  }
+  g.deleteAttribute('uv'); g.deleteAttribute('normal');
+  const m = mergeVertices(g, 1e-6); m.computeVertexNormals();
+  return place(m, 0, 0, 0, 0.12, 0.28, 0);
+}
+
+// =====================================================================================
+//  BODY: shared builders (soldier and driver use the same sculpt, different outfits)
+// =====================================================================================
+const TORSO_KEYS = [ // [y, half-width, back, front, cx, cz, n]
+  [0.85, 0.105, 0.075, 0.065, 0, 0.005, 2.2],
+  [0.89, 0.15, 0.1, 0.085, 0, 0.008, 2.4],
+  [0.94, 0.166, 0.118, 0.098, 0, 0.008, 2.5],
+  [1.0, 0.163, 0.106, 0.098, 0, 0.004, 2.5],
+  [1.06, 0.158, 0.096, 0.102, 0, 0.0, 2.5],
+  [1.13, 0.161, 0.098, 0.108, 0, 0.0, 2.5],
+  [1.21, 0.167, 0.1, 0.112, 0, -0.002, 2.6],
+  [1.29, 0.179, 0.106, 0.12, 0, -0.004, 2.7],
+  [1.36, 0.187, 0.11, 0.118, 0, -0.004, 2.7],
+  [1.415, 0.19, 0.104, 0.104, 0, -0.002, 2.6],
+  [1.455, 0.176, 0.084, 0.08, 0, 0.0, 2.4],
+  [1.49, 0.142, 0.068, 0.06, 0, 0.004, 2.2],
+  [1.515, 0.088, 0.062, 0.054, 0, 0.004, 2.1],
+  [1.53, 0.068, 0.056, 0.05, 0, 0.004, 2.0],
+];
+const TORSO_W = [[0.96, B.pelvis], [1.03, B.pelvis], [1.12, B.spine], [1.19, B.spine], [1.29, B.chest], [1.49, B.chest], [1.535, B.neck]];
+function torsoWF(P, W) {
+  let c = chainW(P.y, TORSO_W, W);
+  // shoulder corners follow the clavicles a little
+  const k = sst(0.13, 0.19, Math.abs(P.x)) * sst(1.34, 1.43, P.y) * 0.55;
+  if (k > 0.01) { for (let i = 0; i < c; i++) W[i * 2 + 1] *= 1 - k; W[c * 2] = P.x > 0 ? B.clavR : B.clavL; W[c * 2 + 1] = k; c++; }
+  return c;
+}
+// torso ring at height y with outward offset (for gear bands)
+function torsoRing(y, off, M, post, bulk = 0) {
+  const p = prof(TORSO_KEYS, y);
+  return seRing([p[3], y, p[4]], [1, 0, 0], [0, 0, 1], p[0] + off + bulk, p[1] + off + bulk, p[2] + off + bulk, p[5], M, post);
+}
+function torsoGeo(o) {
+  const M = o.M || 24, ys = o.ys || lin(0.85, 1.53, 21);
+  const rings = ys.map((y) => torsoRing(y, 0, M, o.post ? (q, th) => o.post(q, th, y) : null, o.bulk || 0));
+  return loftGeo(rings, true, true);
+}
+// band around the torso: profile [[y, off], ...]
+function torsoBand(profile, M = 24, post) { return loftGeo(profile.map(([y, off]) => torsoRing(y, off, M, post)), false, false); }
+
+// right arm (T-pose along +x); keys [x, r up, r back, r front, cu, cv, n]
+const ARM_KEYS = [
+  [0.12, 0.062, 0.062, 0.062, 0, 0, 2],
+  [0.19, 0.07, 0.066, 0.066, 0.002, 0, 2.1],
+  [0.25, 0.064, 0.06, 0.061, 0, 0, 2.1],
+  [0.31, 0.056, 0.054, 0.058, 0, 0, 2.1],
+  [0.39, 0.051, 0.051, 0.054, 0, 0, 2.1],
+  [0.46, 0.046, 0.05, 0.046, 0, 0, 2.1],
+  [0.49, 0.045, 0.053, 0.043, 0, 0.002, 2.1],
+  [0.53, 0.046, 0.05, 0.049, 0, 0, 2.1],
+  [0.6, 0.041, 0.046, 0.045, 0, 0, 2.2],
+  [0.67, 0.032, 0.04, 0.04, 0, 0, 2.3],
+  [0.73, 0.026, 0.034, 0.034, 0, 0, 2.4],
+];
+const ARM_W = [[0.15, B.clavR], [0.17, B.clavR], [0.245, B.uarmR], [0.462, B.uarmR], [0.518, B.farmR], [0.745, B.farmR], [0.77, B.handR]];
+const armWF = (P, W) => chainW(P.x, ARM_W, W);
+// shoulder cap bridging torso and arm (half clavicle, half upper arm)
+function deltoid(sc = 1) { return ellip(1, 0.198, 1.447, 0.0, 0.072 * sc, 0.07 * sc, 0.074 * sc, 9, 7); }
+const deltWF = (P, W) => { const t = sst(0.17, 0.25, P.x) * 0.6 + 0.2; W[0] = B.clavR; W[1] = 1 - t; W[2] = B.uarmR; W[3] = t; return 2; };
+// sleeve folds: ripples around the elbow crease and above the cuff
+function sleeveFolds(amp = 1) {
+  return (q, th, s, u, v) => {
+    const front = Math.max(0, -Math.sin(th)), k = 1
+      + amp * 0.07 * gs((s - 0.485) / 0.035) * front * Math.sin(s * 260 + th * 1.5)
+      + amp * 0.05 * gs((s - 0.62) / 0.05) * Math.sin(s * 210 + th * 2.2)
+      + amp * 0.04 * gs((s - 0.33) / 0.05) * Math.sin(s * 150 - th * 2) * (0.4 + front);
+    return [q[0], 1.44 + (q[1] - 1.44) * k, q[2] * k];
+  };
+}
+function armGeo(keys, ss, M, folds) { return tubeLoft({ A: [0, 1.44, 0], D: [1, 0, 0], U: [0, 1, 0], V: [0, 0, 1], keys, ss, M, post: folds }); }
+
+// right leg (straight down); s = 1.0 - y; keys [s, r out, r back, r front, cu, cv, n]
+const LEG_KEYS = [
+  [0.0, 0.1, 0.1, 0.09, -0.01, 0.005, 2.2],
+  [0.08, 0.098, 0.106, 0.092, 0.006, 0.005, 2.2],
+  [0.18, 0.09, 0.09, 0.088, 0.004, 0, 2.2],
+  [0.3, 0.08, 0.077, 0.08, 0.002, -0.002, 2.2],
+  [0.4, 0.068, 0.066, 0.07, 0, -0.004, 2.2],
+  [0.47, 0.06, 0.058, 0.063, 0, -0.004, 2.2],
+  [0.5, 0.058, 0.056, 0.064, 0, -0.004, 2.2],
+  [0.54, 0.056, 0.06, 0.058, 0, 0.0, 2.2],
+  [0.62, 0.055, 0.066, 0.054, 0, 0.004, 2.2],
+  [0.7, 0.056, 0.062, 0.054, 0, 0.004, 2.2],
+  [0.75, 0.06, 0.064, 0.058, 0, 0.006, 2.2],
+  [0.8, 0.05, 0.054, 0.05, 0, 0.006, 2.2],
+];
+const LEG_W = [[0.04, B.pelvis], [0.1, B.thighR], [0.47, B.thighR], [0.53, B.shinR], [0.9, B.shinR]];
+const legWF = (P, W) => chainW(1.0 - P.y, LEG_W, W);
+function trouserFolds(amp = 1) {
+  return (q, th, s) => {
+    const back = Math.max(0, Math.sin(th)), k = 1
+      + amp * 0.06 * gs((s - 0.73) / 0.04) * Math.sin(s * 220 + th * 3)
+      + amp * 0.05 * gs((s - 0.5) / 0.03) * back * Math.sin(th * 5)
+      + amp * 0.035 * gs((s - 0.12) / 0.05) * Math.sin(s * 120 + th * 2) * Math.max(0, -Math.sin(th));
+    const cx = HIPX;
+    return [cx + (q[0] - cx) * k, q[1], q[2] * k];
+  };
+}
+function legGeo(keys, M, folds, n = 14) { return tubeLoft({ A: [HIPX, 1.0, 0], D: [0, -1, 0], U: [1, 0, 0], V: [0, 0, 1], keys, ss: lin(0.0, keys[keys.length - 1][0], n), M, post: folds }); }
+
+// boots (right): foot loft along -z from the heel, sole, shaft. foot-space origin = ankle (x, 0.085, 0)
+function bootParts(add, o = {}) {
+  const x = HIPX, keys = [ // [s=-z, halfW, top, bottom]
+    [-0.088, 0.03, 0.085, 0.03], [-0.072, 0.042, 0.125, 0.026], [-0.04, 0.048, 0.16, 0.025], [0.0, 0.05, 0.165, 0.025], [0.04, 0.052, 0.138, 0.025],
+    [0.09, 0.054, 0.103, 0.025], [0.13, 0.054, 0.087, 0.025], [0.17, 0.05, 0.074, 0.025], [0.2, 0.042, 0.064, 0.026], [0.218, 0.028, 0.055, 0.03],
+  ].map(([s, w, t, b]) => [s, w, (t - b) / 2, (t - b) / 2, 0, (t + b) / 2, 2.6]);
+  const tl = o.toeLen || 0;
+  if (tl) for (const k of keys) if (k[0] > 0.05) k[0] += tl * (k[0] - 0.05) / 0.17;
+  const ss = [-0.088, -0.07, -0.035, 0.01, 0.06, 0.11, 0.16 + tl * 0.6, 0.198 + tl * 0.9, 0.218 + tl];
+  const foot = tubeLoft({ A: [x, 0, 0], D: [0, 0, -1], U: [1, 0, 0], V: [0, 1, 0], keys, ss, M: 10 });
+  const fw = (P, W) => { const t = sst(0.1, 0.16, P.y) * sst(-0.03, 0.02, P.z); W[0] = B.footR; W[1] = 1 - t; W[2] = B.shinR; W[3] = t; return 2; };
+  // laces: dark band over the instep
+  const lace = (P, N, out) => { const t = gs((P.x - x) / 0.016) * sst(0.02, -0.02, P.z) * sst(-0.12, -0.06, P.z) * sst(0.09, 0.12, P.y); if (t > 0.05) { out.s2 = o.laceSlot ?? S.STRAP; out.m = t * 0.8; } };
+  add({ g: foot, wf: fw, slot: o.slot ?? S.BOOT, paint: lace });
+  const sk = keys.map(([s, w, , , , c]) => [s, w + 0.007, 0.015, 0.015, 0, 0.015, 5]);
+  sk[0][1] = 0.034; sk[sk.length - 1][1] = 0.034;
+  const sole = tubeLoft({ A: [x, 0, 0], D: [0, 0, -1], U: [1, 0, 0], V: [0, 1, 0], keys: sk, ss: [-0.094, -0.075, -0.02, 0.06, 0.14, 0.195 + tl * 0.8, 0.225 + tl], M: 8 });
+  add({ g: sole, bone: B.footR, slot: o.soleSlot ?? S.SOLE, paint: (P, N, out) => { if (P.y > 0.026) { out.s2 = o.slot ?? S.BOOT; out.m = 0.3; } } });
+  if (o.shaft !== false) {
+    const shk = [[0.06, 0.058, 0.062, 0.058, 0, 0.004, 2.3], [0.16, 0.055, 0.058, 0.056, 0, 0.004, 2.2], [0.235, 0.056, 0.058, 0.057, 0, 0.004, 2.2], [0.25, 0.059, 0.061, 0.06, 0, 0.004, 2.2]];
+    const shaft = tubeLoft({ A: [x, 0, 0], D: [0, 1, 0], U: [1, 0, 0], V: [0, 0, 1], keys: shk, ss: [0.06, 0.14, 0.235, 0.25], M: 12, capA: false, capB: true });
+    add({ g: shaft, wf: (P, W) => { const t = sst(0.13, 0.07, P.y); W[0] = B.shinR; W[1] = 1 - t; W[2] = B.footR; W[3] = t; return 2; }, slot: o.slot ?? S.BOOT, paint: (P, N, out) => { const t = gs((P.x - x) / 0.014) * sst(-0.03, -0.05, P.z); if (t > 0.05) { out.s2 = o.laceSlot ?? S.STRAP; out.m = t * 0.7; } if (P.y > 0.24) out.k *= 0.8; } });
+  }
+}
+
+// gloved/bare right hand in canonical bind space (wrist at origin, fingers +x, palm -y, thumb -z), then moved to W
+function handParts(add, o) {
+  const { W, slot, bone = B.handR, fbone = bone, knuckle = false } = o;
+  const T = (g) => { g.translate(W[0], W[1], W[2]); return g; };
+  add({ g: T(place(rbox(0.086, 0.028, 0.08, 0.011), 0.046, -0.002, 0.003)), bone, slot });
+  // curled finger block with knuckle ridge; grooves painted between the fingers
+  const fpts = [[0.082, 0.004, 0.002], [0.106, -0.006, 0.002], [0.114, -0.034, 0.002], [0.1, -0.06, 0.002], [0.077, -0.07, 0.002]];
+  const fg = T(pathTube(fpts, [0, 0, 1], (t) => [0.0375 - 0.004 * t, 0.011 - 0.002 * t, 3.2], o.M || 10));
+  const groove = (P, N, out) => { const z = P.z - W[2] - 0.002; const gg = gs((Math.abs(z) - 0.0195) / 0.0028) + gs(z / 0.0028); out.k *= 1 - 0.32 * Math.min(1, gg); };
+  add({ g: fg, bone: fbone, slot, paint: groove });
+  // thumb
+  add({ g: T(pathTube([[0.018, -0.008, -0.028], [0.05, -0.022, -0.052], [0.08, -0.042, -0.052]], [0, 1, 0], (t) => [0.0125 - 0.003 * t, 0.0115 - 0.0025 * t, 2.2], o.M ? 8 : 6)), bone, slot });
+  if (knuckle) add({ g: T(place(rbox(0.026, 0.012, 0.072, 0.005), 0.074, 0.016, 0.002)), bone, slot: S.POLY });
+}
+
+// =====================================================================================
+//  SOLDIER
+// =====================================================================================
+// kind: 0 = helmet + goggles + balaclava, 1 = cap + sunglasses (bare face), 2 = balaclava + headset (eyes visible)
+function soldierParts(kind) {
   const parts = [];
-  const add = (g, bone, slot, sft) => parts.push({ g, bone, slot, soft: sft || null });
-  const faceSlot = kind === 1 ? S.SKIN : S.MASK;
+  const add = (p) => { parts.push(p); return p; };
+  const addM = (p) => { add(p); add({ ...p, mirror: true }); };
+  const simple = (g, bone, slot, soft, paint) => add({ g, bone, slot, soft, paint });
+  const soft = (b, j, ax, r) => ({ b, j: v3(...j), ax: v3(...ax).normalize(), r });
 
-  // ---- pelvis / hips
-  add(place(rbox(0.33, 0.2, 0.225, 0.075), 0, 0.935, 0.005), B.pelvis, S.FAT);
-  add(place(rbox(0.346, 0.05, 0.242, 0.02), 0, 1.0, 0.005), B.pelvis, S.BELT);
-  add(place(rbox(0.056, 0.04, 0.014, 0.005), 0, 1.0, -0.119), B.pelvis, S.HW);
-  add(place(rbox(0.15, 0.1, 0.06, 0.02), -0.04, 0.955, 0.142), B.pelvis, S.VEST2); // dump pouch
-  add(place(rbox(0.05, 0.1, 0.085, 0.015), -0.188, 0.955, -0.01), B.pelvis, S.VEST2); // hip pouch
-  // ---- abdomen
-  add(place(rbox(0.3, 0.2, 0.2, 0.075), 0, 1.125, 0), B.spine, S.FAT, [soft(B.pelvis, [0, 1.05, 0], [0, 1, 0], 0.05), soft(B.chest, [0, 1.2, 0], [0, -1, 0], 0.05)]);
-  // ---- chest + plate carrier
-  const cs = [soft(B.spine, [0, 1.23, 0], [0, 1, 0], 0.05)];
-  add(place(rbox(0.37, 0.31, 0.215, 0.09), 0, 1.335, 0), B.chest, S.FAT, cs);
-  add(capsuleAB(v3(-0.155, 1.452, 0.005), v3(0.155, 1.452, 0.005), 0.066, 10, 2), B.chest, S.FAT);
-  add(place(rbox(0.32, 0.33, 0.06, 0.025), 0, 1.325, -0.118), B.chest, S.VEST);
-  add(place(rbox(0.33, 0.35, 0.056, 0.022), 0, 1.335, 0.12), B.chest, S.VEST);
-  add(place(rbox(0.4, 0.13, 0.25, 0.045), 0, 1.212, 0), B.chest, S.VEST, cs);
-  for (const sx of [-1, 1]) add(place(rbox(0.075, 0.035, 0.282, 0.014), sx * 0.1, 1.48, 0), B.chest, S.VEST);
-  for (let i = -1; i <= 1; i++) {
-    add(place(rbox(0.072, 0.115, 0.05, 0.012), i * 0.08, 1.222, -0.17), B.chest, S.VEST2);
-    add(place(rbox(0.05, 0.05, 0.026, 0.006), i * 0.08, 1.29, -0.168), B.chest, S.MAGC);
-    add(place(box(0.054, 0.009, 0.03), i * 0.08, 1.3, -0.168), B.chest, S.STRAP);
-  }
-  add(place(rbox(0.17, 0.08, 0.03, 0.01), 0, 1.4, -0.158), B.chest, S.VEST2); // admin pouch
-  add(place(rbox(0.06, 0.04, 0.008, 0.003), 0.045, 1.405, -0.175), B.chest, S.FAT2); // velcro patch
-  add(place(rbox(0.065, 0.13, 0.065, 0.014), -0.205, 1.27, 0.06), B.chest, S.VEST2); // radio
-  add(cylAB(v3(-0.21, 1.33, 0.08), v3(-0.25, 1.74, 0.15), 0.0065, 0.0045, 5), B.chest, S.STRAP); // whip antenna
-  add(cylAB(v3(0.17, 1.165, -0.085), v3(0.17, 1.29, -0.085), 0.03, 0.03, 10), B.chest, S.VEST2); // flashbang pouch
-  add(cylAB(v3(0.17, 1.29, -0.085), v3(0.17, 1.315, -0.085), 0.024, 0.02, 8), B.chest, S.HW);
-  add(place(rbox(0.23, 0.29, 0.065, 0.02), 0, 1.32, 0.178), B.chest, S.VEST2); // back panel
-  for (let k = 0; k < 4; k++) add(place(box(0.236, 0.012, 0.068), 0, 1.22 + k * 0.065, 0.179), B.chest, S.STRAP);
-  add(place(rbox(0.17, 0.045, 0.15, 0.02), 0, 1.488, -0.002), B.chest, S.FAT2); // collar
-
-  // ---- neck
-  add(cylAB(v3(0, 1.46, 0), v3(0, 1.63, -0.01), 0.058, 0.053, 10), B.neck, faceSlot, [soft(B.chest, [0, 1.49, 0], [0, 1, 0], 0.03), soft(B.head, [0, 1.6, 0], [0, -1, 0], 0.03)]);
-
-  // ---- head
-  add(ellip(0.1, 0, 1.692, -0.008, 0.95, 1.12, 1.05, 14, 10), B.head, faceSlot);
-  add(place(rbox(0.122, 0.072, 0.12, 0.04), 0, 1.62, -0.042), B.head, kind === 1 ? S.BEARD : faceSlot); // jaw
-  add(place(rbox(0.03, 0.05, 0.04, 0.012), 0, 1.672, -0.11, -0.25), B.head, faceSlot); // nose
-  add(place(rbox(0.15, 0.028, 0.05, 0.012), 0, 1.718, -0.088), B.head, faceSlot); // brow
-  if (kind === 0) {
-    // high-cut helmet tilted back, rails, NVG shroud, comms cups, goggles
-    add(place(new THREE.SphereGeometry(0.128, 18, 9, 0, Math.PI * 2, 0, Math.PI * 0.53), 0, 1.703, 0.012, 0.26, 0, 0, 1.0, 0.95, 1.1), B.head, S.HAT);
-    for (const sx of [-1, 1]) {
-      add(place(rbox(0.018, 0.03, 0.13, 0.005), sx * 0.127, 1.73, 0.01), B.head, S.STRAP);
-      add(cylAB(v3(sx * 0.096, 1.675, 0.0), v3(sx * 0.137, 1.675, 0.0), 0.046, 0.044, 12), B.head, S.STRAP);
-      add(place(place(rbox(0.088, 0.056, 0.042, 0.016), 0, 0, 0), sx * 0.044, 1.695, -0.098, 0, -sx * 0.4, 0), B.head, S.STRAP);
-      add(place(place(rbox(0.074, 0.042, 0.014, 0.01), 0, 0, -0.019), sx * 0.044, 1.695, -0.098, 0, -sx * 0.4, 0), B.head, S.LENS);
-    }
-    add(place(new THREE.CylinderGeometry(0.112, 0.112, 0.024, 18, 1, true), 0, 1.695, 0.004, 0, 0, 0, 1, 1, 1.07), B.head, S.STRAP);
-    add(place(rbox(0.058, 0.042, 0.02, 0.006), 0, 1.79, -0.128, 0.45), B.head, S.STRAP);
-  } else if (kind === 1) {
-    for (const sx of [-1, 1]) add(ellip(0.026, sx * 0.097, 1.682, 0.0, 0.45, 1.0, 0.75, 8, 6), B.head, S.SKIN);
-    add(place(new THREE.SphereGeometry(0.104, 16, 5, Math.PI * 1.5 + 0.95, Math.PI * 2 - 1.9, Math.PI * 0.3, Math.PI * 0.26), 0, 1.692, -0.006, 0, 0, 0, 0.98, 1.12, 1.06), B.head, S.HAIR);
-    add(place(new THREE.SphereGeometry(0.112, 16, 7, 0, Math.PI * 2, 0, Math.PI * 0.5), 0, 1.728, -0.006, 0.12, 0, 0, 1.0, 0.8, 1.06), B.head, S.HAT);
-    add(place(new THREE.CylinderGeometry(0.096, 0.096, 0.03, 16, 1, true), 0, 1.72, -0.006, 0.12, 0, 0, 1.06, 1, 1.12), B.head, S.HAT); // cap band
-    add(cylAB(v3(0, 1.47, 0.0), v3(0, 1.545, -0.004), 0.074, 0.068, 12), B.neck, S.FAT2, [soft(B.chest, [0, 1.49, 0], [0, 1, 0], 0.03)]); // neck gaiter
-    add(place(rbox(0.165, 0.014, 0.1, 0.006), 0, 1.722, -0.155, -0.08), B.head, S.HAT); // brim
-    for (const sx of [-1, 1]) {
-      add(place(place(rbox(0.074, 0.036, 0.012, 0.008), 0, 0, 0), sx * 0.038, 1.694, -0.108, 0, -sx * 0.32, 0), B.head, S.LENS);
-      add(place(box(0.006, 0.008, 0.1), sx * 0.097, 1.7, -0.05), B.head, S.STRAP);
-    }
-    add(place(box(0.042, 0.007, 0.01), 0, 1.633, -0.104), B.head, S.SKIN2); // mouth
-    add(place(rbox(0.06, 0.013, 0.012, 0.004), 0, 1.646, -0.107), B.head, S.BEARD); // moustache
-    add(place(rbox(0.018, 0.03, 0.022, 0.006), 0.112, 1.68, 0.0), B.head, S.STRAP); // earpiece
-    add(cylAB(v3(0.11, 1.665, 0.008), v3(0.085, 1.48, 0.04), 0.004, 0.004, 4), B.neck, S.STRAP);
-  } else {
-    for (const sx of [-1, 1]) {
-      add(place(place(rbox(0.072, 0.03, 0.02, 0.008), 0, 0, 0), sx * 0.034, 1.697, -0.097, 0, -sx * 0.33, 0), B.head, S.SKIN);
-      add(place(rbox(0.022, 0.012, 0.008, 0.003), sx * 0.034, 1.697, -0.108), B.head, S.SKIN2);
-      add(cylAB(v3(sx * 0.097, 1.68, 0.0), v3(sx * 0.135, 1.68, 0.0), 0.044, 0.042, 12), B.head, S.STRAP);
-    }
-    add(place(new THREE.TorusGeometry(0.12, 0.01, 4, 14, Math.PI), 0, 1.688, 0.0), B.head, S.STRAP);
-    add(cylAB(v3(-0.12, 1.665, -0.02), v3(-0.045, 1.628, -0.1), 0.005, 0.005, 4), B.head, S.STRAP);
-    add(ellip(0.012, -0.042, 1.627, -0.104), B.head, S.STRAP);
-  }
-
+  // ---- torso (combat shirt) + collar
+  const torso = torsoGeo({ M: 20, ys: lin(0.85, 1.53, 16), post: (q, th, y) => { // shirt folds at the waist, spine groove
+    const k = 1 + 0.025 * gs((y - 1.06) / 0.03) * Math.sin(th * 6 + y * 40) - 0.02 * gs((th - Math.PI / 2) / 0.18) * sst(1.0, 1.15, y);
+    return [q[0] * k, q[1], q[2] * k];
+  } });
+  add({ g: torso, wf: torsoWF, slot: S.FAT });
+  add({ g: ringStack([[1.472, 0.06, 0.06, 0.058, 0.004], [1.474, 0.075, 0.076, 0.072, 0.004], [1.538, 0.07, 0.071, 0.066, 0.0], [1.541, 0.059, 0.06, 0.056, 0.0]], 18), wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.54, B.neck]], W), slot: S.FAT2 });
+  // ---- neck + head
+  addNeckHead(add, kind === 1 ? 'skin' : kind === 2 ? 'eyes' : 'mask', { beard: kind === 1 ? 1 : 0, hair: kind === 1, brows: kind === 1 || kind === 2, eyes: kind === 2, ears: true });
   // ---- arms
-  for (const sx of [-1, 1]) {
-    const c = sx < 0 ? B.clavL : B.clavR, u = c + 1, f = c + 2, h = c + 3;
-    const X = (x) => sx * x;
-    add(ellip(0.078, X(0.2), 1.448, 0.002, 1.1, 0.95, 1.0), u, S.FAT, [soft(B.chest, [X(0.165), 1.45, 0], [sx, 0, 0], 0.03)]);
-    add(taperAB(v3(X(0.2), 1.44, 0), v3(X(ELX), 1.44, 0), 0.068, 0.054), u, S.FAT, [soft(f, [X(ELX), 1.44, 0], [-sx, 0, 0], 0.05)]);
-    add(place(rbox(0.1, 0.016, 0.078, 0.007), X(0.315), 1.5, 0), u, S.FAT2); // shoulder pocket (lateral = +y in T-pose)
-    add(place(rbox(0.06, 0.016, 0.046, 0.006), X(0.315), 1.506, 0), u, S.VEST); // flag/velcro
-    add(taperAB(v3(X(ELX), 1.44, 0), v3(X(WRX - 0.02), 1.44, 0), 0.054, 0.043), f, S.FAT, [soft(u, [X(ELX), 1.44, 0], [sx, 0, 0], 0.05)]);
-    add(place(rbox(0.065, 0.05, 0.028, 0.012), X(ELX + 0.005), 1.44, 0.046), f, S.KNEE); // elbow pad
-    add(cylAB(v3(X(WRX - 0.065), 1.44, 0), v3(X(WRX + 0.006), 1.44, 0), 0.044, 0.046, 10), f, S.GLOVE); // glove cuff
-    add(place(rbox(0.09, 0.036, 0.088, 0.015), X(WRX + 0.045), 1.44, 0), h, S.GLOVE);
-    add(place(rbox(0.032, 0.076, 0.084, 0.013), X(WRX + 0.088), 1.409, 0, 0, 0, -sx * 0.35), h, S.GLOVE);
-    add(place(rbox(0.04, 0.012, 0.078, 0.005), X(WRX + 0.066), 1.46, 0), h, S.STRAP);
-    add(capsuleAB(v3(X(WRX + 0.015), 1.43, -0.042), v3(X(WRX + 0.06), 1.415, -0.07), 0.015, 6, 2), h, S.GLOVE);
+  addM({ g: armGeo(ARM_KEYS, lin(0.12, 0.735, 12), 12, sleeveFolds(1)), wf: armWF, slot: S.FAT });
+  addM({ g: deltoid(0.9), wf: deltWF, slot: S.FAT });
+  addM({ g: place(box(0.1, 0.014, 0.074), 0.315, 1.5, 0), bone: B.uarmR, slot: S.FAT2 }); // shoulder pocket
+  addM({ g: place(box(0.062, 0.01, 0.046), 0.315, 1.508, 0), bone: B.uarmR, slot: S.VEST }); // velcro patch
+  addM({ g: cylAB(v3(WRX - 0.07, 1.44, 0), v3(WRX + 0.006, 1.44, 0), 0.039, 0.041, 12), wf: (P, W) => chainW(P.x, [[WRX - 0.03, B.farmR], [WRX, B.handR]], W), slot: S.GLOVE }); // gauntlet
+  for (const m of [false, true]) {
+    const hp = []; handParts((p) => hp.push(p), { W: [WRX, 1.44, 0], slot: S.GLOVE, knuckle: true });
+    for (const p of hp) add(m ? { ...p, mirror: true } : p);
   }
   // ---- legs
-  for (const sx of [-1, 1]) {
-    const t = sx < 0 ? B.thighL : B.thighR, s = t + 1, f = t + 2, x = sx * HIPX;
-    add(taperAB(v3(x, 0.975, 0), v3(x, 0.5, 0), 0.095, 0.063), t, S.FAT, [soft(B.pelvis, [x, 0.9, 0], [0, -1, 0], 0.06), soft(s, [x, 0.5, 0], [0, 1, 0], 0.05)]);
-    if (sx < 0) {
-      add(place(rbox(0.032, 0.14, 0.115, 0.012), x - 0.078, 0.74, 0.0), t, S.FAT2); // cargo pocket
-    } else {
-      add(place(rbox(0.05, 0.17, 0.095, 0.015), x + 0.088, 0.77, 0.0), t, S.VEST2); // drop holster
-      add(place(rbox(0.032, 0.065, 0.036, 0.008), x + 0.09, 0.875, -0.025, 0.25), t, S.POLY);
-      for (const yy of [0.71, 0.82]) add(place(new THREE.CylinderGeometry(0.087, 0.084, 0.022, 12, 1, true), x, yy, 0), t, S.STRAP);
-    }
-    add(place(rbox(0.095, 0.12, 0.045, 0.018), x, 0.5, -0.07), s, S.KNEE);
-    add(taperAB(v3(x, 0.5, 0), v3(x, 0.14, 0.005), 0.061, 0.047), s, S.FAT, [soft(t, [x, 0.5, 0], [0, -1, 0], 0.05)]);
-    add(cylAB(v3(x, 0.06, 0.008), v3(x, 0.24, 0.008), 0.06, 0.056, 12), s, S.BOOT);
-    add(cylAB(v3(x, 0.215, 0.008), v3(x, 0.275, 0.008), 0.066, 0.062, 12), s, S.FAT);
-    add(place(rbox(0.105, 0.085, 0.265, 0.035), x, 0.05, -0.055), f, S.BOOT);
-    add(place(rbox(0.112, 0.026, 0.278, 0.01), x, 0.013, -0.055), f, S.SOLE);
-  }
+  addM({ g: legGeo(LEG_KEYS, 12, trouserFolds(1)), wf: legWF, slot: S.FAT });
+  { const bp = []; bootParts((p) => bp.push(p)); for (const p of bp) { add(p); add({ ...p, mirror: true }); } }
+  // knee pads
+  addM({ g: bend(rbox(0.1, 0.125, 0.03, 0.013, 4, 3, 3), 3.2), bone: B.shinR, slot: S.KNEE, xf: [HIPX, 0.5, -0.07] });
+  addM({ g: cylAB(v3(HIPX, 0.455, 0.0), v3(HIPX, 0.475, 0.0), 0.06, 0.059, 12, true), bone: B.shinR, slot: S.STRAP });
 
-  // ---- rifle (rifle space, then moved to its bind placement)
+  // ---- plate carrier
+  const pc = (g, bone, slot, paint) => add({ g, bone, slot, paint });
+  const chestSoft = [soft(B.spine, [0, 1.2, 0], [0, 1, 0], 0.05)];
+  // front & back plate bags, curved to the chest
+  add({ g: place(bend(rbox(0.305, 0.33, 0.054, 0.02, 5, 3, 3), 1.6), 0, 1.318, -0.153), bone: B.chest, slot: S.VEST, soft: chestSoft });
+  add({ g: place(bend(rbox(0.3, 0.34, 0.05, 0.02, 5, 3, 3), -1.6), 0, 1.33, 0.137), bone: B.chest, slot: S.VEST, soft: chestSoft });
+  // MOLLE rows on the front panel (proud webbing strips catch the rim light)
+  for (let k = 0; k < 3; k++) pc(place(bend(box(0.29, 0.011, 0.01), 1.6), 0, 1.28 + k * 0.042, -0.183), B.chest, S.VEST2);
+  for (let k = 0; k < 4; k++) pc(place(bend(box(0.28, 0.011, 0.01), -1.6), 0, 1.24 + k * 0.045, 0.166), B.chest, S.VEST2);
+  // cummerbund (swept around the torso) + side MOLLE
+  add({ g: torsoBand([[1.115, 0.004], [1.118, 0.028], [1.19, 0.032], [1.262, 0.028], [1.265, 0.004]], 22), bone: B.chest, slot: S.VEST, soft: chestSoft,
+    paint: (P, N, out) => { const r = Math.abs(Math.sin((P.y - 1.115) / 0.15 * Math.PI * 3)); if (r < 0.3 && Math.abs(P.x) > 0.1) { out.s2 = S.VEST2; out.m = 0.7; } } });
+  // shoulder straps
+  for (const sx of [-1, 1]) add({ g: pathTube([[sx * 0.1, 1.45, -0.14], [sx * 0.11, 1.5, -0.08], [sx * 0.115, 1.522, 0], [sx * 0.11, 1.5, 0.075], [sx * 0.1, 1.45, 0.13]], [1, 0, 0], () => [0.042, 0.009, 4], 8), bone: B.chest, slot: S.VEST2 });
+  // mag pouches with flaps + pull tabs
+  for (let i = -1; i <= 1; i++) {
+    const x = i * 0.078, z = -0.205 + 1.6 * x * x;
+    pc(place(rbox(0.07, 0.11, 0.046, 0.01), x, 1.225, z), B.chest, S.VEST2);
+    pc(place(box(0.074, 0.026, 0.05), x, 1.283, z - 0.002, 0.12), B.chest, S.VEST);
+    pc(place(box(0.022, 0.03, 0.006), x, 1.262, z - 0.027), B.chest, S.STRAP);
+  }
+  pc(place(bend(rbox(0.17, 0.075, 0.03, 0.01, 5, 3, 3), 1.6), 0, 1.415, -0.18), B.chest, S.VEST2); // admin pouch
+  pc(place(rbox(0.06, 0.038, 0.008, 0.003), 0.045, 1.42, -0.198), B.chest, S.FAT2); // patch
+  // radio (left) + whip antenna, grenade + flashbang (right), IFAK at the back
+  pc(place(rbox(0.066, 0.13, 0.062, 0.014), -0.215, 1.215, 0.04), B.chest, S.VEST2);
+  pc(place(box(0.044, 0.05, 0.036), -0.22, 1.3, 0.04), B.chest, S.POLY);
+  pc(cylAB(v3(-0.22, 1.34, 0.045), v3(-0.25, 1.76, 0.12), 0.0065, 0.004, 5), B.chest, S.STRAP);
+  pc(cylAB(v3(0.2, 1.155, -0.07), v3(0.2, 1.27, -0.07), 0.031, 0.031, 10), B.chest, S.VEST2);
+  pc(cylAB(v3(0.2, 1.27, -0.07), v3(0.2, 1.3, -0.07), 0.025, 0.02, 8), B.chest, S.HW);
+  pc(place(rbox(0.15, 0.1, 0.05, 0.016), 0, 1.2, 0.185), B.chest, S.VEST2);
+  // ---- belt + pouches + drop-leg holster
+  const pelvisSoft = [soft(B.spine, [0, 1.06, 0], [0, 1, 0], 0.04)];
+  add({ g: torsoBand([[0.968, 0.002], [0.968, 0.016], [1.03, 0.016], [1.03, 0.002]], 20), bone: B.pelvis, slot: S.BELT, soft: pelvisSoft });
+  pc(place(rbox(0.06, 0.042, 0.014, 0.005), 0, 1.0, -0.12), B.pelvis, S.HW);
+  pc(place(rbox(0.15, 0.1, 0.06, 0.02), -0.05, 0.955, 0.15), B.pelvis, S.VEST2); // dump pouch
+  pc(place(rbox(0.05, 0.1, 0.085, 0.015), -0.192, 0.955, -0.01), B.pelvis, S.VEST2);
+  pc(place(rbox(0.05, 0.175, 0.098, 0.016), HIPX + 0.09, 0.77, 0.0), B.thighR, S.VEST2);
+  pc(place(rbox(0.034, 0.075, 0.038, 0.009), HIPX + 0.093, 0.878, -0.025, 0.25), B.thighR, S.POLY);
+  for (const yy of [0.71, 0.82]) pc(place(new THREE.CylinderGeometry(0.091, 0.088, 0.022, 14, 1, true), HIPX, yy, 0), B.thighR, S.STRAP);
+  pc(place(rbox(0.032, 0.14, 0.11, 0.012), -HIPX - 0.082, 0.74, 0.0), B.thighL, S.FAT2); // cargo pocket
+
+  // ---- headgear
+  headgear(add, kind);
+  // ---- rifle
+  riflePart(add);
+  return parts;
+}
+
+// neck + head + ears (+ eyes). face: 'skin' | 'mask' | 'eyes'
+function addNeckHead(add, face, o = {}) {
+  const neck = tubeLoft({ A: [0, 0, 0], D: [0, 1, 0], U: [1, 0, 0], V: [0, 0, 1], keys: [[1.45, 0.072, 0.07, 0.062, 0, 0.0, 2], [1.52, 0.066, 0.068, 0.058, 0, -0.002, 2], [1.59, 0.061, 0.064, 0.055, 0, -0.005, 2], [1.63, 0.056, 0.058, 0.048, 0, -0.006, 2]], ss: lin(1.45, 1.63, 5), M: 12 });
+  const nslot = face === 'skin' ? S.SKIN : S.MASK;
+  add({ g: neck, wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.54, B.neck], [1.585, B.neck], [1.625, B.head]], W), slot: nslot,
+    paint: (P, N, out) => { if (face === 'skin' && o.beard) { const t = sst(1.562, 1.592, P.y) * sst(0.02, -0.03, P.z); out.s2 = S.BEARD; out.m = t * o.beard * 0.8; } } });
+  const hd = headGeo({ hairVol: o.hair ? (x, y, z) => { const hl = hairline(x, z); return y > hl ? (o.hairVol ?? 0.006) * sst(hl, hl + 0.025, y) : 0; } : null });
+  hd.scale(HS, HS, HS); hd.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z);
+  const ho = { face, beard: o.beard || 0, hair: !!o.hair, brows: !!o.brows };
+  add({ g: hd, slot: S.SKIN, wf: o.wf || ((P, W) => { const t = sst(1.582, 1.547, P.y) * sst(-0.03, 0.02, P.z); W[0] = B.head; W[1] = 1 - t; W[2] = B.neck; W[3] = t; return 2; }),
+    paint: (P, N, out) => { _hp.set((P.x - HEAD_C.x) / HS, (P.y - HEAD_C.y) / HS, (P.z - HEAD_C.z) / HS); paintHead(_hp, N, out, ho); } });
+  if (o.ears) for (const m of [false, true]) {
+    const e = earGeo(); e.translate(0.073, -0.004, 0.014); e.scale(HS, HS, HS); e.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z);
+    add({ g: e, bone: B.head, slot: face === 'skin' ? S.SKIN : S.MASK, mirror: m, paint: (P, N, out) => { if (face === 'skin') { out.s2 = S.LIP; out.m = 0.25; } } });
+  }
+  if (o.eyes) for (const sx of [-1, 1]) {
+    const c = v3(sx * 0.031 * HS, HEAD_C.y + 0.006 * HS, HEAD_C.z - 0.064 * HS);
+    const g = new THREE.SphereGeometry(0.0118, 10, 8); g.translate(c.x, c.y, c.z);
+    add({ g, bone: B.head, slot: S.EYE, paint: (P, N, out) => { const f = -N.z; out.s2 = S.IRIS; out.m = sst(0.82, 0.9, f); if (N.y > 0.5) out.k *= 0.7; } });
+  }
+}
+const _hp = new THREE.Vector3();
+
+function headgear(add, kind) {
+  const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z); return g; };
+  const hb = (g, slot, paint) => add({ g: H(g), bone: B.head, slot, paint });
+  if (kind === 0) {
+    // high-cut helmet: shell lofted from crown to a rim that is cut high over the ears
+    const rimT = (a) => Math.PI * (0.47 - 0.09 * Math.cos(a)) - 0.16 * gs((Math.abs(a) - Math.PI / 2) / 0.4);
+    const ring = (t, rr) => { const pts = []; for (let j = 0; j < 18; j++) { const a = (j / 18) * Math.PI * 2 - Math.PI; const th = rimT(a) * t; const sx = Math.sin(a), sz = -Math.cos(a); pts.push([0.094 * rr * Math.sin(th) * sx, 0.018 + 0.112 * rr * Math.cos(th), 0.008 + (sz < 0 ? 0.1 : 0.112) * rr * Math.sin(th) * sz]); } return pts; };
+    const rs = [0.1, 0.3, 0.5, 0.67, 0.81, 0.92, 1.0].map(t => ring(t, 1)); rs.push(ring(1.0, 0.93));
+    hb(loftGeo(rs, true, false), S.HAT, (P, N, out) => { const y = P.y - HEAD_C.y; if (y < 0.035) out.k *= 0.85; });
+    for (const sx of [-1, 1]) {
+      hb(place(rbox(0.016, 0.026, 0.12, 0.005), sx * 0.098, 0.034, 0.012, 0, 0, -sx * 0.25), S.POLY); // rails
+      hb(cylAB(v3(sx * 0.072, -0.006, 0.006), v3(sx * 0.112, -0.006, 0.006), 0.044, 0.042, 10), S.STRAP); // comms cups
+      hb(cylAB(v3(sx * 0.11, -0.006, 0.006), v3(sx * 0.118, -0.006, 0.006), 0.036, 0.03, 10), S.POLY);
+    }
+    hb(place(rbox(0.06, 0.044, 0.022, 0.007), 0, 0.1, -0.105, 0.55), S.POLY); // NVG shroud
+    hb(place(rbox(0.07, 0.006, 0.05, 0.002), 0, 0.128, 0.02), S.FAT2); // velcro patch
+    hb(place(box(0.07, 0.05, 0.025), 0, 0.03, 0.12, -0.25), S.VEST2); // counterweight pouch
+    // wraparound goggles + strap
+    hb(place(bend(rbox(0.158, 0.05, 0.028, 0.012, 5, 3, 3), 2.6), 0, 0.008, -0.094), S.STRAP);
+    hb(place(bend(rbox(0.142, 0.036, 0.01, 0.006, 5, 3, 3), 2.6), 0, 0.008, -0.11), S.LENS, (P, N, out) => { out.s2 = S.HW; out.m = sst(0.0, 0.03, P.y - HEAD_C.y) * 0.4; });
+    hb(place(new THREE.CylinderGeometry(0.1, 0.1, 0.018, 18, 1, true), 0, 0.012, 0.008, 0, 0, 0, 0.98, 1, 1.12), S.STRAP);
+  } else if (kind === 1) {
+    // ball cap: crown (lofted), seam lines painted, curved brim, button
+    const ring = (t, rr) => { const pts = []; for (let j = 0; j < 20; j++) { const a = (j / 20) * Math.PI * 2 - Math.PI; const th = Math.PI * (0.49 - 0.075 * Math.cos(a)) * t; const sx = Math.sin(a), sz = -Math.cos(a); pts.push([0.081 * rr * Math.sin(th) * sx, 0.018 + 0.102 * rr * Math.cos(th), 0.008 + (sz < 0 ? 0.094 : 0.112) * rr * Math.sin(th) * sz]); } return pts; };
+    const rs = [0.08, 0.3, 0.52, 0.72, 0.88, 1.0].map(t => ring(t, 1)); rs.push(ring(1.0, 0.95));
+    hb(loftGeo(rs, true, false), S.HAT, (P, N, out) => { if (P.y - HEAD_C.y < 0.04) out.k *= 0.85; });
+    hb(place(bend(rbox(0.148, 0.01, 0.078, 0.0045, 6, 3, 4), 0, -1.6), 0, 0.047, -0.124, -0.1), S.HAT, (P, N, out) => { if (N.y < -0.3) out.k *= 0.6; });
+    hb(ellip(0.009, 0, 0.122, 0.012, 1, 0.5, 1, 8, 4), S.HAT);
+    // wrap sunglasses
+    hb(place(bend(rbox(0.128, 0.027, 0.009, 0.006, 5, 3, 3), 2.9), 0, 0.007, -0.104), S.LENS, (P, N, out) => { out.s2 = S.HW; out.m = sst(-0.01, 0.02, P.y - HEAD_C.y) * 0.25; });
+    for (const sx of [-1, 1]) hb(place(box(0.005, 0.008, 0.1), sx * 0.076, 0.012, -0.045, 0, -sx * 0.06, 0), S.STRAP);
+    hb(place(rbox(0.016, 0.028, 0.02, 0.006), 0.079, -0.012, 0.012), S.STRAP); // earpiece
+    add({ g: cylAB(v3(0.08, 1.647, 0.02), v3(0.07, 1.5, 0.05), 0.003, 0.003, 4), bone: B.neck, slot: S.STRAP });
+  } else {
+    // balaclava + over-the-head headset + boom mic
+    hb(new THREE.TorusGeometry(0.104, 0.009, 5, 16, Math.PI), S.STRAP);
+    for (const sx of [-1, 1]) {
+      hb(cylAB(v3(sx * 0.07, -0.006, 0.006), v3(sx * 0.11, -0.006, 0.006), 0.044, 0.042, 10), S.STRAP);
+      hb(cylAB(v3(sx * 0.108, -0.006, 0.006), v3(sx * 0.116, -0.006, 0.006), 0.035, 0.03, 10), S.POLY);
+    }
+    hb(pathTube([[-0.1, -0.02, -0.01], [-0.085, -0.05, -0.06], [-0.04, -0.062, -0.1]], [0, 1, 0], () => [0.004, 0.004, 2], 5), S.STRAP);
+    hb(ellip(0.009, -0.035, -0.062, -0.102, 1.3, 1, 1, 8, 6), S.POLY);
+  }
+}
+
+function riflePart(add) {
   const G = (g) => { g.translate(GUN0.x, GUN0.y, GUN0.z); return g; };
-  const gun = (g, slot) => add(G(g), B.gun, slot);
+  const gun = (g, slot) => add({ g: G(g), bone: B.gun, slot, ao: false });
   gun(place(rbox(0.044, 0.125, 0.026, 0.008), 0, -0.008, -0.013), S.POLY); // butt pad
   gun(place(rbox(0.04, 0.09, 0.17, 0.014), 0, 0.0, -0.1), S.FURN); // stock
   gun(place(rbox(0.036, 0.03, 0.08, 0.01), 0, 0.058, -0.12), S.FURN); // cheek riser
@@ -225,29 +653,166 @@ function buildParts(kind) {
   gun(place(box(0.004, 0.026, 0.065), 0.027, 0.04, -0.31), S.HW); // ejection port
   gun(place(rbox(0.04, 0.02, 0.07, 0.004), 0, 0.09, -0.3), S.POLY); // optic mount
   gun(cylAB(v3(0, 0.118, -0.255), v3(0, 0.118, -0.345), 0.022, 0.022, 12), S.POLY); // red dot
-  gun(cylAB(v3(0, 0.118, -0.257), v3(0, 0.118, -0.252), 0.018, 0.018, 12), S.LENS);
-  gun(cylAB(v3(0, 0.118, -0.348), v3(0, 0.118, -0.343), 0.018, 0.018, 12), S.LENS);
+  gun(cylAB(v3(0, 0.118, -0.257), v3(0, 0.118, -0.252), 0.018, 0.018, 8, true), S.LENS);
+  gun(cylAB(v3(0, 0.118, -0.348), v3(0, 0.118, -0.343), 0.018, 0.018, 8, true), S.LENS);
   gun(place(rbox(0.056, 0.062, 0.235, 0.012), 0, 0.035, -0.568), S.FURN); // handguard
   for (let k = 0; k < 4; k++) gun(place(box(0.058, 0.012, 0.035), 0, 0.04, -0.49 - k * 0.055), S.GMET);
   gun(cylAB(v3(0, 0.036, -0.68), v3(0, 0.036, -0.76), 0.0115, 0.0115, 8), S.GMET); // barrel
   gun(place(rbox(0.02, 0.045, 0.025, 0.004), 0, 0.07, -0.673), S.GMET); // front sight
   gun(cylAB(v3(0, 0.036, -0.752), v3(0, 0.036, -0.8), 0.018, 0.017, 10), S.GMET); // muzzle brake
   gun(cylAB(v3(0.038, 0.028, -0.57), v3(0.038, 0.028, -0.66), 0.015, 0.015, 10), S.GMET); // light
-  gun(cylAB(v3(0.038, 0.028, -0.663), v3(0.038, 0.028, -0.658), 0.012, 0.012, 10), S.LENS);
+  gun(cylAB(v3(0.038, 0.028, -0.663), v3(0.038, 0.028, -0.658), 0.012, 0.012, 8, true), S.LENS);
   gun(place(rbox(0.033, 0.105, 0.044, 0.01), 0, -0.077, -0.245, -0.35), S.POLY); // pistol grip
   gun(place(box(0.006, 0.008, 0.075), 0, -0.042, -0.29), S.GMET); // trigger guard
   gun(place(box(0.006, 0.026, 0.006), 0, -0.03, -0.287, 0.3), S.GMET);
   gun(place(box(0.008, 0.012, 0.3), 0, -0.07, -0.42, 0.18), S.STRAP); // sling hanging under
   gun(place(box(0.008, 0.012, 0.17), 0, -0.07, -0.13, -0.42), S.STRAP);
-  // magazine (own bone, local origin = mag well)
   const M = (g) => { g.translate(GUN0.x + MAG_OFF.x, GUN0.y + MAG_OFF.y, GUN0.z + MAG_OFF.z); return g; };
-  add(M(place(rbox(0.031, 0.1, 0.066, 0.008), 0, -0.04, 0.0)), B.mag, S.MAGC);
-  add(M(place(rbox(0.031, 0.085, 0.062, 0.008), 0, -0.115, -0.022, 0.3)), B.mag, S.MAGC);
-  add(M(place(rbox(0.035, 0.013, 0.068, 0.004), 0, -0.16, -0.04, 0.36)), B.mag, S.POLY);
-  return parts;
+  add({ g: M(place(rbox(0.031, 0.1, 0.066, 0.008), 0, -0.04, 0.0)), bone: B.mag, slot: S.MAGC, ao: false });
+  add({ g: M(place(rbox(0.031, 0.085, 0.062, 0.008), 0, -0.115, -0.022, 0.3)), bone: B.mag, slot: S.MAGC, ao: false });
+  add({ g: M(place(rbox(0.035, 0.013, 0.068, 0.004), 0, -0.16, -0.04, 0.36)), bone: B.mag, slot: S.POLY, ao: false });
 }
 
-function hash3(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
+// =====================================================================================
+//  TEMPLATE BUILD: weights, paint, cavity + AO bake, merge, skeleton
+// =====================================================================================
+function prepGeo(g) {
+  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+  if (!g.index) g = mergeVertices(g, 1e-6);
+  else if (g.type !== 'BufferGeometry') { g = mergeVertices(g, 1e-5); }
+  if (!g.attributes.normal) g.computeVertexNormals();
+  g.morphAttributes = {};
+  return g;
+}
+// per-vertex convexity (<0 convex edge, >0 crevice) from 1-ring neighbours
+function cavity(g) {
+  const pos = g.attributes.position.array, nor = g.attributes.normal.array, ix = g.index.array, n = pos.length / 3;
+  const sum = new Float32Array(n), len = new Float32Array(n);
+  const acc = (i, j) => {
+    const dx = pos[j * 3] - pos[i * 3], dy = pos[j * 3 + 1] - pos[i * 3 + 1], dz = pos[j * 3 + 2] - pos[i * 3 + 2];
+    sum[i] += dx * nor[i * 3] + dy * nor[i * 3 + 1] + dz * nor[i * 3 + 2]; len[i] += Math.sqrt(dx * dx + dy * dy + dz * dz);
+  };
+  for (let t = 0; t < ix.length; t += 3) { const a = ix[t], b = ix[t + 1], c = ix[t + 2]; acc(a, b); acc(a, c); acc(b, a); acc(b, c); acc(c, a); acc(c, b); }
+  for (let i = 0; i < n; i++) sum[i] = len[i] > 0 ? sum[i] / len[i] : 0;
+  return sum;
+}
+function vertexArea(g) {
+  const pos = g.attributes.position.array, ix = g.index.array, A = new Float32Array(pos.length / 3);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let t = 0; t < ix.length; t += 3) {
+    a.fromArray(pos, ix[t] * 3); b.fromArray(pos, ix[t + 1] * 3); c.fromArray(pos, ix[t + 2] * 3);
+    const ar = b.sub(a).cross(c.sub(a)).length() / 6;
+    A[ix[t]] += ar; A[ix[t + 1]] += ar; A[ix[t + 2]] += ar;
+  }
+  return A;
+}
+// point-cloud ambient occlusion (disc approximation), build-time only
+function bakeAO(P, N, A, rec, n, R = 0.085) {
+  const cs = R, grid = new Map(), key = (x, y, z) => ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) | 0;
+  for (let i = 0; i < n; i++) {
+    if (rec[i] === 0) continue; // parts that neither cast nor receive (rifle: its bind placement is arbitrary)
+    const k = key(Math.floor(P[i * 3] / cs), Math.floor(P[i * 3 + 1] / cs), Math.floor(P[i * 3 + 2] / cs));
+    let b = grid.get(k); if (!b) grid.set(k, b = []); b.push(i);
+  }
+  const ao = new Float32Array(n).fill(1), R2 = R * R;
+  for (let i = 0; i < n; i++) {
+    if (!rec[i]) continue;
+    const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2], nx = N[i * 3], ny = N[i * 3 + 1], nz = N[i * 3 + 2];
+    const cx = Math.floor(px / cs), cy = Math.floor(py / cs), cz = Math.floor(pz / cs);
+    let occ = 0;
+    for (let a = -1; a <= 1; a++) for (let b2 = -1; b2 <= 1; b2++) for (let c = -1; c <= 1; c++) {
+      const bk = grid.get(key(cx + a, cy + b2, cz + c)); if (!bk) continue;
+      for (const j of bk) {
+        const dx = P[j * 3] - px, dy = P[j * 3 + 1] - py, dz = P[j * 3 + 2] - pz, d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 > R2 || d2 < 1e-7) continue;
+        const d = Math.sqrt(d2), ci = (dx * nx + dy * ny + dz * nz) / d;
+        if (ci < 0.12) continue;
+        occ += (ci - 0.12) * (A[j] / (A[j] + 3.14 * d2)) * (1 - d / R) * 2.6;
+      }
+    }
+    ao[i] = Math.max(0.32, 1 / (1 + occ));
+  }
+  return ao;
+}
+const _psq = new THREE.Quaternion(), _psv = new THREE.Vector3();
+function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S }, bounds) {
+  const geos = [], s1 = [], s2 = [], mx = [], shade = [], recAO = [], cavA = [];
+  const W = [0, 0, 0, 0, 0, 0, 0, 0], PT = { s1: 0, s2: 0, m: 0, k: 1 };
+  const P = new THREE.Vector3(), N = new THREE.Vector3(), MP = new THREE.Vector3(), MN = new THREE.Vector3();
+  const mir = skel.mir;
+  for (const p of parts) {
+    let g = prepGeo(p.g.clone());
+    if (p.xf) { const [x, y, z, rx = 0, ry = 0, rz = 0] = p.xf; place(g, x, y, z, rx, ry, rz); }
+    if (p.mat) g.applyMatrix4(p.mat);
+    if (p.mirror) g = mirrorGeo(g);
+    const pos = g.attributes.position, nor = g.attributes.normal, n = pos.count;
+    const cav = cavity(g);
+    const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), sf = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      P.fromBufferAttribute(pos, i); N.fromBufferAttribute(nor, i);
+      // functions are authored for the right side: evaluate on the mirrored point
+      if (p.mirror) { MP.set(-P.x, P.y, P.z); MN.set(-N.x, N.y, N.z); } else { MP.copy(P); MN.copy(N); }
+      let c;
+      if (p.wf) c = p.wf(MP, W);
+      else {
+        W[0] = p.bone; W[1] = 1; c = 1;
+        if (p.soft) {
+          let wo = 0, ob = 0;
+          for (const s of p.soft) {
+            const t = (MP.x - s.j.x) * s.ax.x + (MP.y - s.j.y) * s.ax.y + (MP.z - s.j.z) * s.ax.z;
+            const w = Math.min(1, Math.max(0, 0.5 - 0.5 * t / s.r));
+            if (w > wo) { wo = w; ob = s.b; }
+          }
+          if (wo > 0) { W[1] = 1 - wo; W[2] = ob; W[3] = wo; c = 2; }
+        }
+      }
+      let tw = 0;
+      for (let k = 0; k < c; k++) tw += W[k * 2 + 1];
+      for (let k = 0; k < 4; k++) {
+        if (k < c) { si[i * 4 + k] = p.mirror ? mir[W[k * 2]] : W[k * 2]; sw[i * 4 + k] = W[k * 2 + 1] / (tw || 1); } else { si[i * 4 + k] = 0; sw[i * 4 + k] = 0; }
+      }
+      if (p.preskin) { // bake a rotation into the bind pose, blended by the vertex weights (smooth shoulders)
+        const ps = p.preskin; let t = 0;
+        for (let k = 0; k < c; k++) if (ps.set.includes(W[k * 2])) t += W[k * 2 + 1] / (tw || 1);
+        _psq.identity().slerp(ps.q, t);
+        _psv.copy(P).sub(ps.pivot).applyQuaternion(_psq).add(ps.pivot); pos.setXYZ(i, _psv.x, _psv.y, _psv.z);
+        _psv.copy(N).applyQuaternion(_psq); nor.setXYZ(i, _psv.x, _psv.y, _psv.z);
+      }
+      PT.s1 = p.slot; PT.s2 = p.slot; PT.m = 0; PT.k = 1;
+      if (p.paint) p.paint(MP, MN, PT);
+      const a = SURF[PT.s1], b = SURF[PT.s2];
+      sf[i * 2] = lerp(a[0], b[0], PT.m); sf[i * 2 + 1] = lerp(a[1], b[1], PT.m);
+      // cloth/hard-surface cavity: lighter worn edges, darker creases
+      const cv = cav[i], ck = 1 + Math.min(0.28, Math.max(0, -cv - 0.12) * 0.7) - Math.min(0.45, Math.max(0, cv - 0.02) * 1.6);
+      const sky = 0.86 + 0.14 * (N.y * 0.5 + 0.5), noise = 0.95 + 0.1 * hash3(P.x * 61, P.y * 61, P.z * 61);
+      s1.push(PT.s1); s2.push(PT.s2); mx.push(PT.m); shade.push(PT.k * ck * sky * noise); recAO.push(p.ao === false ? 0 : 1);
+    }
+    if (p.postMat) g.applyMatrix4(p.postMat);
+    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+    g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+    g.setAttribute('surf', new THREE.Float32BufferAttribute(sf, 2));
+    geos.push(g);
+  }
+  const geo = mergeGeometries(geos, false);
+  for (const g of geos) g.dispose();
+  const count = geo.attributes.position.count;
+  // AO bake across every part (gear casts onto the body and vice versa)
+  const A = new Float32Array(count); { let o = 0; for (const g of geos) { const a = vertexArea(g); A.set(a, o); o += a.length; } }
+  const ao = bakeAO(geo.attributes.position.array, geo.attributes.normal.array, A, recAO, count);
+  const shadeF = Float32Array.from(shade); for (let i = 0; i < count; i++) shadeF[i] *= ao[i];
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(count * 3).fill(0.5), 3));
+  const bb = bounds || { c: [0, 1.0, -0.2], r: 1.6, min: [-1, -0.2, -1.4], max: [1, 2.0, 1] };
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(...bb.c), bb.r);
+  geo.boundingBox = new THREE.Box3(new THREE.Vector3(...bb.min), new THREE.Vector3(...bb.max));
+  // skeleton
+  const heads = skel.heads, parent = skel.parent, bones = [];
+  for (let i = 0; i < NB; i++) { const b = new THREE.Bone(); b.name = 'b' + i; b.position.copy(parent[i] < 0 ? heads[i] : heads[i].clone().sub(heads[parent[i]])); bones.push(b); }
+  const mesh = new THREE.SkinnedMesh(geo, gunmanMaterial());
+  for (let i = 0; i < NB; i++) (parent[i] < 0 ? mesh : bones[parent[i]]).add(bones[i]);
+  mesh.updateMatrixWorld(true);
+  mesh.bind(new THREE.Skeleton(bones));
+  return { mesh, geo, count, s1: Uint8Array.from(s1), s2: Uint8Array.from(s2), mx: Float32Array.from(mx), shade: shadeF, pool: [] };
+}
 
 const TEMPLATES = [];
 let sharedMat = null;
@@ -266,61 +831,7 @@ export function gunmanMaterial() {
   sharedMat.customProgramCacheKey = () => 'bayhem-gunman-v1';
   return sharedMat;
 }
-
-function buildTemplate(kind) {
-  const parts = buildParts(kind);
-  const geos = [], slotArr = [], shadeArr = [];
-  const P = new THREE.Vector3(), N = new THREE.Vector3();
-  for (const p of parts) {
-    let g = p.g;
-    if (g.attributes.uv) g.deleteAttribute('uv');
-    if (g.attributes.uv1) g.deleteAttribute('uv1');
-    if (!g.index) { const n = g.attributes.position.count; const idx = []; for (let i = 0; i < n; i++) idx.push(i); g.setIndex(idx); }
-    if (!g.attributes.normal) g.computeVertexNormals();
-    if (g.type !== 'BufferGeometry') g = mergeVertices(g, 1e-5); // weld smooth seams (spheres, lathes)
-    const pos = g.attributes.position, nor = g.attributes.normal, n = pos.count;
-    g.computeBoundingBox();
-    const bb = g.boundingBox, hY = bb.max.y - bb.min.y;
-    const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), sf = new Float32Array(n * 2);
-    const sr = SURF[p.slot];
-    for (let i = 0; i < n; i++) {
-      P.fromBufferAttribute(pos, i); N.fromBufferAttribute(nor, i);
-      let wo = 0, ob = 0;
-      if (p.soft) for (const s of p.soft) {
-        const t = (P.x - s.j.x) * s.ax.x + (P.y - s.j.y) * s.ax.y + (P.z - s.j.z) * s.ax.z;
-        const w = Math.min(1, Math.max(0, 0.5 - 0.5 * t / s.r));
-        if (w > wo) { wo = w; ob = s.b; }
-      }
-      si[i * 4] = p.bone; sw[i * 4] = 1 - wo; si[i * 4 + 1] = ob; sw[i * 4 + 1] = wo;
-      sf[i * 2] = sr[0]; sf[i * 2 + 1] = sr[1];
-      // baked shading: piece-local vertical gradient, down-facing darkening, a touch of noise
-      const yn = hY > 0.02 ? (P.y - bb.min.y) / hY : 1;
-      let sh = (1 - 0.2 * (1 - yn)) * (0.86 + 0.14 * (N.y * 0.5 + 0.5)) * (0.96 + 0.08 * hash3(P.x * 40, P.y * 40, P.z * 40));
-      slotArr.push(p.slot); shadeArr.push(sh);
-    }
-    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
-    g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-    g.setAttribute('surf', new THREE.Float32BufferAttribute(sf, 2));
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'skinIndex', 'skinWeight', 'surf'].includes(k)) g.deleteAttribute(k);
-    g.morphAttributes = {};
-    geos.push(g);
-  }
-  const geo = mergeGeometries(geos, false);
-  for (const g of geos) g.dispose();
-  const count = geo.attributes.position.count;
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(count * 3).fill(0.5), 3));
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.0, -0.2), 1.6);
-  geo.boundingBox = new THREE.Box3(new THREE.Vector3(-1, -0.2, -1.4), new THREE.Vector3(1, 2.0, 1));
-  // skeleton
-  const bones = [];
-  for (let i = 0; i < NB; i++) { const b = new THREE.Bone(); b.name = 'b' + i; b.position.copy(OFF[i]); bones.push(b); }
-  const mesh = new THREE.SkinnedMesh(geo, gunmanMaterial());
-  for (let i = 0; i < NB; i++) (PARENT[i] < 0 ? mesh : bones[PARENT[i]]).add(bones[i]);
-  mesh.updateMatrixWorld(true);
-  mesh.bind(new THREE.Skeleton(bones));
-  return { kind, mesh, geo, count, slots: Uint8Array.from(slotArr), shade: Float32Array.from(shadeArr), pool: [] };
-}
-function getTemplate(kind) { return TEMPLATES[kind] || (TEMPLATES[kind] = buildTemplate(kind)); }
+function getTemplate(kind) { return TEMPLATES[kind] || (TEMPLATES[kind] = buildTemplate(soldierParts(kind))); }
 
 // per-instance geometry: shares every attribute with the template except the colour buffer (pooled, never disposed)
 function acquireGeometry(tpl) {
@@ -338,19 +849,20 @@ function releaseGeometry(g) { if (g && g.userData.tpl) g.userData.tpl.pool.push(
 
 const _col = new THREE.Color();
 const hexes = (arr) => arr.map(h => new THREE.Color(h));
+// albedos kept >= ~0.06 linear so backlit silhouettes never crush to black (rim light does the rest)
 const PAL = {
-  fat: hexes(['#28292c', '#2e2f33', '#232629', '#302e2b', '#26292c', '#2b2d2a']),
-  vest: hexes(['#5a6043', '#82704f', '#4a5340', '#2d2e30', '#6c6650', '#3f4636', '#7a6a50']),
-  skin: hexes(['#d4a27f', '#b47c58', '#8f5d40', '#6c4532', '#e2b997', '#a26f4f']),
-  hair: hexes(['#1a1410', '#2b1f17', '#3d2c1e', '#151515', '#4a3a2a']),
-  helm: hexes(['#5a6043', '#7a6a50', '#2c2d2f', '#4a5340', '#6e6852']),
-  cap: hexes(['#2a2b2e', '#4a5038', '#7d6a4c', '#30384a', '#6a5640', '#5c2a22']),
-  glove: hexes(['#1c1c1d', '#5f5241', '#262626', '#3c3f33']),
-  boot: hexes(['#1e1c1a', '#4a3c2a', '#2c2622', '#56462f']),
-  furn: hexes(['#1c1c1e', '#1c1c1e', '#1c1c1e', '#6f5f45', '#4a4e3c']),
+  fat: hexes(['#45474a', '#4a4d45', '#504c44', '#43474e', '#474846', '#4f4f49']),
+  vest: hexes(['#6e7552', '#94815e', '#5c654c', '#4c4e50', '#7e7860', '#545c48', '#8c7a5c']),
+  skin: hexes(['#d9a582', '#bf8660', '#9a6545', '#764c36', '#e6bc9a', '#ad7754']),
+  hair: hexes(['#3a2e26', '#4a3a2c', '#5c4632', '#36322e', '#6a5440']),
+  helm: hexes(['#6e7552', '#8a7a5e', '#4c4e50', '#5c654c', '#807a62']),
+  cap: hexes(['#47494c', '#5c6448', '#8f7a58', '#3e4658', '#7a6448', '#6e3a30']),
+  glove: hexes(['#3e3e40', '#6f604c', '#454545', '#525548']),
+  boot: hexes(['#433e38', '#64523c', '#4a423b', '#6e5a40']),
+  furn: hexes(['#38383b', '#38383b', '#38383b', '#7f6e52', '#5a5e4a']),
   lensG: hexes(['#d0792c', '#9aa4b0', '#c8a040', '#704028']),
   lensS: hexes(['#30343c', '#b08a3a', '#3a2a20', '#506070']),
-  mask: hexes(['#1b1b1d', '#1b1b1d', '#2a2d25', '#25221f']),
+  mask: hexes(['#3a3a3d', '#38383a', '#4a4e44', '#47433e']),
 };
 function makePalette(seed, kind) {
   const r = makeRng((seed * 2654435761) >>> 0 ^ 0x5bd1e995);
@@ -358,27 +870,29 @@ function makePalette(seed, kind) {
   const pal = new Float32Array(NS * 3);
   const set = (slot, c, k = 1) => { pal[slot * 3] = c.r * k; pal[slot * 3 + 1] = c.g * k; pal[slot * 3 + 2] = c.b * k; };
   const fat = pick(PAL.fat), vest = pick(PAL.vest), skin = pick(PAL.skin), hair = pick(PAL.hair);
-  set(S.FAT, fat); set(S.FAT2, fat, 0.78);
+  set(S.FAT, fat); set(S.FAT2, fat, 0.8);
   set(S.VEST, vest); _col.copy(vest).multiplyScalar(0.8).lerp(fat, 0.15); set(S.VEST2, _col);
-  set(S.GLOVE, pick(PAL.glove)); const boot = pick(PAL.boot); set(S.BOOT, boot); set(S.SOLE, _col.setRGB(0.012, 0.011, 0.01));
+  set(S.GLOVE, pick(PAL.glove)); const boot = pick(PAL.boot); set(S.BOOT, boot); set(S.SOLE, _col.setRGB(0.05, 0.047, 0.044));
   set(S.SKIN, skin); _col.copy(skin).multiplyScalar(0.45); set(S.SKIN2, _col);
+  set(S.LIP, _col.copy(skin).multiply(new THREE.Color(0.82, 0.58, 0.56)));
   set(S.MASK, pick(PAL.mask));
   set(S.HAT, kind === 1 ? pick(PAL.cap) : (r() < 0.6 ? vest : pick(PAL.helm)));
   set(S.LENS, kind === 1 ? pick(PAL.lensS) : pick(PAL.lensG));
-  set(S.STRAP, _col.setRGB(0.013, 0.013, 0.014));
-  set(S.POLY, _col.setRGB(0.016, 0.016, 0.018)); set(S.GMET, _col.setRGB(0.03, 0.031, 0.034));
+  set(S.STRAP, _col.setRGB(0.05, 0.05, 0.052));
+  set(S.POLY, _col.setRGB(0.045, 0.045, 0.048)); set(S.GMET, _col.setRGB(0.05, 0.051, 0.055));
   set(S.FURN, pick(PAL.furn));
-  set(S.MAGC, r() < 0.7 ? _col.setRGB(0.02, 0.02, 0.022) : _col.set('#6b5d48'));
-  set(S.HW, _col.setRGB(0.25, 0.25, 0.26)); set(S.BELT, _col.copy(vest).multiplyScalar(0.55));
-  set(S.HAIR, hair); set(S.KNEE, r() < 0.5 ? _col.setRGB(0.02, 0.02, 0.022) : _col.copy(vest).multiplyScalar(0.85));
-  const beard = r(); set(S.BEARD, _col.copy(skin).lerp(hair, beard < 0.35 ? 0.0 : beard < 0.7 ? 0.45 : 0.8));
+  set(S.MAGC, r() < 0.7 ? _col.setRGB(0.045, 0.045, 0.048) : _col.set('#7b6d58'));
+  set(S.HW, _col.setRGB(0.3, 0.3, 0.31)); set(S.BELT, _col.copy(vest).multiplyScalar(0.6));
+  set(S.HAIR, hair); set(S.BROW, _col.copy(hair).multiplyScalar(0.8)); set(S.KNEE, r() < 0.5 ? _col.setRGB(0.06, 0.06, 0.062) : _col.copy(vest).multiplyScalar(0.85));
+  const beard = r(); set(S.BEARD, _col.copy(skin).lerp(hair, beard < 0.35 ? 0.25 : beard < 0.7 ? 0.55 : 0.85));
+  set(S.EYE, _col.setRGB(0.55, 0.5, 0.46)); set(S.IRIS, _col.setRGB(0.04, 0.03, 0.025));
   return pal;
 }
 function recolor(g, pal) {
-  const tpl = g.userData.tpl, col = g.attributes.color.array, sl = tpl.slots, sh = tpl.shade;
+  const tpl = g.userData.tpl, col = g.attributes.color.array, a1 = tpl.s1, a2 = tpl.s2, mx = tpl.mx, sh = tpl.shade;
   for (let i = 0, n = tpl.count; i < n; i++) {
-    const s = sl[i] * 3, k = sh[i];
-    col[i * 3] = pal[s] * k; col[i * 3 + 1] = pal[s + 1] * k; col[i * 3 + 2] = pal[s + 2] * k;
+    const s = a1[i] * 3, t = a2[i] * 3, m = mx[i], k = sh[i];
+    col[i * 3] = (pal[s] + (pal[t] - pal[s]) * m) * k; col[i * 3 + 1] = (pal[s + 1] + (pal[t + 1] - pal[s + 1]) * m) * k; col[i * 3 + 2] = (pal[s + 2] + (pal[t + 2] - pal[s + 2]) * m) * k;
   }
   g.attributes.color.needsUpdate = true;
 }
@@ -1229,6 +1743,374 @@ export function warmupGunmen() {
   const g = new THREE.Group();
   for (let k = 0; k < 3; k++) { const gm = new Gunman({ pose: k === 2 ? 'roof' : 'window', side: k === 2 ? 0 : -1, seed: k + 1, headgear: k }); g.add(gm.root); }
   return g;
+}
+
+// =====================================================================================
+//  DRIVER: the player's buddy at the wheel of the pickup. Seated bind pose (arms reaching
+//  for the wheel, legs bent) so the skin deforms cleanly; 21 bones (19 = jaw, 20 = right
+//  fingers). Root goes at DRIVER_SEAT.position inside the truck root; local forward = -z.
+// =====================================================================================
+// measured from vehicles.js pickupGeometry(): bench top y 0.96 (cushion z -0.5..0, back rest
+// leaning back from z -0.14 @ y 0.95 to z -0.04 @ y 1.44); steering(): torus centre
+// (-0.45, 1.27, -0.75), radius 0.185, rotated about x by +0.42 rad.
+export const DRIVER_SEAT = { position: [-0.45, 0.92, -0.25], wheel: [-0.45, 1.27, -0.75], wheelTilt: 0.42, wheelRadius: 0.185 };
+const D_OFF = new THREE.Vector3(0, -0.87, 0); // mesh offset inside the root (pelvis 0.10 above the seat point)
+const DPARENT = PARENT.slice(); DPARENT[19] = B.head; DPARENT[20] = B.handR;
+const MIR_D = MIR_S.slice(); MIR_D[20] = B.handL;
+// bind: arms straight toward the wheel, legs seated (in soldier/mesh coordinates)
+const D_ARM_R = v3(-0.02, -0.36, -0.93).normalize(), D_ARM_L = v3(0.02, -0.36, -0.93).normalize();
+const orth = (a, d) => a.clone().addScaledVector(d, -a.dot(d)).normalize();
+const E_ARM_R = orth(v3(0.85, -0.45, 0.2), D_ARM_R), E_ARM_L = orth(v3(-0.85, -0.45, 0.2), D_ARM_L);
+const REF_ARM_R = new THREE.Vector3().crossVectors(E_ARM_R, D_ARM_R).normalize(), REF_ARM_L = new THREE.Vector3().crossVectors(E_ARM_L, D_ARM_L).normalize();
+const BI_DARM_R = bindInv(D_ARM_R, REF_ARM_R), BI_DARM_L = bindInv(D_ARM_L, REF_ARM_L);
+const Q_ARM_R = new THREE.Quaternion(), Q_ARM_L = new THREE.Quaternion();
+frameQuat(Q_ARM_R, D_ARM_R, REF_ARM_R, BI_ARM_R); Q_ARM_R.copy(Q_ARM_R);
+frameQuat(Q_ARM_L, D_ARM_L, REF_ARM_L, BI_ARM_L);
+const BI_DHAND_R = bindInv(D_ARM_R, REF_ARM_R.clone().negate()), BI_DHAND_L = bindInv(D_ARM_L, REF_ARM_L); // palm normal = -ref (right) / +ref (left) in the T-pose frames
+const D_PALM_R = PALM_R.clone().applyQuaternion(Q_ARM_R), D_PALM_L = PALM_L.clone().applyQuaternion(Q_ARM_L);
+const D_KNUCKLE_AX = v3(0, 0, 1).applyQuaternion(Q_ARM_R);
+const D_TH = v3(0.06, -0.08, -1).normalize(), D_SH = v3(0.03, -0.583, -0.81).normalize();
+const DHEADS = HEADS.map(h => h.clone());
+{
+  for (const [s, D] of [[1, D_ARM_R], [-1, D_ARM_L]]) {
+    const u = s > 0 ? B.uarmR : B.uarmL;
+    DHEADS[u + 1].copy(DHEADS[u]).addScaledVector(D, UA);
+    DHEADS[u + 2].copy(DHEADS[u + 1]).addScaledVector(D, FA);
+  }
+  for (const s of [1, -1]) {
+    const t = s > 0 ? B.thighR : B.thighL, dth = v3(s * D_TH.x, D_TH.y, D_TH.z), dsh = v3(s * D_SH.x, D_SH.y, D_SH.z);
+    DHEADS[t + 1].copy(DHEADS[t]).addScaledVector(dth, TH);
+    DHEADS[t + 2].copy(DHEADS[t + 1]).addScaledVector(dsh, SH);
+  }
+  DHEADS[19].set(0, HEAD_C.y - 0.032, HEAD_C.z + 0.022); // jaw hinge
+  DHEADS[20].set(WRX + 0.083, 1.44, 0).sub(DHEADS[B.uarmR]).applyQuaternion(Q_ARM_R).add(DHEADS[B.uarmR]); // right knuckles
+}
+const DOFF = DHEADS.map((h, i) => (DPARENT[i] < 0 ? h.clone() : h.clone().sub(DHEADS[DPARENT[i]])));
+const pivotMat = (q, p) => new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
+
+function driverParts() {
+  const parts = [], add = (p) => { parts.push(p); return p; };
+  // ---- leather bomber over a tee: torso with the zip open at the front, seated bunching, rib hem
+  const openW = (y) => lerp(0.05, 0.034, sst(1.1, 1.47, y));
+  const torso = torsoGeo({ M: 26, bulk: 0.012, ys: lin(0.85, 1.53, 22), post: (q, th, y) => {
+    let [x, yy, z] = q;
+    const back = Math.max(0, Math.sin(th)), front = Math.max(0, -Math.sin(th));
+    // horizontal seated folds over the lower back, diagonal drag folds from the armpits
+    let k = 1 + 0.028 * gs((y - 1.06) / 0.05) * Math.sin(y * 150 + th * 1.5) * (0.4 + back)
+      + 0.018 * back * Math.sin((y * 60 + Math.abs(x) * 45)) * sst(1.15, 1.25, y) * sst(1.42, 1.32, y)
+      + 0.03 * gs((y - 0.975) / 0.02); // rib hem rolls out a little
+    x *= k; z = z * k;
+    // open front: the tee sits ~1.5 cm behind the jacket fronts
+    if (front > 0.3 && y > 0.99 && y < 1.5) { const t = sst(openW(y) + 0.006, openW(y) - 0.006, Math.abs(x)) * sst(0.99, 1.02, y); z += 0.016 * t; }
+    return [x, yy, z];
+  } });
+  add({ g: torso, wf: torsoWF, slot: S.JACKET, paint: (P, N, out) => {
+    if (P.y < 0.955) { out.s1 = S.JEANS; return; }
+    if (P.y < 0.998) { out.s1 = S.KNEE; out.k *= 0.85 + 0.15 * Math.abs(Math.sin(Math.atan2(P.x, P.z) * 40)); return; }
+    if (P.z < 0 && P.y < 1.5) { const t = sst(openW(P.y) + 0.004, openW(P.y) - 0.004, Math.abs(P.x)); if (t > 0) { out.s2 = S.TEE; out.m = t; } }
+  } });
+  // shearling collar + crew neck
+  add({ g: ringStack([[1.455, 0.07, 0.078, 0.064, 0.012], [1.458, 0.096, 0.104, 0.084, 0.014], [1.5, 0.094, 0.104, 0.074, 0.016], [1.54, 0.08, 0.09, 0.064, 0.018], [1.546, 0.066, 0.074, 0.056, 0.014]], 20,
+    (p, th, i) => { const b = Math.max(0, Math.sin(th)); p[1] += (i > 1 ? 0.04 : 0.012) * b * b - (i > 1 ? 0.012 : 0) * Math.max(0, -Math.sin(th)); return p; }),
+    wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.545, B.neck]], W), slot: S.RIB, paint: (P, N, out) => { out.k *= 0.9 + 0.2 * hash3(P.x * 400, P.y * 400, P.z * 400); } });
+  add({ g: ringStack([[1.47, 0.058, 0.058, 0.056, 0.0], [1.472, 0.066, 0.066, 0.064, 0.0], [1.5, 0.062, 0.062, 0.06, -0.002]], 16), wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.52, B.neck]], W), slot: S.TEE });
+  // ---- neck + head (stubble, short hair) + aviators
+  const jawWF = (P, W) => {
+    const y = P.y - HEAD_C.y, z = P.z - HEAD_C.z;
+    const nk = sst(1.582, 1.547, P.y) * sst(-0.03, 0.02, z);
+    const jw = sst(-0.046, -0.062, y) * sst(0.03, -0.012, z) * (1 - nk);
+    W[0] = B.head; W[1] = 1 - jw - nk; W[2] = 19; W[3] = jw; W[4] = B.neck; W[5] = nk; return 3;
+  };
+  addNeckHead(add, 'skin', { beard: 0.8, hair: true, hairVol: 0.007, brows: true, ears: true, wf: jawWF });
+  aviators(add);
+  // ---- arms: leather sleeves with folds, rib cuffs, bare wrists, watch on the left
+  const ak = [[0.15, 0.048, 0.056, 0.056, -0.012, 0, 2], [0.19, 0.056, 0.066, 0.066, -0.008, 0, 2.1], [0.25, 0.058, 0.064, 0.065, -0.004, 0, 2.1]]
+    .concat(ARM_KEYS.filter(k => k[0] > 0.3 && k[0] < 0.64).map(([s, a, b, c, cu, cv, n]) => [s, a * 1.1, b * 1.1, c * 1.1, cu, cv, n]));
+  ak.push([0.655, 0.043, 0.046, 0.046, 0, 0, 2.2], [0.672, 0.036, 0.039, 0.039, 0, 0, 2.2], [0.705, 0.034, 0.037, 0.037, 0, 0, 2.3]);
+  const SHR = DHEADS[B.uarmR].clone(), SHL = DHEADS[B.uarmL].clone(), MR = pivotMat(Q_ARM_R, SHR), ML = pivotMat(Q_ARM_L, SHL);
+  const ARMSET = [B.uarmR, B.farmR, B.handR, 20];
+  const PSR = { q: Q_ARM_R, pivot: SHR, set: ARMSET }, PSL = { q: Q_ARM_L, pivot: SHL, set: ARMSET };
+  const sym = (p) => { add({ ...p, preskin: PSR }); add({ ...p, mirror: true, preskin: PSL }); };
+  sym({ g: armGeo(ak, [0.15, 0.175, 0.2, 0.245, 0.29, 0.335, 0.38, 0.425, 0.465, 0.495, 0.525, 0.56, 0.6, 0.635, 0.655, 0.672, 0.69, 0.705], 13, sleeveFolds(1.6)), wf: armWF, slot: S.JACKET,
+    paint: (P, N, out) => { if (P.x > 0.648) { out.s1 = S.KNEE; out.k *= 0.85 + 0.15 * Math.abs(Math.sin(Math.atan2(P.y - 1.44, P.z) * 30)); } } });
+  sym({ g: armGeo([[0.68, 0.025, 0.031, 0.031, 0, 0, 2.3], [0.76, 0.022, 0.03, 0.03, 0, 0, 2.4]], [0.68, 0.72, 0.76], 10), wf: (P, W) => chainW(P.x, [[0.72, B.farmR], [0.75, B.handR]], W), slot: S.SKIN });
+  add({ g: cylAB(v3(0.711, 1.44, 0), v3(0.729, 1.44, 0), 0.031, 0.031, 12), bone: B.farmR, slot: S.WATCH, mirror: true, postMat: ML });
+  add({ g: cylAB(v3(0.72, 1.463, 0), v3(0.72, 1.473, 0), 0.0165, 0.0165, 12), bone: B.farmR, slot: S.WATCH, mirror: true, postMat: ML });
+  add({ g: cylAB(v3(0.72, 1.4725, 0), v3(0.72, 1.4745, 0), 0.0135, 0.0135, 12), bone: B.farmR, slot: S.ALENS, mirror: true, postMat: ML, ao: false });
+  for (const m of [false, true]) {
+    const hp = []; handParts((p) => hp.push(p), { W: [WRX, 1.44, 0], slot: S.SKIN, fbone: m ? B.handR : 20 });
+    for (const p of hp) add({ ...p, mirror: m, postMat: m ? ML : MR, paint: (P, N, out) => { if (p.paint) p.paint(P, N, out); out.s2 = S.LIP; out.m = 0.18 * sst(-0.2, 0.6, N.y); } });
+  }
+  // ---- legs: jeans, seated
+  for (const s of [1, -1]) {
+    const t = s > 0 ? B.thighR : B.thighL, hip = DHEADS[t], knee = DHEADS[t + 1], ank = DHEADS[t + 2];
+    const dth = knee.clone().sub(hip).normalize(), dsh = ank.clone().sub(knee).normalize();
+    const U1 = orth(v3(s, 0, 0), dth), V1 = new THREE.Vector3().crossVectors(U1, dth).multiplyScalar(s);
+    add({ g: tubeLoft({ A: hip.toArray(), D: dth.toArray(), U: U1.toArray(), V: V1.toArray(), keys: [[-0.06, 0.09, 0.095, 0.09, 0, 0, 2.2], [0.05, 0.092, 0.1, 0.088, 0, 0, 2.2], [0.2, 0.082, 0.08, 0.08, 0, 0, 2.2], [0.36, 0.064, 0.064, 0.064, 0, 0, 2.2], [0.44, 0.058, 0.058, 0.06, 0, 0, 2.2]], ss: lin(-0.06, 0.44, 7), M: 13 }),
+      wf: (P, W) => { const d = P.clone().sub(hip).dot(dth); return chainW(d, [[-0.02, B.pelvis], [0.08, t], [0.4, t], [0.44, t + 1]], W); }, slot: S.JEANS });
+    const U2 = orth(v3(s, 0, 0), dsh), V2 = new THREE.Vector3().crossVectors(U2, dsh).multiplyScalar(s);
+    add({ g: tubeLoft({ A: knee.toArray(), D: dsh.toArray(), U: U2.toArray(), V: V2.toArray(), keys: [[-0.05, 0.06, 0.06, 0.062, 0, 0, 2.2], [0.1, 0.056, 0.06, 0.055, 0, 0, 2.2], [0.3, 0.05, 0.052, 0.05, 0, 0, 2.2], [0.36, 0.054, 0.056, 0.054, 0, 0, 2.2]], ss: lin(-0.05, 0.36, 6), M: 13 }), bone: t + 1, slot: S.JEANS });
+    const bp = []; bootParts((p) => bp.push(p), { shaft: false, toeLen: 0.03, slot: S.BOOT, laceSlot: S.SOLE });
+    const qf = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.35, 0, 0));
+    const ank0 = v3(HIPX, 0.085, 0), fm = new THREE.Matrix4().makeTranslation(ank.x, ank.y, ank.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(qf)).multiply(new THREE.Matrix4().makeTranslation(-ank0.x, -ank0.y, -ank0.z));
+    const fmL = new THREE.Matrix4().makeTranslation(ank.x, ank.y, ank.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(qf)).multiply(new THREE.Matrix4().makeTranslation(ank0.x, -ank0.y, -ank0.z));
+    for (const p of bp) add({ ...p, wf: null, bone: B.footR, mirror: s < 0, postMat: s > 0 ? fm : fmL });
+  }
+  return parts;
+}
+function aviators(add) {
+  const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z); return g; };
+  const outline = (sx, sc, z, M = 18) => {
+    const pts = [];
+    for (let j = 0; j < M; j++) {
+      const th = (j / M) * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+      let x = 0.029 * c, y = 0.022 * s;
+      if (s > 0) { y *= 0.7; x *= 1 + 0.08 * s * Math.max(0, c); } // flat brow line, squared outer corner
+      const inner = Math.max(0, -c), lower = Math.max(0, -s);
+      y -= 0.0095 * lower * (0.25 + 0.75 * inner); x -= 0.003 * lower * inner; // teardrop droop toward the nose
+      x *= sc; y *= sc;
+      const X = sx * (0.035 + x), Y = 0.003 + y;
+      pts.push([X, Y, z + 1.6 * X * X + 0.4 * Y * Y]);
+    }
+    return pts;
+  };
+  for (const sx of [-1, 1]) {
+    // gold rim (slightly larger, behind) + mirrored gradient lens
+    add({ g: H(loftGeo([outline(sx, 1.075, -0.1012), outline(sx, 1.075, -0.0985)], true, true)), bone: B.head, slot: S.GOLD });
+    add({ g: H(loftGeo([outline(sx, 1.0, -0.1045), outline(sx, 1.0, -0.1015)], true, true)), bone: B.head, slot: S.ALENS, ao: false,
+      paint: (P, N, out) => { out.s2 = S.LENS; out.m = sst(0.012, -0.02, P.y - HEAD_C.y) * 0.75; } });
+    // temples back to the ears
+    add({ g: H(pathTube([[sx * 0.064, 0.017, -0.098], [sx * 0.078, 0.014, -0.06], [sx * 0.08, 0.008, -0.01], [sx * 0.078, -0.004, 0.012]], [0, 1, 0], () => [0.0022, 0.0022, 2], 4)), bone: B.head, slot: S.GOLD });
+  }
+  // double bridge
+  add({ g: H(pathTube(lin(-0.062, 0.062, 7).map(x => [x, 0.0225, -0.1035 + 1.6 * x * x]), [0, 1, 0], () => [0.0018, 0.0018, 2], 5)), bone: B.head, slot: S.GOLD });
+  add({ g: H(pathTube([[-0.009, 0.012, -0.104], [0, 0.015, -0.106], [0.009, 0.012, -0.104]], [0, 1, 0], () => [0.002, 0.002, 2], 5)), bone: B.head, slot: S.GOLD });
+}
+let D_TEMPLATE = null;
+function getDriverTemplate() {
+  return D_TEMPLATE || (D_TEMPLATE = buildTemplate(driverParts(), { heads: DHEADS, parent: DPARENT, mir: MIR_D }, { c: [0, 1.2, -0.25], r: 1.0, min: [-0.6, 0.3, -1.0], max: [0.6, 1.9, 0.4] }));
+}
+function driverPalette(seed) {
+  const r = makeRng((seed * 2246822519) >>> 0 ^ 0x27d4eb2d);
+  const pal = new Float32Array(NS * 3);
+  const set = (slot, c, k = 1) => { pal[slot * 3] = c.r * k; pal[slot * 3 + 1] = c.g * k; pal[slot * 3 + 2] = c.b * k; };
+  const skin = new THREE.Color('#c48a62').multiplyScalar(0.94 + 0.12 * r()), hair = new THREE.Color('#4a3524');
+  set(S.SKIN, skin); set(S.SKIN2, skin, 0.5); set(S.LIP, _col.copy(skin).multiply(new THREE.Color(0.86, 0.6, 0.56)));
+  set(S.BEARD, _col.copy(skin).lerp(new THREE.Color('#3a3a40'), 0.6)); set(S.HAIR, hair); set(S.BROW, hair, 0.85);
+  set(S.JACKET, new THREE.Color('#5a3c2b')); set(S.RIB, new THREE.Color('#c2b090')); set(S.TEE, new THREE.Color('#74726d')); set(S.KNEE, new THREE.Color('#34302d'));
+  set(S.JEANS, new THREE.Color('#3b4762')); set(S.BOOT, new THREE.Color('#7a5638')); set(S.SOLE, new THREE.Color('#3a3430'));
+  set(S.WATCH, new THREE.Color('#b8b8b4')); set(S.GOLD, new THREE.Color('#d8b060')); set(S.ALENS, new THREE.Color('#3a2a18')); set(S.LENS, new THREE.Color('#a8763c'));
+  set(S.EYE, _col.setRGB(0.55, 0.5, 0.46)); set(S.IRIS, _col.setRGB(0.04, 0.03, 0.025)); set(S.STRAP, _col.setRGB(0.05, 0.05, 0.05));
+  return pal;
+}
+
+const _dq = Array.from({ length: NB }, () => new THREE.Quaternion());
+const _dp = Array.from({ length: NB }, () => new THREE.Vector3());
+const _gw = new THREE.Vector3(), _gq = new THREE.Quaternion(), _hq = new THREE.Quaternion(), _tg = new THREE.Vector3(), _hn = new THREE.Vector3();
+const D_LOOK = { // look targets in mesh space
+  mirror: v3(0.45, 1.74, -0.47), side: v3(-0.56, 1.22, -0.76), back: v3(0.45, 2.05, 1.7),
+};
+function damp1(a, b, k, dt) { return a + (b - a) * (1 - Math.exp(-k * dt)); }
+
+export class Driver {
+  constructor(opts = {}) {
+    this.seed = (opts.seed ?? 7) >>> 0;
+    this.rng = makeRng((this.seed * 0x9e3779b1) >>> 0 ^ 0xabc123);
+    const tpl = getDriverTemplate();
+    this.mesh = cloneSkinned(tpl.mesh);
+    this.mesh.geometry = acquireGeometry(tpl);
+    recolor(this.mesh.geometry, driverPalette(this.seed));
+    this.mesh.castShadow = true; this.mesh.receiveShadow = false; this.mesh.frustumCulled = false;
+    this.mesh.position.copy(D_OFF);
+    this.bones = this.mesh.skeleton.bones;
+    this.root = new THREE.Group(); this.root.name = 'driver'; this.root.add(this.mesh);
+    this.headCenter = new THREE.Object3D(); this.headCenter.position.copy(HEAD_C).sub(DHEADS[B.head]); this.bones[B.head].add(this.headCenter);
+    const seat = opts.seat || DRIVER_SEAT, ta = seat.wheelTilt ?? 0.42;
+    this.wc = v3(...seat.wheel).sub(v3(...seat.position)).sub(D_OFF);
+    this.wr = seat.wheelRadius ?? 0.185;
+    this.wX = v3(1, 0, 0); this.wY = v3(0, Math.cos(ta), Math.sin(ta)); this.wN = v3(0, -Math.sin(ta), Math.cos(ta));
+    this.wheelAngle = 0; this.t = 0;
+    this.steer = 0; this.steerPrev = 0; this.lat = 0;
+    this.bumpS = { x: 0, v: 0 }; this.duckS = { x: 0, v: 0 }; this.lastBump = 0; this.lastFlinch = 0; this.duckHold = 0;
+    this.yaw = 0; this.pitch = 0; this.yawV = 0; this.pitchV = 0; this.twist = 0;
+    this.look = 'road'; this.lookT = 0; this.lookDur = 0; this.nextLook = 2 + this.rng() * 3;
+    this.talkW = 0; this.wasTalking = false; this.jaw = 0;
+    this.gest = null; this.gestW = 0; this.finger = 0;
+    this.nL = new THREE.Vector3(); this.nR = new THREE.Vector3();
+    this.disposed = false;
+    this.update(0, { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 });
+  }
+
+  update(dt, st = {}) {
+    if (this.disposed) return;
+    if (!(dt > 0)) dt = 0;
+    dt = Math.min(dt, 0.1);
+    this.t += dt;
+    const r = this.rng, t = this.t;
+    // ---- inputs
+    const steer = clamp(st.steer || 0, -1, 1);
+    const sPrev = this.steer;
+    this.steer = dt > 0 ? damp1(this.steer, steer, 5, dt) : steer;
+    if (dt > 0) this.lat = damp1(this.lat, clamp((this.steer - sPrev) / dt, -3, 3), 6, dt);
+    this.wheelAngle = this.steer * 1.05 + 0.035 * Math.sin(t * 0.73) + 0.02 * Math.sin(t * 1.91 + 1.3);
+    const bump = st.bump || 0, flinch = st.flinch || 0;
+    if (bump > this.lastBump + 0.25) this.bumpS.v += 3.2 * bump;
+    if (flinch > this.lastFlinch + 0.2) { this.duckS.v += 7 * flinch; this.duckHold = Math.max(this.duckHold, 0.5 + 0.6 * flinch); if (this.look === 'back' && r() < 0.5) this.lookT = this.lookDur; }
+    this.lastBump = bump; this.lastFlinch = flinch;
+    const n = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / n;
+    for (let i = 0; i < n; i++) {
+      spring(this.bumpS, 160, 11, h);
+      this.duckS.v += (Math.min(1, flinch * 0.8 + (this.duckHold > 0 ? 0.6 : 0)) - this.duckS.x) * 60 * h; spring(this.duckS, 90, 13, h);
+    }
+    this.duckHold = Math.max(0, this.duckHold - dt);
+    // ---- talking: jaw, gestures, turn to the player
+    const talking = !!st.talking;
+    this.talkW = dt > 0 ? damp1(this.talkW, talking ? 1 : 0, 6, dt) : (talking ? 1 : 0);
+    if (talking && !this.wasTalking) {
+      if (!this.gest && r() < 0.75) this.gest = { type: r() < 0.45 ? 'thumb' : r() < 0.6 ? 'beat' : 'fist', t: -0.15 - r() * 0.3, dur: 1.3 + r() * 0.9 };
+      if (r() < 0.55 && this.look !== 'back') this._setLook('back', 0.9 + r() * 0.8);
+    }
+    this.wasTalking = talking;
+    const syl = Math.max(0, Math.sin(t * 13.7) * 0.6 + Math.sin(t * 8.3 + 1.1) * 0.5 + 0.15) * (0.55 + 0.45 * Math.sin(t * 2.3));
+    this.jaw = dt > 0 ? damp1(this.jaw, talking ? syl * 0.2 : 0, 18, dt) : 0;
+    if (this.gest) { this.gest.t += dt; if (this.gest.t > this.gest.dur) this.gest = null; }
+    const g = this.gest, gw = g && g.t > 0 ? sst(0, 0.28, g.t) * (1 - sst(g.dur - 0.32, g.dur, g.t)) : 0;
+    this.gestW = gw;
+    // ---- where to look
+    const lb = st.lookBack || 0;
+    this.lookT += dt;
+    if (lb > 0.45 && this.duckHold <= 0) { if (this.look !== 'back') this._setLook('back', 0.8); else this.lookDur = Math.max(this.lookDur, this.lookT + 0.3); }
+    if (this.look !== 'road' && this.lookT > this.lookDur) { this.look = 'road'; this.lookT = 0; this.nextLook = 2.5 + r() * 4.5; }
+    if (this.look === 'road' && this.lookT > this.nextLook) {
+      const p = r();
+      if (p < 0.42) this._setLook('mirror', 0.55 + r() * 0.45); else if (p < 0.68) this._setLook('side', 0.5 + r() * 0.4); else this._setLook('back', 0.7 + r() * 0.7);
+    }
+    this._pose(dt, st);
+  }
+  _setLook(mode, dur) { this.look = mode; this.lookT = 0; this.lookDur = dur; }
+
+  _pose(dt, st) {
+    const P = _dp, Q = _dq, t = this.t, duck = Math.max(0, this.duckS.x), bmp = this.bumpS.x;
+    // ---- pelvis on the bench (vibration, bumps, lateral g)
+    P[B.pelvis].copy(DHEADS[B.pelvis]);
+    P[B.pelvis].y += 0.0025 * Math.sin(t * 23.1) + 0.0015 * Math.sin(t * 37.7) - 0.03 * bmp;
+    const roll = clamp(0.045 * this.steer + 0.05 * this.lat, -0.12, 0.12);
+    qEuler(Q[B.pelvis], 0.1 + 0.03 * bmp, 0, roll * 0.4);
+    // ---- look: target angles relative to the chest
+    const back = this.look === 'back';
+    let tgt;
+    if (this.look === 'road') tgt = _tg.set(this.steer * 4 + Math.sin(t * 0.37) * 1.6 + Math.sin(t * 1.13) * 0.4, 1.5 + Math.sin(t * 0.51) * 0.25, -30);
+    else tgt = _tg.copy(D_LOOK[this.look]);
+    const twistG = back ? -0.38 : 0;
+    this.twist = dt > 0 ? damp1(this.twist, twistG, back ? 5 : 3.5, dt) : twistG;
+    // spine / chest
+    const hunch = -0.07 - 0.32 * duck + 0.06 * bmp + 0.012 * Math.sin(t * 1.6);
+    qEuler(_q1, -0.03 - 0.14 * duck, this.twist * 0.45, roll * 0.5 + (back ? -0.04 : 0));
+    Q[B.spine].copy(Q[B.pelvis]).multiply(_q1);
+    qEuler(_q1, hunch, this.twist * 0.55, roll * 0.6 + (back ? -0.05 : 0));
+    Q[B.chest].copy(Q[B.spine]).multiply(_q1);
+    P[B.spine].copy(DOFF[B.spine]).applyQuaternion(Q[B.pelvis]).add(P[B.pelvis]);
+    P[B.chest].copy(DOFF[B.chest]).applyQuaternion(Q[B.spine]).add(P[B.spine]);
+    P[B.neck].copy(DOFF[B.neck]).applyQuaternion(Q[B.chest]).add(P[B.chest]);
+    // head yaw/pitch toward the target (chest frame), clamped, second-order smoothing for natural turns
+    _v1.copy(P[B.neck]).add(_v2.set(0, 0.13, 0).applyQuaternion(Q[B.chest]));
+    _v2.subVectors(tgt, _v1).applyQuaternion(_qi.copy(Q[B.chest]).invert());
+    let yawG = clamp(Math.atan2(-_v2.x, -_v2.z), -1.5, 1.2), pitG = clamp(Math.atan2(_v2.y, Math.hypot(_v2.x, _v2.z)), -0.55, 0.45);
+    if (back) pitG = clamp(pitG, -0.1, 0.35);
+    pitG += -0.35 * duck + 0.04 * Math.sin(t * 5.1) * this.talkW + 0.025 * Math.sin(t * 2.7 + 0.7) * this.talkW - 0.05 * bmp;
+    if (dt > 0) {
+      const k = back || this.look !== 'road' ? 90 : 40, c = 2 * Math.sqrt(k) * 1.05;
+      const m = Math.max(1, Math.ceil(dt / (1 / 120))), hh = dt / m;
+      for (let i = 0; i < m; i++) {
+        this.yawV += ((yawG - this.yaw) * k - this.yawV * c) * hh; this.yaw += this.yawV * hh;
+        this.pitchV += ((pitG - this.pitch) * k - this.pitchV * c) * hh; this.pitch += this.pitchV * hh;
+      }
+    } else { this.yaw = yawG; this.pitch = pitG; }
+    const tilt = -0.25 * roll + (back ? 0.12 : 0) + 0.04 * Math.sin(t * 3.3) * this.talkW;
+    qEuler(_q1, this.pitch, this.yaw, tilt);
+    Q[B.head].copy(Q[B.chest]).multiply(_q1);
+    Q[B.neck].copy(Q[B.chest]).slerp(Q[B.head], 0.45);
+    P[B.head].copy(DOFF[B.head]).applyQuaternion(Q[B.neck]).add(P[B.neck]);
+    // jaw
+    Q[19].copy(Q[B.head]).multiply(_q1.setFromAxisAngle(X_AX, -this.jaw));
+    // ---- clavicles (shrug when ducking)
+    for (const c of CLAVS) {
+      const s = c === B.clavR ? 1 : -1;
+      qEuler(_q1, 0, s * 0.1, s * (0.2 * duck + 0.03));
+      Q[c].copy(Q[B.chest]).multiply(_q1);
+      P[c].copy(DOFF[c]).applyQuaternion(Q[B.chest]).add(P[B.chest]);
+      P[c + 1].copy(DOFF[c + 1]).applyQuaternion(Q[c]).add(P[c]);
+    }
+    // ---- hands on the wheel (rim points rotate with the wheel angle; clockwise = steering right)
+    const wa = this.wheelAngle;
+    for (const s of [1, -1]) {
+      const phi = (s > 0 ? 0.32 : Math.PI - 0.32) - wa;
+      const R = _v3.copy(this.wX).multiplyScalar(Math.cos(phi)).addScaledVector(this.wY, Math.sin(phi));
+      const Tg = _v4.copy(this.wX).multiplyScalar(-Math.sin(phi)).addScaledVector(this.wY, Math.cos(phi));
+      const palmN = _v5.copy(R).multiplyScalar(-0.75).addScaledVector(this.wN, -0.66).normalize();
+      const F = _v6.crossVectors(palmN, Tg).normalize();
+      const hq = s > 0 ? _hq : _gq;
+      frameQuat(hq, F, palmN, s > 0 ? BI_DHAND_R : BI_DHAND_L);
+      // palm centre sits outside / driver-side of the rim tube
+      const pc = _gw.copy(this.wc).addScaledVector(R, this.wr + 0.024).addScaledVector(this.wN, 0.018);
+      if (s > 0) { this._wR = (this._wR || new THREE.Vector3()).copy(pc).sub(_v1.copy(D_PALM_R).applyQuaternion(hq)); this._qR = (this._qR || new THREE.Quaternion()).copy(hq); }
+      else { this._wL = (this._wL || new THREE.Vector3()).copy(pc).sub(_v1.copy(D_PALM_L).applyQuaternion(hq)); this._qL = (this._qL || new THREE.Quaternion()).copy(hq); }
+    }
+    // ---- gesture (right hand leaves the wheel)
+    let wristR = this._wR, fingerOpen = 0;
+    Q[B.handR].copy(this._qR); Q[B.handL].copy(this._qL);
+    if (this.gestW > 0.001) {
+      const g = this.gest, tt = Math.max(0, g.t), w = this.gestW;
+      let off, F, Pn;
+      if (g.type === 'thumb') { // jerk a thumb back over the shoulder at the player
+        const j = Math.max(0, Math.sin(tt * 11)) * sst(0.25, 0.4, tt) * (1 - sst(0.9, 1.1, tt));
+        off = _v1.set(0.25, 0.36 + 0.015 * j, -0.12 + 0.06 * j); F = _v2.set(0.05, 1, -0.3); Pn = _v3.set(-1, 0.05, -0.1);
+      } else if (g.type === 'beat') { // open-hand beats while explaining
+        const j = Math.max(0, Math.sin(tt * 8.5));
+        off = _v1.set(0.2, 0.26 + 0.04 * j, -0.32); F = _v2.set(-0.3, 0.5, -0.8); Pn = _v3.set(-0.5, 0.75, 0.35); fingerOpen = 1;
+      } else { // fist shake toward the road ahead
+        const j = Math.sin(tt * 14) * sst(0.25, 0.4, tt);
+        off = _v1.set(0.17, 0.33 + 0.03 * j, -0.36); F = _v2.set(-0.1, 0.85, -0.5); Pn = _v3.set(-1, 0.0, 0.1);
+      }
+      _v4.copy(off).applyQuaternion(Q[B.chest]).add(P[B.chest]);
+      F.applyQuaternion(Q[B.chest]).normalize(); Pn.applyQuaternion(Q[B.chest]).normalize();
+      frameQuat(_q2, F, Pn, BI_DHAND_R);
+      _v4.sub(_v5.copy(D_PALM_R).applyQuaternion(_q2));
+      // arc up off the rim
+      wristR = _gw.copy(this._wR).lerp(_v4, w).addScaledVector(Y_AX, 0.07 * Math.sin(Math.PI * w));
+      Q[B.handR].slerp(_q2, w);
+      fingerOpen *= w;
+    }
+    this.finger = dt > 0 ? damp1(this.finger, fingerOpen, 10, dt) : fingerOpen;
+    driverArm(B.clavR, wristR, _v2.set(0.75, -0.6, 0.25).normalize().applyQuaternion(Q[B.chest]), BI_DARM_R, this.nR);
+    driverArm(B.clavL, this._wL, _v2.set(-0.75, -0.6, 0.25).normalize().applyQuaternion(Q[B.chest]), BI_DARM_L, this.nL);
+    Q[20].copy(Q[B.handR]).multiply(_q1.setFromAxisAngle(D_KNUCKLE_AX, 1.05 * this.finger));
+    // ---- legs stay planted in the cab frame
+    for (const b of [B.thighL, B.shinL, B.footL, B.thighR, B.shinR, B.footR]) Q[b].identity();
+    // write locals
+    const bones = this.bones;
+    for (let b = 0; b < NB; b++) {
+      const bone = bones[b], p = DPARENT[b];
+      if (p < 0) { if (b === B.pelvis) { bone.position.copy(P[b]); bone.quaternion.copy(Q[b]); } }
+      else bone.quaternion.copy(Q[p]).invert().multiply(Q[b]);
+    }
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.root.removeFromParent();
+    releaseGeometry(this.mesh.geometry);
+    this.mesh.skeleton.dispose();
+  }
+}
+function driverArm(c, wrist, pole, binv, nStore) {
+  const P = _dp, Q = _dq, u = c + 1, f = c + 2, h = c + 3;
+  ik2(P[u], wrist, UA, FA, pole, P[f], _fy, _v6);
+  nStore.copy(_fy);
+  _v3.subVectors(P[f], P[u]); frameQuat(Q[u], _v3, nStore, binv);
+  _v3.subVectors(_v6, P[f]); frameQuat(Q[f], _v3, nStore, binv);
+  P[h].copy(_v6);
 }
 
 // Legacy shim so the current game.js keeps running until it is switched to `new Gunman()`.
