@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { rand, range, pick, chance, clamp, lerp, damp } from './rng.js';
 import { buildSUV, buildSedan, buildTanker, buildPickup, MAT, addBulletHole } from './vehicles.js';
-import { Gunman } from './characters.js';
+import { Gunman, Driver, DRIVER_SEAT } from './characters.js';
 let gunmanSeed = 1;
 import { buildHeli } from './heli.js';
 import { RigidBox } from './physics.js';
@@ -110,6 +110,13 @@ export class Game {
     this.hp = 100; this.hurtT = 9; this.hurtFlash = 0; this.downed = false;
     this.truck = buildPickup();
     this.scene.add(this.truck.root);
+    // animated sidekick driver
+    this.truck.driver.clear();
+    this.buddy = new Driver({ seed: 3 });
+    this.buddy.root.position.fromArray(DRIVER_SEAT.position);
+    this.truck.driver.add(this.buddy.root);
+    this.buddySt = { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 };
+    this.lastBoomT = -10; this.lastBoomDist = 99;
     this.truckX = LANES[2]; this.truckTargetX = LANES[2]; this.truckVX = 0;
     this.truckSway = 0; this.truckBump = 0;
     this.bed = this.truck.bed;
@@ -119,7 +126,10 @@ export class Game {
     this.enemyCap = 6;
     this.headPos = new THREE.Vector3();
     this.events = []; // for director/hud
-    this.fx.onSound = (n, p) => this.audio.play(n, p ? { x: p.x, y: p.y, z: p.z } : {});
+    this.fx.onSound = (n, p) => {
+      this.audio.play(n, p ? { x: p.x, y: p.y, z: p.z } : {});
+      if (p && n.startsWith('explosion')) { this.lastBoomT = this.time; this.lastBoomDist = p.distanceTo(this.headPos); }
+    };
     this.truckRumble = 0;
     this.lastExplosionT = -10;
   }
@@ -498,6 +508,17 @@ export class Game {
     t.position.y = Math.sin(this.time * 11) * 0.004;
     for (const w of this.truck.wheels) w.rotation.x -= V / 0.44 * dt;
     this.rig.position.set(this.truckX, this.bed.floorY, (this.bed.z0 + this.bed.z1) / 2);
+    const st = this.buddySt;
+    st.steer = clamp(this.truckVX / 3, -1, 1);
+    st.bump = this.truckBump;
+    st.talking = this.hud.subT > 0.25 && this.hud.subSpeaker === 'DRIVER';
+    let threat = 0;
+    for (const r of this.rockets) threat = Math.max(threat, clamp(1 - r.pos.distanceTo(this.headPos) / 30, 0, 1));
+    if (this.heli && this.heli.alive) threat = Math.max(threat, clamp(1 - this.heli.pos.distanceTo(this.headPos) / 30, 0, 1));
+    st.lookBack = threat;
+    st.flinch = clamp(1 - (this.time - this.lastBoomT) / 0.8, 0, 1) * clamp(1 - this.lastBoomDist / 25, 0, 1);
+    st.time = this.time;
+    this.buddy.update(dt, st);
   }
 
   updateTraffic(dt, dz) {

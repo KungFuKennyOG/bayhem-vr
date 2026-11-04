@@ -106,6 +106,7 @@ export class HUD {
   }
 
   subtitle(speaker, text, dur = 2.5) {
+    this.subSpeaker = speaker.toUpperCase();
     const c = this.subCanvas, ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.fillStyle = 'rgba(8,5,3,0.55)';
