@@ -167,7 +167,7 @@ export class SetPieces {
       const pivot = new THREE.Group(); g.scene.add(pivot); pivot.position.copy(rb.pos); pivot.quaternion.copy(rb.quat);
       part.position.copy(com).negate(); pivot.add(part);
       J.pieces.push({ name, rb, pivot, fire: 1, smokeT: 0, settled: false });
-      g.fx.later(1.0, () => { part.userData.mesh.material = part.userData.mesh.material.map((m, i) => (i === 0 || i === 1 || i === 2 || i === 6 || i === 11 ? this._scorched(m, i === 1 || i === 11) : m)); });
+      g.fx.later(1.0, () => { part.userData.mesh.material = part.userData.mesh.material.map((m, i) => (i === 0 || i === 1 || i === 2 || i === 6 || i === 11 ? g.scorch(m, i === 1 || i === 11, 0.15) : m)); });
     }
     // a detached engine cartwheels across the apron
     const eng = this._looseEngine(J, root.localToWorld(V3(s0 * 5.05, 1.42, -3)), V3(range(9, 12), 7, J.v * 0.6 + range(-2, 2)));
@@ -482,7 +482,7 @@ export class SetPieces {
       if (!J.boomed && J.t > 0.06) { // right under the ramp, while it is still big in frame
         // the jeep goes up BIG: layered fireballs that travel with the tumbling wreck, a fuel-tank pop, a dark mushroom
         J.boomed = true; const P0 = rb.pos.clone().setY(1.2), cv = rb.vel.clone().multiplyScalar(0.7);
-        g.boom(P0, 1.8, { radius: 8, dmg: 0, player: false });
+        g.boom(P0, 1.8, { radius: 8, dmg: 0, player: false, noRing: true });
         g.fx.explosion(P0.clone().setY(2.2), 1.8, { carVel: cv, noRing: true });
         g.fx.later(0.18, () => g.fx.explosion(rb.pos.clone().setY(2.8), 1.6, { carVel: rb.vel.clone().multiplyScalar(0.6), noRing: true }));
         g.fx.later(0.45, () => { g.fx.explosion(rb.pos.clone().setY(3.5), 1.3, { carVel: rb.vel.clone().multiplyScalar(0.5), noRing: true }); for (let i = 0; i < 10; i++) g.fx.smoke(_v.copy(rb.pos).add(V3(range(-2, 2), range(2, 5), range(-2, 2))), 3.2, 0.06, 7, range(5, 8), 0.85); });
@@ -811,7 +811,7 @@ export class SetPieces {
     const items = [];
     for (const L of lines) {
       if (!L) { y -= 3.2; continue; }
-      const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big ? 'chrome' : (L.dim ? 'rgba(255,214,168,0.92)' : '#fff3df'), stroke: big ? 10 : 5, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.75)', padding: 30 });
+      const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big || !L.dim ? 'chrome' : 'rgba(255,200,130,0.95)', stroke: big ? 10 : 7, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.9)', padding: 30 });
       const h = big ? 5.2 : L.sub ? 3.4 : 2.3;
       const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: 0 });
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * tt.aspect, h), mat);
@@ -832,7 +832,7 @@ export class SetPieces {
     for (const it of C.items) {
       const wy = C.grp.position.y + it.position.y - CARGO.floorY;
       // visible only in the sky band between the horizon and the hold's ceiling edge (≈ 0..9° above the eye from the ramp)
-      it.material.opacity = clamp(1.6 - Math.abs(wy - 3.2) / 1.6, 0, 1);
+      it.material.opacity = clamp(1.6 - Math.abs(wy - 4.3) / 1.6, 0, 1);
     }
   }
 

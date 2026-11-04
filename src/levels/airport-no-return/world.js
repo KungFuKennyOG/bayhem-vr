@@ -271,7 +271,7 @@ export class AirportWorld {
       for (let k = 0; k < 4; k++) colr.push(...c);
       idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
     });
-    emit(W, [0.95, 0.94, 0.9], 0.02); emit(Y, [0.98, 0.72, 0.12], 0.022); emit(R2, [0.75, 0.12, 0.08], 0.022);
+    emit(W, [0.84, 0.83, 0.8], 0.02); emit(Y, [0.98, 0.72, 0.12], 0.022); emit(R2, [0.75, 0.12, 0.08], 0.022);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
     g.setIndex(idx); g.computeVertexNormals();
@@ -503,11 +503,11 @@ export class AirportWorld {
   _far() {
     // hills ring (fog off, hand-graded haze: dark warm silhouettes into the sun, bluish away from it)
     const segs = 160, pos = [], colr = [], idx = [];
-    const n = T.makeNoise(9301, 64), sunAz = Math.atan2(SUN_DIR.x, SUN_DIR.z);
+    const n = T.makeNoise(9301, 24), sunAz = Math.atan2(SUN_DIR.x, SUN_DIR.z);
     const R0 = 7200;
     for (let i = 0; i <= segs; i++) {
       const a = (i / segs) * TAU, ca = Math.cos(a), sa = Math.sin(a);
-      const h = 60 + T.fbm(n, i / segs * 6, 0.5, 4, 5) * 520 + Math.max(0, Math.sin(a * 3 + 1)) * 160;
+      const h = 60 + T.fbm(n, i / segs, 0.5, 24, 5) * 520 + Math.max(0, Math.sin(a * 3 + 1)) * 160; // wraps seamlessly (noise period = fbm base)
       const toSun = Math.max(0, Math.cos(a - sunAz));
       const base = [0.42 + 0.2 * toSun, 0.36 + 0.06 * toSun, 0.5 - 0.15 * toSun], top = [0.62 + 0.25 * toSun, 0.45 + 0.1 * toSun, 0.62 - 0.2 * toSun];
       const cx = 80 + sa * R0, cz = -1100 + ca * R0;
@@ -654,7 +654,12 @@ export class AirportWorld {
     this.glow = new BillboardBatch(L.length + 160, this.E.atlas, { boost: 1, renderOrder: 6, fog: this.scene.fog });
     this.scene.add(this.glow.mesh);
     this.extraGlows = []; // per-frame glows from other systems (aircraft nav lights, jeep beacons)
+    // fog-free glows for kilometres-away fires (fog would mix them into a pale haze blob)
+    this.farGlow = new BillboardBatch(24, this.E.atlas, { boost: 1, renderOrder: 12, fog: { color: new THREE.Color(0, 0, 0), near: 1e7, far: 2e7 } });
+    this.scene.add(this.farGlow.mesh);
+    this.farGlows = [];
   }
+  addFarGlow(p, size, r, g, b, a = 1) { this.farGlows.push([p.x, p.y, p.z, size, r, g, b, a]); }
   addGlow(p, size, r, g, b, a = 1) { this.extraGlows.push([p.x, p.y, p.z, size, r, g, b, a]); }
 
   update(dt, head, dusk) {
@@ -691,6 +696,7 @@ export class AirportWorld {
     for (const e of this.extraGlows) { if (gi >= G.max) break; G.set(gi++, e[0], e[1], e[2], e[3], e[3], 0, CELL.GLOW, 0, e[4] * e[7], e[5] * e[7], e[6] * e[7], e[7]); }
     this.extraGlows.length = 0;
     G.commit(gi);
+    { const F = this.farGlow; let fi = 0; for (const e of this.farGlows) { if (fi >= F.max) break; F.set(fi++, e[0], e[1], e[2], e[3], e[3], 0, CELL.GLOW, 0, e[4] * e[7], e[5] * e[7], e[6] * e[7], e[7]); } this.farGlows.length = 0; F.commit(fi); }
   }
 }
 
