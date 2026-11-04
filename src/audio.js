@@ -219,6 +219,13 @@ const SFX = {
   body_fall: { n: 3, gain: 0.42, verb: 0.05, max: 4, vary: 0.07, roll: 1.0 },
   gear_rattle: { n: 3, gain: 0.16, verb: 0.02, max: 6, vary: 0.08, roll: 1.5 },
   fuel_whoomp: { n: 1, gain: 0.62, verb: 0.35, max: 3, vary: 0.05, roll: 0.4, hrtf: true, sub: 0.5 },
+  // --- Level 3 (Downtown Haven City)
+  sniper_shot: { n: 2, gain: 1.0, verb: 0.35, max: 3, vary: 0.04, roll: 0.25, hrtf: true, sub: 0.4, duck: true, conc: [30, 0.25, 0.25] },
+  laser_lock: { n: 1, gain: 0.25, verb: 0.05, max: 4, vary: 0, roll: 0.5 },
+  collapse_rumble: { n: 1, gain: 1.0, verb: 0.4, max: 2, vary: 0.03, twoD: true },
+  collapse_impact: { n: 2, gain: 1.0, verb: 0.45, max: 4, vary: 0.06, roll: 0.2, hrtf: true, sub: 0.9, duck: true, conc: [60, 0.5, 0.6] },
+  glass_rain: { n: 1, gain: 0.8, verb: 0.3, max: 2, vary: 0.05, roll: 0.35, hrtf: true },
+  birds_flap: { n: 1, gain: 0.55, verb: 0.25, max: 1, vary: 0.05, roll: 0.5 },
 };
 
 const LOOPS = {
@@ -234,6 +241,10 @@ const LOOPS = {
   forklift: { gain: 0.42, roll: 0.75, rate: (i) => 0.75 + 0.75 * i, lp: (i) => 900 + 3500 * i, verb: 0.08, doppler: true, max: 3 },
   fire_big: { gain: 0.7, roll: 0.5, rate: () => 1, lp: (i) => 1500 + 9000 * i, verb: 0.2, sub: 0.5, max: 4 },
   sodium_hum: { gain: 0.06, roll: 1.8, rate: () => 1, lp: (i) => 2500 + 12000 * i, verb: 0, max: 8 },
+  // --- Level 3
+  car_alarm: { gain: 0.35, roll: 0.8, rate: () => 1, lp: (i) => 3000 + 6000 * i, verb: 0.15, max: 3 },
+  dust_roar: { gain: 0.9, roll: 0.3, rate: () => 1, lp: (i) => 800 + 6000 * i, verb: 0.2, sub: 0.8, max: 1 },
+  city: { gain: 0.12, twoD: true, amb: true, rate: () => 1, lp: (i) => 2500 + 12000 * i, verb: 0 },
 };
 
 // --- Level 2 one-shot bakes (Port of Victory)
@@ -888,6 +899,77 @@ const L2_LOOP_BAKES = {
   } },
 };
 
+// --- Level 3 bakes (Downtown Haven City)
+const L3_BAKES = {
+  sniper_shot: { dur: 3.2, sr: 32000, fn(b) {
+    const o = b.o, bus = b.g(1); b.ch(bus, b.sh(2.2), o);
+    b.nz(bus, { type: 'highpass', f: 3000, peak: 1.2, a: 0.0002, tau: 0.003 }); // supersonic crack
+    b.nz(bus, { type: 'bandpass', f: b.r(1600, 2000), Q: 0.7, peak: 1.2, a: 0.0004, tau: 0.03 });
+    b.tn(bus, { f: 160, f1: 45, fd: 0.18, peak: 0.9, a: 0.001, tau: 0.12 }); // muzzle boom
+    b.nz(bus, { kind: 'brown', type: 'lowpass', f: 400, peak: 0.8, a: 0.002, tau: 0.25 });
+    [[0.21, 1600, 0.45], [0.43, 1100, 0.32], [0.71, 800, 0.22], [1.1, 600, 0.14], [1.6, 450, 0.08]].forEach(([d, f, g]) => b.ch(bus, b.dly(d), b.f('lowpass', f), b.g(g), o)); // the canyon throws it back
+    b.nz(o, { kind: 'pink', type: 'lowpass', f: 700, peak: 0.25, a: 0.05, tau: 0.9 });
+  } },
+  laser_lock: { dur: 0.15, fn(b) {
+    b.tn(b.o, { f: 2400, peak: 0.6, a: 0.002, tau: 0.03 }); b.tn(b.o, { f: 4800, peak: 0.12, a: 0.002, tau: 0.02 });
+  } },
+  collapse_rumble: { dur: 6.5, sr: 24000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.5), b.o);
+    { const s = b.src('brown'), f = b.f('lowpass', 140, 0.8), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(1.0, 1.2); g.gain.setValueAtTime(1.0, 4.5); g.gain.linearRampToValueAtTime(0, 6.4); b.ch(s, f, g, o); }
+    { const x = b.osc('sine', 38); x.frequency.setValueAtTime(38, 0); x.frequency.linearRampToValueAtTime(26, 6); const g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.7, 1.5); g.gain.linearRampToValueAtTime(0, 6.3); b.ch(x, g, o); }
+    { const s = b.src('crackle', 0, 0.4), f = b.f('bandpass', 600, 0.8), g = b.g(0); g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(0.5, 2); g.gain.linearRampToValueAtTime(0, 6.3); b.ch(s, f, g, o); }
+    for (let k = 0; k < 5; k++) ring(b, o, b.r(0.3, 4.5), b.r(55, 110), [1, 1.42, 2.13, 2.9], { peak: 0.35, tau: 0.9, tauFall: 0.3, det: 0.01 }); // steel frame groaning
+  } },
+  collapse_impact: { dur: 4.0, sr: 32000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(2.5), b.o);
+    b.tn(o, { f: 70, f1: 28, fd: 0.6, peak: 1.0, a: 0.004, tau: 0.8 });
+    b.nz(o, { kind: 'brown', type: 'lowpass', f: 300, peak: 1.0, a: 0.003, tau: 0.7 });
+    b.nz(o, { kind: 'pink', type: 'bandpass', f: 900, Q: 0.6, peak: 0.8, a: 0.002, tau: 0.25 });
+    b.nz(o, { kind: 'crackle', type: 'highpass', f: 1500, peak: 0.7, a: 0.01, tau: 0.6, rate: 0.8 });
+    const G = []; for (let k = 0; k < 40; k++) { const t = b.r(0.1, 2.8); G.push({ t, f: b.r(2500, 9000), peak: b.r(0.03, 0.12) * Math.exp(-t / 1.5), a: 0.0003, tau: b.r(0.01, 0.04) }); }
+    grains(b, o, G);
+  } },
+  glass_rain: { dur: 4.2, fn(b) {
+    const o = b.o;
+    b.nz(o, { type: 'highpass', f: 5000, peak: 0.25, a: 0.3, tau: 1.2 });
+    const G = [];
+    for (let k = 0; k < 160; k++) { const t = Math.min(4, Math.pow(b.R(), 1.6) * 3.8); G.push({ t, f: b.r(2800, 10000), peak: b.r(0.04, 0.18), a: 0.0003, tau: b.r(0.006, 0.04) }); if (b.R() < 0.3) G.push({ t, k: 'bp', f: b.r(3000, 7000), Q: 4, peak: b.r(0.04, 0.1), a: 0.0003, tau: 0.008 }); }
+    grains(b, o, G);
+  } },
+};
+L3_BAKES.birds_flap = { dur: 2.2, fn(b) {
+  // a flock taking off: dozens of soft wing claps, dense at first, thinning out as they climb away
+  const G = [];
+  for (let k = 0; k < 140; k++) { const t = Math.pow(b.R(), 1.8) * 1.9; G.push({ t, k: 'bp', f: b.r(450, 1300), Q: 1.2, peak: b.r(0.15, 0.45) * (1 - t / 2.4), a: 0.004, tau: b.r(0.015, 0.03) }); }
+  for (let k = 0; k < 6; k++) G.push({ t: b.r(0.05, 0.6), k: 'bp', f: b.r(1800, 2600), Q: 6, peak: 0.06, a: 0.01, tau: 0.05 }); // a coo or two
+  grains(b, b.o, G);
+} };
+const L3_LOOP_BAKES = {
+  loop_car_alarm: { dur: 2.25, loop: [2, 0.25], fn(b) {
+    const o = b.g(0.5); b.ch(o, b.f('bandpass', 1500, 0.7), b.o);
+    const lfo = b.osc('triangle', 2);
+    const x = b.osc('square', 1100), lg = b.g(450); b.ch(lfo, lg); lg.connect(x.frequency); b.ch(x, b.g(0.6), o);
+    const x2 = b.osc('square', 1650), lg2 = b.g(600); lfo.connect(lg2); lg2.connect(x2.frequency); b.ch(x2, b.g(0.15), o);
+  } },
+  loop_dust_roar: { dur: 3.25, loop: [3, 0.25], sr: 24000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.4), b.o);
+    b.ch(b.src('brown'), b.f('lowpass', 220), b.g(1.2), o);
+    const am = b.g(0.6); [[1 / 3, 0.2], [2 / 3, 0.15], [4 / 3, 0.1]].forEach(([f, d]) => b.ch(b.osc('sine', f), b.g(d), am.gain));
+    b.ch(b.src('pink'), b.f('bandpass', 500, 0.5), am, b.g(0.8), o);
+    b.ch(b.src('white'), b.f('highpass', 3000), b.g(0.12), o);
+    b.ch(b.src('crackle', 0, 0.6), b.f('bandpass', 1200, 0.8), b.g(0.3), o);
+  } },
+  loop_city: { dur: 6.5, loop: [6, 0.5], sr: 24000, fn(b) {
+    const o = b.o;
+    b.ch(b.src('brown'), b.f('lowpass', 180), b.g(0.5), o); // far traffic / rumble
+    b.ch(b.src('pink'), b.f('bandpass', 700, 0.4), b.g(0.12), o);
+    const s = b.osc('sine', 850), lfo = b.osc('sine', 1 / 3), lg = b.g(250); b.ch(lfo, lg); lg.connect(s.frequency); // distant siren
+    const sg = b.g(0.06); b.ch(s, sg, b.f('lowpass', 1500), o); b.ch(sg, b.dly(0.37), b.g(0.5), b.f('lowpass', 900), o);
+    const s2 = b.osc('sine', 700), lfo2 = b.osc('sine', 0.5), lg2 = b.g(180); b.ch(lfo2, lg2); lg2.connect(s2.frequency);
+    b.ch(s2, b.g(0.03), b.f('lowpass', 1200), o);
+  } },
+};
+
 // --- music bakes
 const CHORDS = [
   { root: 0, pad: [38, 45, 50, 53, 57], brass: [38, 45, 50, 53], choir: [57, 62, 65, 69] }, // Dm
@@ -1005,9 +1087,9 @@ export class AudioSystem {
       const p = this._mPending; this._mPending = null;
       if (p && p.start) this.startMusic();
     });
-    // Level 2 sounds bake in the background after the music so they don't delay start-up; until they are in,
+    // Level 2 + 3 sounds bake in the background after the music so they don't delay start-up; until they are in,
     // play() of those names is a silent no-op and setLoop() retries on the next call.
-    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES))).then(() => { this._xReady = true; });
+    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES, L3_BAKES, L3_LOOP_BAKES))).then(() => { this._xReady = true; });
     if (this._offline) { await mp; await xp; } else { mp.catch((e) => console.warn('music bake failed', e)); xp.catch((e) => console.warn('L2 bake failed', e)); }
   }
 

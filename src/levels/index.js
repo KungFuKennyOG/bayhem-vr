@@ -12,6 +12,11 @@ export const LEVELS = [
     blurb: 'On foot through a container maze at golden hour, all the way to the cargo ship. Then blow it up.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint.',
   },
+  {
+    id: 'downtown-haven', num: '03', title: 'DOWNTOWN HAVEN CITY', tagline: 'GLASS CANYON. RED DOTS. ONE FALLING SKYSCRAPER.',
+    blurb: 'On foot down an avenue of glass towers at sunset: rooftop snipers, a gunship, and a dust wall to outrun.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Watch for red laser dots.',
+  },
 ];
 
 export const levelById = (id) => LEVELS.find(l => l.id === id) || LEVELS[0];
