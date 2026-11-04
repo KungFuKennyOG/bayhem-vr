@@ -644,16 +644,20 @@ export class AirportGame {
         c.ct = (c.ct ?? rand() * 0.3) - 0.12;
         if (c.ct <= 0) {
           c.ct = (this.isQuest ? 0.9 : 0.45) / Math.sqrt(k);
-          this.clouds.spawn({ x: c.p.x + range(-1.5, 1.5) * k, y: c.p.y + 1.2 * k, z: c.p.z + range(-1.5, 1.5) * k, vx: range(-0.4, 0.4) + 1.5, vy: range(4, 6) * Math.sqrt(k), vz: range(-0.4, 0.4) + 0.55, drag: 0.07, buoy: 0.12, s0: 6 * k, s1: range(19, 26) * k, life: range(13, 17), a: 0.93, fadeIn: 0.02, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.07, g: 0.062, b: 0.056, r1: 0.18, g1: 0.16, b1: 0.145, glow: c.fire ? 1.1 : 0, glowFade: 12 });
+          this.clouds.spawn({ x: c.p.x + range(-1.5, 1.5) * k, y: c.p.y + 1.2 * k, z: c.p.z + range(-1.5, 1.5) * k, vx: range(-0.4, 0.4) + 1.5, vy: range(4, 6) * Math.sqrt(k), vz: range(-0.4, 0.4) + 0.55, drag: 0.07, buoy: 0.12, s0: 6 * k, s1: range(19, 26) * k, life: range(13, 17), a: 0.93, fadeIn: 0.02, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.07, g: 0.062, b: 0.056, r1: 0.18, g1: 0.16, b1: 0.145, glow: 0 });
           // the root: low, slow, fire-lit puffs that sit on the wreck (the column must visibly come out of something)
-          if (rand() < 0.7) this.clouds.spawn({ x: c.p.x + range(-2.5, 2.5) * k, y: c.p.y + 0.8 * k, z: c.p.z + range(-2.5, 2.5) * k, vx: range(-0.5, 0.5) + 0.6, vy: range(1.2, 2.2), vz: range(-0.5, 0.5), drag: 0.4, buoy: 0.3, s0: 4 * k, s1: range(9, 12) * k, life: range(4, 5.5), a: 0.95, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: c.fire ? 1.2 : 0, glowFade: 2.6 });
+          if (rand() < 0.7) this.clouds.spawn({ x: c.p.x + range(-2.5, 2.5) * k, y: c.p.y + 0.8 * k, z: c.p.z + range(-2.5, 2.5) * k, vx: range(-0.5, 0.5) + 0.6, vy: range(1.2, 2.2), vz: range(-0.5, 0.5), drag: 0.4, buoy: 0.3, s0: 4 * k, s1: range(9, 12) * k, life: range(4, 5.5), a: 0.95, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: c.fire ? 1.2 : 0, glowFade: 6 });
         }
-        if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire, c.follow ? _v2.copy(c.follow.vel).multiplyScalar(0.9) : null); // a tumbling wreck carries its fire
+        // low, wide flame sheet on the wreck (fx.flame scales its rise with size: big fires shot beads 10 m up the column)
+        if (c.fire && near && !(c.follow && c.follow.vel.lengthSq() > 16)) for (let i = 0; i < 3; i++) { // a wreck in flight trails its own fire (setpieces); timer flames on it beaded
+          const fs = range(1.4, 2.4) * Math.min(1.6, c.fire), fv = c.follow ? c.follow.vel : null;
+          this.fx.main.spawn({ x: c.p.x + range(-2.5, 2.5) * c.k, y: c.p.y + fs * 0.3, z: c.p.z + range(-2.5, 2.5) * c.k, vx: range(-0.6, 0.6) + (fv ? fv.x * 0.9 : 0), vy: range(1.2, 2.6), vz: range(-0.6, 0.6) + (fv ? fv.z * 0.9 : 0), anchored: !fv, drag: fv ? 0 : 1.2, frameKind: 1, s0: fs, s1: fs * 1.7, ease: 0.6, life: range(0.55, 0.85), rot: rand() * 6.28, vrot: range(-0.8, 0.8), r: 1.75, g: 0.85, b: 0.35, a: 1, fadeIn: 0.03, fadeOut: 0.55 });
+        }
       }
       // from far out a wreck's smoke reads as a black plume silhouetted on the sky (particles would fog into lavender)
       if (c.fire && c.k >= 1.2) this._plume(c);
       // from the air (credits) the burning airfield reads as fire glows under the smoke
-      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * (1 + 0 * fogK); /* fog-free batch */ this.world.addFarGlow(_v.set(c.p.x, c.p.y + 3 * c.k + d * 0.008, c.p.z), /* lifted with range: kilometres out the ground's depth precision (~20 m) would swallow it */ Math.max(7 * c.k, d * 0.065) * Math.min(1.2, f), 1.7 * f, 0.48 * f, 0.08 * f, 1); }
+      if (c.fire && !near && (this.dusk > 0.22 || this.headPos.y > 15)) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * (1 + 0 * fogK); /* fog-free batch */ this.world.addFarGlow(_v.set(c.p.x, c.p.y + 3 * c.k + d * 0.008, c.p.z), /* lifted with range: kilometres out the ground's depth precision (~20 m) would swallow it */ Math.max(7 * c.k, d * 0.065) * Math.min(1.2, f), 1.7 * f, 0.48 * f, 0.08 * f, 1); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
     }
   }

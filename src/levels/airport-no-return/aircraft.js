@@ -488,7 +488,7 @@ export function buildCargoPlane() {
   const [fwd, aftR] = splitRings(CF, C.holdZ1);
   P.push([loft(fwd.map(r => ({ ...r })), { segs: 44, zMin: CZ0, zMax: CZ1 }), 0]);
   // aft: open at the bottom over the ramp (lined inside), then a closed tail cone
-  const open = 1.45, OPEN_END = 20.5;
+  const open = 0.95, OPEN_END = 20.5; // side walls come down to the ramp rails (at 1.45 a strip of sky showed between ceiling and ramp from inside)
   const [aftOpen, tailCone] = splitRings(aftR, OPEN_END);
   P.push([loft(aftOpen, { segs: 40, theta0: -Math.PI + open, theta1: Math.PI - open, zMin: CZ0, zMax: CZ1 }), 0]);
   P.push([loft(aftOpen.map(r => ({ ...r, rx: r.rx - 0.12, ry: r.ry - 0.12 })), { segs: 32, theta0: -Math.PI + open, theta1: Math.PI - open, inside: true }), 7]);

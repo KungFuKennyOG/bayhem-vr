@@ -179,6 +179,7 @@ export class AirportWorld {
           tintC *= 0.86 + 0.24 * M2.b;
           // mowed stripes (14 m) across the infield, fading out with distance so they never shimmer
           float mow = smoothstep(0.42, 0.58, abs(fract(vGW.x / 14.0) - 0.5) * 2.0);
+          field *= 1.0 - smoothstep(180.0, 320.0, abs(vGW.x)); // stripes only along the runway strip
           float dist = length(vGW - cameraPosition);
           tintC *= mix(1.0, 0.82 + 0.28 * mow, field * (1.0 - smoothstep(250.0, 800.0, dist)));
           diffuseColor.rgb *= mix(vec3(1.0), tintC, 0.85);
@@ -203,7 +204,7 @@ export class AirportWorld {
     // service roads: behind the hangars, to the tower / fuel farm
     rect(130, 392, 340, 404, 0); rect(336, 30, 348, 404, 0); rect(240, 18, 348, 30, 0);
     // perimeter road around the field (from the climb-out the airfield needs an edge)
-    rect(-700, -3172, 860, -3162, 0); rect(-700, -3172, -690, 1100, 0); rect(850, -3172, 860, 1100, 0);
+    rect(-700, -3172, -690, 1100, 0); rect(850, -3172, 860, 1100, 0);
     const ap = [], au = [], ai = [];
     for (const [a, b, c, d, y] of quads) {
       const base = ap.length / 3;
@@ -321,7 +322,6 @@ export class AirportWorld {
       let px = APRON.x0 + 2, pz = sz - 18;
       for (let k = 1; k <= 12; k++) { const t = k / 12, nx = APRON.x0 + 2 + t * 24, nz = sz - 18 * Math.cos(t * Math.PI / 2); quad(Y, px, pz, nx, nz, 0.2); px = nx; pz = nz; }
       quad(W, sx - 15, sz - 2.5, sx - 15, sz + 2.5, 0.5);
-      for (const off of [-20, 20]) quad(R2, sx - 30, sz + off, sx + 30, sz + off, 0.2);
       for (let k = 0; k < 7; k++) quad(Y, sx + 22 + k * 1.6, sz - 6, sx + 22 + k * 1.6 + 3, sz + 6, 0.25);
     }
     // service road along the hangar fronts (white edge lines + dashed centre)

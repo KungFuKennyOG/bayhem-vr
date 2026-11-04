@@ -409,7 +409,7 @@ export class SetPieces {
     const J = this.jeep, g = this.g;
     J.state = 'arrive'; J.t = 0; J.root.visible = true;
     // comes up taxiway A from the west at speed, handbrake-turns, stops at the apron edge facing -z
-    J.arrive = new Path([[113, 10], [114, 60], [115, 108], [118, 128], [124, 138], [JEEP_STOP.x, JEEP_STOP.z]]); // starts inside the view up the taxiway (from z = -70 it was a speck when the driver called it)
+    J.arrive = new Path([[113, 40], [114, 80], [115, 108], [118, 128], [124, 138], [JEEP_STOP.x, JEEP_STOP.z]]); // starts inside the view up the taxiway (from z = -70 it was a speck when the driver called it)
     J.s = 0; J.v = 26;
     g.audio.play('tire_screech', { x: 114, y: 1, z: 90, volume: 0.6 });
   }
@@ -437,7 +437,8 @@ export class SetPieces {
     return Math.abs(L.x) < 0.95 && L.z > 0.3 && L.z < 2.4 ? this.jeep.pos.y + JEEP.bedY : 0;
   }
   // ride plan: taxiway -> high-speed exit -> runway centreline, then straight down runway 27
-  _ridePath() { return new Path([[JEEP_STOP.x, JEEP_STOP.z], [119, 110], [114, 40], [113, -90], [100, -170], [60, -250], [14, -320], [2, -380], [0, -460], [0, -3000]]); }
+  // the driver cuts straight across the infield onto the runway behind the plane (taxiway-first kept the plane 100 m off to the side)
+  _ridePath() { return new Path([[JEEP_STOP.x, JEEP_STOP.z], [118, 122], [100, 92], [64, 52], [28, 14], [6, -24], [0, -70], [0, -160], [0, -400], [0, -3000]]); } // extra centreline points: Catmull-Rom off the diagonal bowed the long runway leg 3 m off centre
   _updJeep(dt) {
     const J = this.jeep, g = this.g;
     J.t += dt;
@@ -452,6 +453,7 @@ export class SetPieces {
       // handbrake slide: the body over-rotates on the last curve
       if (remain < 28) { want = 0; J.slide = (J.slide || 0) + dt; }
       J.yaw = this._lerpAng(J.yaw, want, remain < 28 ? 5 : 6, dt);
+      if (remain < 32 && remain > 6 && rand() < 0.5) { const w = J.root.localToWorld(_v.set(0, 0.3, 2.4)); g.clouds.spawn({ x: w.x, y: 0.7, z: w.z, vx: range(-1, 1), vy: range(0.3, 1), vz: range(-1, 1), drag: 1.0, s0: 1.5, s1: range(5, 7), life: 2.2, a: 0.45, fadeIn: 0.05, fadeOut: 0.6, r: 0.42, g: 0.38, b: 0.34 }); }
       if (remain < 32 && remain > 6) for (const sx of [-0.98, 0.98]) if (rand() < 0.6) { const w = J.root.localToWorld(_v.set(sx, 0.2, 1.45)); g.fx.main.spawn({ x: w.x, y: 0.3, z: w.z, vx: range(-1, 1), vy: range(0.5, 1.5), vz: range(-1, 1), drag: 1.5, frame: CELL.DUST, s0: 0.8, s1: 3.4, life: 1.6, rot: rand() * 6, r: 0.8, g: 0.78, b: 0.76, a: 0.5, fadeOut: 0.5 }); }
       if (remain < 30 && !J.screech) { J.screech = true; g.audio.play('tire_screech', { x: J.pos.x, y: 1, z: J.pos.z, volume: 1 }); }
       if (remain < 0.4) { J.state = 'wait'; J.t = 0; J.v = 0; g.events.push({ type: 'jeepHere' }); }
@@ -472,14 +474,17 @@ export class SetPieces {
       J.s += J.v * dt;
       J.path.at(J.s, J.pos);
       // weave behind the plane on the runway (dodges, swerves set by the director)
-      const onRunway = J.pos.z < -420;
+      const onRunway = J.pos.z < -60;
       const swerve = (this.swerveT > 0 ? Math.sin(this.swerveT * 3.2) * this.swerveA : 0);
       this.swerveT = Math.max(0, (this.swerveT || 0) - dt);
-      J.lat = damp(J.lat || 0, onRunway ? (this.laneX ?? 0) + swerve : 0, 2.2, dt);
+      J.lat = damp(J.lat || 0, onRunway && !this.allowRotate ? (this.laneX ?? 0) + swerve : 0, 2.2, dt); // dead centre under the ramp for the leap
       J.pos.x += J.lat;
       const d = J.path.dir(J.s, _v);
       J.yaw = this._lerpAng(J.yaw, Math.atan2(-d.x, -d.z) - (J.lat - (J.prevLat ?? J.lat)) / Math.max(1, J.v * dt) * 0.5, 6, dt);
       J.prevLat = J.lat;
+      // across the infield: bounce + a brown dust wake (the speed cue the flat runway lacks)
+      J.onGrass = J.pos.x > 33 && J.pos.x < 100 && J.pos.z > -40;
+      if (J.onGrass && J.v > 6 && rand() < dt * 14) { const w = J.root.localToWorld(_v.set(range(-1, 1), 0.3, 2.6)); g.clouds.spawn({ x: w.x, y: 0.8, z: w.z, vx: range(-1.5, 1.5), vy: range(0.5, 1.5), vz: range(-1.5, 1.5), drag: 1.2, buoy: 0.05, s0: 1.6, s1: range(6, 9), life: range(2.2, 3.2), a: 0.55, fadeIn: 0.05, fadeOut: 0.6, vrot: range(-0.4, 0.4), r: 0.34, g: 0.27, b: 0.19 }); }
       // tire smoke on the launch
       if (R.t < 2.5) for (const sx of [-0.98, 0.98]) if (rand() < 0.8) { const w = J.root.localToWorld(_v.set(sx, 0.25, 1.6)); g.fx.main.spawn({ x: w.x, y: 0.35, z: w.z, vx: range(-1, 1), vy: range(0.5, 2), vz: range(-1, 1), drag: 1.2, frame: CELL.DUST, s0: 0.9, s1: 3.8, life: 1.8, rot: rand() * 6, r: 0.82, g: 0.8, b: 0.78, a: 0.55, fadeOut: 0.5 }); }
     } else if (J.state === 'crash') {
@@ -511,7 +516,7 @@ export class SetPieces {
       const accel = (J.v - (J.prevV ?? J.v)) / Math.max(1e-4, dt); J.prevV = J.v;
       J.pitch = damp(J.pitch, clamp(-accel * 0.004, -0.05, 0.05), 6, dt);
       J.roll = damp(J.roll, clamp((J.lat - (J.prevLat2 ?? J.lat)) / Math.max(1e-4, dt) * -0.02, -0.06, 0.06), 5, dt); J.prevLat2 = J.lat;
-      const bump = J.v > 3 ? Math.sin(g.time * 23) * 0.004 + Math.sin(g.time * 37.7) * 0.003 : 0;
+      const bump = J.v > 3 ? (Math.sin(g.time * 23) * 0.004 + Math.sin(g.time * 37.7) * 0.003) * (J.onGrass ? 6 : 1) : 0;
       J.root.position.copy(J.pos); J.root.position.y = bump;
       J.root.rotation.set(J.pitch + bump * 0.5, J.yaw, J.roll, 'YXZ');
     }
