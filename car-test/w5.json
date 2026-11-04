@@ -1,0 +1,1 @@
+["(async()=>{ const T = await import('/src/textures.js?p=1'); T.buildingAtlas(); const a=globalThis.__tA; return a.slice(1).map((v,i)=>(v-a[i]).toFixed(0)); })()"]

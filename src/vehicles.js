@@ -43,7 +43,8 @@ export function initMaterials() {
   MAT.rim = new THREE.MeshStandardMaterial({ color: 0xc4c8cf, metalness: 1.0, roughness: 0.18, envMapIntensity: 2.0 });
   MAT.wheelMetal = new THREE.MeshStandardMaterial({ color: 0xd0d2d6, vertexColors: true, metalness: 1.0, roughness: 0.2, envMapIntensity: 2.0 });
   MAT.charred = new THREE.MeshStandardMaterial({ color: 0x0e0b09, metalness: 0.3, roughness: 0.85, emissive: 0x2a0a00, emissiveIntensity: 0.6 });
-  MAT.underbody = new THREE.MeshStandardMaterial({ color: 0x1b1a19, metalness: 0.4, roughness: 0.8 });
+  // vertex-coloured so the chassis kit (rails, exhaust, tank, spare) reads on flipped wrecks
+  MAT.underbody = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.35, roughness: 0.72, envMapIntensity: 0.8 });
   MAT.interior = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.0, roughness: 0.78, envMapIntensity: 0.5 });
   MAT.skins = [0xd8a283, 0xb57c58, 0x8d5a3b, 0x5e3b27].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, envMapIntensity: 0.6 }));
   // player truck
@@ -213,8 +214,8 @@ function prep(g, col) {
   return g;
 }
 class Kit {
-  constructor() { this.parts = []; }
-  add(g, m, col = 0xffffff) { this.parts.push([prep(g, col), m]); return this; }
+  constructor(defaults = {}) { this.parts = []; this.def = { 6: 0x3d3730, ...defaults }; }
+  add(g, m, col) { this.parts.push([prep(g, col ?? this.def[m] ?? 0xffffff), m]); return this; }
   build() {
     const by = new Map();
     for (const [g, m] of this.parts) { if (!by.has(m)) by.set(m, []); by.get(m).push(g); }
@@ -931,10 +932,84 @@ function cornerLamp(kit, BM, end, s, y0, y1, a0, a1, m, out = 0.0) {
   sweep(kit, goesRight ? path : path.reverse(), [[-0.012, 0], [0.008, 0], [0.012, 0.012], [0.012, y1 - y0 - 0.012], [0.008, y1 - y0], [-0.012, y1 - y0]], m);
 }
 // calipers: fixed to the body, inside the rim, behind the spokes
-function calipers(kit, wheelPos, rimR, hw) {
+function calipers(kit, wheelPos, rimR, hw, m = 6, col = 0x5c5a58) {
   for (const [x, y, z] of wheelPos) {
     const s = Math.sign(x);
-    const g = RBox(0.05, 0.16, 0.09, 0.02); place(g, x + s * (hw - 0.085), y + rimR * 0.52, z + rimR * 0.35, -0.6); kit.add(g, 6);
+    const g = RBox(0.05, 0.16, 0.09, 0.02); place(g, x + s * (hw - 0.085), y + rimR * 0.52, z + rimR * 0.35, -0.6); kit.add(g, m, col);
+  }
+}
+// Underside kit (slot 6, vertex coloured): what you see when a wreck lands on its roof.
+// o: { L0, L1, yb (floor bottom), af/ar (front/rear axle z), wx/wy (wheel hub x/y), railX, rwd, spare, exSide, tip:[x,y] }
+function chassis(kit, o) {
+  const M = 6, { L0, L1, yb, af, ar, wx, wy } = o, rx = o.railX ?? 0.42, sx = o.exSide ?? 1;
+  const C = { rail: 0x2c2d30, metal: 0x605c56, alu: 0xa39d93, rust: 0x7d573b, tank: 0x262729, rub: 0x18181a, spring: o.springCol ?? 0x8c7426, oil: 0x47423a, pan: 0x4d463c };
+  const B = (w, h, d, x, y, z, c, ry = 0) => { const g = Box(w, h, d); place(g, x, y, z, 0, ry); kit.add(g, M, c); };
+  const L = (a, b, r, c, seg = 6) => kit.add(limb(a, b, r, r, seg, true), M, c);
+  const y0 = yb;
+  // floor pan: stamped ribs + transmission tunnel
+  for (const x of [-0.5, -0.28, 0.28, 0.5]) B(0.05, 0.018, (ar - af) * 0.62, x * (rx / 0.42), y0 - 0.009, (af + ar) / 2, C.pan);
+  B(0.3, 0.04, ar - af - 0.9, 0, y0 - 0.02, (af + ar) / 2 - 0.1, C.pan);
+  // ladder frame
+  both(s => B(0.09, 0.12, L1 - L0 - 0.75, s * rx, y0 - 0.06, (L0 + L1) / 2, C.rail));
+  for (const z of [af + 0.38, (af + ar) / 2, ar - 0.5, L1 - 0.38]) B(rx * 2, 0.07, 0.09, 0, y0 - 0.05, z, C.rail);
+  // brake + fuel lines along the right rail
+  for (const dx of [0.07, 0.1]) L([rx - dx, y0 - 0.015, af + 0.2], [rx - dx, y0 - 0.015, ar - 0.2], 0.008, C.alu, 4);
+  // engine sump, oil pan, transmission
+  B(0.5, 0.14, 0.62, 0, y0 - 0.07, af + 0.02, C.oil);
+  B(0.36, 0.06, 0.42, 0, y0 - 0.16, af + 0.06, C.alu);
+  { const g = new THREE.CylinderGeometry(0.1, 0.16, 0.72, 8, 1, true).rotateX(PI / 2); place(g, 0, y0 - 0.09, af + 0.68); kit.add(g, M, C.metal); }
+  if (o.skid) B(0.95, 0.02, 0.55, 0, y0 - 0.2, af - 0.28, 0x58554f);
+  // front suspension: wishbones, knuckles, springs, steering rack, half-shafts
+  both(s => {
+    for (const dz of [-0.2, 0.2]) L([s * rx, y0 - 0.06, af + dz], [s * (wx - 0.16), wy - 0.1, af], 0.024, C.metal);
+    B(0.08, 0.18, 0.1, s * (wx - 0.15), wy - 0.02, af, C.metal);
+    L([s * (wx - 0.24), wy - 0.06, af + 0.03], [s * (wx - 0.3), y0 + 0.12, af + 0.06], 0.062, C.spring, 7);
+    L([s * 0.12, y0 - 0.04, af + 0.2], [s * (wx - 0.15), wy - 0.05, af + 0.12], 0.014, C.alu, 4);
+    L([s * 0.2, y0 - 0.09, af + 0.04], [s * (wx - 0.17), wy, af], 0.032, C.rub, 6);
+  });
+  L([-rx + 0.04, y0 - 0.045, af + 0.2], [rx - 0.04, y0 - 0.045, af + 0.2], 0.03, C.alu, 6);
+  // rear: live axle + diff + driveshaft (SUV) or twist beam (FWD civilians)
+  if (o.rwd) {
+    L([0, y0 - 0.09, af + 1.05], [0, wy - 0.06, ar - 0.13], 0.036, 0x4f4c47, 6);
+    { const g = sphere(0.13, 8, 6); g.scale(1, 0.85, 1.15); place(g, 0.06, wy - 0.07, ar); kit.add(g, M, C.metal); }
+    both(s => {
+      L([s * 0.1, wy - 0.07, ar], [s * (wx - 0.13), wy, ar], 0.048, C.metal, 6);
+      L([s * rx, y0 - 0.07, ar - 0.72], [s * (rx + 0.08), wy - 0.09, ar], 0.03, C.rail, 5);
+      L([s * (wx - 0.3), wy - 0.04, ar + 0.05], [s * (wx - 0.32), y0 + 0.12, ar + 0.08], 0.06, C.spring, 7);
+    });
+  } else {
+    B((wx - 0.16) * 2, 0.08, 0.11, 0, wy - 0.03, ar, C.metal);
+    both(s => { L([s * (wx - 0.16), wy - 0.02, ar], [s * rx, y0 - 0.05, ar - 0.5], 0.03, C.metal, 5); L([s * (wx - 0.26), wy - 0.03, ar + 0.06], [s * (wx - 0.3), y0 + 0.1, ar + 0.06], 0.055, C.spring, 7); });
+  }
+  // fuel tank (black plastic, alloy straps) ahead of the rear axle
+  { const tz = ar - 0.62, tx = -sx * 0.17; B(0.66, 0.2, 0.52, tx, y0 - 0.1, tz, C.tank); for (const dz of [-0.14, 0.14]) B(0.7, 0.012, 0.035, tx, y0 - 0.205, tz + dz, C.alu); L([tx - sx * 0.3, y0 - 0.06, tz], [tx - sx * 0.3 + sx * 0.0, y0 - 0.02, tz + 0.5], 0.022, C.rub, 5); }
+  // exhaust: down-pipe, cat, mid pipe, muffler, tail pipe to the tip (rusty steel + alloy heat shields)
+  {
+    const ex = sx * Math.min(0.3, rx - 0.12), y = y0 - 0.075;
+    const muz = o.rwd ? ar - 0.8 : ar + 0.52, tip = o.tip;
+    L([sx * 0.16, y0 - 0.02, af + 0.28], [ex, y, af + 0.95], 0.033, C.rust);
+    B(0.17, 0.11, 0.4, ex, y, af + 1.2, C.alu);
+    L([ex, y, af + 1.4], [ex, y, o.rwd ? muz - 0.32 : ar - 0.35], 0.033, C.rust);
+    if (o.rwd) {
+      B(0.27, 0.17, 0.62, ex + sx * 0.02, y - 0.01, muz, 0x7c6e60);
+      L([ex + sx * 0.04, y, muz + 0.31], [ex + sx * 0.1, y0 - 0.02, ar + 0.16], 0.03, C.rust);
+      L([ex + sx * 0.1, y0 - 0.02, ar + 0.16], [sx * tip[0], tip[1], L1 - 0.28], 0.03, C.rust);
+    } else {
+      L([ex, y, ar - 0.35], [ex, y0 - 0.03, ar + 0.32], 0.03, C.rust);
+      B(0.56, 0.15, 0.28, ex + sx * 0.05, y, muz, 0x7c6e60);
+      L([ex + sx * 0.05, y, muz + 0.14], [sx * tip[0], tip[1], L1 - 0.26], 0.03, C.rust);
+    }
+    L([sx * tip[0], tip[1], L1 - 0.3], [sx * tip[0], tip[1], L1 - 0.04], 0.032, C.rust);
+    for (const z of [af + 1.6, ar - 0.1]) B(0.02, 0.06, 0.02, ex, y0 - 0.03, z, C.rub); // rubber hangers
+  }
+  // spare tyre slung under the rear (SUV)
+  if (o.spare) {
+    const sz = L1 - 0.6, sy = y0 - 0.14;
+    { const g = new THREE.CylinderGeometry(0.36, 0.36, 0.23, 14, 1, true); place(g, 0, sy, sz); kit.add(g, M, C.rub); }
+    { const g = new THREE.CircleGeometry(0.36, 14).rotateX(PI / 2); place(g, 0, sy - 0.115, sz); kit.add(g, M, 0x222224); }
+    { const g = new THREE.CircleGeometry(0.22, 12).rotateX(PI / 2); place(g, 0, sy - 0.118, sz); kit.add(g, M, 0x6b6964); }
+    { const g = cylX(0.05, 0.02, 8).rotateZ(PI / 2); place(g, 0, sy - 0.125, sz); kit.add(g, M, C.alu); }
+    B(0.85, 0.035, 0.06, 0, sy - 0.13, sz, C.rail); B(0.05, 0.12, 0.05, 0, sy - 0.07, sz + 0.3, C.rail);
   }
 }
 
@@ -1084,7 +1159,8 @@ function suvGeometry() {
   { const wp = RBox(0.5, 0.018, 0.02, 0.008); place(wp, 0.08, 1.42, gh.ringAt(0.3).pts[gh.ringAt(0.3).pts.length - 1][2] + 0.04, 0, 0, 0.55); kit.add(wp, 3); }
   // ---- wheels/brakes
   const wheelPos = [[-0.86, 0.43, B.axles[0]], [0.86, 0.43, B.axles[0]], [-0.86, 0.43, B.axles[1]], [0.86, 0.43, B.axles[1]]];
-  calipers(kit, wheelPos, 0.3, 0.15);
+  calipers(kit, wheelPos, 0.3, 0.15, 6, 0x9a1d14);
+  chassis(kit, { L0, L1, yb: B.yb, af: B.axles[0], ar: B.axles[1], wx: 0.86, wy: 0.43, railX: 0.44, rwd: true, spare: true, skid: true, exSide: 1, tip: [0.54, 0.36] });
   // ---- interior: dash, wheel, console, seats, driver + passenger in suits & shades
   const fl = B.floorY;
   { const d = RBox(1.78, 0.2, 0.44, 0.06); place(d, 0, 1.12, -0.86); kit.add(d, INT, 0x0f0f11); const h = RBox(0.42, 0.08, 0.2, 0.03); place(h, -0.42, 1.24, -0.74); kit.add(h, INT, 0x0b0b0c); const sc = Box(0.24, 0.12, 0.02); place(sc, 0, 1.2, -0.66, -0.4); kit.add(sc, 3); }
@@ -1217,6 +1293,7 @@ function civGeometry(style) {
   const wy = C.wheel.R, wx = C.wheelX;
   const wheelPos = [[-wx, wy, B.axles[0]], [wx, wy, B.axles[0]], [-wx, wy, B.axles[1]], [wx, wy, B.axles[1]]];
   if (style !== 0) calipers(kit, wheelPos, C.wheel.rimR, C.wheel.w / 2);
+  chassis(kit, { L0, L1, yb: B.yb, af: B.axles[0], ar: B.axles[1], wx, wy, railX: Math.min(0.42, B.xin - 0.12), rwd: style === 0, exSide: -1, tip: [0.5, B.yb + 0.02], springCol: 0x6a6660 });
   // interior
   const fl = B.floorY, hipH = C.hipH;
   const dashZ = C.G.zf(0) + 0.32;
@@ -1273,7 +1350,7 @@ function rrRing(hw, y0, y1, rT, rB, z, n = 3) {
   return mirrorRing(p);
 }
 function tankerGeometry() {
-  const kit = new Kit();
+  const kit = new Kit({ 6: 0x2a2826 });
   const CAB = 0, GL = 1, CH = 2, PL = 3, HL = 4, TL = 5, UB = 6, TK = 7, PC = 8;
   // ---- hood (long nose) lofted from rounded sections
   {
@@ -1335,6 +1412,18 @@ function tankerGeometry() {
   // ---- chassis
   both(s => { const fr = Box(0.16, 0.28, 16.0); place(fr, s * 0.48, 0.86, 1.6); kit.add(fr, UB); });
   { const fw = Box(1.4, 0.12, 1.2); place(fw, 0, 1.08, -0.8); kit.add(fw, UB); }
+  // running gear seen on a flipped rig: axles, drive diffs, leaf springs, air tanks, driveshafts, trailer landing legs
+  for (const z of [-5.4, -1.4, -0.2, 7.2, 8.4]) {
+    kit.add(limb([-0.95, 0.52, z], [0.95, 0.52, z], 0.07, 0.07, 7, true), UB, 0x5a5650);
+    both(s => { const lf = Box(0.1, 0.07, 1.1); place(lf, s * 0.48, 0.66, z); kit.add(lf, UB, 0x3a3733); });
+    if (z === -1.4 || z === -0.2) { const d = sphere(0.2, 8, 6); place(d, 0.1, 0.5, z); kit.add(d, UB, 0x67625b); }
+  }
+  kit.add(limb([0, 0.62, -4.4], [0, 0.52, -1.6], 0.06, 0.06, 6, true), UB, 0x55514b);
+  kit.add(limb([0, 0.52, -1.2], [0, 0.52, -0.4], 0.06, 0.06, 6, true), UB, 0x55514b);
+  both(s => { const at = cylZ(0.15, 0.9, 10, false); place(at, s * 0.25, 0.62, -2.4); kit.add(at, UB, 0x8e8a83); });
+  both(s => { kit.add(limb([s * 0.85, 1.25, 0.9], [s * 0.85, 0.32, 0.9], 0.06, 0.06, 6, true), UB, 0x6a655d); const ft = Box(0.24, 0.05, 0.3); place(ft, s * 0.85, 0.3, 0.9); kit.add(ft, UB, 0x3a3733); });
+  { const cb = Box(1.7, 0.06, 0.08); place(cb, 0, 0.8, 0.9); kit.add(cb, UB, 0x3a3733); }
+  { const ex = limb([1.25, 1.1, -0.82], [1.25, 0.62, -3.6], 0.07, 0.07, 6, true); kit.add(ex, UB, 0x7d573b); }
   // ---- tank: elliptical loft with domed heads
   const TZ0 = -0.95, TZ1 = 9.05, TY = 2.45, RX = 1.25, RY = 1.13, NS = 24;
   const tankRing = (z, k) => { const r = []; for (let j = 0; j < NS; j++) { const a = (j / NS) * PI * 2; r.push([Math.cos(a) * RX * k, TY + Math.sin(a) * RY * k, z]); } return r; };
@@ -1588,7 +1677,7 @@ function pickupGeometry() {
   const dpk = { add: (g, m, c) => dk.add(g, m === SKIN ? 1 : 0, c), parts: dk.parts };
   person(dpk, -0.45, fl + 0.36, -0.28, { top: 0x4a5a3a, sleeve: 0x4a5a3a, legs: 0x2a2f38, hairStyle: 'cap', capCol: 0x1c1c1e, glasses: 0x050505, wheel: [-0.45, 1.27, -0.75] });
   const wheelPos = [[-0.88, 0.44, -2.15], [0.88, 0.44, -2.15], [-0.88, 0.44, 1.35], [0.88, 0.44, 1.35]];
-  calipers(kit, wheelPos, 0.29, 0.16);
+  calipers(kit, wheelPos, 0.29, 0.16, PL);
   // decal: side dust + tailgate letters + plate
   const S = { z0: -3.1, z1: 2.7, y0: 0.45, y1: 1.4 };
   const atlas = makeAtlas({ S, seed: 51, axles: [-2.15, 1.35], archY: 0.44, dustA: 0.5, plate: '8BAY666', rearBadge: 'HAMMERHEAD', rearBadgeSize: 70, markers: [[-2.85, 0.85, 'rgba(255,150,40,0.9)'], [2.5, 0.95, 'rgba(200,20,10,0.9)']] });

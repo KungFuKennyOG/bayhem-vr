@@ -1,0 +1,1 @@
+["(async()=>{ const T = await import('/src/textures.js'); const o={}; for (const k of ['roadTextures','groundTexture','groundMacroTexture','buildingAtlas','signBackTexture','soundWallTexture']) { const t=performance.now(); T[k](); o[k]=(performance.now()-t).toFixed(0); } return o; })()"]

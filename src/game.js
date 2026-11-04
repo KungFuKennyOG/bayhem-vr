@@ -331,6 +331,7 @@ export class Game {
     c.mats[0] = MAT.charred; c.mats[1] = MAT.charred; c.mats[2] = MAT.charred; c.mats[4] = MAT.plastic; c.mats[5] = MAT.plastic;
     if (c.isTanker) c.mats[7] = MAT.charred;
     else { c.mats[7] = MAT.charred; c.mats[8] = MAT.charred; }
+    c.mats[6] = MAT.charred;
     // rigid body
     const h = c.hitboxHalf;
     const rb = new RigidBox(h.x, h.y, h.z, c.isTanker ? 6 : 1.5);
