@@ -103,9 +103,9 @@ export function buildWater({ waterY, quayZ, hullZ, shipX0, shipX1, fog }) {
         vec3 N = normalize(vec3(slope.x * 0.2, 1.0, slope.y * 0.2));
         float ndv = clamp(dot(N, V), 0.0, 1.0);
         float F = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);
-        F = min(F, 0.32);
+        F = min(F, mix(0.32, 0.22, uDusk));
         vec3 R = reflect(-V, N); R.y = abs(R.y);
-        vec3 sky = skyApprox(R, uSun, uDusk) * 0.26;
+        vec3 sky = skyApprox(R, uSun, uDusk) * mix(0.26, 0.13, uDusk);
         // low reflections see the far shore / skyline, not the bright horizon
         vec3 shore = hazeCol(R, uSun, uDusk) * 0.35;
         sky = mix(shore, sky, smoothstep(0.015, 0.09, R.y));
@@ -120,7 +120,7 @@ export function buildWater({ waterY, quayZ, hullZ, shipX0, shipX1, fog }) {
         vec3 sunC = mix(vec3(3.2, 1.55, 0.6), vec3(1.4, 0.45, 0.15), uDusk);
         col += sunC * (pow(rs, 1400.0) * 10.0 + pow(rs, 160.0) * 0.35 + pow(rs, 24.0) * 0.03) * sunUp * uGlow;
         // blue hour: the afterglow still lays a soft orange band on the water toward the west
-        col += vec3(0.20, 0.06, 0.02) * uDusk * pow(rs, 6.0) * (1.0 - sunUp * 0.5);
+        col += vec3(0.12, 0.035, 0.012) * uDusk * pow(rs, 8.0) * (1.0 - sunUp * 0.5);
         // shadowed gap and contact darkening along the quay wall / hull
         float dq = uQuay.x - p.y;                 // metres from the quay wall face (>0 over water)
         float ao = mix(0.35, 1.0, smoothstep(0.0, 1.6, dq));

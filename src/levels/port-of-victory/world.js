@@ -85,7 +85,7 @@ export class PortWorld {
     const road = new THREE.Mesh(new THREE.PlaneGeometry(18, 260), new THREE.MeshStandardMaterial({ map: asph.map.clone(), roughness: 0.8, color: 0x9c948c }));
     road.material.map.repeat.set(2, 30); road.rotation.x = -Math.PI / 2; road.position.set(0, 0.004, GATE_Z + 130); road.receiveShadow = true;
     this.group.add(road);
-    const verge = new THREE.Mesh(new THREE.PlaneGeometry(3000, 1700), new THREE.MeshLambertMaterial({ map: T.groundTexture(), color: 0x6e6458 }));
+    const verge = new THREE.Mesh(new THREE.PlaneGeometry(3000, 1700), new THREE.MeshStandardMaterial({ map: T.groundTexture(), color: 0xb8a88e, roughness: 0.95, envMapIntensity: 1.3 }));
     verge.material.map.repeat.set(214, 121); verge.rotation.x = -Math.PI / 2; verge.position.set(0, -0.03, QUAY_Z + 850); verge.receiveShadow = true;
     this.group.add(verge);
     // painted markings: one merged mesh of thin quads (yellow lane lines, white bay lines, hatched walkways)
@@ -148,7 +148,7 @@ export class PortWorld {
     const list = this.containerList, fps = [];
     // contact shadows: union of touching tier-0 footprints (static boxes only)
     const boxes = list.filter(c => c.tier === 0).map(c => { const L = c.len === 40 ? C40 : C20, hx = (c.rot ? CW : L) / 2, hz = (c.rot ? L : CW) / 2; return { x0: c.x - hx, x1: c.x + hx, z0: c.z - hz, z1: c.z + hz, hero: c.hero }; });
-    const stat = boxes.filter(b => !b.hero), par = stat.map((_, i) => i);
+    const stat = boxes, par = stat.map((_, i) => i); // hero boxes too: once one bursts its shadow reads as a scorch
     const find = (i) => (par[i] === i ? i : (par[i] = find(par[i])));
     for (let i = 0; i < stat.length; i++) for (let j = i + 1; j < stat.length; j++) {
       const a = stat[i], b = stat[j];
@@ -156,7 +156,7 @@ export class PortWorld {
     }
     const groups = new Map();
     stat.forEach((b, i) => { const k = find(i), g = groups.get(k); if (!g) groups.set(k, { ...b }); else { g.x0 = Math.min(g.x0, b.x0); g.x1 = Math.max(g.x1, b.x1); g.z0 = Math.min(g.z0, b.z0); g.z1 = Math.max(g.z1, b.z1); } });
-    for (const g of groups.values()) fps.push({ ...g, pad: 0.9, k: 0.9 });
+    for (const g of groups.values()) fps.push({ ...g, pad: 1.25, k: 0.95 });
     const occupied = (x, z, m) => boxes.some(b => x > b.x0 - m && x < b.x1 + m && z > b.z0 - m && z < b.z1 + m) || MASTS.some(([mx, mz]) => Math.abs(x - mx) < m + 1.5 && Math.abs(z - mz) < m + 1.5) || DRUMS.some(([dx, dz]) => Math.abs(x - dx) < m + 1.5 && Math.abs(z - dz) < m + 1.5);
     const ids = [];
     for (const [name, [x0, rows]] of Object.entries(COLUMNS)) for (const z of [9.5, -33.5, -76.5]) ids.push([name + '-' + String(Math.abs(Math.round(z / 3)) + 1).padStart(2, '0'), x0 + rows * CW / 2, z + 3.5]);

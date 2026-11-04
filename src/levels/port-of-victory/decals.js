@@ -60,10 +60,10 @@ function atlas() {
     x.putImageData(img, X, Y); }
   // contact shadow 9-slice: alpha = a(s) * a(t), strongest at the inner square (container face)
   { const [X, Y] = cell(CELL.AO), img = x.createImageData(CS, CS);
-    const a1 = (s) => Math.pow(Math.min(1, Math.max(0, s / 0.5)), 1.8);
+    const a1 = (s) => Math.pow(Math.min(1, Math.max(0, s / 0.5)), 1.25);
     for (let y = 0; y < CS; y++) for (let xx = 0; xx < CS; xx++) {
       const s = Math.min(xx + 0.5, CS - xx - 0.5) / CS, t = Math.min(y + 0.5, CS - y - 0.5) / CS;
-      const k = (y * CS + xx) * 4; img.data[k] = 6; img.data[k + 1] = 5; img.data[k + 2] = 5; img.data[k + 3] = a1(s) * a1(t) * 215;
+      const k = (y * CS + xx) * 4; img.data[k] = 6; img.data[k + 1] = 5; img.data[k + 2] = 5; img.data[k + 3] = a1(s) * a1(t) * 250;
     }
     x.putImageData(img, X, Y); }
   // seam: thin dark joint line along u with chipped edges (v centre)
@@ -149,7 +149,9 @@ class Quads {
     const V = (v) => 1 - (cy + 1 - v) / G + (v <= 0 ? inset : v >= 1 ? -inset : 0);
     const b = this.p.length / 3;
     pts.forEach(([x, z], k) => { this.p.push(x, y, z); this.uv.push(U(uv[k][0]), V(uv[k][1])); this.c.push(...col); });
-    this.i.push(b, b + 2, b + 1, b, b + 3, b + 2);
+    // wind the pair so it faces +y whatever order the corners came in
+    const [A, B, C] = pts, ny = (B[1] - A[1]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[1] - A[1]);
+    if (ny > 0) this.i.push(b, b + 1, b + 2, b, b + 2, b + 3); else this.i.push(b, b + 2, b + 1, b, b + 3, b + 2);
   }
   // rect centred at (x,z), size w (along local u) x h, rotated by a (radians, about y)
   quad(x, z, w, h, a, cell, col = [1, 1, 1, 1], y = 0.01, uv = [[0, 0], [1, 0], [1, 1], [0, 1]]) {
@@ -197,7 +199,7 @@ export function buildGroundDecals({ footprints, occupied, quayZ, columns, apronX
   for (const f of footprints) Q.ao(f.x0, f.z0, f.x1, f.z1, f.pad ?? 0.85, [1, 1, 1, f.k ?? 0.85]);
   // oil stains, patches, cracks, dust on the yard asphalt (only where nothing stands)
   const scatter = (n, fn, X = yardX, Z = yardZ) => { let k = 0, guard = 0; while (k < n && guard++ < n * 40) { const x = X[0] + r() * (X[1] - X[0]), z = Z[0] + r() * (Z[1] - Z[0]); if (!free(x, z)) continue; fn(x, z); k++; } };
-  scatter(46, (x, z) => { const s = 0.8 + r() * 2.2; Q.quad(x, z, s * (1 + r() * 0.6), s, r() * 6.28, CELL.OIL0 + Math.floor(r() * 3), [1, 1, 1, 0.55 + r() * 0.4]); });
+  scatter(46, (x, z) => { const s = 0.8 + r() * 2.2; Q.quad(x, z, s * (1 + r() * 0.6), s, r() * 6.28, CELL.OIL0 + Math.floor(r() * 3), [1, 0.95, 0.9, 0.35 + r() * 0.35]); });
   scatter(14, (x, z) => { const s = 2 + r() * 4; Q.quad(x, z, s * (1 + r()), s, Math.floor(r() * 4) * Math.PI / 2 + (r() - 0.5) * 0.1, CELL.PATCH, [1, 1, 1, 0.7]); });
   scatter(30, (x, z) => { const s = 1.5 + r() * 3; Q.quad(x, z, s, s * 0.6, r() * 6.28, CELL.CRACK, [1, 1, 1, 0.75]); });
   scatter(18, (x, z) => { const s = 3 + r() * 5; Q.quad(x, z, s, s * 0.7, r() * 6.28, CELL.DUST, [1, 1, 1, 0.6]); });
@@ -215,7 +217,7 @@ export function buildGroundDecals({ footprints, occupied, quayZ, columns, apronX
   for (let z = AZ0 - 5; z > AZ1 + 1; z -= 6.8) Q.strip(-apronX, z, apronX, z, 0.12, CELL.SEAM, [1, 1, 1, 0.75]);
   for (let x = -apronX + 4; x < apronX; x += 8) Q.strip(x, AZ0, x, AZ1 + 0.8, 0.1, CELL.SEAM, [1, 1, 1, 0.65]);
   for (const z of [-124, -149]) for (const dz of [-0.4, 0.4]) Q.strip(-400, z + dz, 400, z + dz, 0.32, CELL.GROOVE, [1, 1, 1, 1], 0.009);
-  scatter(40, (x, z) => { const s = 0.8 + r() * 2.6; Q.quad(x, z, s * (1 + r() * 0.7), s, r() * 6.28, CELL.OIL0 + Math.floor(r() * 3), [1, 1, 1, 0.5 + r() * 0.45]); }, [-apronX + 2, apronX - 2], [AZ1 + 2, AZ0 - 1]);
+  scatter(40, (x, z) => { const s = 0.8 + r() * 2.6; Q.quad(x, z, s * (1 + r() * 0.7), s, r() * 6.28, CELL.OIL0 + Math.floor(r() * 3), [1, 0.95, 0.9, 0.3 + r() * 0.35]); }, [-apronX + 2, apronX - 2], [AZ1 + 2, AZ0 - 1]);
   scatter(14, (x, z) => { const s = 3 + r() * 6; Q.quad(x, z, s, s * 0.7, r() * 6.28, CELL.DUST, [1, 1, 1, 0.5]); }, [-apronX + 2, apronX - 2], [AZ1 + 2, AZ0 - 1]);
   scatter(22, (x, z) => Q.quad(x, z, 1.4, 8 + r() * 10, (r() - 0.5) * 1.2, CELL.SKID, [1, 1, 1, 0.35 + r() * 0.35], 0.01, [[0, 0], [0, 1], [1, 1], [1, 0]]), [-apronX + 4, apronX - 4], [AZ1 + 4, AZ0 - 3]);
   scatter(10, (x, z) => Q.quad(x, z, 1.5, 1.2 + r(), r() * 6, CELL.CRACK, [1, 1, 1, 0.6]), [-apronX + 2, apronX - 2], [AZ1 + 2, AZ0 - 1]);
@@ -226,7 +228,7 @@ export function buildGroundDecals({ footprints, occupied, quayZ, columns, apronX
   for (const [x, z] of [[-4, -116], [4, -116]]) Q.quad(x, z, 2.6, 1.4, x < 0 ? Math.PI / 2 : -Math.PI / 2, CELL.ARROW, [0.92, 0.9, 0.84, 0.55], 0.013);
 
   const mat = new THREE.MeshStandardMaterial({ map: atlas(), vertexColors: true, transparent: true, depthWrite: false, roughness: 0.82, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, envMapIntensity: 0.4 });
-  const mesh = Q.mesh(mat); mesh.receiveShadow = true; mesh.renderOrder = 1;
+  const mesh = Q.mesh(mat); mesh.receiveShadow = true; mesh.renderOrder = 4; // after the additive light pools (3) so stains / contact shadows darken them too
   return { mesh };
 }
 
@@ -240,13 +242,13 @@ export function buildPuddles(list) {
       pos.push(x + u * w / 2 * ca - v * h / 2 * sa, 0.014, z - (u * w / 2 * sa + v * h / 2 * ca));
       uv.push(u0 + (u + 1) / 4, v0 + (v + 1) / 4);
     }
-    idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   });
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx); g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.06, metalness: 0.1, alphaMap: puddleAlpha(), transparent: true, depthWrite: false, envMapIntensity: 1.6, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
-  const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; mesh.renderOrder = 2;
+  const mat = new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.06, metalness: 0.1, alphaMap: puddleAlpha(), transparent: true, depthWrite: false, envMapIntensity: 1.25, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
+  const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; mesh.renderOrder = 5;
   return { mesh };
 }

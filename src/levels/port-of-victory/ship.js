@@ -537,7 +537,7 @@ export function buildShip(opts = {}) {
   const tube = (a, b, r, hex, seg = 8) => pnt(tubeG(a, b, r, seg), hex);
   const line = (pts, r, hex, seg = 6) => { for (let i = 0; i < pts.length - 1; i++) tube(pts[i], pts[i + 1], r, hex, seg); };
   const catenary = (a, b, sag, n = 10) => { const pts = []; for (let i = 0; i <= n; i++) { const t = i / n; pts.push(new V().lerpVectors(a, b, t).add(new V(0, -sag * 4 * t * (1 - t), 0))); } return pts; };
-  const lamp = (x, y, z, s = 0.32) => { LIT.push(at(box(s, s * 0.6, s), x, y, z)); lights.push(new V(x, y, z)); };
+  const lamp = (x, y, z, s = 0.32) => { LIT.push(at(box(s * 0.78, s * 0.14, s * 0.5), x, y + s * 0.18, z)); lights.push(new V(x, y, z)); };
 
   const WHITE = 0xe9e5da, LGREY = 0xbfc2bf, GREY = 0x80868a, DGREY = 0x3e4448, BLACK = 0x18191b, RED = 0xb8231b,
     YEL = 0xe6ae1c, ORANGE = 0xff6510, HATCH = 0x52605e, NAVY = 0x1c2636, CRANE = 0xd99e1c, RUSTY = 0x6b3a22, GREEN = 0x3c4a3a;
