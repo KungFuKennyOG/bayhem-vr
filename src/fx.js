@@ -263,7 +263,9 @@ export class FX {
       }
       if (!d.ground) { d.rx += d.wx * dt; d.ry += d.wy * dt; d.rz += d.wz * dt; }
       if (d.burning) {
-        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.24, (q) => { this.flame(q, 0.34); if (rand() < 0.5) this.smoke(q, 0.6, 0.16, 1.5, 0.5, 0.5); }, dz);
+        // fire rides along with the chunk (no "string of pearls"); smoke is left behind as a soft ribbon
+        if (rand() < 0.7) this.flame(_v.set(d.x, d.y, d.z), 0.38, _u.set(d.vx, 0, d.vz));
+        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.3, (q) => this.smoke(q, 0.7, 0.14, 1.6, 0.4, 0.45), dz);
       }
       p.set(d.x, d.y, d.z); q.setFromEuler(new THREE.Euler(d.rx, d.ry, d.rz)); s.set(d.sx, d.sy, d.sz);
       m.compose(p, q, s); this.debrisMesh.setMatrixAt(n++, m);

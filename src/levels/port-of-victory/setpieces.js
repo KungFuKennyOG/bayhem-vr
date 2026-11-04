@@ -205,7 +205,7 @@ export class SetPieces {
   // ================================================================== forklift charge
   _forklift() {
     const g = this.g, pm = this.w.mods.propM;
-    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(34, 0, -122), yaw: Math.PI / 2, speed: 0, lift: 1.4, alive: true, drums: [], t: 0 };
+    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(44, 0, -127), yaw: Math.PI / 2, speed: 0, lift: 1.4, alive: true, drums: [], t: 0 };
     let model;
     if (pm?.buildForklift) model = pm.buildForklift();
     else {
@@ -230,6 +230,9 @@ export class SetPieces {
       ray: (o, d) => {
         let best = -1;
         if (F.driverAlive) { F.driver.headCenter.getWorldPosition(_v); let t = raySphere(o, d, _v, 0.2); if (t > 0) best = t; F.driver.chestCenter.getWorldPosition(_v); t = raySphere(o, d, _v, 0.33); if (t > 0 && (best < 0 || t < best)) { best = t; F._hitDrv = 'body'; } else if (best > 0) F._hitDrv = 'head'; }
+        // the drum pallet on the forks: a generous sphere (it is the obvious thing to shoot)
+        const live = F.drums.filter(d => d.state !== 'gone' && d.onFork);
+        if (live.length) { _v.set(0, 0, 0); for (const d of live) _v.add(d.pos); _v.divideScalar(live.length); _v.y += 0.45; const ts = raySphere(o, d, _v, 1.3); if (ts > 0 && (best < 0 || ts < best)) { best = ts; F._hitDrv = null; } }
         // body (OBB): transform the ray into forklift space
         _inv.copy(F.root.matrixWorld).invert();
         const lo = _v.copy(o).applyMatrix4(_inv), ld = _v2.copy(d).transformDirection(_inv);
@@ -240,6 +243,9 @@ export class SetPieces {
       hit: (P, dir) => {
         if (F._hitDrv && F.driverAlive) { F.drvHits = (F.drvHits || 0) + (F._hitDrv === 'head' ? 3 : 1); g.fx.impact(P, dir.clone().negate(), 'body'); g.hitMarker(F._hitDrv === 'head'); if (F.drvHits >= 2) this.killDriver(dir); return; }
         g.fx.impact(P, dir.clone().negate(), 'metal'); g.audio.play('impact_metal', { x: P.x, y: P.y, z: P.z, volume: 0.7 });
+        // rounds into the fork end find the fuel drums
+        const dr = F.drums.find(d => d.state !== 'gone' && d.pos.distanceTo(P) < 1.6);
+        if (dr) { g.hitDrum(dr, P, dir.clone().negate(), 'player'); return; }
         F.hp = (F.hp ?? 20) - 1; g.hitMarker(false);
         if (F.hp <= 0) this.wreckForklift('shot');
       },
@@ -315,7 +321,7 @@ export class SetPieces {
       F.yaw += clamp(dy, -1.2 * dt, 1.2 * dt);
       // after a ram it backs off and lines up again (never pins the player)
       if (F.backT > 0) { F.backT -= dt; F.speed = damp(F.speed, -3, 3, dt); }
-      else { const top = F.state === 'charge' ? (dist < 7 ? 2.5 : 7.5) : 6.5; F.speed = damp(F.speed, top, 1.2, dt); }
+      else { const top = F.state === 'charge' ? (dist < 7 ? 2.5 : 5.8) : 6.5; F.speed = damp(F.speed, top, 1.2, dt); }
       F.pos.x += -Math.sin(F.yaw) * F.speed * dt; F.pos.z += -Math.cos(F.yaw) * F.speed * dt;
       F.pos.z = Math.max(F.pos.z, QUAY_Z + 3);
       F.root.position.copy(F.pos); F.root.rotation.set(0, F.yaw, 0);

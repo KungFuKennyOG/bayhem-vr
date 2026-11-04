@@ -98,15 +98,16 @@ export class Director {
       { name: 'apron', wp: V(-4, 2.6, -148.5), hunt: true, music: 0.95, dusk: 0.55, enter: () => {
           this.lightsOn([6, 7, 8, 9], 0.5);
           hud.objective('Get to the ship');
-          later(0.5, () => setp.forkliftStart());
-          later(1.0, () => say('Forklift! Forklift full of fuel drums! Of course!', 3));
+          this.forkGo = false;
           S({ x: 19, z: -117, delay: 0.5 }); S({ x: 31, z: -119, delay: 1.2 }); S({ x: -13, z: -123, delay: 1.5 }); S({ x: -27, z: -117, delay: 2.4, flanker: true });
           S({ x: -18, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 2, noNade: true });
           S({ x: 8, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 3, noNade: true });
           A?.go([ground(2.0, -100, { slow: 0.6 }), ground(3.5, -113, { slow: 0.5 }), ground(4, -118, { slow: 0.45 })]);
         }, update: (t) => {
+          // the forklift comes round the stacks once you step out onto the open apron
+          if (!this.forkGo && (pz() < -109 || t > 12)) { this.forkGo = true; setp.forkliftStart(); later(0.5, () => say('Forklift! Forklift full of fuel drums! Of course!', 3)); }
           for (const e of g.events) if (e.type === 'forkliftWreck') later(1.5, () => say('...I have never seen a forklift do that.', 2.6));
-        }, until: (t) => (t > 6 && alive(s => s.floorY < 1) === 0 && setp.fork.state !== 'charge') || t > 75 * T },
+        }, until: (t) => (t > 6 && this.forkGo && alive(s => s.floorY < 1) === 0 && setp.fork.state !== 'charge') || t > 75 * T },
       { name: 'board', wp: V(23.5, DECK_Y + 2.4, -152), hunt: true, music: 0.85, dusk: 0.64, enter: () => {
           audio.play('ship_horn', { x: 30, y: 30, z: -170, volume: 1 });
           hud.objective('Board the ship');

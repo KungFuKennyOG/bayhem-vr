@@ -602,7 +602,7 @@ export class PortGame {
       if (!this.col.visible(head, p, b => b.data.noBullet || b === d.box)) continue;
       out.push({ kind: 'drum', p, score: 50 + near * 22 + (d.onFork ? 40 : 0) - dd * 0.5 + (A.target?.ref === d ? 20 : 0), ref: d, tol: 0.03 });
     }
-    for (const tg of this.targets || []) if (tg.active() && tg.auto) { const t = tg.auto(head, A); if (t) out.push(t); }
+    for (const tg of this.targets || []) if (tg.active() && tg.auto) { const t = tg.auto(head, A); if (t && this.col.visible(head, t.p, b => b.data.noBullet || b.data.kind === 'drum' || b.data.isManifold)) out.push(t); }
     if (this.cinematicLook) { out.length = 0; out.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: this.cinematicW ?? 5 }); }
     A.targetVisible = true;
     return out;

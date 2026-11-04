@@ -35,9 +35,13 @@ export const CONTAINER_LIVERIES = LIVERIES.map(l => l.name);
 // ---------------------------------------------------------------- atlas layout
 // Main atlas 2048x2048: 8 rows x 256 px. Per row: side40 [0,1344) | side20 [1344,2016) | base swatch [2016,2048)
 // Door atlas 2048x1024: 4x2 tiles of 512x512 (one door end per livery).
-const AW = 2048, RH = 256;
+const AW = 2048;
+let RH = 256; // atlas row height (128 on Quest: 2048x1024 side atlas)
 const S40 = [0, 1344], S20 = [1344, 672], SWX = [2016, 32];
 const SWU = (SWX[0] + SWX[1] / 2) / AW;
+// per livery x size: how far (m) the centred side graphic may slide per instance without leaving the panel
+const LOGO_SHIFT = new Float32Array(16);
+const BAND = [0.30, 2.02]; // side-graphic band (m above the bottom); lease boxes use 1.70 as the top
 
 let M = null; // shared materials / textures
 
@@ -165,20 +169,6 @@ function paintSide(ctx, x0, y0, wpx, Lm, liv, rng, nc, is20) {
   const R = region(ctx, x0, y0, wpx, RH, Lm, H);
   ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, wpx, RH); ctx.clip();
   ctx.fillStyle = liv.base; ctx.fillRect(x0, y0, wpx, RH);
-  // sheet-to-sheet paint variation (sheets ~1.1 m) + vertical seam lines
-  for (let m = 0; m < Lm;) {
-    const sw = 0.85 + rng() * 0.55;
-    ctx.fillStyle = rng() < 0.5 ? `rgba(0,0,0,${0.02 + rng() * 0.05})` : `rgba(255,250,240,${0.02 + rng() * 0.04})`;
-    ctx.fillRect(R.X(m), y0, sw * R.sx, RH);
-    ctx.fillStyle = 'rgba(30,20,15,0.12)'; ctx.fillRect(R.X(m + sw) - 0.5, y0, 1, RH);
-    m += sw;
-  }
-  // mottling
-  const pat = ctx.createPattern(nc, 'repeat');
-  pat.setTransform(new DOMMatrix().translate(x0 + rng() * 256, y0).scale(1.6, 0.9));
-  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.22; ctx.fillStyle = pat; ctx.fillRect(x0, y0, wpx, RH);
-  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-
   // ---- livery graphics
   const tc = liv.text;
   const mid = Lm / 2;
@@ -186,51 +176,36 @@ function paintSide(ctx, x0, y0, wpx, Lm, liv, rng, nc, is20) {
     ctx.fillStyle = tc; ctx.fillRect(R.X(0), R.Y(2.28), wpx, 0.2 * R.sy);
     ctx.fillStyle = rgba(tc, 0.9); ctx.fillRect(R.X(0), R.Y(0.62), wpx, 0.06 * R.sy);
   }
+  let lo = Lm / 2, hi = Lm / 2; // in-band graphic extents (m)
   if (liv.logo === 'lease') {
     drawLogo(R, liv, 0.62, 2.05, 0.34);
     mText(R, liv.name, 0.92, 2.05, 0.2, { color: tc, fam: 'Oswald', wt: 700, align: 'left', spacing: 0.04, alpha: 0.85 });
     mText(R, 'LEASED UNIT  ·  RETURN TO DEPOT', 0.92, 1.82, 0.065, { color: tc, fam: 'Oswald', wt: 500, align: 'left', alpha: 0.7 });
-    if (!is20) mText(R, 'NORD', Lm - 2.6, 1.3, 0.55, { color: rgba(tc, 0.18), alpha: 1 });
+    if (!is20) { const w = mText(R, 'NORD', Lm - 2.6, 1.3, 0.55, { color: rgba(tc, 0.18), alpha: 1 }); lo = Lm - 2.6 - w / 2; hi = Lm - 2.6 + w / 2; }
+    else { lo = Lm / 2 - 1.2; hi = Lm / 2 + 1.2; }
   } else {
     const txt = is20 ? liv.short : liv.name;
-    const cap = is20 ? (txt.length > 7 ? 0.62 : 0.78) : 1.0;
-    const logoS = is20 ? 0.9 : 1.25;
+    const cap = is20 ? (txt.length > 7 ? 0.6 : 0.74) : 0.95;
+    const logoS = is20 ? 0.9 : 1.15;
     const maxW = Lm - (is20 ? 2.1 : 3.4);
     const gap = 0.35;
     // measure, then draw logo + text as a centred group
     ctx.font = fontStr(cap / 0.735 * R.sy); ctx.letterSpacing = `${0.03 * cap / 0.735 * R.sy}px`;
     let tw = Math.min(maxW, ctx.measureText(txt).width / R.sy);
     const groupW = logoS + gap + tw, gx = mid - groupW / 2;
-    const cy = 1.42;
+    const cy = 1.3;
+    lo = gx; hi = gx + groupW;
     drawLogo(R, liv, gx + logoS / 2, cy, logoS);
     mText(R, txt, gx + logoS + gap, cy, cap, { maxW, color: tc, align: 'left', spacing: 0.03, alpha: 0.96 });
     if (!is20 && liv.logo !== 'band') {
-      mText(R, liv.logo === 'star' ? '★  WE DELIVER  ★' : (liv.logo === 'hourglass' ? 'ON TIME. EVERY TIME.' : 'GLOBAL CONTAINER SERVICE'), mid, 0.62, 0.12, { color: tc, fam: 'Oswald', wt: 500, spacing: 0.15, alpha: 0.75 });
+      mText(R, liv.logo === 'star' ? '★  WE DELIVER  ★' : (liv.logo === 'hourglass' ? 'ON TIME. EVERY TIME.' : 'GLOBAL CONTAINER SERVICE'), gx + logoS + gap + tw / 2, 0.58, 0.12, { color: tc, fam: 'Oswald', wt: 500, spacing: 0.15, alpha: 0.75 });
     }
   }
   // code markings (top right corner, like real side markings)
   const ccol = liv.logo === 'lease' || liv.logo === 'hourglass' ? '#2b2b2b' : '#f2f0ea';
-  mText(R, `${liv.code} ${liv.serial} ${liv.chk}`, Lm - 0.35, 2.22, 0.1, { color: ccol, fam: 'Oswald', wt: 700, align: 'right', alpha: 0.9 });
-  mText(R, is20 ? '22G1' : '45G1', Lm - 0.35, 2.05, 0.1, { color: ccol, fam: 'Oswald', wt: 700, align: 'right', alpha: 0.9 });
+  mText(R, `${liv.code} ${liv.serial} ${liv.chk}`, Lm - 0.35, 2.32, 0.1, { color: ccol, fam: 'Oswald', wt: 700, align: 'right', alpha: 0.9 });
+  mText(R, is20 ? '22G1' : '45G1', Lm - 0.35, 2.15, 0.1, { color: ccol, fam: 'Oswald', wt: 700, align: 'right', alpha: 0.9 });
 
-  // ---- repaired / patched panels: one or two corrugation sheets re-primed / repainted, mostly off the lettering
-  const nPatch = (is20 ? 0 : 1) + Math.floor(rng() * 2);
-  for (let p = 0; p < nPatch; p++) {
-    const pw = 0.56 + Math.floor(rng() * 3) * 0.278, ph = 0.45 + rng() * 1.1;
-    const edge = rng() < 0.5;
-    const px = edge ? 0.25 + rng() * 1.2 : Lm - pw - 0.25 - rng() * 1.2;
-    const py = rng() < 0.6 ? 0.18 : H - 0.12 - ph;
-    const kind = rng();
-    ctx.globalAlpha = 0.92;
-    ctx.fillStyle = kind < 0.25 ? '#6e6a62' : shade(liv.base, 0.9 + rng() * 0.22, (rng() - 0.5) * 10);
-    ctx.fillRect(R.X(px), R.Y(py + ph), pw * R.sx, ph * R.sy);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = 'rgba(80,38,14,0.5)'; ctx.lineWidth = 1;
-    ctx.strokeRect(R.X(px), R.Y(py + ph), pw * R.sx, ph * R.sy);
-    // weld bead dots along the patch edge
-    ctx.fillStyle = 'rgba(70,32,12,0.55)';
-    for (let t = 0; t < pw; t += 0.04) { ctx.fillRect(R.X(px + t), R.Y(py + ph) - 1, 2, 2); ctx.fillRect(R.X(px + t), R.Y(py) - 1, 2, 2); }
-  }
   // ---- sun fade (top lighter / chalky), bottom dirt
   let g = ctx.createLinearGradient(0, y0, 0, y0 + RH);
   g.addColorStop(0, 'rgba(255,244,228,0.22)'); g.addColorStop(0.45, 'rgba(255,244,228,0.06)'); g.addColorStop(1, 'rgba(255,244,228,0)');
@@ -244,22 +219,13 @@ function paintSide(ctx, x0, y0, wpx, Lm, liv, rng, nc, is20) {
     ctx.fillStyle = rng() < 0.75 ? rgba(liv.base, 0.75) : 'rgba(110,100,90,0.6)';
     ctx.fillRect(x, y, r * (0.6 + rng()), r);
   }
-  // ---- a few baked rust runs under the top rail
-  for (let i = 0; i < Lm * 1.2; i++) {
-    const x = R.X(rng() * Lm), len = (0.2 + rng() * rng() * 1.6) * R.sy, w = 0.8 + rng() * 1.8;
-    const gr = ctx.createLinearGradient(0, y0, 0, y0 + len);
-    gr.addColorStop(0, `rgba(105,45,15,${0.35 + rng() * 0.4})`); gr.addColorStop(1, 'rgba(105,45,15,0)');
-    ctx.fillStyle = gr; ctx.fillRect(x, y0, w, len);
-  }
   ctx.restore();
+  return Math.max(0, Math.min(lo - 0.45, Lm - 0.45 - hi));
 }
 
 function paintSwatch(ctx, y0, liv, nc) {
   const [x0, w] = SWX;
   ctx.fillStyle = liv.base; ctx.fillRect(x0, y0, w, RH);
-  const pat = ctx.createPattern(nc, 'repeat');
-  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.22; ctx.fillStyle = pat; ctx.fillRect(x0, y0, w, RH);
-  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   let g = ctx.createLinearGradient(0, y0, 0, y0 + RH);
   g.addColorStop(0, 'rgba(255,244,228,0.22)'); g.addColorStop(0.45, 'rgba(255,244,228,0.06)'); g.addColorStop(1, 'rgba(255,244,228,0)');
   ctx.fillStyle = g; ctx.fillRect(x0, y0, w, RH);
@@ -511,6 +477,10 @@ vDmg = aDmg;
 `;
 const FRAG_PRE = /* glsl */`
 uniform sampler2D tAtlas; uniform sampler2D tDoor; uniform sampler2D tGrime; uniform sampler2D tDetN; uniform sampler2D tDoorN;
+uniform float uShift[16];
+float h12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float rowV(float li, float v) { return 1.0 - (li + 1.0 - clamp(v, 0.012, 0.988)) * 0.125; }
+float edgeLine(float d, float w, float fw) { return 1.0 - smoothstep(w, w + fw * 1.5 + 1e-4, d); }
 varying vec2 vA; varying vec3 vD; varying vec4 vI; varying vec3 vT;
 #ifdef CTR_DMG
 varying vec2 vDmg;
@@ -528,6 +498,14 @@ float trap(float u, float P, float depth, out float inner) {
 `;
 const FRAG_MAP = /* glsl */`
 int fti = int(vD.z + 0.5);
+float sideK = floor((vD.z - float(fti)) * 10.0 + 0.5);
+float liF = floor(vI.x + 0.5);
+float seedI = vI.z * 113.7 + sideK * 7.31;
+const float CELL = 1.112; // one corrugation sheet = 4 ribs
+float ci = floor(vD.x / CELL);
+float cfr = fract(vD.x / CELL);
+float fwX = fwidth(vD.x), fwY = fwidth(vD.y), fwXY = max(fwX, fwY); // derivatives outside any branch
+vec2 dAx = dFdx(vA) * vec2(1.0, 0.125), dAy = dFdy(vA) * vec2(1.0, 0.125);
 vec2 gs = fract(vec2(vI.z * 17.13, vI.z * 5.71 + 0.3));
 float hgt = clamp(vD.y / ${H.toFixed(2)}, 0.0, 1.0);
 vec3 col; float cRough = 0.6; float cMetal = 0.12;
@@ -538,8 +516,70 @@ if (fti == 3) {
   vec2 l = clamp(vA, 0.003, 0.997);
   col = texture2D(tDoor, vec2((gx + l.x) * 0.25, 1.0 - (gy + 1.0 - l.y) * 0.5)).rgb;
 } else if (fti <= 5) {
-  float av = fti == 4 ? (vA.y < 0.0 ? 0.97 : hgt) : vA.y;
-  col = texture2D(tAtlas, vec2(vA.x, 1.0 - (floor(vI.x + 0.5) + 1.0 - clamp(av, 0.012, 0.988)) * 0.125)).rgb;
+  float av = fti == 4 ? (vA.y < 0.0 ? 0.97 : hgt) : (fti == 5 ? 0.03 : vA.y);
+  vec2 auv = vec2(vA.x, rowV(liF, av));
+  if (fti == 0) {
+    // slide the side graphic per instance (wraps inside the panel; only the lettering band moves)
+    bool is20 = vA.x * ${AW}.0 >= ${S20[0]}.0;
+    float Lp = is20 ? ${CONTAINER.L20} : ${CONTAINER.L40};
+    float bandTop = liF > 6.5 ? 1.70 : ${BAND[1].toFixed(3)};
+    if (vD.y > ${BAND[0].toFixed(3)} && vD.y < bandTop) {
+      float sh = (fract(vI.z * 31.77) * 2.0 - 1.0) * uShift[int(liF) * 2 + (is20 ? 1 : 0)];
+      float um = mod(vD.x - sh, Lp);
+      auv.x = (is20 ? ${S20[0]}.0 + um / Lp * ${S20[1]}.0 : ${S40[0]}.0 + um / Lp * ${S40[1]}.0) / ${AW}.0;
+    }
+  }
+  // explicit gradients from the continuous coordinate: no mip pops at the band edges / wrap point
+  col = textureGrad(tAtlas, auv, dAx, dAy).rgb;
+  vec3 swC = textureGrad(tAtlas, vec2(${SWU.toFixed(5)}, rowV(liF, hgt)), vec2(0.0), vec2(0.0)).rgb;
+  if (fti == 0 || fti == 2) {
+    // per-box sheet variation, seams and occasional repainted / primer patch sheets
+    float hs = h12(vec2(ci, seedI));
+    col *= 0.95 + 0.1 * hs;
+    col *= 1.0 - 0.16 * edgeLine(min(cfr, 1.0 - cfr) * CELL, 0.004, fwX) * (1.0 - smoothstep(0.004, 0.02, fwX));
+    float hp = h12(vec2(ci * 1.37 + 5.1, seedI + 3.3));
+    if (fti == 0 && hp < 0.085) {
+      float h2 = h12(vec2(ci, seedI + 9.1)), h3 = h12(vec2(ci + 2.0, seedI + 1.7));
+      bool bottom = h2 < 0.6;
+      float ph = 0.45 + h3 * 1.1;
+      float y0 = bottom ? ${SILL} : ${H - 0.1} - ph, y1 = y0 + ph;
+      if (vD.y > y0 && vD.y < y1) {
+        vec3 pc = h3 > 0.8 ? vec3(0.43, 0.41, 0.38) : swC * (0.88 + 0.24 * h2);
+        float e = min(min(cfr, 1.0 - cfr) * CELL, min(vD.y - y0, y1 - vD.y));
+        col = mix(pc, vec3(0.28, 0.13, 0.05), 0.55 * edgeLine(e, 0.008, fwXY));
+      }
+    }
+  }
+  if (fti == 5) {
+    // underside: dark steel cross members, forklift pockets (20') / gooseneck tunnel (40'), bottom rails, castings
+    float Lb = vA.y, x = vD.x, z = vD.y;
+    vec3 steel = mix(vec3(0.16, 0.15, 0.14), col * 0.55, 0.35);
+    float cm = fract(x / 0.6);
+    float member = step(0.78, cm);
+    float rim = edgeLine(abs(cm - 0.78) * 0.6, 0.006, fwX) + edgeLine(abs(cm - 1.0) * 0.6, 0.006, fwX);
+    vec3 u = steel * (0.7 + 0.3 * gr.g);
+    u = mix(u, steel * 1.35, member);
+    u = mix(u, steel * 0.45, 0.6 * rim);
+    float rail = step(z, 0.16) + step(${W - 0.16}, z);
+    u = mix(u, col * 0.8, clamp(rail, 0.0, 1.0));
+    if (Lb < 8.0) {
+      for (int k = 0; k < 2; k++) {
+        float pc = Lb * 0.5 + (k == 0 ? -1.025 : 1.025);
+        float d = abs(x - pc);
+        if (d < 0.18) u = mix(vec3(0.02), steel * 1.5, edgeLine(0.18 - d, 0.02, fwXY));
+      }
+    } else if (x < 3.15 && abs(z - ${W / 2}) < 0.515) {
+      float d = min(3.15 - x, 0.515 - abs(z - ${W / 2}));
+      u = mix(steel * 0.3, steel * 1.4, edgeLine(d, 0.02, fwXY));
+    }
+    vec2 cq = vec2(min(x, Lb - x), min(z, ${W} - z));
+    if (cq.x < ${C} && cq.y < ${C}) {
+      u = col * 0.6;
+      u = mix(u, vec3(0.01), 1.0 - smoothstep(0.7, 1.0, length((cq - vec2(${C / 2})) / vec2(0.06, 0.03))));
+    }
+    col = u;
+    cMetal = 0.25; cRough = 0.75;
+  }
   if (fti == 4) {
     // corner castings: bottom/top 118 mm of the posts, oval apertures
     const float CP = ${C.toFixed(3)};
@@ -577,7 +617,22 @@ if (fti == 3) {
 }
 if (fti <= 5) {
   float rustA = vI.w;
-  float streak = horiz ? smoothstep(0.62, 0.9, gr.g) * rustA * 0.8 : gr.r * (0.2 + 1.1 * rustA);
+  col *= 1.0 - 0.2 * (1.0 - gr.g); // mottling
+  float streak;
+  if (horiz) streak = smoothstep(0.62, 0.9, gr.g) * rustA * (fti == 5 ? 0.35 : 0.8);
+  else {
+    float a1 = h12(vec2(ci, seedI + 11.0)), b1 = h12(vec2(ci + 7.0, seedI + 2.0)), c1 = h12(vec2(ci + 3.0, seedI + 5.0));
+    float dTop = 1.0 - hgt;
+    float s1 = 0.45 + 1.1 * b1;
+    vec2 gdx = vec2(dFdx(vD.x) / 4.0, dFdx(hgt)), gdy = vec2(dFdy(vD.x) / 4.0, dFdy(hgt));
+    float r1 = textureGrad(tGrime, vec2(vD.x / 4.0 * (0.8 + 0.4 * c1) + a1 * 7.31, clamp(1.0 - dTop / s1, 0.004, 0.996)), gdx, gdy / s1).r * step(dTop, s1);
+    float k1 = pow(c1, 1.6) * 1.9;
+    float cj = floor(vD.x / 1.946 + 0.37);
+    float a2 = h12(vec2(cj, seedI + 21.0)), c2 = h12(vec2(cj + 1.0, seedI + 23.0));
+    float r2 = textureGrad(tGrime, vec2(vD.x / 3.1 + a2 * 5.17, hgt), gdx * 1.29, gdy).r;
+    float k2 = 0.25 + pow(c2, 2.0) * 1.2;
+    streak = max(r1 * k1, r2 * k2) * (0.25 + 1.1 * rustA);
+  }
   if (fti == 3) streak *= 0.7;
   vec3 rustC = mix(vec3(0.24, 0.085, 0.03), vec3(0.50, 0.22, 0.07), gr.g);
   float rs = clamp(streak, 0.0, 1.0) * 0.8;
@@ -585,10 +640,9 @@ if (fti <= 5) {
   float dirt = horiz ? smoothstep(0.3, 0.9, gr.g) * 0.45 : gr.g * (smoothstep(0.5, 0.0, hgt) * 0.9 + 0.2);
   dirt *= 0.45 + rustA * 0.7;
   col = mix(col, col * vec3(0.5, 0.46, 0.4), clamp(dirt, 0.0, 1.0));
-  float scr = smoothstep(0.45, 1.0, gr.b) * (0.2 + rustA * 0.5) * (horiz ? 0.35 : 1.0) * (1.0 - smoothstep(0.4, 1.5, fwidth(vD.x) * 100.0));
+  float scr = smoothstep(0.45, 1.0, gr.b) * (0.2 + rustA * 0.5) * (horiz ? 0.35 : 1.0) * (1.0 - smoothstep(0.4, 1.5, fwX * 100.0));
   col = mix(col, mix(col, vec3(0.36, 0.34, 0.32), 0.6), scr);
   if (fti == 1) { float lum = dot(col, vec3(0.3, 0.59, 0.11)); col = mix(col, vec3(lum) * vec3(1.04, 1.0, 0.95), 0.35) * 0.92; cRough = 0.8; }
-  if (fti == 5) col *= 0.25;
   col *= vI.y;
   cRough = mix(cRough, 0.92, rs) ; cRough = mix(cRough, 0.42, scr * 0.6);
   cMetal = mix(cMetal, 0.55, scr * 0.6); cMetal = mix(cMetal, 0.0, rs);
@@ -624,6 +678,14 @@ const FRAG_NRM = /* glsl */`
 `;
 
 const FRAG_AO = /* glsl */`
+if (fti == 5) {
+#if NUM_HEMI_LIGHTS > 0
+  vec3 amb = hemisphereLights[0].skyColor * 0.35 + hemisphereLights[0].groundColor * 0.65;
+#else
+  vec3 amb = vec3(0.35);
+#endif
+  reflectedLight.indirectDiffuse = max(reflectedLight.indirectDiffuse, diffuseColor.rgb * max(amb, vec3(0.06)) * 1.1);
+}
 #ifdef CTR_DMG
 if (fti >= 6) {
   float occ = 1.0 - clamp(vDmg.x, 0.0, 0.95);
@@ -638,6 +700,7 @@ function makeMaterial(dmg) {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.tAtlas = { value: M.atlas }; sh.uniforms.tDoor = { value: M.door }; sh.uniforms.tGrime = { value: M.grime };
     sh.uniforms.tDetN = { value: M.detN }; sh.uniforms.tDoorN = { value: M.doorN };
+    sh.uniforms.uShift = { value: LOGO_SHIFT };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + VERT_PRE)
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + VERT_MAIN);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + FRAG_PRE)
@@ -651,17 +714,24 @@ function makeMaterial(dmg) {
   return m;
 }
 
-export function initContainerMaterials(renderer) {
+function isLowMem() {
+  try {
+    if (typeof location !== 'undefined' && /[?&]ctrlow=1/.test(location.search)) return true;
+    return typeof navigator !== 'undefined' && /OculusBrowser|Quest|Pico/i.test(navigator.userAgent || '');
+  } catch (e) { return false; }
+}
+export function initContainerMaterials(renderer, { lowMem = isLowMem() } = {}) {
   if (M) return M;
   const t0 = performance.now();
+  RH = lowMem ? 128 : 256;
   const aniso = renderer ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4;
   const nc = noiseCanvas(31, 256, 6, 4, 1.8);
   // main atlas
-  const ac = makeCanvas(AW, AW), actx = ac.getContext('2d');
+  const ac = makeCanvas(AW, RH * 8), actx = ac.getContext('2d');
   LIVERIES.forEach((liv, i) => {
     const rng = makeRng(1000 + i * 77);
-    paintSide(actx, S40[0], i * RH, S40[1], CONTAINER.L40, liv, rng, nc, false);
-    paintSide(actx, S20[0], i * RH, S20[1], CONTAINER.L20, liv, rng, nc, true);
+    LOGO_SHIFT[i * 2] = paintSide(actx, S40[0], i * RH, S40[1], CONTAINER.L40, liv, rng, nc, false);
+    LOGO_SHIFT[i * 2 + 1] = paintSide(actx, S20[0], i * RH, S20[1], CONTAINER.L20, liv, rng, nc, true);
     paintSwatch(actx, i * RH, liv, nc);
   });
   // door atlas
@@ -680,7 +750,8 @@ export function initContainerMaterials(renderer) {
   M.field.shadowSide = THREE.BackSide;
   M.cardboard = cardboardMaterial();
   M.buildMs = Math.round(performance.now() - t0);
-  M.texBytes = Math.round((AW * AW + DS * DS * 8 + 3 * 512 * 512 + 128 * 128) * 4 * 4 / 3);
+  M.texBytes = Math.round((AW * RH * 8 + DS * DS * 8 + 3 * 512 * 512 + 128 * 128) * 4 * 4 / 3);
+  M.lowMem = lowMem;
   return M;
 }
 
@@ -717,9 +788,11 @@ function face(g, o, U, V, ft, L, { nu = 1, nv = 1, side = null, dm = null, wgt =
     else if (ft === 0) a = [(side[0] + Math.min(1, Math.max(0, wu / L)) * side[1]) / AW, p[1] / H];
     else if (ft === 3) a = [wu / W, p[1] / H];
     else if (ft === 4) a = [SWU, Math.abs(n[1]) > 0.5 ? -L : (Math.abs(n[2]) > 0.5 ? L : W)];
+    else if (ft === 5) a = [SWU, L];
     else if (Math.abs(n[1]) > 0.5) a = [SWU, n[1] > 0 ? 0.97 : 0.03];
     else a = [SWU, p[1] / H];
-    g.p.push(...p); g.n.push(...n); g.t.push(...t); g.a.push(...a); g.d.push(wu, wv, ft);
+    const sc = n[2] > 0.5 ? 0 : n[2] < -0.5 ? 1 : n[0] > 0.5 ? 2 : n[0] < -0.5 ? 3 : 0;
+    g.p.push(...p); g.n.push(...n); g.t.push(...t); g.a.push(...a); g.d.push(wu, wv, ft + 0.1 * sc);
     const d = dm ? dm(p) : [0, 0]; g.dm.push(d[0], d[1]); g.w.push(wgt);
   }
   for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
@@ -821,8 +894,37 @@ function hash01(n) {
   return (n >>> 0) / 4294967296;
 }
 
+// Livery per box: weighted hash of the seed (opts.keepLivery honours c.livery), never the same as the
+// box directly below or two below, and not the same as the box next to it in the same tier when avoidable.
+const LIV_W = [0.85, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.25];
+function assignLiveries(list, keep) {
+  const out = new Array(list.length), cell = new Map();
+  const key = (x, z, t) => `${Math.round(x * 2)},${Math.round(z * 2)},${t}`;
+  const order = list.map((c, i) => i).sort((a, b) => (list[a].tier || 0) - (list[b].tier || 0));
+  const tot = LIV_W.reduce((a, b) => a + b, 0);
+  for (const i of order) {
+    const c = list[i], t = c.tier || 0;
+    const s = (c.seed ?? i * 7919 + 13) >>> 0;
+    const ban = new Set();
+    for (const dt of [1, 2]) { const b = cell.get(key(c.x, c.z, t - dt)); if (b !== undefined) ban.add(b); }
+    const pitch = c.rot ? [2.5, 0] : [0, 2.5]; // side neighbours across the row
+    for (const sg of [-1, 1]) { const b = cell.get(key(c.x + sg * pitch[0], c.z + sg * pitch[1], t)); if (b !== undefined) ban.add(b); }
+    let liv;
+    if (keep && c.livery !== undefined) liv = ((c.livery % 8) + 8) % 8;
+    else {
+      let r = hash01(s * 17 + 9) * tot; liv = 0;
+      while (liv < 7 && r > LIV_W[liv]) { r -= LIV_W[liv]; liv++; }
+    }
+    for (let k = 0; k < 8 && ban.has(liv); k++) liv = (liv + 1 + Math.floor(hash01(s + k * 31) * 7)) % 8;
+    if (ban.has(liv)) for (let k = 0; k < 8; k++) if (!ban.has(k)) { liv = k; break; }
+    out[i] = liv; cell.set(key(c.x, c.z, t), liv);
+  }
+  return out;
+}
+
 export function buildContainerField(list, opts = {}) {
   initContainerMaterials(opts.renderer || null);
+  const livs = assignLiveries(list, !!opts.keepLivery);
   const root = new THREE.Group(); root.name = 'containers';
   const geos = { 40: M.geo40 || (M.geo40 = fieldGeometry(CONTAINER.L40)), 20: M.geo20 || (M.geo20 = fieldGeometry(CONTAINER.L20)) };
   const bySize = { 40: [], 20: [] };
@@ -844,7 +946,7 @@ export function buildContainerField(list, opts = {}) {
       pos.set(c.x, (c.tier || 0) * H, c.z);
       m4.compose(pos, q, one);
       mesh.setMatrixAt(k, m4);
-      const liv = ((c.livery ?? 0) % LIVERIES.length + LIVERIES.length) % LIVERIES.length;
+      const liv = livs[li];
       inst[k * 4] = liv;
       inst[k * 4 + 1] = 0.86 + r2 * 0.2;
       inst[k * 4 + 2] = r3;
@@ -868,9 +970,11 @@ export function buildContainerField(list, opts = {}) {
   }
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
   const tri40 = geos[40].index.count / 3, tri20 = geos[20].index.count / 3;
+  const livHist = new Array(8).fill(0); livs.forEach(l => livHist[l]++);
   return {
     root, colliders: opts.colliders ? colliders : [], count: list.length,
-    info: { instances40: bySize[40].length, instances20: bySize[20].length, trisPerBox40: tri40, trisPerBox20: tri20, drawCalls: Object.keys(meshes).length, texMB: +(M.texBytes / 1048576).toFixed(1), texBuildMs: M.buildMs, aabbs: colliders },
+    liveries: livs,
+    info: { livHist, lowMem: M.lowMem, instances40: bySize[40].length, instances20: bySize[20].length, trisPerBox40: tri40, trisPerBox20: tri20, drawCalls: Object.keys(meshes).length, texMB: +(M.texBytes / 1048576).toFixed(1), texBuildMs: M.buildMs, aabbs: colliders },
     remove(i) {
       const s = slot[i]; if (!s) return;
       s.mesh.setMatrixAt(s.k, zero); s.mesh.instanceMatrix.needsUpdate = true;
@@ -1153,6 +1257,7 @@ export async function _atlas(which = 'side', ctx = {}) {
   try { await Promise.all([document.fonts.load('400 64px Anton'), document.fonts.load('700 64px Oswald'), document.fonts.load('500 64px Oswald')]); } catch (e) { /* */ }
   initContainerMaterials(ctx.renderer);
   const t = which === 'door' ? M.door : M.atlas;
+  if (which !== 'door') { const x = M.canvases.ac.getContext('2d'); x.fillStyle = '#0f0'; for (let i = 0; i < 8; i++) for (const v of [BAND[0], BAND[1], 1.70]) x.fillRect(0, i * RH + (1 - v / H) * RH, AW, 1); t.needsUpdate = true; }
   const m = new THREE.Mesh(new THREE.PlaneGeometry(which === 'door' ? 3.2 : 2.4, which === 'door' ? 1.6 : 2.4), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, fog: false }));
   return { root: m };
 }
