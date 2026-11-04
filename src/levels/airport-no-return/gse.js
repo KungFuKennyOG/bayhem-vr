@@ -4,6 +4,7 @@ import { box, at, cyl, mergeGrouped } from '../../geom.js';
 import { makeRng } from '../../rng.js';
 import { MAT } from '../../vehicles.js';
 import { loft, strut, wheelGeo } from './shapes.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 // =====================================================================================
 //  Ground support equipment + airport props: the FOLLOW-ME jeep (you ride it), JET A-1
@@ -48,6 +49,8 @@ export function gseMaterials() {
 }
 // every geometry gets a colour attribute so luggage tints survive the merge
 const tinted = (g, c = [1, 1, 1]) => { const n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) a.set(c, i * 3); g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
+// rounded box: soft edges catch the low sun (the PS2-era boxiness reads as cheap up close)
+const rb = (w, h, d, r = 0.06, seg = 1) => new RoundedBoxGeometry(w, h, d, seg, r);
 function finish(list) {
   for (const [g] of list) if (!g.attributes.color) tinted(g);
   return mergeGrouped(list, NGM).geometry;
@@ -133,15 +136,15 @@ export const JEEP = { bedY: 1.02, bedZ0: 0.3, bedZ1: 2.3, halfW: 0.95, wheelR: 0
 function jeepBody(W) {
   const pts = [];
   const arch = (cz, r, k0 = 0, k1 = 12) => { for (let k = k0; k <= k1; k++) { const a = Math.PI - (k / 12) * Math.PI; pts.push([cz + Math.cos(a) * r, 0.42 + Math.sin(a) * r]); } };
-  pts.push([2.5, 0.5], [2.52, 0.98], [2.4, 1.02], [0.32, 1.02], [0.32, 0.86], [-0.92, 0.86], [-0.92, 1.3], [-1.0, 1.31], [-2.38, 1.27], [-2.6, 1.16], [-2.64, 0.62], [-2.5, 0.46]);
+  pts.push([2.5, 0.5], [2.52, 0.94], [2.4, 0.95], [0.32, 0.95], [0.32, 0.86], [-0.92, 0.86], [-0.92, 1.3], [-1.0, 1.31], [-2.38, 1.27], [-2.6, 1.16], [-2.64, 0.62], [-2.5, 0.46]);
   arch(-1.75, 0.56);
   pts.push([-1.0, 0.4], [0.8, 0.4]);
   arch(1.45, 0.56);
   pts.push([2.2, 0.44]);
   const sh = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)));
   const g = new THREE.ExtrudeGeometry(sh, { depth: W, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 4 });
-  // shape x -> world z, extrude z -> world x
-  g.rotateY(Math.PI / 2); g.translate(-W / 2, 0, 0);
+  // shape x -> world z, extrude z -> world -x (rotateY(+90°) would mirror the profile front-to-back)
+  g.rotateY(-Math.PI / 2); g.translate(W / 2, 0, 0);
   // checker uvs: world units / 1.6 m (≈ 20 cm squares)
   const p = g.attributes.position, uv = g.attributes.uv, n = new THREE.Vector3();
   g.computeVertexNormals();
@@ -154,7 +157,7 @@ export function buildJeep() {
   const W = 2.0;
   L.push([jeepBody(W), GM.check]);
   // hood top panel (white), grille, bumpers, flared fenders
-  L.push([at(box(W - 0.2, 0.03, 1.32), 0, 1.3, -1.68, -0.02), GM.white]);
+  L.push([at(rb(W - 0.3, 0.03, 1.3, 0.012), 0, 1.345, -1.68, -0.028), GM.white]);
   L.push([at(box(1.3, 0.42, 0.05), 0, 0.92, -2.66), GM.plastic]);
   for (let k = 0; k < 6; k++) L.push([at(box(0.05, 0.38, 0.04), -0.5 + k * 0.2, 0.92, -2.69), GM.metal]);
   L.push([at(box(W + 0.16, 0.2, 0.26), 0, 0.56, -2.7), GM.plastic]); L.push([at(box(W + 0.16, 0.2, 0.24), 0, 0.56, 2.55), GM.plastic]);
@@ -168,12 +171,18 @@ export function buildJeep() {
   L.push([at(box(W - 0.06, 0.38, 0.08), 0, JEEP.bedY + 0.16, 2.43), GM.check]); L.push([at(box(W, 0.04, 0.12), 0, JEEP.bedY + 0.36, 2.43), GM.plastic]);
   L.push([at(box(W - 0.06, 0.36, 0.08), 0, JEEP.bedY + 0.16, 0.3), GM.plastic]);
   // cab: dash, windscreen frame + glass, seats, steering wheel, gear lever
-  L.push([at(box(W - 0.2, 0.3, 0.36), 0, 1.18, -0.84), GM.plastic]);
+  L.push([at(rb(W - 0.2, 0.3, 0.36, 0.06), 0, 1.18, -0.84), GM.plastic]);
   L.push([at(box(0.5, 0.08, 0.2), -0.45, 1.36, -0.82), GM.glass]);
   L.push([at(box(W - 0.06, 0.07, 0.07), 0, 1.86, -0.97, 0.25), GM.plastic]);
   for (const s of [-1, 1]) L.push([at(box(0.07, 0.62, 0.07), s * (W / 2 - 0.05), 1.56, -1.04, 0.25), GM.plastic]);
   L.push([at(box(W - 0.16, 0.54, 0.02), 0, 1.57, -1.02, 0.25), GM.glass]);
-  for (const s of [-1, 1]) { L.push([at(box(0.52, 0.12, 0.52), s * 0.45, 0.98, -0.18), GM.seat]); L.push([at(box(0.52, 0.62, 0.12), s * 0.45, 1.3, 0.12, -0.12), GM.seat]); L.push([at(box(0.3, 0.2, 0.1), s * 0.45, 1.72, 0.16), GM.seat]); }
+  for (const s of [-1, 1]) { L.push([at(rb(0.54, 0.16, 0.54, 0.06, 2), s * 0.45, 0.98, -0.18), GM.seat]); L.push([at(rb(0.54, 0.64, 0.16, 0.06, 2), s * 0.45, 1.3, 0.12, -0.12), GM.seat]); L.push([at(rb(0.3, 0.2, 0.12, 0.05, 2), s * 0.45, 1.72, 0.16), GM.seat]); for (const k of [-1, 1]) L.push([at(cyl(0.012, 0.012, 0.12, 6), s * 0.45 + k * 0.1, 1.6, 0.15), GM.metal]); L.push([at(box(0.5, 0.012, 0.012), s * 0.45, 1.06, 0.03), GM.dark]); }
+  // centre console, radio, gauges, fire extinguisher, grab bar
+  L.push([at(rb(0.26, 0.24, 0.7, 0.04), 0, 0.98, -0.4), GM.plastic]);
+  L.push([at(rb(0.22, 0.08, 0.16, 0.02), 0, 1.15, -0.7, -0.4), GM.dark]);
+  for (const [gx, gr] of [[-0.58, 0.06], [-0.32, 0.06], [-0.45, 0.04], [0.45, 0.05]]) { L.push([at(cyl(gr + 0.012, gr + 0.012, 0.03, 14), gx, 1.3, -0.66, Math.PI / 2 - 0.5), GM.metal]); L.push([at(cyl(gr, gr, 0.032, 14), gx, 1.3, -0.66, Math.PI / 2 - 0.5), GM.amber]); }
+  L.push([at(cyl(0.07, 0.07, 0.42, 12), 0.88, 1.1, 0.15), GM.red]); L.push([at(cyl(0.03, 0.03, 0.08, 8), 0.88, 1.35, 0.15), GM.dark]);
+  L.push([strut([0.62, 1.35, -0.72], [0.28, 1.35, -0.72], 0.018), GM.metal]);
   const sw = new THREE.TorusGeometry(0.19, 0.025, 6, 18); sw.rotateX(-1.15); L.push([at(sw, -0.45, 1.36, -0.6), GM.plastic]);
   L.push([strut([-0.45, 1.2, -0.75], [-0.45, 1.36, -0.6], 0.025), GM.plastic]);
   L.push([strut([0, 0.95, -0.4], [0.02, 1.2, -0.32], 0.02), GM.metal]);
@@ -220,7 +229,7 @@ export function buildJeep() {
 export function buildRefueler() {
   const L = [];
   // cab-over cab
-  L.push([at(box(2.45, 2.1, 2.0, 1), 0, 1.65, -3.6), GM.white]);
+  L.push([at(rb(2.45, 2.1, 2.0, 0.14, 2), 0, 1.65, -3.6), GM.white]);
   L.push([at(box(2.3, 0.85, 0.05), 0, 2.05, -4.61), GM.glass]);
   for (const s of [-1, 1]) L.push([at(box(0.05, 0.7, 1.2), s * 1.23, 2.1, -3.7), GM.glass]);
   L.push([at(box(2.47, 0.45, 2.02), 0, 0.72, -3.6), GM.red]);
@@ -236,16 +245,23 @@ export function buildRefueler() {
   for (const z of [-2.45, 5.0]) { const cap = new THREE.CircleGeometry(1, 24); cap.scale(1.0, 0.9, 1); if (z < 0) cap.rotateY(Math.PI); L.push([at(cap, 0, 2.1, z), GM.white]); }
   // top walkway + rails + manhole domes
   L.push([at(box(0.8, 0.06, 6.6), 0, 3.25, 1.3), GM.metal]);
-  for (const s of [-1, 1]) L.push([at(box(0.04, 0.5, 6.6), s * 0.42, 3.5, 1.3), GM.yellow]);
+  for (const s of [-1, 1]) { L.push([strut([s * 0.42, 3.78, -2.0], [s * 0.42, 3.78, 4.6], 0.025), GM.yellow]); L.push([strut([s * 0.42, 3.52, -2.0], [s * 0.42, 3.52, 4.6], 0.018), GM.yellow]); for (let k = 0; k <= 6; k++) L.push([strut([s * 0.42, 3.27, -2.0 + k * 1.1], [s * 0.42, 3.78, -2.0 + k * 1.1], 0.022), GM.yellow]); }
+  // roller shutter on the reel cabinet, tank straps
+  for (const s of [-1, 1]) for (let k = 0; k < 9; k++) L.push([at(box(0.01, 0.025, 1.0), s * 1.152, 0.85 + k * 0.15, 5.6), GM.dark]);
+  for (const z of [-1.2, 1.3, 3.8]) { const st = new THREE.TorusGeometry(1.0, 0.025, 4, 32, Math.PI); st.scale(1.27, 1.13, 1); L.push([at(st, 0, 2.1, z), GM.dark]); }
   for (const z of [-0.5, 1.4, 3.3]) L.push([at(cyl(0.32, 0.36, 0.2, 14), 0, 3.3, z), GM.metal]);
   // hose reel cabinet at the rear, ladder, bumper
-  L.push([at(box(2.3, 1.6, 1.2), 0, 1.5, 5.6), GM.white]);
+  L.push([at(rb(2.3, 1.6, 1.2, 0.08), 0, 1.5, 5.6), GM.white]);
   L.push([at(cyl(0.55, 0.55, 1.9, 18), 0, 1.6, 5.6, 0, 0, Math.PI / 2), GM.dark]);
   for (let k = 0; k < 6; k++) L.push([at(box(0.5, 0.04, 0.04), 0.9, 0.5 + k * 0.45, 6.25), GM.metal]);
   L.push([at(box(2.5, 0.25, 0.2), 0, 0.6, 6.3), GM.hazard]);
   for (const s of [-1, 1]) L.push([at(box(0.15, 0.15, 0.05), s * 1.05, 0.9, 6.42), GM.tail]);
   // side lockers
-  for (const s of [-1, 1]) L.push([at(box(0.3, 0.7, 5.6), s * 1.0, 0.95, 1.3), GM.white]);
+  for (const s of [-1, 1]) { L.push([at(rb(0.3, 0.7, 5.6, 0.05), s * 1.0, 0.95, 1.3), GM.white]); for (let k = 1; k < 4; k++) L.push([at(box(0.02, 0.62, 0.02), s * 1.155, 0.95, 1.3 - 2.8 + k * 1.4), GM.dark]); for (let k = 0; k < 4; k++) L.push([at(box(0.03, 0.04, 0.16), s * 1.16, 1.1, 1.3 - 2.1 + k * 1.4), GM.metal]); }
+  // fenders, mirrors, grille, fuel hose coil, wipers
+  for (const s of [-1, 1]) { const fl = new THREE.TorusGeometry(0.58, 0.07, 6, 14, Math.PI); fl.rotateY(Math.PI / 2); L.push([at(fl, s * 1.12, 0.5, -3.2), GM.dark]); L.push([strut([s * 1.22, 2.5, -4.3], [s * 1.5, 2.5, -4.4], 0.02), GM.dark]); L.push([at(rb(0.08, 0.36, 0.2, 0.03), s * 1.52, 2.35, -4.4), GM.dark]); }
+  L.push([at(rb(1.5, 0.4, 0.06, 0.02), 0, 1.1, -4.62), GM.dark]);
+  for (const s of [-1, 1]) L.push([at(box(0.7, 0.025, 0.025), s * 0.5, 1.68, -4.64, 0, 0, s * 0.35), GM.dark]);
   wheels(L, [[-1.05, -3.2], [1.05, -3.2], [-1.05, 2.9], [1.05, 2.9], [-1.05, 4.2], [1.05, 4.2]], 0.5, 0.38);
   return { geometry: finish(L), colliders: [{ min: [-1.3, 0, -4.65], max: [1.3, 3.3, 6.45] }], anchors: { tank: new THREE.Vector3(0, 2.1, 1.3), cab: new THREE.Vector3(0, 1.8, -3.6), beacon: new THREE.Vector3(0, 2.85, -3.2) }, half: new THREE.Vector3(1.3, 1.65, 5.5), com: new THREE.Vector3(0, 1.65, 0.9) };
 }
@@ -253,9 +269,9 @@ export function buildRefueler() {
 // ---------------------------------------------------------------- baggage tug
 export function buildTug() {
   const L = [];
-  L.push([at(box(1.5, 0.7, 2.7, 1), 0, 0.65, 0), GM.yellow]);
-  L.push([at(box(1.3, 0.4, 0.9), 0, 1.15, -0.8), GM.yellow]);
-  L.push([at(box(0.6, 0.12, 0.5), 0, 1.05, 0.35), GM.seat]); L.push([at(box(0.6, 0.5, 0.1), 0, 1.3, 0.62), GM.seat]);
+  L.push([at(rb(1.5, 0.7, 2.7, 0.1, 2), 0, 0.65, 0), GM.yellow]);
+  L.push([at(rb(1.3, 0.4, 0.9, 0.08), 0, 1.15, -0.8), GM.yellow]);
+  L.push([at(rb(0.6, 0.14, 0.5, 0.05), 0, 1.05, 0.35), GM.seat]); L.push([at(rb(0.6, 0.5, 0.12, 0.05), 0, 1.3, 0.62), GM.seat]);
   for (const s of [-1, 1]) { L.push([strut([s * 0.65, 1.0, 0.75], [s * 0.65, 2.1, 0.75], 0.04), GM.dark]); L.push([strut([s * 0.65, 2.1, 0.75], [s * 0.65, 2.1, -0.4], 0.04), GM.dark]); }
   L.push([at(box(1.4, 0.06, 1.25), 0, 2.13, 0.17), GM.dark]);
   L.push([at(box(0.35, 0.1, 0.12), 0, 2.22, 0.17), GM.amber]);
@@ -276,7 +292,7 @@ export function buildCart(seed = 1) {
   const cols = [[0.08, 0.08, 0.1], [0.55, 0.06, 0.05], [0.1, 0.2, 0.45], [0.3, 0.3, 0.32], [0.55, 0.42, 0.18], [0.08, 0.3, 0.12], [0.6, 0.6, 0.62]];
   for (let k = 0; k < 9; k++) {
     const w = 0.4 + r() * 0.3, h = 0.25 + r() * 0.3, d = 0.55 + r() * 0.25;
-    const g = tinted(box(w, h, d), cols[Math.floor(r() * cols.length)]);
+    const g = tinted(rb(w, h, d, 0.05), cols[Math.floor(r() * cols.length)]);
     L.push([at(g, (r() - 0.5) * 0.7, 0.62 + h / 2 + (k > 5 ? 0.4 : 0), -1.0 + (k % 6) * 0.4 + (r() - 0.5) * 0.1, 0, (r() - 0.5) * 0.5, 0), GM.bag]);
   }
   wheels(L, [[-0.6, -1.1], [0.6, -1.1], [-0.6, 1.1], [0.6, 1.1]], 0.22, 0.14);
@@ -301,7 +317,7 @@ export function buildULD() {
 export const STAIR_TOP = { y: 4.42, z: -3.0 };
 export function buildStairTruck() {
   const L = [];
-  L.push([at(box(2.2, 1.9, 1.8, 1), 0, 1.45, -4.3), GM.white]);
+  L.push([at(rb(2.2, 1.9, 1.8, 0.14, 2), 0, 1.45, -4.3), GM.white]);
   L.push([at(box(2.1, 0.8, 0.05), 0, 1.95, -5.21), GM.glass]);
   L.push([at(box(1.2, 0.3, 8.2), 0, 0.6, -0.6), GM.dark]);
   L.push([at(box(2.25, 0.45, 1.82), 0, 0.6, -4.3), GM.yellow]);
@@ -324,18 +340,20 @@ export function buildStairTruck() {
 // ---------------------------------------------------------------- belt loader
 export function buildBeltLoader() {
   const L = [];
-  L.push([at(box(1.6, 0.6, 7.2), 0, 0.6, 0), GM.yellow]);
+  L.push([at(rb(1.6, 0.6, 7.2, 0.1), 0, 0.6, 0), GM.yellow]);
   L.push([at(box(1.2, 0.06, 7.6), 0, 1.0, 0, -0.32), GM.belt]);
   for (const s of [-1, 1]) L.push([at(box(0.06, 0.2, 7.6), s * 0.62, 1.1, 0, -0.32), GM.metal]);
-  L.push([at(box(0.9, 1.3, 1.0), 0.0, 1.35, 2.6), GM.yellow]); L.push([at(box(0.85, 0.5, 0.04), 0, 1.75, 2.08), GM.glass]);
+  L.push([at(rb(0.9, 1.3, 1.0, 0.08), 0.0, 1.35, 2.6), GM.yellow]); L.push([at(box(0.85, 0.5, 0.04), 0, 1.75, 2.08), GM.glass]);
   wheels(L, [[-0.75, -2.5], [0.75, -2.5], [-0.75, 2.5], [0.75, 2.5]], 0.3, 0.22);
   return { geometry: finish(L), colliders: [{ min: [-0.85, 0, -3.6], max: [0.85, 1.4, 3.6] }] };
 }
 // ---------------------------------------------------------------- ground power unit
 export function buildGPU() {
   const L = [];
-  L.push([at(box(1.3, 1.1, 2.0, 1), 0, 0.85, 0), GM.white]);
-  L.push([at(box(1.32, 0.12, 2.02), 0, 1.4, 0), GM.red]);
+  L.push([at(rb(1.3, 1.1, 2.0, 0.08), 0, 0.85, 0), GM.white]);
+  L.push([at(rb(1.34, 0.12, 2.04, 0.04), 0, 1.4, 0), GM.red]);
+  L.push([at(cyl(0.05, 0.05, 0.3, 8), 0.4, 1.6, 0.7), GM.dark]); L.push([at(cyl(0.12, 0.12, 0.12, 14).rotateZ(Math.PI / 2), -0.71, 0.75, 0.5), GM.dark]);
+  for (let k = 0; k < 5; k++) L.push([at(cyl(0.025, 0.025, 1.2, 6).rotateX(Math.PI / 2), -0.4 + k * 0.03, 0.3 + k * 0.01, -1.1 - k * 0.05), GM.dark]);
   for (let k = 0; k < 6; k++) L.push([at(box(0.02, 0.6, 0.05), 0.66, 0.9, -0.6 + k * 0.24), GM.dark]);
   L.push([strut([0, 0.4, -1.0], [0, 0.3, -1.8], 0.04), GM.metal]);
   wheels(L, [[-0.55, -0.6], [0.55, -0.6], [-0.55, 0.6], [0.55, 0.6]], 0.25, 0.16);
