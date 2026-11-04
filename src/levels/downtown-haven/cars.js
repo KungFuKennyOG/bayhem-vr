@@ -106,7 +106,7 @@ function quad(bk, c, right, up, w, h, rect, col, rm) {
 
 // ---------------------------------------------------------------------- surface finishes [roughness, metalness, emission]
 const RM = {
-  paint: [0.26, 0.42, 0], under: [0.9, 0.15, 0], rubber: [0.86, 0, 0], plastic: [0.62, 0.05, 0], satin: [0.38, 0.1, 0],
+  paint: [0.26, 0.3, 0], under: [0.9, 0.15, 0], rubber: [0.86, 0, 0], plastic: [0.62, 0.05, 0], satin: [0.38, 0.1, 0],
   chrome: [0.14, 1, 0], alu: [0.28, 1, 0], metal: [0.5, 0.8, 0], cloth: [0.95, 0, 0], lens: [0.08, 0.2, 0], sign: [0.4, 0, 0.9],
 };
 const C = { black: [0.035, 0.035, 0.038], under: [0.07, 0.065, 0.06], well: [0.03, 0.03, 0.03], trim: [0.05, 0.05, 0.055], chrome: [0.85, 0.86, 0.88], white: [1, 1, 1], interior: [0.11, 0.105, 0.1], headliner: [0.42, 0.4, 0.37], seat: [0.16, 0.15, 0.14], rubber: [0.06, 0.06, 0.06] };
@@ -116,7 +116,7 @@ const hex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };   
 function materials() {
   if (MAT) return MAT;
   ATLAS = buildAtlas();
-  const body = rmMaterial(ATLAS, { envMapIntensity: 1.25 });
+  const body = rmMaterial(ATLAS, { envMapIntensity: 1.25, coat: true });
   body.userData.duskEmissive = 1.4;               // signs / lenses ramp up at dusk
   const glass = new THREE.MeshStandardMaterial({ color: 0x0a0d11, metalness: 0.1, roughness: 0.04, transparent: true, opacity: 0.5, envMapIntensity: 2.2, depthWrite: false });
   glass.onBeforeCompile = (s) => {
@@ -151,7 +151,8 @@ float chN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
 
 // MeshStandardMaterial driven per vertex: map × vertex colour, roughness / metalness / emission from the `rm` attribute
 export function rmMaterial(map, params = {}) {
-  const m = new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 1, metalness: 1, emissive: 0xffffff, emissiveIntensity: 1, ...params });
+  const { coat, ...rest } = params;
+  const m = new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 1, metalness: 1, emissive: 0xffffff, emissiveIntensity: 1, ...rest });
   m.onBeforeCompile = (s) => {
     s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 rm;\nvarying vec3 vRM;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRM = rm;');
@@ -159,8 +160,24 @@ export function rmMaterial(map, params = {}) {
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
       .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * diffuseColor.rgb * vRM.z;');
+    if (params.coat) s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>', `
+      {   // fake clearcoat: sky gradient + horizon band + sun hotspot, fresnel-weighted (paint only)
+        float coatM = 1.0 - smoothstep(0.004, 0.02, abs(vRM.x - 0.26));
+        vec3 vd = normalize(vViewPosition);
+        vec3 rv = reflect(-vd, normal);
+        vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+        float ry = dot(rv, upV);
+        vec3 hor = rimColor * 0.55 + vec3(0.06, 0.05, 0.05);
+        vec3 sky = mix(hor, vec3(0.16, 0.24, 0.42), smoothstep(0.02, 0.55, ry));
+        vec3 gnd = mix(hor * 0.35, vec3(0.025, 0.022, 0.02), smoothstep(-0.02, -0.25, ry));
+        vec3 env = ry > 0.0 ? sky : gnd;
+        env += rimColor * (pow(max(dot(rv, rimSunDir), 0.0), 220.0) * 6.0 + pow(max(dot(rv, rimSunDir), 0.0), 12.0) * 0.35);
+        float fr = 0.05 + 0.95 * pow(1.0 - clamp(dot(normal, vd), 0.0, 1.0), 5.0);
+        outgoingLight += env * fr * coatM * 0.85;
+      }
+      #include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => 'rmMat';
+  m.customProgramCacheKey = () => (params.coat ? 'rmMatCoat' : 'rmMat');
   return m;
 }
 export { Bucket, pushGeo, M4, quad as atlasQuad };
@@ -505,6 +522,32 @@ function buildAtlas() {
     g.fillStyle = '#e0a21a'; g.fillRect(x + 590, y + 34, 380, 10); g.fillStyle = '#0f5a6e'; g.font = `600 26px ${FONT2}`; g.fillText('RIDE THE CITY OF LIGHTS', x + 594, y + 72);
     [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ffb21e'; g.font = `400 46px ${FONT}`; g.textAlign = 'center'; g.fillText('42', x + w / 2, y + h / 2 + 2);
   }
+  R.vanRear = [1792, 1536, 256, 256]; R.chevron = [1536, 1856, 512, 32];
+  {
+    const [x, y, w, h] = R.vanRear;
+    g.fillStyle = '#eceae4'; g.fillRect(x, y, w, h);
+    const gr = g.createLinearGradient(0, y + h * 0.55, 0, y + h); gr.addColorStop(0, 'rgba(110,92,74,0)'); gr.addColorStop(1, 'rgba(96,80,64,0.65)'); g.fillStyle = gr; g.fillRect(x, y, w, h);
+    for (let k = 0; k < 90; k++) { g.fillStyle = `rgba(80,70,60,${0.05 + pr() * 0.08})`; g.fillRect(x + pr() * w, y + pr() * h * 0.3, 1 + pr() * 2, 20 + pr() * 90); }     // rain streaks
+    for (let k = 0; k < 700; k++) { g.fillStyle = `rgba(70,58,46,${0.2 + pr() * 0.4})`; g.fillRect(x + pr() * w, y + h - Math.pow(pr(), 2) * h * 0.4, 1 + pr() * 2, 1 + pr() * 2); }
+    // door seams: centre split, panel insets, horizontal stiffeners
+    g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillRect(x + w / 2 - 1.5, y, 3, h);
+    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2;
+    for (const x0 of [x + 8, x + w / 2 + 8]) { g.strokeRect(x0, y + 10, w / 2 - 16, h - 20); for (const t of [0.33, 0.66]) { g.beginPath(); g.moveTo(x0, y + h * t); g.lineTo(x0 + w / 2 - 16, y + h * t); g.stroke(); } }
+    g.fillStyle = 'rgba(255,255,255,0.35)'; for (const t of [0.33, 0.66]) g.fillRect(x + 8, y + h * t + 2, w - 16, 1);
+    // rivet rows along the edges
+    g.fillStyle = 'rgba(0,0,0,0.4)'; for (let k = 0; k < 20; k++) { g.fillRect(x + 4, y + 8 + k * 12.4, 2, 2); g.fillRect(x + w - 6, y + 8 + k * 12.4, 2, 2); }
+    // decal: logo mark + how's my driving
+    g.fillStyle = '#d2461c'; g.beginPath(); g.moveTo(x + 22, y + 74); g.quadraticCurveTo(x + 64, y + 52, x + 110, y + 58); g.lineTo(x + 110, y + 63); g.quadraticCurveTo(x + 64, y + 60, x + 22, y + 80); g.fill();
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#1d2f4f'; g.font = `400 20px ${FONT}`; g.fillText('KRANE & SONS', x + 20, y + 50);
+    g.fillStyle = '#fff'; g.fillRect(x + w / 2 + 14, y + 36, 96, 40); g.strokeStyle = '#1d2f4f'; g.lineWidth = 2; g.strokeRect(x + w / 2 + 14, y + 36, 96, 40);
+    g.fillStyle = '#1d2f4f'; g.font = `600 11px ${FONT2}`; g.fillText("HOW'S MY DRIVING?", x + w / 2 + 20, y + 52); g.font = `400 15px ${FONT}`; g.fillText('555-0142', x + w / 2 + 30, y + 70);
+    g.fillStyle = '#c9a02a'; g.fillRect(x + 22, y + h - 92, 72, 22); g.fillStyle = '#111'; g.font = `600 10px ${FONT2}`; g.fillText('CAUTION: WIDE TURNS', x + 24, y + h - 77);
+    g.fillStyle = '#e8e6e0'; g.fillRect(x + w / 2 + 40, y + h - 96, 46, 26); g.fillStyle = '#333'; g.font = `600 9px ${FONT2}`; g.fillText('US DOT 3141592', x + w / 2 + 42, y + h - 80);
+    // conspicuity tape along the bottom + upper corners
+    const tape = (tx, ty, tw, th) => { for (let k = 0; k * 12 < tw; k++) { g.fillStyle = k % 2 ? '#c41a12' : '#f4f2ee'; g.fillRect(tx + k * 12, ty, Math.min(12, tw - k * 12), th); } };
+    tape(x + 6, y + h - 26, w - 12, 10); tape(x + 6, y + 6, 36, 6); tape(x + w - 42, y + 6, 36, 6);
+  }
+  { const [x, y, w, h] = R.chevron; for (let k = -2; k * 32 < w + 32; k++) { g.fillStyle = k % 2 ? '#d01c12' : '#f6f4ee'; g.beginPath(); g.moveTo(x + k * 32, y + h); g.lineTo(x + k * 32 + 32, y + h); g.lineTo(x + k * 32 + 64, y); g.lineTo(x + k * 32 + 32, y); g.fill(); } }
   R.reflector = [1152, 1792, 128, 64];
   { const [x, y, w, h] = R.reflector; const lg = g.createLinearGradient(x, y, x, y + h); lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.5, '#9aa0a8'); lg.addColorStop(1, '#f0f0f0'); g.fillStyle = lg; g.fillRect(x, y, w, h); g.strokeStyle = 'rgba(0,0,0,0.25)'; for (let k = 0; k < w; k += 8) { g.beginPath(); g.moveTo(x + k, y); g.lineTo(x + k, y + h); g.stroke(); } }
   // side livery rows
@@ -555,7 +598,7 @@ function drawSide(g, kind, row) {
   if (kind === 'van') {
     g.fillStyle = '#d2461c'; g.fillRect(X(-1.2), Y(0.95), X(3.4) - X(-1.2), 6);
     g.fillStyle = '#1d2f4f'; g.fillRect(X(-1.2), Y(0.86), X(3.4) - X(-1.2), 10);
-    for (let z = -0.9; z < 3.4; z += 0.6) line([[z, 0.7], [z, 0.9]], 1.5, 0.3);   // box rivets lines
+    for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
     for (let z = -1.15; z < 3.4; z += 0.05) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X(z), Y(3.0), 2, 2); g.fillRect(X(z), Y(0.72), 2, 2); }
   }
   // grime rising from the sills + speckle
@@ -693,21 +736,21 @@ function interior(bk, S, kind, rng, { rows = 2, wide = false } = {}) {
   pushGeo(bk, BOX(iw * 2, 0.04, zC - zA), M4(0, fy - 0.02, (zA + zC) / 2), [0.06, 0.058, 0.055], RM.cloth);
   // dash: rounded block + cluster hood + gauges
   const dz0 = zA - 0.02, dz1 = zA + (isTall(kind) ? 0.55 : 0.48), dTop = belt - 0.035;
-  pushGeo(bk, RBOX(iw * 2, dTop - fy - 0.1, dz1 - dz0, 0.06, 2), M4(0, (dTop + fy + 0.1) / 2, (dz0 + dz1) / 2), [0.07, 0.068, 0.066], RM.plastic);
+  pushGeo(bk, BOX(iw * 2, dTop - fy - 0.1, dz1 - dz0), M4(0, (dTop + fy + 0.1) / 2, (dz0 + dz1) / 2), [0.07, 0.068, 0.066], RM.plastic);
   pushGeo(bk, BOX(0.42, 0.08, 0.2), M4(-0.38, dTop + 0.02, dz1 - 0.12), [0.05, 0.05, 0.05], RM.plastic);
   quad(bk, [-0.38, dTop - 0.03, dz1 + 0.002], [1, 0, 0], [0, 1, 0], 0.34, 0.11, R.dash, C.white, [0.4, 0, 0.6]);
   pushGeo(bk, BOX(0.22, 0.32, 0.5), M4(0, fy + 0.16, dz1 + 0.15), [0.06, 0.06, 0.06], RM.plastic);   // console
   // steering wheel (driver = -x)
   const sw = M4(-0.38, dTop - 0.03, dz1 + 0.1, -1.05 + (isTall(kind) ? 0.35 : 0), 0, 0);
-  pushGeo(bk, new THREE.TorusGeometry(0.185, 0.018, 4, 14), sw, [0.04, 0.04, 0.04], RM.satin);
-  for (const a of [0, 2.1, 4.2]) pushGeo(bk, BOX(0.03, 0.17, 0.02), sw.clone().multiply(M4(Math.sin(a) * 0.08, Math.cos(a) * -0.08, 0, 0, 0, a)), [0.05, 0.05, 0.05], RM.satin);
-  pushGeo(bk, CYL(0.05, 0.06, 0.06, 10), sw.clone().multiply(M4(0, 0, 0.0, Math.PI / 2, 0, 0)), [0.05, 0.05, 0.05], RM.satin);
-  pushGeo(bk, CYL(0.03, 0.03, 0.3, 6), sw.clone().multiply(M4(0, 0, -0.15, Math.PI / 2, 0, 0)), [0.05, 0.05, 0.05], RM.satin);
+  pushGeo(bk, new THREE.TorusGeometry(0.185, 0.018, 3, 10), sw, [0.04, 0.04, 0.04], RM.satin);
+  for (const a of [0, 2.1]) pushGeo(bk, BOX(0.03, 0.17, 0.02), sw.clone().multiply(M4(Math.sin(a) * 0.08, Math.cos(a) * -0.08, 0, 0, 0, a)), [0.05, 0.05, 0.05], RM.satin);
+  pushGeo(bk, CYL(0.05, 0.06, 0.06, 6), sw.clone().multiply(M4(0, 0, 0.0, Math.PI / 2, 0, 0)), [0.05, 0.05, 0.05], RM.satin);
+  pushGeo(bk, CYL(0.03, 0.03, 0.3, 4), sw.clone().multiply(M4(0, 0, -0.15, Math.PI / 2, 0, 0)), [0.05, 0.05, 0.05], RM.satin);
   // seats
   const sc = kind === 'police' ? [0.06, 0.06, 0.065] : (kind === 'taxi' ? [0.08, 0.07, 0.06] : C.seat);
   const seat = (x, z, w, recline = 0.22) => {
     pushGeo(bk, BOX(w, 0.14, 0.5), M4(x, fy + 0.2, z), sc, RM.cloth, R.seat);
-    pushGeo(bk, RBOX(w, 0.62, 0.13, 0.05, 2), M4(x, fy + 0.52, z + 0.28, -recline, 0, 0), sc, RM.cloth, R.seat);
+    pushGeo(bk, BOX(w, 0.62, 0.13), M4(x, fy + 0.52, z + 0.28, -recline, 0, 0), sc, RM.cloth, R.seat);
     if (w < 0.7) pushGeo(bk, BOX(w * 0.5, 0.17, 0.09), M4(x, fy + 0.93, z + 0.37, -recline, 0, 0), sc, RM.cloth, R.seat);
   };
   const fz = dz1 + 0.55 + rng() * 0.08;
@@ -831,22 +874,52 @@ function vanBox(out, paint, rng) {
   };
   const st = stationList(zb0, zb1, 0.5, [...archStations(S, 10), zb0 + 0.02, zb0 + 0.06, zb1 - 0.02, zb1 - 0.06]);
   loft(st, sec, { round: { zF: zb0, zR: zb1, rr: [0.05, 0.05], ymid: () => (y0 + y1) / 2 }, caps: true, uvf,
-    classify: () => 'body', color: (tag) => (tag === 'u' ? [C.under, RM.under] : tag === 'w' ? [C.well, RM.under] : [paint, [0.4, 0.2, 0]]) }, out);
+    classify: () => 'body', color: (tag) => (tag === 'u' ? [C.under, RM.under] : tag === 'w' ? [C.well, RM.under] : [paint, [0.45, 0.15, 0]]) }, out);
   // logo both sides
   for (const s of [-1, 1]) sideDecal(out.body, null, s, -0.85, 3.0, 1.15, 2.85, R.vanLogo, paint, [0.4, 0.2, 0], () => hw);
-  // roll-up door: ribs, handle, lamps, bumper, step, frame rails
-  for (let k = 0; k < 9; k++) pushGeo(out.body, BOX(2.0, 0.025, 0.02), M4(0, 0.85 + k * 0.24, zb1 + 0.01), [0.82, 0.82, 0.8], [0.4, 0.3, 0]);
+  // ---- box sides: alu rub rails top / bottom, corner posts, side marker lamps
+  const alu = [0.72, 0.73, 0.74], aluRm = [0.32, 0.9, 0];
   for (const s of [-1, 1]) {
-    pushGeo(out.body, BOX(0.08, y1 - y0 - 0.1, 0.04), M4(s * (hw - 0.06), (y0 + y1) / 2, zb1 + 0.01), [0.7, 0.7, 0.7], RM.alu);
-    pushGeo(out.body, RBOX(0.1, 0.3, 0.06, 0.02), M4(s * (hw - 0.1), 0.98, zb1 + 0.035), [0.55, 0.02, 0.015], [0.08, 0.2, 0.45]);
-    for (const yy of [2.98]) pushGeo(out.body, BOX(0.06, 0.04, 0.03), M4(s * (hw - 0.12), yy, zb1 + 0.02), [1, 0.4, 0.05], [0.1, 0, 0.5]);
-    pushGeo(out.body, BOX(0.12, 0.5, 0.12), M4(s * 0.55, 0.5, (zb0 + ax - 0.6) / 2 + 0.4), C.under, RM.under);
+    for (const [yy, hh] of [[y1 - 0.05, 0.1], [y0 + 0.13, 0.16]]) pushGeo(out.body, BOX(0.03, hh, zb1 - zb0 + 0.02), M4(s * (hw + 0.012), yy, (zb0 + zb1) / 2), alu, aluRm);
+    for (const zz of [zb0 + 0.03, zb1 - 0.03]) pushGeo(out.body, BOX(0.05, y1 - y0, 0.07), M4(s * (hw + 0.008), (y0 + y1) / 2, zz), alu, aluRm);
+    for (const zz of [zb0 + 0.6, (zb0 + zb1) / 2, zb1 - 0.4]) pushGeo(out.body, BOX(0.03, 0.05, 0.1), M4(s * (hw + 0.02), y0 + 0.13, zz), [1, 0.4, 0.05], [0.1, 0, 0.5]);
   }
-  pushGeo(out.body, BOX(0.24, 0.05, 0.03), M4(0, 0.9, zb1 + 0.03), C.chrome, RM.chrome);
-  pushGeo(out.body, RBOX(2.2, 0.16, 0.22, 0.03), M4(0, 0.5, zb1 + 0.04), C.trim, RM.plastic);
-  for (const s of [-1, 1]) pushGeo(out.body, BOX(0.12, 0.18, zb1 - zb0 + 1.6), M4(s * 0.5, 0.52, (zb0 + zb1) / 2 - 0.8), C.under, RM.under);
-  quad(out.body, [0, 0.66, zb1 + 0.16], [1, 0, 0], [0, 1, 0], 0.32, 0.155, R.plates[(rng() * 8) | 0], C.white, RM.satin);
-  return [{ p: [-(hw - 0.1), 0.98, zb1 + 0.07], kind: 'tail' }, { p: [hw - 0.1, 0.98, zb1 + 0.07], kind: 'tail' }];
+  // ---- rear: door frame, twin swing doors (textured), hinges, lock bars, handles, light bar, bumper step
+  const zr = zb1 + 0.012, dw = hw - 0.09, dy0 = y0 + 0.08, dy1 = y1 - 0.14;
+  pushGeo(out.body, BOX(hw * 2 + 0.04, 0.16, 0.08), M4(0, y1 - 0.06, zb1 + 0.02), alu, aluRm);                 // header
+  pushGeo(out.body, BOX(hw * 2 + 0.04, 0.12, 0.1), M4(0, y0 + 0.02, zb1 + 0.03), alu, aluRm);                  // sill
+  for (const s of [-1, 1]) pushGeo(out.body, BOX(0.09, y1 - y0, 0.08), M4(s * (hw - 0.025), (y0 + y1) / 2, zb1 + 0.02), alu, aluRm);   // posts
+  quad(out.body, [0, (dy0 + dy1) / 2, zr + 0.03], [1, 0, 0], [0, 1, 0], dw * 2, dy1 - dy0, R.vanRear, C.white, [0.45, 0.15, 0]);
+  for (const s of [-1, 1]) {
+    const xo = s * (hw - 0.07);
+    for (const yy of [dy0 + 0.25, (dy0 + dy1) / 2, dy1 - 0.25]) {                                                         // 3 hinges per door
+      pushGeo(out.body, BOX(0.16, 0.09, 0.03), M4(xo - s * 0.06, yy, zr + 0.05), [0.5, 0.5, 0.5], RM.metal);
+      pushGeo(out.body, CYL(0.018, 0.018, 0.11, 6), M4(xo + s * 0.02, yy, zr + 0.06), [0.5, 0.5, 0.5], RM.metal);
+    }
+    for (const xb of [s * 0.3, s * 0.82]) {                                                                              // cam lock bars
+      pushGeo(out.body, CYL(0.016, 0.016, dy1 - dy0 + 0.12, 6), M4(xb, (dy0 + dy1) / 2, zr + 0.07), [0.62, 0.63, 0.64], RM.chrome);
+      for (const yy of [dy0 - 0.02, dy1 + 0.02]) pushGeo(out.body, BOX(0.07, 0.07, 0.05), M4(xb, yy, zr + 0.06), [0.4, 0.4, 0.4], RM.metal);
+      for (const yy of [dy0 + 0.6, dy0 + 0.75]) pushGeo(out.body, BOX(0.05, 0.03, 0.04), M4(xb, yy, zr + 0.07), [0.4, 0.4, 0.4], RM.metal);
+      pushGeo(out.body, BOX(0.04, 0.26, 0.035), M4(xb + s * 0.06, dy0 + 0.68, zr + 0.1, 0, 0, s * 0.12), [0.25, 0.25, 0.26], RM.metal);   // handle
+    }
+    // tail light bar (stop / turn / reverse) on the lower post + reflectors
+    pushGeo(out.body, RBOX(0.1, 0.42, 0.06, 0.02), M4(s * (hw - 0.03), 0.98, zb1 + 0.07), [0.55, 0.02, 0.015], [0.08, 0.2, 0.45]);
+    pushGeo(out.body, BOX(0.08, 0.1, 0.02), M4(s * (hw - 0.03), 1.25, zb1 + 0.09), [1, 0.4, 0.05], [0.1, 0, 0.4]);
+    pushGeo(out.body, BOX(0.08, 0.08, 0.02), M4(s * (hw - 0.03), 0.72, zb1 + 0.09), [0.9, 0.9, 0.9], [0.1, 0, 0.1]);
+  }
+  for (let k = -1; k <= 1; k++) pushGeo(out.body, BOX(0.09, 0.05, 0.03), M4(k * 0.16, y1 - 0.06, zb1 + 0.07), [0.6, 0.03, 0.02], [0.1, 0.1, 0.5]);   // ID lamps
+  // bumper with a diamond-plate step + under-ride guard
+  pushGeo(out.body, BOX(hw * 2, 0.12, 0.3), M4(0, 0.48, zb1 + 0.12), C.trim, RM.metal);
+  pushGeo(out.body, BOX(1.0, 0.02, 0.28), M4(0, 0.55, zb1 + 0.12), C.white, [0.4, 0.8, 0], R.grille);
+  for (const s of [-1, 1]) pushGeo(out.body, BOX(0.08, 0.3, 0.08), M4(s * 0.6, 0.62, zb1 + 0.06), C.trim, RM.metal);
+  quad(out.body, [0, 0.48, zb1 + 0.272], [1, 0, 0], [0, 1, 0], hw * 1.9, 0.08, R.chevron, C.white, [0.3, 0, 0.15]);
+  for (const s of [-1, 1]) {
+    pushGeo(out.body, BOX(0.12, 0.5, 0.12), M4(s * 0.55, 0.5, (zb0 + ax - 0.6) / 2 + 0.4), C.under, RM.under);
+    pushGeo(out.body, BOX(0.12, 0.18, zb1 - zb0 + 1.6), M4(s * 0.5, 0.52, (zb0 + zb1) / 2 - 0.8), C.under, RM.under);
+    pushGeo(out.body, RBOX(0.3, 0.36, 0.02, 0.02), M4(s * 0.75, 0.62, ax + 0.48), C.black, RM.rubber);   // mud flaps
+  }
+  quad(out.body, [0, 0.48, zb1 + 0.273], [1, 0, 0], [0, 1, 0], 0.32, 0.155, R.plates[(rng() * 8) | 0], C.white, RM.satin);
+  return [{ p: [-(hw - 0.03), 0.98, zb1 + 0.11], kind: 'tail' }, { p: [hw - 0.03, 0.98, zb1 + 0.11], kind: 'tail' }];
 }
 
 // ---------------------------------------------------------------------- bus

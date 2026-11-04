@@ -37,14 +37,14 @@ class Batch {
   get count() { return this.P.length / 3; }
   _v(p, n, u, v, c, t) { this.P.push(p[0], p[1], p[2]); this.N.push(n[0], n[1], n[2]); this.U.push(u, v); this.C.push(c[0], c[1], c[2]); this.T.push(t); }
   // quad: corner o, edges a (u dir) and b (v dir); normal = a x b
-  quad(o, a, b, uv, t = 7, c = WHITE) {
+  quad(o, a, b, uv, t = 7, c = WHITE, cTop = c) {
     let nx = a[1] * b[2] - a[2] * b[1], ny = a[2] * b[0] - a[0] * b[2], nz = a[0] * b[1] - a[1] * b[0];
     const l = Math.hypot(nx, ny, nz) || 1; const n = [nx / l, ny / l, nz / l];
     const i = this.count;
     this._v(o, n, uv[0], uv[1], c, t);
     this._v([o[0] + a[0], o[1] + a[1], o[2] + a[2]], n, uv[2], uv[1], c, t);
-    this._v([o[0] + a[0] + b[0], o[1] + a[1] + b[1], o[2] + a[2] + b[2]], n, uv[2], uv[3], c, t);
-    this._v([o[0] + b[0], o[1] + b[1], o[2] + b[2]], n, uv[0], uv[3], c, t);
+    this._v([o[0] + a[0] + b[0], o[1] + a[1] + b[1], o[2] + a[2] + b[2]], n, uv[2], uv[3], cTop, t);
+    this._v([o[0] + b[0], o[1] + b[1], o[2] + b[2]], n, uv[0], uv[3], cTop, t);
     this.I.push(i, i + 1, i + 2, i, i + 2, i + 3);
   }
   tri(a, b, c3, uvs, t, c, want) {
@@ -107,7 +107,16 @@ function faceUV(o, a, b, opt) {
   const u0 = (o[0] * ah[0] + o[1] * ah[1] + o[2] * ah[2]) / s, v0 = (o[0] * bh[0] + o[1] * bh[1] + o[2] * bh[2]) / s;
   return [u0, v0, u0 + la / s, v0 + lb / s];
 }
-function q(B, o, a, b, opt = {}) { B.quad(o, a, b, opt.uv || faceUV(o, a, b, opt), opt.tile ?? (opt.sw !== undefined ? 7 : 0), opt.c || WHITE); }
+function q(B, o, a, b, opt = {}) { B.quad(o, a, b, opt.uv || faceUV(o, a, b, opt), opt.tile ?? (opt.sw !== undefined ? 7 : 0), opt.c || WHITE, opt.cTop || opt.c || WHITE); }
+// vertical quad split into AO bands: opt.ao = metres darkened under the top (cornice), opt.aoB = metres darkened above the base
+function qAO(B, o, a, h, opt) {
+  const c = opt.c || WHITE, aoT = opt.ao || 0, aoB = opt.aoB || 0;
+  if ((!aoT && !aoB) || h < aoT + aoB + 0.5) { q(B, o, a, [0, h, 0], opt); return; }
+  const dk = (k) => c.map(v => v * k);
+  let y = o[1];
+  const seg = (hh, c0, c1) => { if (hh <= 0.001) return; const u = { ...opt, c: c0, cTop: c1 }; delete u.ao; delete u.aoB; q(B, [o[0], y, o[2]], a, [0, hh, 0], u); y += hh; };
+  seg(aoB, dk(opt.aoBk ?? 0.5), c); seg(h - aoT - aoB, c, c); seg(aoT, c, dk(opt.aoK ?? 0.42));
+}
 // axis aligned box; skip: string of faces to omit (x X y Y z Z = -x +x -y +y -z +z)
 function box(B, x0, y0, z0, x1, y1, z1, opt = {}) {
   if (x0 > x1) [x0, x1] = [x1, x0]; if (y0 > y1) [y0, y1] = [y1, y0]; if (z0 > z1) [z0, z1] = [z1, z0];
@@ -152,7 +161,7 @@ function lAABB(f, s0, s1, d0, d1, y0, y1) {
 // wall quad on a face from s0..s1, y0..y1 at depth d (outward normal)
 function lwall(B, f, s0, s1, y0, y1, d, opt) {
   const o = LP(f, s0, d, y0);
-  q(B, o, [f.dx * (s1 - s0), 0, f.dz * (s1 - s0)], [0, y1 - y0, 0], opt);
+  qAO(B, o, [f.dx * (s1 - s0), 0, f.dz * (s1 - s0)], y1 - y0, opt);
 }
 // vertical prism from a polygon [[x,z]...] (any winding), facade uv along the perimeter
 function prism(B, poly, y0, y1, opt, cap = null) {
@@ -166,7 +175,7 @@ function prism(B, poly, y0, y1, opt, cap = null) {
     const o = [a[0], y0, a[1]];
     const o2 = { ...opt };
     if (opt.tile !== undefined) o2.u0 = (opt.uo || 0) + acc / TM[opt.tile][0];
-    q(B, o, [dx, 0, dz], [0, y1 - y0, 0], o2);
+    qAO(B, o, [dx, 0, dz], y1 - y0, o2);
     acc += L;
   }
   if (cap) {
@@ -205,17 +214,29 @@ function facadeAtlas() {
       if (em) { e.fillStyle = typeof em === 'string' ? em : rgb(em); e.fillRect(X, Y, pw, h); }
     }
   };
-  // an office interior (emissive) seen through a pane
-  const interior = (x, y, w, h, warm, blinds) => {
-    const base = warm ? [255, 196 + r() * 30, 120 + r() * 40] : [205, 222, 255];
-    const k = 0.55 + r() * 0.45;
-    // ceiling glow, falloff, furniture silhouettes
-    for (let i = 0; i < 6; i++) { const f = 1 - i / 7; R(x, y + h * (1 - (i + 1) / 6), w, h / 6 + 1, null, null, base.map(v => v * k * (0.35 + 0.65 * f))); }
-    R(x, y + h - 3, w, 2, null, null, base.map(v => Math.min(255, v * 1.1)));
-    for (let fx = x + 4; fx < x + w - 6; fx += 14) R(fx, y + h - 6, 8, 2, null, null, [255, 250, 235]);
-    if (r() < 0.6) R(x + r() * w * 0.6, y, 3 + r() * 6, h * (0.4 + r() * 0.5), null, null, [20, 16, 12]);
-    for (let fx = x + 2; fx < x + w - 4; fx += 7 + r() * 8) R(fx, y, 3 + r() * 5, h * (0.18 + r() * 0.16), null, null, [30, 24, 18]);
-    if (blinds) for (let by = y + h * 0.35; by < y + h; by += 3) R(x, by, w, 1, null, null, [40, 30, 20]);
+  // an office interior (emissive) seen through a pane: every window its own mix of ceiling strip, blinds,
+  // curtain, desk lamp or nothing at all (no furniture bars: those read as an equalizer from below)
+  const lamp = (cx, cy, rad, col, a) => {
+    const X = TX + ((cx % 256) + 256) % 256, Y = TY - cy;
+    const g = e.createRadialGradient(X, Y, 0, X, Y, rad);
+    g.addColorStop(0, `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    e.fillStyle = g; e.fillRect(X - rad, Y - rad, rad * 2, rad * 2);
+  };
+  const interior = (x, y, w, h, warm, opt = {}) => {
+    if (r() < (opt.dark ?? 0.32)) return 'dark';
+    const base = warm ? [255, 186 + r() * 44, 104 + r() * 56] : (r() < 0.5 ? [196, 216, 255] : [232, 238, 226]);
+    const k = 0.45 + r() * 0.55;
+    const E = (xx, yy, ww, hh, f) => R(xx, yy, ww, hh, null, null, base.map(v => Math.min(255, v * k * f)));
+    const st = 7;
+    const amb = 0.12 + r() * 0.2;
+    for (let i = 0; i < st; i++) { const t = (i + 0.5) / st; E(x, y + h * i / st, w, h / st + 1, amb + (0.5 + r() * 0.15) * Math.pow(t, 2.4)); }
+    if (r() < 0.7) { const ly = y + h - 3 - Math.floor(r() * 4); E(x, ly, w, 2, 1.35 + r() * 0.4); }
+    if (r() < 0.22) lamp(x + w * (0.2 + r() * 0.6), y + h * (0.22 + r() * 0.2), 6 + r() * 8, [255, 190, 110], 0.8);
+    const v = r();
+    if (v < 0.3 || opt.blinds) { const by0 = y + h * (0.12 + r() * 0.75); for (let by = by0; by < y + h; by += 3) R(x, by, w, 1.3, null, null, base.map(q => q * k * 0.22)); }
+    else if (v < 0.48) { const cw = w * (0.2 + r() * 0.5), left = r() < 0.5; E(left ? x : x + w - cw, y, cw, h, 0.3 + r() * 0.15); }
+    else if (v < 0.56) { R(x, y, w, h * (0.1 + r() * 0.12), null, null, base.map(q => q * k * 0.06)); }
+    return 'lit';
   };
   // generic curtain wall
   const curtain = (t, P) => {
@@ -236,7 +257,7 @@ function facadeAtlas() {
         for (let by = by0; by < vy + vh; by += 3) R(x, by, bw, 1, gc.map((g, k) => g * 0.3 + bl[k] * 0.3), null);
       } else if (v < 0.27) R(x, vy, bw, vh, gc.map(g => g * 0.62), [1, P.rough, P.metal * 0.95]);
       else if (v < 0.33) R(x, vy, bw, vh, gc.map(g => Math.min(255, g * 1.18)), null);
-      interior(x + 1, vy + 1, bw - 2, vh - 2, r() < (P.warm ?? 0.75), v < 0.13);
+      interior(x + 1, vy + 1, bw - 2, vh - 2, r() < (P.warm ?? 0.75), { blinds: v < 0.13, dark: P.dark });
       if (P.transom) R(x, vy + vh * P.transom, bw, 2, P.mullion, [0, 0.35, 1], [0, 0, 0]);
       // mullions + slab line
       R(x - P.mw / 2, y, P.mw, fh, P.mullion, [0, 0.35, 1], [0, 0, 0]);
@@ -247,7 +268,7 @@ function facadeAtlas() {
   curtain(TILE.glassBlue, { spandrel: 32, span: [64, 92, 106], spRough: 0.2, spMetal: 1, glass: [118, 162, 176], rough: 0.035, metal: 1, mullion: [196, 200, 206], mw: 3, var: 0.09, warm: 0.6 });
   curtain(TILE.glassGold, { spandrel: 30, span: [118, 80, 38], spRough: 0.22, spMetal: 1, glass: [222, 168, 98], rough: 0.045, metal: 1, mullion: [74, 52, 32], mw: 4, var: 0.1, transom: 0.72, warm: 0.85, spLine: [210, 160, 80] });
   curtain(TILE.darkFins, { spandrel: 22, span: [20, 22, 26], spRough: 0.15, spMetal: 1, glass: [64, 74, 84], rough: 0.03, metal: 1, mullion: [36, 38, 42], mw: 2, var: 0.08, warm: 0.7 });
-  curtain(TILE.meridian, { spandrel: 28, span: [16, 17, 20], spRough: 0.1, spMetal: 1, glass: [56, 64, 76], rough: 0.03, metal: 1, mullion: [30, 30, 34], mw: 2, var: 0.07, warm: 0.35, spLine: [226, 172, 86] });
+  curtain(TILE.meridian, { spandrel: 28, span: [16, 17, 20], spRough: 0.1, spMetal: 1, glass: [56, 64, 76], rough: 0.03, metal: 1, mullion: [30, 30, 34], mw: 2, var: 0.07, warm: 0.45, dark: 0.7, spLine: [226, 172, 86] });
   // stone (1920s limestone, punched windows)
   {
     tile(TILE.stone);
@@ -260,15 +281,17 @@ function facadeAtlas() {
       for (let g = 0; g < 8; g++) R(x + 14 + g * 4 + r() * 3, y + 4, 2, 18, `rgba(60,48,36,${0.03 + r() * 0.06})`);
       R(x + 17, y + 6, 30, 14, [192, 178, 152]); R(x + 17, y + 19, 30, 1, 'rgba(255,255,255,0.25)'); R(x + 17, y + 6, 30, 1, 'rgba(0,0,0,0.2)');
       R(x + 12, y + 22, 40, 5, [226, 214, 190], [0, 0.7, 0]);
-      R(x + 14, y + 27, 36, 74, [64, 56, 48], [0, 0.9, 0]);              // reveal
+      R(x + 14, y + 27, 36, 74, [44, 38, 32], [0, 0.9, 0]);              // reveal
+      for (let g = 0; g < 6; g++) { R(x + 8 - g, y + 24 - g, 48 + g * 2, 2, `rgba(40,30,22,${0.05 * (6 - g) / 6})`); R(x + 10 - g, y + 27, 2, 76, `rgba(40,30,22,${0.06 * (6 - g) / 6})`); }
       const gl = jit([74, 92, 104], 0.18);
       R(x + 17, y + 27, 31, 70, gl, [1, 0.06, 0.92]);
       if (r() < 0.3) R(x + 17, y + 27 + 70 * (0.4 + r() * 0.4), 31, 70 * 0.25, [196, 178, 140], [1, 0.5, 0.2]);
-      interior(x + 18, y + 28, 29, 68, r() < 0.85, false);
+      interior(x + 18, y + 28, 29, 68, r() < 0.85, { dark: 0.38 });
       const sash = [226, 222, 212];
       R(x + 17, y + 61, 31, 3, sash, [0, 0.6, 0], [0, 0, 0]); R(x + 17, y + 27, 2, 70, sash, [0, 0.6, 0], [0, 0, 0]); R(x + 46, y + 27, 2, 70, sash, [0, 0.6, 0], [0, 0, 0]);
       R(x + 17, y + 95, 31, 2, sash, [0, 0.6, 0], [0, 0, 0]); R(x + 17, y + 27, 31, 2, sash, [0, 0.6, 0], [0, 0, 0]);
       R(x + 14, y + 97, 36, 4, [40, 34, 28], [0, 0.9, 0], [0, 0, 0]);    // lintel shadow
+      for (let g = 0; g < 7; g++) R(x + 17, y + 96 - g * 2, 31, 2, `rgba(0,0,0,${0.32 * (1 - g / 7)})`);
       R(x + 14, y + 101, 36, 6, [214, 200, 174], [0, 0.85, 0]);           // lintel
     }
   }
@@ -280,17 +303,19 @@ function facadeAtlas() {
     for (let j = 0; j < 4; j++) for (let i = 0; i < 2; i++) {
       const x = i * 128, y = j * 128;
       R(x + 14, y + 4, 100, 26, [186, 172, 148]); R(x + 14, y + 29, 100, 1, 'rgba(255,255,255,0.3)');
-      R(x + 13, y + 34, 102, 90, [40, 36, 30], [0, 0.9, 0]);
+      R(x + 13, y + 34, 102, 90, [34, 30, 26], [0, 0.9, 0]);
+      for (let g = 0; g < 8; g++) R(x + 6 - g, y + 30 - g, 116 + g * 2, 2, `rgba(40,30,22,${0.07 * (8 - g) / 8})`);
       for (let l = 0; l < 3; l++) {
         const lx = x + 15 + l * 33.3, gl = jit([66, 104, 110], 0.15);
         R(lx, y + 36, 31, 86, gl, [1, 0.05, 0.9]);
         if (r() < 0.2) R(lx, y + 80, 31, 42, gl.map(g => g * 0.5 + 90), [1, 0.4, 0.4]);
-        interior(lx + 1, y + 37, 29, 84, r() < 0.8, false);
+        interior(lx + 1, y + 37, 29, 84, r() < 0.8, { dark: 0.35 });
       }
       R(x + 13, y + 104, 102, 2, [60, 46, 30], [0, 0.35, 1], [0, 0, 0]);
       for (let l = 1; l < 3; l++) R(x + 14 + l * 33.3, y + 34, 2, 90, [60, 46, 30], [0, 0.35, 1], [0, 0, 0]);
       // pilaster with fluting
       R(x - 13, y, 26, 128, [208, 196, 172], [0, 0.8, 0], [0, 0, 0]);
+      for (let g = 0; g < 5; g++) { R(x + 13 + g * 2, y + 34, 2, 90, `rgba(0,0,0,${0.3 * (1 - g / 5)})`); R(x - 15 - g * 2, y + 34, 2, 90, `rgba(0,0,0,${0.18 * (1 - g / 5)})`); }
       for (let fl = -9; fl <= 9; fl += 6) R(x + fl, y + 4, 1, 120, 'rgba(60,50,36,0.25)');
     }
   }
@@ -307,7 +332,7 @@ function facadeAtlas() {
         const x = i * 64, gl = jit([96, 118, 128], 0.12);
         R(x, y + 54, 64, 68, gl, [1, 0.07, 0.85]);
         if (r() < 0.25) R(x, y + 54 + 30, 64, 38, gl.map(g => g * 0.4 + 110), [1, 0.45, 0.3]);
-        interior(x + 1, y + 55, 62, 66, r() < 0.7, false);
+        interior(x + 1, y + 55, 62, 66, r() < 0.7, { dark: 0.35 });
         R(x - 1, y + 54, 3, 68, [58, 60, 64], [0, 0.4, 1], [0, 0, 0]);
       }
       R(0, y + 122, 256, 6, [190, 182, 168], [0, 0.85, 0], [0, 0, 0]);
@@ -533,7 +558,8 @@ function facadeMaterial(T) {
       .replace('#include <emissivemap_fragment>', /* glsl */`
         {
           float zone = fhash(vec2(floor(cell.x / 3.0), cell.y) + 0.37);
-          float lit = max(step(zone, 0.24), step(fhash(cell + 3.3), 0.09));
+          float lk = (tl > 4.5 && tl < 5.5) ? 0.45 : 1.0;   // Meridian: sparse lights, it reads as a dark monolith
+          float lit = max(step(zone, 0.3 * lk), step(fhash(cell + 3.3), 0.13 * lk));
           lit = mix(lit, 1.0, isSw);
           float bright = mix(0.45 + 0.95 * fhash(cell + 9.9), 1.0, isSw);
           totalEmissiveRadiance *= emT * lit * bright;
@@ -556,10 +582,14 @@ function facadeMaterial(T) {
           float win = step(0.86, fhash(floor(vec2(az * 160.0, rw.y * 110.0))));
           vec3 bc = radiance * 0.16 + vec3(0.022, 0.02, 0.026) + vec3(1.0, 0.6, 0.3) * win * (0.05 + 0.4 * uDusk);
           radiance = mix(radiance, bc, m * 0.85);
+          // glass Fresnel: face-on the pane is dark and you see the office, at grazing angles it mirrors the sky
+          float ndv = clamp(dot(geometryNormal, geometryViewDir), 0.0, 1.0);
+          float frs = pow(1.0 - ndv, 3.0);
+          radiance *= mix(1.0, mix(0.32, 2.3, frs), glassM);
         }
         #endif`);
   };
-  m.customProgramCacheKey = () => 'bayhem-facade-v1';
+  m.customProgramCacheKey = () => 'bayhem-facade-v2';
   return m;
 }
 
@@ -695,7 +725,12 @@ export async function buildCity(ctx) {
     lbox(B.trim, f, 0, f.len, -0.1, 0.35, 4.2, SF, { c: pierC, skip: 'y' });
   }
   // generic facade wall on a face
-  const fwall = (f, y0, y1, tile, uo = 0, yb = 0, c = WHITE) => { if (y1 > y0 + 0.01) lwall(B.facade, f, 0, f.len, y0, y1, 0, { tile, u0: uo, yb, c }); };
+  const isStoneT = (t) => t === TILE.stone || t === TILE.stoneGlass || t === TILE.precast;
+  const fwall = (f, y0, y1, tile, uo = 0, yb = 0, c = WHITE) => {
+    if (y1 <= y0 + 0.01) return;
+    const ao = isStoneT(tile) ? { ao: 2.2, aoK: 0.5, aoB: y0 > 1 ? 1.4 : 0, aoBk: 0.6 } : { ao: 1.2, aoK: 0.7 };
+    lwall(B.facade, f, 0, f.len, y0, y1, 0, { tile, u0: uo, yb, c, ...ao });
+  };
   // roof clutter on a rect
   function clutter(x0, z0, x1, z1, y, seed, opts = {}) {
     const r = makeRng(seed);
@@ -800,7 +835,7 @@ export async function buildCity(ctx) {
   function tower(L, x0, x1, z0, z1, y0, H, seed) {
     const r = makeRng(seed);
     const st = L.style, tile = STYLE[st].tile, uo = Math.floor(r() * 16) / 4, vo = Math.floor(r() * 4);
-    const O = { tile, uo, yb: y0, vo };
+    const O = { tile, uo, yb: y0, vo, ...(st === 'stone' ? { ao: 2.4, aoK: 0.5 } : {}) };
     // keep-out for podium clutter
     avoid.push([x0 - 1, z0 - 1, x1 + 1, z1 + 1]);
     col([x0, y0, z0], [x1, H, z1], 'building', st.startsWith('stone') ? 'concrete' : 'glass');
@@ -1014,7 +1049,7 @@ export async function buildCity(ctx) {
     // tower
     if (o.tower > P) {
       const ins = Math.min(4, (x1 - x0) * 0.15), t = [x0 + ins, z0 + ins, x1 - ins, z1 - ins];
-      const tt = o.towerTile ?? tile, ox = { tile: tt, uo: uo + 0.25, yb: P };
+      const tt = o.towerTile ?? tile, ox = { tile: tt, uo: uo + 0.25, yb: P, ...(isStoneT(tt) ? { ao: 2, aoK: 0.55, aoB: 1.5, aoBk: 0.6 } : {}) };
       if (r() < 0.35 && tt !== TILE.stone) prism(B.facade, octPoly(...t, 2.5), P, o.tower, ox, { sw: SW.tar });
       else prism(B.facade, rectPoly(...t), P, o.tower, ox, { sw: SW.tar });
       box(B.facade, t[0] + 2, o.tower, t[1] + 2, t[2] - 2, o.tower + 3, t[3] - 2, { sw: SW.darkAlu, skip: 'y', top: { sw: SW.tar } });
@@ -1224,6 +1259,42 @@ export async function buildMeridian(a, b) {
     for (let z = ZF - NT - 1.9; z > ZB + NT; z -= finSpacing) box(Bm, xs(X), y0, z - 0.16, xs(X) + s * 0.8, y1, z + 0.16, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
   }
   // ---------- lower (0..breakY)
+  // break damage: jagged slab noses + rebar on the cut face, hanging concrete under the chunk,
+  // missing glass along the break line (warm-dark concrete, so tumbling chunks never read as clean blocks)
+  const brk = makeRng(4040);
+  const CONC = [0.62, 0.52, 0.44], CONC_D = [0.34, 0.27, 0.22], REBAR = [0.32, 0.16, 0.08];
+  function broken(Bm, s, y0, y1, { under = true, cut = true, top = false } = {}) {
+    const r = brk, xs = (v) => s * v;
+    if (cut) for (let fy = Math.ceil((y0 + 0.6) / 4.2) * 4.2; fy < y1 - 0.4; fy += 4.2) {
+      for (let z = ZB + 0.5; z < ZF - 0.5;) {
+        const len = 0.8 + r() * 3, reach = r() * 1.6, sag = r() < 0.25 ? r() * 0.5 : 0;
+        if (r() < 0.8) box(Bm, xs(0.02), fy - 0.45 - sag, z, xs(-reach - 0.1), fy + 0.05 - sag * 0.3, Math.min(ZF - 0.3, z + len), { sw: SW.concrete, c: r() < 0.5 ? CONC : CONC_D });
+        if (r() < 0.45) beam(Bm, [xs(-reach), fy - 0.2, z + len * 0.5], [xs(-reach - 0.5 - r() * 1.2), fy - 0.2 - r() * 0.9, z + len * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
+        z += len + r() * 0.8;
+      }
+    }
+    const jag = (y, dir) => {
+      for (let k = 0; k < 9; k++) {
+        const x0 = r() * (X - 2), w = 1.2 + r() * 4, z0 = ZB + r() * (ZF - ZB - 4), d = 2 + r() * 8, h = 0.3 + r() * 1.4;
+        const xa = xs(x0), xb = xs(Math.min(X - 0.3, x0 + w));
+        box(Bm, xa, y, z0, xb, y + dir * h, Math.min(ZF - 0.2, z0 + d), { sw: SW.concrete, c: r() < 0.5 ? CONC : CONC_D });
+        if (r() < 0.6) beam(Bm, [(xa + xb) / 2, y + dir * h, z0 + d * 0.5], [(xa + xb) / 2 + (r() - 0.5) * 1.2, y + dir * (h + 0.6 + r()), z0 + d * 0.5 + (r() - 0.5)], 0.05, 0.05, { sw: SW.char, c: REBAR });
+      }
+    };
+    if (under) jag(y0, -1);
+    if (top) jag(y1, 1);
+    // missing / smashed panes near the break: dark recessed squares with a torn edge on the front, back and side faces
+    const holes = (yB, dir) => {
+      for (let k = 0; k < 6; k++) {
+        const y = yB + dir * (0.2 + r() * 2.5), hgt = 1.2 + r() * 2.2, ya = dir > 0 ? y : y - hgt;
+        const fx = 0.6 + r() * (X - NT - 3), fw = 1.3 + r() * 2.4, face = r();
+        if (face < 0.75) q(Bm, [xs(fx) + (s < 0 ? 0 : fw), ya, ZB - 0.03], [-fw, 0, 0], [0, hgt, 0], { sw: SW.char, c: [0.6, 0.5, 0.4] });
+        else if (false) { const z = ZB + NT + 1 + r() * (ZF - ZB - 2 * NT - 4); q(Bm, s > 0 ? [X + 0.03, ya, z + fw] : [-X - 0.03, ya, z], [0, 0, s > 0 ? -fw : fw], [0, hgt, 0], { sw: SW.char, c: [0.6, 0.5, 0.4] }); }
+      }
+    };
+    if (under) holes(y0, 1);
+    if (top) holes(y1, -1);
+  }
   const lowerB = new Batch(), lowerPatch = new Batch(), lowerStore = new Batch();
   const LOBBY_H = 12;
   for (const s of [-1, 1]) band(lowerB, lowerPatch, s, 0, M.breakY, { lobbyTop: LOBBY_H, finY0: LOBBY_H, bottom: false, top: false });
@@ -1251,6 +1322,7 @@ export async function buildMeridian(a, b) {
     // granite base band on the side/back faces
     for (const s of [-1, 1]) box(lowerB, s * X - 0.1, 0, ZB - 0.1, s * (X - 0.4), 1.2, ZF - NT, { sw: SW.granite, skip: 'y' });
   }
+  for (const s of [-1, 1]) broken(lowerB, s, 0, M.breakY, { under: false, cut: false, top: true });
   const lowerG = new THREE.Group(); lowerG.name = 'meridian-lower';
   const lm = lowerB.mesh(facade); lowerG.add(lm);
   lowerG.add(lowerStore.mesh(store, { cast: false }));
@@ -1284,6 +1356,7 @@ export async function buildMeridian(a, b) {
     for (const s of [-1, 1]) {
       const Bm = new Batch(), patch = i === 0 ? new Batch() : null;
       band(Bm, patch, s, y0, y1, {});
+      broken(Bm, s, y0, y1, { under: true, cut: true, top: i < NB - 1 && brk() < 0.6 });
       // gold belt at the crown base / mid tower
       if (i === NB - 1) box(Bm, Math.min(0, s * (X + 0.4)), y1 - 1.6, ZB - 0.4, Math.max(0, s * (X + 0.4)), y1, ZF + 1.0, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
       if (i === 1) box(Bm, Math.min(0, s * (X + 0.2)), y1 - 0.8, ZB - 0.2, Math.max(0, s * (X + 0.2)), y1, ZF + 0.95, { sw: SW.gold, skip: s > 0 ? 'x' : 'X' });
@@ -1338,6 +1411,7 @@ export async function buildMeridian(a, b) {
       for (const y of [CR1 + 8, CR1 + 16, CR1 + 24]) Bm.geo(new THREE.CylinderGeometry(1.5 - (y - CR1) * 0.04, 1.5 - (y - CR1) * 0.04, 0.5, 10), new THREE.Matrix4().makeTranslation(0.01, y, (ZF + ZB) / 2), { sw: SW.gold });
       Bm.geo(new THREE.SphereGeometry(0.35, 8, 6), new THREE.Matrix4().makeTranslation(0.01, CR1 + 45.3, (ZF + ZB) / 2), { sw: SW.red });
     }
+    broken(Bm, s, CROWN0, CR1, { under: true, cut: false });
     mkChunk(Bm, s, CROWN0, CR1 + 3, []);
   }
   const top = chunks[chunks.length - 1];
@@ -1403,6 +1477,7 @@ export async function buildMeridian(a, b) {
   let holeVis = true;
   Object.defineProperty(hole, 'visible', { configurable: true, get() { return holeVis; }, set(v) { holeVis = v; for (const p of patches) p.visible = !v; } });
   hole.visible = !!opts.hole;
+  if (opts.explode) chunks.forEach((c, i) => { c.position.y += (i >> 1) * opts.explode; c.position.x += (i % 2 ? 1 : -1) * opts.explode * 0.6; c.rotation.x = (i % 3 - 1) * 0.15; });   // viewer only
 
   root.traverse(o => { if (o.isMesh && o.castShadow === false && !o.material.alphaTest && o.name !== 'meridian-logo') { o.castShadow = o.parent !== hole; } });
   preview([facade, store]);

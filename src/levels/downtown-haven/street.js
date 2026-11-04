@@ -131,11 +131,11 @@ function asphaltTex() {
   const { c, g, h } = genSurface(S, 1, (x, y) => {
     const u = x / S, v = y / S;
     const m = fbm(n1, u, v, 4, 4), f = n2(u * 256, v * 256), f2 = n3(u * 64, v * 64), q = r();
-    let b = 0.27 + (m - 0.5) * 0.14 + (f - 0.5) * 0.05 + (f2 - 0.5) * 0.04 + (q - 0.5) * 0.045;
+    let b = 0.3 + (m - 0.5) * 0.14 + (f - 0.5) * 0.05 + (f2 - 0.5) * 0.04 + (q - 0.5) * 0.045;
     let hh = f * 0.55 + q * 0.3 + f2 * 0.15;
     if (q > 0.988) { b += 0.08; hh += 0.25; } else if (q < 0.02) { b -= 0.05; hh -= 0.2; }
     const bit = Math.max(0, fbm(n3, u + 0.31, v + 0.77, 3, 3) - 0.6) * 2.2; b -= bit * 0.12; hh -= bit * 0.3;   // bitumen-rich, smooth
-    return [b * 255 * 1.02, b * 255, b * 255 * 0.95, hh];
+    return [b * 255 * 1.05, b * 255 * 0.99, b * 255 * 0.9, hh];
   });
   for (let k = 0; k < 9; k++) crack(g, r, r() * S, r() * S, 12 + r() * 30 | 0, 1.6, 'rgba(14,14,16,0.45)');
   for (let k = 0; k < 4; k++) { g.strokeStyle = 'rgba(8,8,10,0.85)'; g.lineWidth = 7; g.beginPath(); let x = r() * S, y = r() * S; g.moveTo(x, y); for (let s = 0; s < 14; s++) { x += (r() - 0.5) * 40; y += 18 + r() * 10; g.lineTo(x, y); } g.stroke(); } // sealed (tar) cracks
@@ -198,22 +198,29 @@ function tileTex() {
   return { map, normal };
 }
 function leafTex() {
+  // leaf clusters: dark core, broken lobed silhouette, no pale fringe (dark background bleed + hard alpha test)
   const S = 512, c = makeCanvas(S, S), g = c.getContext('2d'), r = makeRng(911);
-  g.clearRect(0, 0, S, S);
-  for (let k = 0; k < 1500; k++) {
-    const a = r() * Math.PI * 2, d = Math.pow(r(), 0.6) * S * 0.44, x = S / 2 + Math.cos(a) * d, y = S / 2 + Math.sin(a) * d;
-    const l = 9 + r() * 10, sh = 0.55 + r() * 0.45;
-    g.fillStyle = `rgb(${(70 + r() * 50) * sh | 0},${(110 + r() * 60) * sh | 0},${(40 + r() * 30) * sh | 0})`;
-    g.save(); g.translate(x, y); g.rotate(r() * 7); g.beginPath(); g.ellipse(0, 0, l, l * 0.45, 0, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(30,50,20,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-l, 0); g.lineTo(l, 0); g.stroke(); g.restore();
+  g.fillStyle = 'rgb(20,30,12)'; g.fillRect(0, 0, S, S);
+  const a = makeCanvas(S, S), ag = a.getContext('2d');
+  ag.fillStyle = '#000'; ag.fillRect(0, 0, S, S);
+  for (let k = 0; k < 1700; k++) {
+    const ang = r() * Math.PI * 2, d = Math.pow(r(), 0.75) * S * 0.46, x = S / 2 + Math.cos(ang) * d, y = S / 2 + Math.sin(ang) * d * 0.9;
+    const l = 7 + r() * 9, edge = d / (S * 0.46), rot = r() * 7;
+    const lit = (1 - edge * 0.55) * (0.6 + r() * 0.5) * (y < S * 0.45 ? 1.1 : 0.8);
+    g.fillStyle = `rgb(${(46 + r() * 30) * lit | 0},${(70 + r() * 36) * lit | 0},${(24 + r() * 16) * lit | 0})`;
+    g.save(); g.translate(x, y); g.rotate(rot); g.beginPath(); g.ellipse(0, 0, l, l * 0.42, 0, 0, 7); g.fill(); g.restore();
+    ag.fillStyle = '#fff'; ag.save(); ag.translate(x, y); ag.rotate(rot); ag.beginPath(); ag.ellipse(0, 0, l, l * 0.42, 0, 0, 7); ag.fill(); ag.restore();
   }
+  const id = g.getImageData(0, 0, S, S), ad = ag.getImageData(0, 0, S, S).data;
+  for (let i = 0; i < id.data.length; i += 4) id.data[i + 3] = ad[i];
+  g.putImageData(id, 0, 0);
   return canvasTex(c, { repeat: false, aniso: 4 });
 }
 // road markings / decals atlas (RGBA)
 const MK = {
   line: [0, 0, 512, 64], line2: [0, 64, 512, 64], skid: [512, 0, 512, 128], patch: [0, 128, 256, 256], cracks: [256, 128, 256, 256],
   manhole: [512, 128, 256, 256], oil: [[768, 128, 128, 128], [896, 128, 128, 128], [768, 256, 128, 128], [896, 256, 128, 128]],
-  drain: [0, 384, 256, 128], pothole: [256, 384, 256, 256], tar: [512, 384, 512, 64], pool: [512, 448, 256, 256], scorch: [768, 448, 256, 256],
+  drain: [0, 384, 256, 128], pothole: [256, 384, 256, 256], puddle: [512, 704, 512, 320], tar: [512, 384, 512, 64], pool: [512, 448, 256, 256], scorch: [768, 448, 256, 256],
   arrow: [0, 512, 128, 256], xing: [128, 640, 384, 128],
 };
 function markingsTex() {
@@ -262,6 +269,16 @@ function markingsTex() {
   { const [x, y, w] = MK.pool, cx = x + w / 2, cy = y + w / 2; const gr = g.createRadialGradient(cx, cy, 0, cx, cy, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.5)'); gr.addColorStop(0.75, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, w); }
   // scorch (earlier chaos)
   { const [x, y, w] = MK.scorch, cx = x + w / 2, cy = y + w / 2; for (let k = 0; k < 40; k++) { const a = r() * 7, d = r() * 70, rr = 20 + r() * 50; const gr = g.createRadialGradient(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0, cx + Math.cos(a) * d, cy + Math.sin(a) * d, rr); gr.addColorStop(0, 'rgba(4,3,2,0.35)'); gr.addColorStop(1, 'rgba(4,3,2,0)'); g.fillStyle = gr; g.fillRect(x, y, w, w); } for (let k = 0; k < 30; k++) { const a = r() * 7; g.strokeStyle = 'rgba(5,4,3,0.4)'; g.lineWidth = 2 + r() * 4; g.beginPath(); g.moveTo(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40); g.lineTo(cx + Math.cos(a) * 125, cy + Math.sin(a) * 125); g.stroke(); } }
+  // puddle mask (white, soft irregular edge; alpha = wetness)
+  { const [x, y, w, hh] = MK.puddle;
+    const img = g.createImageData(w, hh), nn = makeNoise(1003, 16);
+    for (let j = 0; j < hh; j++) for (let i = 0; i < w; i++) {
+      const u = (i - w / 2) / (w / 2), v = (j - hh / 2) / (hh / 2), d = Math.sqrt(u * u + v * v);
+      const e = d + (fbm(nn, i / w, j / hh, 3, 4) - 0.5) * 0.9;
+      const a = Math.min(1, Math.max(0, (0.78 - e) * 5)) * 0.95 + Math.min(1, Math.max(0, (1.0 - e) * 2.5)) * 0.05;
+      const k = (j * w + i) * 4; img.data[k] = img.data[k + 1] = img.data[k + 2] = 255; img.data[k + 3] = a * 255;
+    }
+    g.putImageData(img, x, y); }
   // lane arrow (straight + left)
   { const [x, y, w, hh] = MK.arrow; g.fillStyle = 'rgba(240,238,230,0.92)'; g.fillRect(x + 54, y + 90, 20, 160); g.beginPath(); g.moveTo(x + 24, y + 96); g.lineTo(x + 64, y + 8); g.lineTo(x + 104, y + 96); g.fill(); }
   // XING text-ish "SLOW"
@@ -340,11 +357,39 @@ function materials(renderer) {
   const lens = rmMaterial(T.atlas, { envMapIntensity: 0.6 });
   lens.userData.duskEmissive = 2.6;
   const glass = new THREE.MeshStandardMaterial({ color: 0x9fb4bf, metalness: 0.1, roughness: 0.06, transparent: true, opacity: 0.22, envMapIntensity: 1.8, depthWrite: false, side: THREE.DoubleSide });
-  const leaves = new THREE.MeshStandardMaterial({ map: T.leaf, vertexColors: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85, metalness: 0, envMapIntensity: 0.4 });
+  const leaves = new THREE.MeshStandardMaterial({ map: T.leaf, vertexColors: true, alphaTest: 0.55, side: THREE.DoubleSide, roughness: 0.9, metalness: 0, envMapIntensity: 0.25 });
+  // canopy: global fresnel rim disabled; only a sun-side backlit translucency term
+  leaves.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', THREE.ShaderChunk.lights_fragment_end.replace('reflectedLight.directSpecular += rimColor * fr', 'reflectedLight.directSpecular += 0.0 * rimColor * fr'));
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `
+      { vec3 vd = normalize(vViewPosition); float back = pow(clamp(dot(-vd, rimSunDir), 0.0, 1.0), 6.0);
+        outgoingLight += rimColor * vec3(0.35, 0.6, 0.12) * diffuseColor.rgb * back * 0.5; }
+      #include <opaque_fragment>`);
+  };
+  leaves.customProgramCacheKey = () => 'streetLeaves';
   const pools = new THREE.MeshBasicMaterial({ map: T.marks, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, toneMapped: false });
   const tiles = new THREE.MeshStandardMaterial({ map: T.tile.map, normalMap: T.tile.normal, normalScale: new THREE.Vector2(0.5, 0.5), vertexColors: true, roughness: 0.3, metalness: 0, envMapIntensity: 0.9 });
   const dark = new THREE.MeshBasicMaterial({ color: 0x000000, vertexColors: true, transparent: true, depthWrite: false, fog: false });
-  MAT = { road, marks, side, plaza, props, lens, glass, leaves, pools, tiles, dark };
+  // wet asphalt: dark, glossy, cheap planar-ish reflection of the sky (gradient by reflected elevation + sun streak)
+  const wet = new THREE.MeshStandardMaterial({ map: T.marks, color: 0x0b0b0c, roughness: 0.08, metalness: 0.0, transparent: true, depthWrite: false, envMapIntensity: 1.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -5 });
+  wet.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `
+      {
+        vec3 vd = normalize(vViewPosition);
+        vec3 rv = reflect(-vd, normal);
+        vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+        float ry = max(dot(rv, upV), 0.0);
+        vec3 hor = rimColor * 0.7 + vec3(0.1, 0.08, 0.08);
+        vec3 sky = mix(hor, vec3(0.12, 0.2, 0.4), smoothstep(0.03, 0.5, ry));
+        float sd = max(dot(rv, rimSunDir), 0.0);
+        sky += rimColor * (pow(sd, 400.0) * 8.0 + pow(sd, 30.0) * 0.6);
+        float fr = 0.04 + 0.96 * pow(1.0 - clamp(dot(normal, vd), 0.0, 1.0), 5.0);
+        outgoingLight = outgoingLight * 0.6 + sky * mix(0.25, 1.0, fr);
+      }
+      #include <opaque_fragment>`);
+  };
+  wet.customProgramCacheKey = () => 'streetWet';
+  MAT = { road, marks, side, plaza, props, lens, glass, leaves, pools, tiles, dark, wet };
   return MAT;
 }
 
@@ -362,10 +407,11 @@ function surfaces(B, rng) {
     k += 0.12 * Math.max(0, (ax - 9.6) / 1.4);
     return k;
   };
-  const colRoad = (x, z) => { const m = macro(x, z) + laneWear(x); return [0.92 * m, 0.9 * m, 0.88 * m]; };
+  const warm = (x, z) => (fbm(n1, x / 120 + 3, z / 120 + 7, 3, 3) - 0.5) * 0.5;
+  const colRoad = (x, z) => { const m = macro(x, z) + laneWear(x), w = warm(x, z); return [(1.0 + w * 0.5) * m, (0.93 + w * 0.2) * m, (0.84 - w * 0.2) * m]; };
   const xs = merged(range(-11, 11, 1.0), [-10.6, -9.9, 9.9, 10.6, -6.4, -4.7, -2.7, -1.0, 1.0, 2.7, 4.7, 6.4]);
   groundXZ(B.road, xs, range(-156, 150, 3), 0, uvRoad, colRoad, RM.concrete);
-  const colX = (x, z) => { const az = Math.abs(z + 53); const m = macro(x, z) - 0.06 * Math.exp(-((az - 2.6) ** 2) / 0.4) + 0.12 * Math.max(0, (az - 3.6) / 1.4); return [0.92 * m, 0.9 * m, 0.88 * m]; };
+  const colX = (x, z) => { const az = Math.abs(z + 53); const m = macro(x, z) - 0.06 * Math.exp(-((az - 2.6) ** 2) / 0.4) + 0.12 * Math.max(0, (az - 3.6) / 1.4), w = warm(x, z); return [(1.0 + w * 0.5) * m, (0.93 + w * 0.2) * m, (0.84 - w * 0.2) * m]; };
   for (const s of [-1, 1]) {
     const xx = s > 0 ? merged(range(11, 40, 2), range(40, 220, 12)) : merged(range(-220, -40, 12), range(-40, -11, 2));
     groundXZ(B.road, xx, merged(range(CROSS.road0, CROSS.road1, 1.25), [-57.6, -48.4]), 0, uvRoad, colX, RM.concrete);
@@ -478,6 +524,11 @@ function markings(B, rng, anchors) {
       for (let z = zb - 2; z > za + 3; z -= 12) decal(bk, s * 3.7, z - 1.5, 0.13, 3, 0, rng() < 0.5 ? MK.line : MK.line2, WHITE_P, 0.006, true);
     }
   }
+  // sealed construction joints: along each lane line + transverse every ~15 m
+  for (const [za, zb] of [[CROSS.z1 + 0.5, AVE.back], [PLAZA.z1 - 5.5, CROSS.z0 - 0.5]]) {
+    for (const x of [-9.9, -3.75, 3.75, 9.9]) for (let z = zb; z > za + 6; z -= 6) decal(bk, x + 0.18 + (rng() - 0.5) * 0.06, z - 3, 0.22, 6, (rng() - 0.5) * 0.01, MK.tar, [1, 1, 1], 0.0053, true);
+    for (let z = zb - 7; z > za + 4; z -= 13 + rng() * 6) for (const s of [-1, 1]) decal(bk, s * 5.4, z, 0.26, 10.6, Math.PI / 2 + (rng() - 0.5) * 0.04, MK.tar, [1, 1, 1], 0.0053, true);
+  }
   // stop bars + crosswalks (continental) at the intersection and the plaza
   const xwalkAcross = (zc, depth) => { for (let x = -10.2; x <= 10.2; x += 1.2) decal(bk, x, zc, 0.6, depth, 0, rng() < 0.5 ? MK.line : MK.line2, WHITE_P, 0.006, true); };
   xwalkAcross((zN + CROSS.road1) / 2, 3.0); xwalkAcross((zS + CROSS.road0) / 2, 3.0);
@@ -512,7 +563,7 @@ function markings(B, rng, anchors) {
   const scatter = (count, fn) => { for (let k = 0; k < count; k++) { const z = 140 - rng() * 296, x = (rng() - 0.5) * 20; fn(x, z); } };
   scatter(16, (x, z) => decal(bk, x, z, 2 + rng() * 3, 2 + rng() * 5, (rng() - 0.5) * 0.1, MK.patch, [1, 1, 1], 0.005));
   scatter(16, (x, z) => decal(bk, x, z, 2 + rng() * 2.5, 2 + rng() * 2.5, rng() * 6, MK.cracks, [1, 1, 1], 0.0055));
-  scatter(40, (x, z) => { const lane = [-5.55, -1.85, 1.85, 5.55][(rng() * 4) | 0]; decal(bk, lane + (rng() - 0.5) * 0.4, z, 1 + rng() * 1.4, 1 + rng() * 2.4, rng() * 0.4, MK.oil[(rng() * 4) | 0], [1, 1, 1], 0.0058); });
+  scatter(70, (x, z) => { const lane = [-5.55, -1.85, 1.85, 5.55][(rng() * 4) | 0]; decal(bk, lane + (rng() - 0.5) * 0.4, z, 1 + rng() * 1.4, 1 + rng() * 2.4, rng() * 0.4, MK.oil[(rng() * 4) | 0], [1, 1, 1], 0.0058); });
   scatter(7, (x, z) => decal(bk, x, z, 0.7 + rng() * 0.6, 0.6 + rng() * 0.5, rng() * 6, MK.pothole, [1, 1, 1], 0.0062));
   scatter(10, (x, z) => decal(bk, x, z, 0.35, 4 + rng() * 5, (rng() - 0.5) * 0.6, MK.tar, [1, 1, 1], 0.0052, true));
   // skid marks: arcs of 4 segments, two pairs
@@ -520,6 +571,9 @@ function markings(B, rng, anchors) {
     let x = (rng() - 0.5) * 16, z = 120 - rng() * 260, a = (rng() - 0.5) * 0.6; const da = (rng() - 0.5) * 0.35;
     for (let s = 0; s < 5; s++) { const l = 2.2; decal(bk, x, z, 1.8, l, a, MK.skid, [1, 1, 1], 0.0065, true); x += Math.sin(a) * l * -1 * -1; z -= Math.cos(a) * l; a += da; }
   }
+  // wet patches / puddles: along the gutters (hydrant runoff, broken mains) + a few low spots
+  const wets = [[10.1, 37], [-10.2, 18], [10.0, 2], [-9.9, -16], [9.6, -36], [-10.1, -64], [10.2, -82], [-9.8, -108], [10.0, -131], [-2.2, -45.5], [-24, -48.8], [30, -57.4], [6.4, 24], [-5.2, -98], [3.4, -128]];
+  for (const [x, z] of wets) decal(anchors._wet, x, z, 1.4 + rng() * 1.6, 2.5 + rng() * 4, Math.abs(x) > 9 ? 0 : rng() * 3, MK.puddle, [1, 1, 1], 0.0075, true);
   // scorch marks from earlier chaos
   for (const [x, z] of [[4.5, 41], [-6, -12], [2, -47], [-15, -55], [6.5, -118]]) decal(bk, x, z, 5 + rng() * 2, 5 + rng() * 2, rng() * 6, MK.scorch, [1, 1, 1], 0.0068);
 }
@@ -586,9 +640,21 @@ function signalMast(B, x, z, dir, faceRot, glows, colliders, signName, rng) {
   addGeo(P, BOX(0.32, 0.32, 0.2), pm, [0.12, 0.11, 0.035], RM.paint);
   addGeo(B.lens, BOX(0.24, 0.24, 0.01), pm.clone().multiply(M4(0, 0, 0.101)), [1.0, 0.35, 0.05], [0.3, 0, 0.6]);
   addGeo(P, BOX(0.1, 0.16, 0.06), M4(x + fx * 0.15, 1.15, z + fz * 0.15, 0, fr, 0), [0.75, 0.6, 0.12], RM.paint);
-  addGeo(P, BOX(0.5, 0.42, 0.42), M4(x - fx * 0.32, 1.0, z - fz * 0.32, 0, fr, 0), [0.4, 0.41, 0.4], RM.alu);   // controller cabinet
+  { // traffic controller cabinet on a concrete plinth (door faces the sidewalk)
+    const cx = x - fx * 0.55, cz = z - fz * 0.55, cm = M4(cx, SW, cz, 0, fr + Math.PI, 0), green = [0.16, 0.2, 0.15];
+    addGeo(P, BOX(0.78, 0.14, 0.56), cm.clone().multiply(M4(0, 0.07, 0)), [0.42, 0.41, 0.39], RM.concrete);
+    addGeo(P, BOX(0.66, 1.18, 0.44), cm.clone().multiply(M4(0, 0.14 + 0.59, 0)), green, RM.paint);
+    addGeo(P, BOX(0.72, 0.05, 0.5), cm.clone().multiply(M4(0, 1.345, 0)), green.map((v) => v * 0.8), RM.paint);
+    const door = cm.clone().multiply(M4(0, 0.73, 0.222));
+    addGeo(P, BOX(0.58, 1.08, 0.012), door, green.map((v) => v * 1.1), RM.paint);
+    addGeo(P, BOX(0.004, 1.08, 0.016), door.clone().multiply(M4(0.29, 0, 0)), COL.dark, RM.rubber);
+    for (let k = 0; k < 6; k++) addGeo(P, BOX(0.36, 0.018, 0.02), door.clone().multiply(M4(0, -0.42 + k * 0.035, 0.008, -0.5, 0, 0)), COL.dark, RM.metal);
+    addGeo(P, BOX(0.03, 0.14, 0.03), door.clone().multiply(M4(0.24, 0.05, 0.01)), [0.55, 0.55, 0.55], RM.chrome);
+    addGeo(P, new THREE.PlaneGeometry(0.2, 0.26), door.clone().multiply(M4(-0.12, 0.25, 0.008)), COL.white, [0.5, 0, 0.05], A.news[1]);
+    addGeo(P, new THREE.PlaneGeometry(0.42, 0.06), door.clone().multiply(M4(0, 0.47, 0.008)), [0.9, 0.75, 0.15], RM.paint);
+    colliders.push({ min: [cx - 0.42, 0, cz - 0.42], max: [cx + 0.42, SW + 1.37, cz + 0.42], data: { kind: 'prop', mat: 'metal' } });
+  }
   colliders.push({ min: [x - 0.2, 0, z - 0.2], max: [x + 0.2, 7, z + 0.2], data: { kind: 'prop', mat: 'metal', thin: true } });
-  colliders.push({ min: [x - fx * 0.32 - 0.3, 0, z - fz * 0.32 - 0.3], max: [x - fx * 0.32 + 0.3, 1.25, z - fz * 0.32 + 0.3], data: { kind: 'prop', mat: 'metal' } });
 }
 function hydrant(B, x, z, rot, colliders) {
   const P = B.props, red = [0.42, 0.04, 0.03], chrome = [0.62, 0.62, 0.6];
@@ -667,11 +733,11 @@ function tree(B, x, z, rng, colliders, pit = true) {
     const p = [t[0] + (rng() - 0.5) * 1.1, t[1] + (rng() - 0.3) * 0.9, t[2] + (rng() - 0.5) * 1.1];
     const ya = rng() * Math.PI, pa = (rng() - 0.5) * 1.2, sz = 1.3 + rng() * 0.7;
     const right = [Math.cos(ya), 0, -Math.sin(ya)], up = [Math.sin(ya) * Math.sin(pa), Math.cos(pa), Math.cos(ya) * Math.sin(pa)];
-    const tint = 0.55 + rng() * 0.3, col = [0.8 * tint, 0.9 * tint, 0.62 * tint];
+    const tint = 0.7 + rng() * 0.3, col = [0.95 * tint, 1.0 * tint, 0.85 * tint];
     const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [p[0] + (right[0] * a + up[0] * b) * sz / 2, p[1] + (right[1] * a + up[1] * b) * sz / 2, p[2] + (right[2] * a + up[2] * b) * sz / 2]);
     const nn = corners.map((q) => { const v = new THREE.Vector3(q[0] - cc[0], (q[1] - cc[1]) * 1.4 + 0.6, q[2] - cc[2]).normalize(); return [v.x, v.y, v.z]; });
     const uvs = [[0, 0], [1, 0], [1, 1], [0, 1]];
-    const shade = corners.map((q) => (q[1] < cc[1] - 0.3 ? 0.6 : 1));
+    const shade = corners.map((q) => (q[1] < cc[1] - 0.3 ? 0.45 : q[1] > cc[1] + 0.5 ? 1.0 : 0.75));
     const cl = (i) => col.map((v) => v * shade[i]);
     B.leaves.tri(corners[0], corners[1], corners[2], nn[0], nn[1], nn[2], uvs[0], uvs[1], uvs[2], [...cl(0), ...cl(1), ...cl(2)], RM.wood);
     B.leaves.tri(corners[0], corners[2], corners[3], nn[0], nn[2], nn[3], uvs[0], uvs[2], uvs[3], [...cl(0), ...cl(2), ...cl(3)], RM.wood);
@@ -801,6 +867,7 @@ export async function buildStreet(ctx = {}) {
   const B = { road: new Bucket(), side: new Bucket(), stone: new Bucket(), plaza: new Bucket(), marks: new Bucket(), props: new Bucket(), lens: new Bucket(), glass: new Bucket(), leaves: new Bucket(), pools: new Bucket(), poolList: [] };
   const anchors = { glows: [], manholes: [], drains: [] };
   const colliders = [];
+  const wetB = new Bucket(); anchors._wet = wetB;
   surfaces(B, rng);
   curbs(B, rng);
   markings(B, rng, anchors);
@@ -814,6 +881,8 @@ export async function buildStreet(ctx = {}) {
   add(B.stone, M.side, { shadow: true });
   add(B.plaza, M.plaza);
   add(B.marks, M.marks, { order: 1 });
+  delete anchors._wet;
+  add(wetB, M.wet, { order: 1 });
   const pm = add(B.pools, M.pools, { order: 2 });
   add(B.props, M.props, { shadow: true });
   add(B.lens, M.lens);
