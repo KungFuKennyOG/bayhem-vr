@@ -113,7 +113,7 @@ export class Director {
           later(3.5, () => say('The subway — back by the intersection! GO GO GO!', 3));
           // kill anything left (they run too)
           for (const s of g.soldiers) if (s.alive && s.role === 'sniper') s.delay = 999;
-          A?.go([ground(19.6, -88.6, { sprint: true }), ground(14.4, -88.4, { sprint: true }), ground(6.5, -82, { sprint: true }), ground(5.5, -52, { sprint: true }), ground(11.2, -44.5, { sprint: true }), ground(13.7, -43.2, { sprint: true }), { p: V(subTop.x, 0, SUBWAY.zTop + 0.6), nav: null, sprint: true }, { p: V(subTop.x, 0, SUBWAY.zBot + 1.5), nav: null, sprint: true, tol: 0.8 }]);
+          A?.go([ground(19.6, -88.6, { sprint: true }), ground(14.4, -88.4, { sprint: true }), ground(6.5, -82, { sprint: true }), ground(5.5, -52, { sprint: true }), ground(9.6, -46.5, { sprint: true }), ground(13.7, -43.4, { sprint: true }), { p: V(subTop.x, 0, SUBWAY.zTop + 0.6), nav: null, sprint: true }, { p: V(subTop.x, 0, SUBWAY.zBot + 1.5), nav: null, sprint: true, tol: 0.8 }]);
         }, update: (t) => {
           for (const e of g.events) {
             if (e.type === 'collapseFall') this.lookBack = 1; // as soon as you're out on the street
@@ -159,7 +159,7 @@ export class Director {
     if (ji > 0) {
       for (let i = 0; i < ji; i++) { const st = this.steps[i]; if (st.dusk !== undefined) this.duskTarget = game.dusk = st.dusk; }
       const p = START[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
-      if (ji > this.steps.findIndex(s => s.name === 'gunship')) { setp.spawnHeli(); setp.heli.pos.set(...MERIDIAN.impact); setp.killHeli(); setp._heliCrash(); g.cinematicLook = null; }
+      if (ji > this.steps.findIndex(s => s.name === 'gunship')) { setp.spawnHeli(); setp.heli.pos.set(...MERIDIAN.impact); setp.killHeli(); setp._heliCrash(); g.cinematicLook = null; g.slowT = 0; for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0; }
       if (ji > this.steps.findIndex(s => s.name === 'collapse')) setp.collapsedState();
       if (ji > this.steps.findIndex(s => s.name === 'lobby')) { setp.lobbyDone = true; for (const p of g.glass.panes) if (p.kind === 'sky' || p.kind === 'lobby') g.glass.shatter(p, p.c, p.n.clone().negate(), 0.5, { quiet: true, life: 1 }); }
       this.stepIdx = ji - 1;
