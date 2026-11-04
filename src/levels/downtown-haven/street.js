@@ -1110,11 +1110,11 @@ export async function buildSubway(ctx = {}) {
   if (dm) dm.frustumCulled = false;
   add(B.glass, M.glass, { order: 3, receive: false });
   let tris = 0, draws = 0;
-  root.add(inner.root); glows.push(...inner.glows);
+  root.add(inner.root); glows.push(...inner.glows); colliders.push(...inner.colliders);
   root.traverse((o) => { if (o.isMesh) { draws++; tris += o.geometry.attributes.position.count / 3; } });
   glows.push(...globes);
   return {
-    root, colliders,
+    root, colliders, update: inner.update,
     anchors: { dive: new THREE.Vector3(xc, SW, zT), bottom: new THREE.Vector3(xc, yB, zB + 1.5), glows },
     info: { draws, tris },
   };
