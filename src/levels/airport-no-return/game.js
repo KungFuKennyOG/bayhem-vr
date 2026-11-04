@@ -261,7 +261,8 @@ export class AirportGame {
     this.fx.later(0.12, () => this.fx.explosion(t.root.localToWorld(new THREE.Vector3(0, 2.6, -2.4)), 1.4));
     this.fx.later(0.3, () => this.fx.explosion(t.root.localToWorld(new THREE.Vector3(0, 3.5, 4)), 1.2));
     // burning fuel carpet
-    for (let k = 0; k < 14; k++) this.fx.later(k * 0.05, () => { const a = rand() * 6.28, r = range(2, 9); this.fx.explosion(_v.set(P.x + Math.cos(a) * r, 0.4, P.z + Math.sin(a) * r).clone(), range(0.35, 0.6), { noRing: true }); });
+    // (flames + low rolling fireballs, no flash sprites: 14 mini-explosions on the ground read as a hard white band)
+    for (let k = 0; k < 18; k++) this.fx.later(k * 0.06, () => { const a = rand() * 6.28, r = range(2, 9), Q = _v.set(P.x + Math.cos(a) * r, 0.3, P.z + Math.sin(a) * r).clone(); this.fx.flame(Q, range(2.0, 3.2)); if (k % 2 === 0) this.fx.main.spawn({ x: Q.x, y: 1.2, z: Q.z, vx: range(-1.5, 1.5), vy: range(1.5, 3.5), vz: range(-1.5, 1.5), drag: 1.6, frameKind: 1, s0: range(2.2, 3.2), s1: range(5.5, 7.5), ease: 0.6, life: range(0.9, 1.4), rot: rand() * 6.28, vrot: range(-0.6, 0.6), r: 1.6, g: 0.75, b: 0.3, a: 1, fadeIn: 0.03, fadeOut: 0.8, r1: 0.14, g1: 0.11, b1: 0.09 }); });
     // the truck jumps and flips (rigid box), charred
     for (const bx of t.boxes) this.col.remove(bx);
     t.root.children.forEach(c => { if (c !== t.mesh) c.visible = false; });
@@ -643,7 +644,7 @@ export class AirportGame {
         c.ct = (c.ct ?? rand() * 0.3) - 0.12;
         if (c.ct <= 0) {
           c.ct = (this.isQuest ? 0.9 : 0.45) / Math.sqrt(k);
-          this.clouds.spawn({ x: c.p.x + range(-1.5, 1.5) * k, y: c.p.y + 1.2 * k, z: c.p.z + range(-1.5, 1.5) * k, vx: range(-0.4, 0.4) + 1.5, vy: range(4, 6) * Math.sqrt(k), vz: range(-0.4, 0.4) + 0.55, drag: 0.07, buoy: 0.12, s0: 6 * k, s1: range(19, 26) * k, life: range(13, 17), a: 0.93, fadeIn: 0.02, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.07, g: 0.062, b: 0.056, r1: 0.18, g1: 0.16, b1: 0.145, glow: c.fire ? 1.1 : 0, glowFade: 5 });
+          this.clouds.spawn({ x: c.p.x + range(-1.5, 1.5) * k, y: c.p.y + 1.2 * k, z: c.p.z + range(-1.5, 1.5) * k, vx: range(-0.4, 0.4) + 1.5, vy: range(4, 6) * Math.sqrt(k), vz: range(-0.4, 0.4) + 0.55, drag: 0.07, buoy: 0.12, s0: 6 * k, s1: range(19, 26) * k, life: range(13, 17), a: 0.93, fadeIn: 0.02, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.07, g: 0.062, b: 0.056, r1: 0.18, g1: 0.16, b1: 0.145, glow: c.fire ? 1.1 : 0, glowFade: 12 });
           // the root: low, slow, fire-lit puffs that sit on the wreck (the column must visibly come out of something)
           if (rand() < 0.7) this.clouds.spawn({ x: c.p.x + range(-2.5, 2.5) * k, y: c.p.y + 0.8 * k, z: c.p.z + range(-2.5, 2.5) * k, vx: range(-0.5, 0.5) + 0.6, vy: range(1.2, 2.2), vz: range(-0.5, 0.5), drag: 0.4, buoy: 0.3, s0: 4 * k, s1: range(9, 12) * k, life: range(4, 5.5), a: 0.95, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: c.fire ? 1.2 : 0, glowFade: 2.6 });
         }

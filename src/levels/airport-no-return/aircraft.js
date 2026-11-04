@@ -469,6 +469,7 @@ function cargoMats() {
   const holdTex = holdTexture(), holdGlow = holdGlowTexture();
   // the hold is lit from inside: strip lamps in each rib bay (warm work lights; red at night)
   const hold = new THREE.MeshStandardMaterial({ map: holdTex, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffd2a0, emissiveMap: holdGlow, emissiveIntensity: 1.4 });
+  hold.color.setRGB(1.45, 1.35, 1.25); // warm bounce from the work lamps: the lining read as flat navy-black
   const floorT = floorTexture(); floorT.repeat.set(1, 3);
   const floor = new THREE.MeshStandardMaterial({ map: floorT, roughness: 0.55, metalness: 0.6 });
   const yellow = new THREE.MeshStandardMaterial({ color: 0xd8a51c, roughness: 0.6, metalness: 0.2 });

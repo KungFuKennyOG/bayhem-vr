@@ -11,8 +11,8 @@ import { makeRng } from '../../rng.js';
 //  Everything merges into one grouped mesh per building (one draw call per material).
 // =====================================================================================
 const TAU = Math.PI * 2;
-export const TM = { glass: 0, clad: 1, roof: 2, bridge: 3, steel: 4, shed: 5, sign: 6, door: 7, office: 8, conc: 9, yellow: 10, bridgeGlass: 11 };
-const NTM = 12;
+export const TM = { glass: 0, clad: 1, roof: 2, bridge: 3, steel: 4, shed: 5, sign: 6, door: 7, office: 8, conc: 9, yellow: 10, bridgeGlass: 11, navy: 12 };
+const NTM = 13;
 // sign atlas rows (each 1/8 of the texture height): text, background, text colour
 const SIGNS = [
   ['CONCOURSE B', '#1a2330', '#f4f1e6'],
@@ -46,6 +46,7 @@ export function terminalMaterials() {
   MATS[TM.office] = m({ map: off.map, emissiveMap: off.emissiveMap, emissive: 0xffe0b0, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.4 });
   MATS[TM.conc] = m({ map: T.concreteTexture(78, [0.62, 0.6, 0.56], 128, true), roughness: 0.9 });
   MATS[TM.yellow] = m({ color: 0xd9a514, roughness: 0.55, metalness: 0.2 });
+  MATS[TM.navy] = m({ color: 0x1a2c4e, roughness: 0.5, metalness: 0.35 });
   MATS[TM.bridgeGlass] = m({ color: 0x1b2430, emissive: 0xffc890, emissiveIntensity: 0.25, roughness: 0.1, metalness: 0.6 });
   return MATS;
 }
@@ -134,6 +135,9 @@ export function buildCargoShed({ x0, x1, z0, z1, seed = 3, sign = 4 }) {
   const L = [], r = makeRng(seed), w = x1 - x0, d = z1 - z0, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, H = 13;
   // warehouse box + a low-pitched roof
   L.push([B(w, H, d, xc, H / 2, zc, 0, 8), TM.shed]);
+  L.push([B(w + 0.12, 1.4, d + 0.12, xc, 0.7, zc, 0, 4), TM.conc]);
+  L.push([B(w + 0.14, 1.1, d + 0.14, xc, H - 1.4, zc), TM.navy]);
+  { const nd = 6, step = (w - 30) / nd, doors = Array.from({ length: nd }, (_, k) => x0 + 22 + k * step + step / 2); for (let x = x0 + 8; x < x1 - 4; x += 12) if (!doors.some(dx => Math.abs(dx - x) < 3.2) && x > x0 + 20) L.push([B(0.35, H - 1.4, d + 0.2, x, (H - 1.4) / 2, zc), TM.steel]); }
   { const g = new THREE.CylinderGeometry(1, 1, w, 4, 1, false, 0, TAU); g.rotateZ(Math.PI / 2); g.scale(1, 1.6, d / 1.414); g.rotateX(Math.PI / 4); g.scale(1, 1, 1); g.translate(xc, H, zc); L.push([g, TM.roof]); }
   // dock: concrete apron + bumpers, roller doors with dark gaps, canopy, office strip with lit windows
   L.push([B(w - 8, 1.3, 3.5, xc, 0.65, z1 + 1.75, 0, 4), TM.conc]);

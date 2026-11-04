@@ -356,7 +356,7 @@ export class SetPieces {
       // jet blast tearing up grit + sand off the runway behind the outboard engines: big lit dust rolls the jeep drives through
       if (c.v > 8 && c.alt < 8 && rand() < dt * (g.isQuest ? 3 : 6) * c.spool) {
         const w = c.root.localToWorld(_v.set(pick([-14.7, -7.4, 7.4, 14.7]) + range(-2, 2), 0, range(12, 20)));
-        g.clouds.spawn({ x: w.x, y: 1.2, z: w.z, vx: range(-3, 3), vy: range(0.6, 2), vz: range(6, 14), drag: 0.9, buoy: 0.05, s0: 3, s1: range(11, 16), life: range(2.6, 3.6), a: 0.42, fadeIn: 0.06, fadeOut: 0.6, vrot: range(-0.3, 0.3), r: 0.62, g: 0.52, b: 0.42 });
+        g.clouds.spawn({ x: w.x, y: 1.2, z: w.z, vx: range(-3, 3), vy: range(0.6, 2), vz: range(6, 14), drag: 0.9, buoy: 0.05, s0: 3, s1: range(11, 16), life: range(2.6, 3.6), a: 0.3, fadeIn: 0.06, fadeOut: 0.6, vrot: range(-0.3, 0.3), r: 0.36, g: 0.3, b: 0.25 }); // dusty grey-brown (lit by the low sun the lighter tan read as cotton)
       }
     }
     // ramp lip scraping the runway during rotation: sparks!
@@ -537,8 +537,8 @@ export class SetPieces {
       // (folded sign = beacons sit a metre from your face; headlights point away from you once you ride)
       if (J.sign.visible) this.w.addGlow(on ? bl : br, 0.7, 2.6, 1.3, 0.2, 0.9);
       if (!this.riding) {
-        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 1.4, 2.6, 2.5, 2.2, 0.9);
-        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 1.4, 2.6, 2.5, 2.2, 0.9);
+        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 0.75, 2.6, 2.5, 2.2, 0.6);
+        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 0.75, 2.6, 2.5, 2.2, 0.6);
       }
     }
     // engine audio
@@ -567,7 +567,7 @@ export class SetPieces {
   wantGap(t) {
     if (this.leapT !== undefined) return -2;
     if (this.allowRotate) return 4;
-    const k = [[0, 150], [8, 115], [18, 75], [28, 44], [38, 24], [46, 14]]; // the plane fills the view early (from 210 m it was a speck)
+    const k = [[0, 100], [8, 84], [18, 62], [28, 40], [38, 24], [46, 14]]; // the plane fills the view early (from 210 m it was a speck)
     for (let i = 0; i < k.length - 1; i++) if (t < k[i + 1][0]) return lerp(k[i][1], k[i + 1][1], smooth((t - k[i][0]) / (k[i + 1][0] - k[i][0])));
     return 6;
   }

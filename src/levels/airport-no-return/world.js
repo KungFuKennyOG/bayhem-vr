@@ -102,7 +102,7 @@ export class AirportWorld {
       m({ color: 0x141517, roughness: 0.75, metalness: 0.2 }),
       m({ color: 0x1b2a38, roughness: 0.05, metalness: 0.7, envMapIntensity: 2.2 }),
       m({ color: 0xffffff, emissive: 0xffe2b0, emissiveIntensity: 2.2 }),
-      m({ map: floorT, roughness: 0.35, metalness: 0.1, color: 0xb9bdb6 }),
+      m({ map: floorT, roughness: 0.78, metalness: 0.05, color: 0xb0b2aa }), // matte: the low sun through the door blew a polished floor out to white
       m({ color: 0xa3170f, roughness: 0.45, metalness: 0.3 }),
       m({ color: 0xe8e6df, roughness: 0.5, metalness: 0.1 }),
       m({ color: 0xdcdcd6, roughness: 0.35, metalness: 0.5, envMapIntensity: 1.2 }),
@@ -151,9 +151,9 @@ export class AirportWorld {
     const pos = gg.attributes.position, col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), z = pos.getZ(i);
-      const inField = Math.abs(x - 80) < 700 && z < 1100 && z > -3500;
-      const d = Math.max(0, Math.max(Math.abs(x - 80) - 700, z > 1100 ? z - 1100 : z < -3500 ? -3500 - z : 0));
-      const h = inField ? -0.08 : -0.08 + Math.min(1, d / 1500) * (T.fbm(n, x / 6000 + 0.5, z / 6000 + 0.5, 3, 4) * 70 - 12);
+      const inField = Math.abs(x - 80) < 700 && z < 1100 && z > -3150;
+      const d = Math.max(0, Math.max(Math.abs(x - 80) - 700, z > 1100 ? z - 1100 : z < -3150 ? -3150 - z : 0));
+      const h = inField ? -0.08 : -0.08 + Math.min(1, Math.max(0, d - 400) / 1500) * (T.fbm(n, x / 6000 + 0.5, z / 6000 + 0.5, 3, 4) * 70 - 12); // flat for 400 m past the fence (approach lights, perimeter road)
       pos.setY(i, h);
       const pf = T.fbm(n2, x / 2500 + 0.3, z / 2500 + 0.7, 4, 3), wx = x + (T.fbm(n, x / 3000 + 0.1, z / 3000, 3, 3) - 0.5) * 600, wz = z + (T.fbm(n, x / 3000 + 0.6, z / 3000 + 0.3, 3, 3) - 0.5) * 600, cell = Math.floor(wx / 260) * 7 + Math.floor(wz / 210) * 13;
       const tone = (Math.sin(cell * 12.9898) * 43758.5) % 1;
@@ -173,7 +173,7 @@ export class AirportWorld {
         {
           vec4 M = texture2D(macroMap, vGW.xz / 1400.0);
           vec4 M2 = texture2D(macroMap, vGW.xz / 260.0 + 0.37);
-          float field = 1.0 - smoothstep(560.0, 760.0, abs(vGW.x - 80.0));
+          float field = (1.0 - smoothstep(560.0, 760.0, abs(vGW.x - 80.0))) * smoothstep(-3260.0, -3120.0, vGW.z);
           vec3 dry = vec3(1.12, 0.98, 0.7), green = vec3(0.78, 0.9, 0.62), bare = vec3(0.92, 0.78, 0.62);
           vec3 tintC = mix(mix(dry, green, M.r), bare, M.g * 0.7);
           tintC *= 0.86 + 0.24 * M2.b;
@@ -202,6 +202,8 @@ export class AirportWorld {
     }
     // service roads: behind the hangars, to the tower / fuel farm
     rect(130, 392, 340, 404, 0); rect(336, 30, 348, 404, 0); rect(240, 18, 348, 30, 0);
+    // perimeter road around the field (from the climb-out the airfield needs an edge)
+    rect(-700, -3172, 860, -3162, 0); rect(-700, -3172, -690, 1100, 0); rect(850, -3172, 860, 1100, 0);
     const ap = [], au = [], ai = [];
     for (const [a, b, c, d, y] of quads) {
       const base = ap.length / 3;
@@ -256,6 +258,13 @@ export class AirportWorld {
     }
     // rubber deposits on the touchdown zones (both ends) + tyre streaks
     const rub = new THREE.MeshBasicMaterial({ map: rubberTexture(), transparent: true, depthWrite: false, color: 0x000000, opacity: 0.55, polygonOffset: true, polygonOffsetFactor: -2 });
+    {
+      const tg = new THREE.PlaneGeometry(1, 1); tg.rotateX(-Math.PI / 2);
+      const tm = new THREE.MeshBasicMaterial({ map: rubberTexture(), transparent: true, depthWrite: false, color: 0x000000, opacity: 0.42, polygonOffset: true, polygonOffsetFactor: -2 });
+      const r = makeRng(6262), N = 260, im = new THREE.InstancedMesh(tg, tm, N), m = new THREE.Matrix4(), q = new THREE.Quaternion(), ax = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i < N; i++) { const z = RWY.z0 - 60 - r() * (RWY.z0 - RWY.z1 - 120), x = (r() < 0.5 ? -1 : 1) * (2 + r() * 9); m.compose(new THREE.Vector3(x, 0.028, z), q.setFromAxisAngle(ax, (r() - 0.5) * 0.02), new THREE.Vector3(1.2 + r() * 2.2, 1, 30 + r() * 90)); im.setMatrixAt(i, m); }
+      im.renderOrder = 1; im.frustumCulled = false; this.group.add(im);
+    }
     for (const [zc, len] of [[180, 520], [-2620, 480]]) {
       const rm = new THREE.Mesh(new THREE.PlaneGeometry(26, len), rub); rm.rotation.x = -Math.PI / 2; rm.position.set(0, 0.03, zc); rm.renderOrder = 1; this.group.add(rm);
     }
@@ -307,8 +316,20 @@ export class AirportWorld {
       for (let k = 0; k < 6; k++) quad(W, 340 - k * 6, Z - 26, 337 - k * 6, Z - 26, 0.3); // service road dashes
     }
     quad(Y, 262, APRON.z0 + 4, 262, APRON.z1 - 6, 0.25);               // taxilane
+    // remote stands: curved lead-ins off the apron edge line, stop bars, hatched no-parking boxes, wingtip clearance lines
+    for (const [sx, sz] of [[300, 235], [200, 300]]) {
+      let px = APRON.x0 + 2, pz = sz - 18;
+      for (let k = 1; k <= 12; k++) { const t = k / 12, nx = APRON.x0 + 2 + t * 24, nz = sz - 18 * Math.cos(t * Math.PI / 2); quad(Y, px, pz, nx, nz, 0.2); px = nx; pz = nz; }
+      quad(W, sx - 15, sz - 2.5, sx - 15, sz + 2.5, 0.5);
+      for (const off of [-20, 20]) quad(R2, sx - 30, sz + off, sx + 30, sz + off, 0.2);
+      for (let k = 0; k < 7; k++) quad(Y, sx + 22 + k * 1.6, sz - 6, sx + 22 + k * 1.6 + 3, sz + 6, 0.25);
+    }
+    // service road along the hangar fronts (white edge lines + dashed centre)
+    for (const z of [324, 314]) quad(W, APRON.x0 + 2, z, APRON.x1 - 2, z, 0.2);
+    for (let x = APRON.x0 + 4; x < APRON.x1 - 6; x += 9) quad(W, x, 319, x + 4.5, 319, 0.15);
     for (let z = APRON.z0 + 10; z < APRON.z1 - 10; z += 12) quad(Y, 259.5, z, 259.5, z + 6, 0.12), quad(Y, 264.5, z, 264.5, z + 6, 0.12);
-    for (const h of HANGARS) { quad(R2, h.x - h.w / 2 + 1, h.z - 12, h.x + h.w / 2 - 1, h.z - 12, 0.25); for (let x = h.x - h.w / 2 + 2; x < h.x + h.w / 2 - 2; x += 3) quad(Y, x, h.z - 1, x + 2, h.z - 3, 0.3); }
+    const RAIL = [];
+    for (const h of HANGARS) { quad(RAIL, h.x - h.w / 2 + 1, h.z - 1.0, h.x + h.w / 2 - 1, h.z - 1.0, 0.12); for (let x = h.x - h.w / 2 + 2; x < h.x + h.w / 2 - 2; x += 3) quad(Y, x, h.z - 1, x + 2, h.z - 3, 0.3); }
     const pos = [], uv = [], colr = [], idx = [];
     const emit = (list, c, y) => list.forEach((l) => {
       const b = pos.length / 3;
@@ -317,7 +338,7 @@ export class AirportWorld {
       for (let k = 0; k < 4; k++) colr.push(...c);
       idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
     });
-    emit(W, [0.84, 0.83, 0.8], 0.02); emit(Y, [0.98, 0.72, 0.12], 0.022); emit(R2, [0.75, 0.12, 0.08], 0.022);
+    emit(W, [0.84, 0.83, 0.8], 0.02); emit(Y, [0.98, 0.72, 0.12], 0.022); emit(R2, [0.75, 0.12, 0.08], 0.022); emit(RAIL, [0.22, 0.22, 0.23], 0.024); // door rails: steel strips at the door line (a red stripe 12 m out read as a smear)
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
     g.setIndex(idx); g.computeVertexNormals();
@@ -436,6 +457,13 @@ export class AirportWorld {
       wall(h.d - 1, 14.2, x0 + 0.45, h.z + h.d / 2, Math.PI / 2);
       wall(h.d - 1, 14.2, x1 - 0.45, h.z + h.d / 2, -Math.PI / 2);
       wall(h.w - 1, 14.2, h.x, z1 - 0.45, Math.PI);
+      // inside faces of the door leaves (same layout as _hangars)
+      const span = h.w - 5.2, leafW = span / 6 + 0.4, leafH = 14.5 - 2.2;
+      for (let k = 0; k < 6; k++) {
+        const side = k < 3 ? -1 : 1, j = k < 3 ? k : 5 - k;
+        const closedX = h.x - span / 2 + (k + 0.5) * span / 6, parkX = h.x + side * (span / 2 - leafW / 2 - j * 0.15);
+        wall(leafW, leafH, closedX + (parkX - closedX) * h.door, h.z - 0.3 - j * 0.35 + 0.15, 0);
+      }
     }
     const lm = new THREE.Mesh(mergeGeometries(parts), liner); lm.receiveShadow = true; this.group.add(lm);
     // mezzanine office along each back wall: lit ribbon windows above a dark store
@@ -645,6 +673,8 @@ export class AirportWorld {
     for (let k = 0; k < 5; k++) { const g = new THREE.CylinderGeometry(0.42 - k * 0.06, 0.48 - k * 0.06, 0.75, 12, 1, true); g.rotateZ(Math.PI / 2); this._w(g, k % 2 ? w.white : w.orange, M4(-62 - 0.5 - k * 0.74, 5.85 - k * 0.12, 290, 0.3)); }
     // taxiway direction signs at every connector, both sides (double-faced)
     for (const C of CONNECTORS) { this._place(G.buildSign(0), RWY.halfW + RWY.shoulder + 9, C.z1 - 26, Math.PI / 2, { collide: false }); this._place(G.buildSign(1), TWY.x - TWY.halfW - 6, C.z0 - 24, Math.PI / 2, { collide: false }); }
+    // approach light towers past the far end too (runway 09's approach: you see them from the hold)
+    for (let z = RWY.z1 - 30; z >= RWY.z1 - 390; z -= 30) { this._w(box(0.2, 1.2 + (RWY.z1 - z) * 0.004, 0.2), w.steel, M4(0, 0.6, z)); this._w(box(14, 0.15, 0.15), w.steel, M4(0, 1.2 + (RWY.z1 - z) * 0.004, z)); }
     // approach light towers east of the threshold
     for (let z = RWY.z0 + 30; z <= RWY.z0 + 450; z += 30) { this._w(box(0.2, 1.2 + (z - RWY.z0) * 0.004, 0.2), w.steel, M4(0, 0.6, z)); this._w(box(14, 0.15, 0.15), w.steel, M4(0, 1.2 + (z - RWY.z0) * 0.004, z)); }
     // localizer array at the far end
@@ -797,6 +827,7 @@ export class AirportWorld {
       for (let x = -6; x <= 6; x += 3) L.push({ p: new THREE.Vector3(x, 1.3 + (z - R.z0) * 0.004, z), kind: 'appr', size: 1.1 });
       L.push({ p: new THREE.Vector3(0, 1.6 + (z - R.z0) * 0.004, z), kind: 'rabbit', size: 3.4, phase: k });
     }
+    for (let z = R.z1 - 30; z >= R.z1 - 390; z -= 30) for (let x = -6; x <= 6; x += 3) L.push({ p: new THREE.Vector3(x, 1.3 + (R.z1 - z) * 0.004, z), kind: 'appr', size: 1.1 });
     for (let z = TWY.z0; z >= -900; z -= 30) for (const s of [-1, 1]) L.push({ p: new THREE.Vector3(TWY.x + s * (TWY.halfW + 0.6), 0.3, z), kind: 'blue', size: 0.7 });
     for (let z = TWY.z0; z >= -900; z -= 15) L.push({ p: new THREE.Vector3(TWY.x, 0.04, z), kind: 'twycl', size: 0.4 });
     for (const m of this.masts) for (const p of m.lamps) L.push({ p, kind: 'sodium', size: 3.2 });
@@ -905,7 +936,7 @@ function asphaltTexture() {
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const u = xx / S, v = y / S;
     const m = T.fbm(n, u, v, 4, 5), g = r();
-    let b = 0.4 + (m - 0.5) * 0.12 + (g - 0.5) * 0.022;
+    let b = 0.45 + (m - 0.5) * 0.12 + (g - 0.5) * 0.022;
     b -= Math.max(0, T.fbm(n3, u * 6, v * 0.25, 8, 3) - 0.45) * 0.22;    // wear / rubber streaks along the runway (v = along)
     b += (T.fbm(n3, u * 2 + 0.5, v * 0.5, 8, 2) - 0.5) * 0.06;          // lighter polished lanes
     const patch = T.fbm(n2, u, v, 2, 3) > 0.64 ? -0.06 : 0;  // repair patches

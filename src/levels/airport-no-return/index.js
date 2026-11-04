@@ -28,8 +28,13 @@ export async function create(E) {
   // tighter sun glare: the low sun sits right down the runway and the default halo washes out the plane
   { const [g2, g1, st] = E.flare.children; g1.scale.setScalar(240); g2.scale.setScalar(480); g2.material.opacity = 0.3; st.material.opacity = 0.35; }
   // sunset grade for fire: the shared fireball emission (≈2.1/1.8/1.5) goes peach-pink against this sky, so this level's
+  // Level 2's dusk fire look: orange cores into deep red, wrapped in dark oily smoke kept outside the fireball
+  // (the Level 1 white-hot default left a white ground band and an olive fringe where smoke crossed the fire)
+  fx.heat = 0.86; fx.fireHue = 1; fx.smokeMul = 1.25;
+  // debris: lit hot-metal chunks, not black confetti
+  fx.debrisMesh.material = new THREE.MeshStandardMaterial({ color: 0x4a423c, roughness: 0.55, metalness: 0.55, emissive: 0x5a1a04, emissiveIntensity: 0.22 });
   // FX instance pushes fire sprites toward orange (level-local patch, fx.js untouched)
-  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 1.0 && o.r > 1.8) { o.r *= 1.15; o.g *= 0.62; o.b *= 0.24; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.16; o.g1 = 0.12; o.b1 = 0.1; } } return spawn(o); /* long-lived fireballs cool into soot instead of fading out as salmon puffs */ }; }
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 1.0 && o.r > 1.8) { o.r *= 1.15; o.g *= 0.62; o.b *= 0.24; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.16; o.g1 = 0.12; o.b1 = 0.1; } } if (o.frameKind === 1 && o.r > 0.4) { o.g = Math.min(o.g, o.r * 0.58); o.b = Math.min(o.b, o.r * 0.24); } /* stacked fire saturates to yellow-green through the grade: keep every fire sprite orange */ return spawn(o); /* long-lived fireballs cool into soot instead of fading out as salmon puffs */ }; }
   const world = await new AirportWorld(E).build();
   const game = new AirportGame(E, world);
   game.dusk = dusk0;
