@@ -15,7 +15,7 @@ const path = require('path');
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: +w, height: +h } });
   p.on('pageerror', e => console.log('PAGEERROR', e.message));
-  await p.goto('' + (process.env.URL || 'http://localhost:5174/') + '?capture=1&trailer=1');
+  await p.goto('' + (process.env.URL || 'http://localhost:5174/') + '?capture=1&trailer=1' + (process.env.QUERY ? '&' + process.env.QUERY : ''));
   await p.waitForFunction(() => window.__ready, null, { timeout: 60000 });
   const maxFrames = Math.round(+maxS * 30);
   let doneAt = -1;

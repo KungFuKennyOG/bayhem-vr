@@ -69,29 +69,15 @@ export class Player {
   }
 
   // ---------- autopilot (demo / trailer capture) ----------
+  // The level's game supplies candidates via autoTargets(A, head): [{kind, p, score, ref}] where kind is
+  // 'look' (cinematic: never fire), anything else is shootable; heavy:true asks for a grenade. It also
+  // says when the current target is stale via autoTargetDead(target).
   autopilot(rdt, dt) {
     const g = this.g, A = this.autoState;
     A.retarget -= dt; A.grenadeT -= dt;
     const head = g.headPos;
-    const candidates = [];
-    for (const r of g.rockets) { const d = r.pos.distanceTo(head); if (d < 70 && d > 6) candidates.push({ kind: 'rocket', p: r.pos, score: 120 - d, ref: r }); }
-    for (const c of g.cars) {
-      if (c.state !== 'drive') continue;
-      const d = c.pos.distanceTo(head);
-      if (c.isTanker && d < 95 && d > 12) candidates.push({ kind: 'car', p: c.center(new THREE.Vector3()), score: 70 - d * 0.3, ref: c });
-      if (c.team !== 'enemy') continue;
-      for (const gm of c.gunmen) if (gm.alive && d < 75) {
-        const p = gm.g.chestCenter.getWorldPosition(new THREE.Vector3());
-        candidates.push({ kind: 'gunman', p, score: 60 - d * 0.6 + (A.target?.ref === gm ? 25 : 0), ref: gm });
-      }
-      if (!c.gunmen.some(x => x.alive) && d < 70) candidates.push({ kind: 'car', p: c.center(new THREE.Vector3()), score: 30 - d * 0.4 + (A.target?.ref === c ? 20 : 0), ref: c });
-    }
-    const h = g.heli;
-    if (h && h.alive && h.phase === 'fight') candidates.push({ kind: 'heli', p: h.pos, score: 35 + (A.target?.ref === h ? 20 : 0) + (h.hp < h.maxHp * 0.3 ? 45 : 0), ref: h });
-    // cinematic beats: watch the gunship go down / look at the end title
-    if (h && h.phase === 'dying') { candidates.length = 0; candidates.push({ kind: 'look', p: h.pos, score: 999, ref: h }); }
-    else if (g.cinematicLook && !candidates.some(c => c.kind === 'rocket')) { candidates.length = 0; candidates.push({ kind: 'look', p: g.cinematicLook, score: 999, ref: g.cinematicLook }); }
-    if (A.retarget <= 0 || !A.target || (A.target.kind === 'gunman' && !A.target.ref.alive) || (A.target.kind === 'car' && A.target.ref.state !== 'drive') || (A.target.kind === 'rocket' && A.target.ref.dead)) {
+    const candidates = g.autoTargets(A, head);
+    if (A.retarget <= 0 || !A.target || g.autoTargetDead(A.target)) {
       candidates.sort((a, b) => b.score - a.score);
       const nt = candidates[0] || null;
       if (nt && (!A.target || nt.ref !== A.target.ref)) A.err.set(range(-0.07, 0.07), range(-0.04, 0.05));
@@ -101,7 +87,7 @@ export class Player {
     // aim
     let wantYaw = this.yaw, wantPitch = this.pitch, fire = false;
     if (A.target) {
-      const p = A.target.kind === 'gunman' ? A.target.ref.g.chestCenter.getWorldPosition(_v) : A.target.kind === 'car' ? A.target.ref.center(_v) : _v.copy(A.target.p);
+      const p = g.autoAimPoint ? g.autoAimPoint(A.target, _v) : _v.copy(A.target.p);
       A.aimPoint.copy(p);
       _d.subVectors(p, this.camera.getWorldPosition(new THREE.Vector3()));
       const dist = _d.length();
@@ -110,25 +96,29 @@ export class Player {
       A.err.multiplyScalar(Math.exp(-dt * 3.5));
       let dy = wantYaw - this.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
       const angErr = Math.hypot(dy, wantPitch - this.pitch);
-      fire = angErr < 0.035 && dist < 85 && A.target.kind !== 'look';
+      fire = angErr < (A.target.tol ?? 0.035) && dist < 85 && A.target.kind !== 'look' && !A.holdFire;
       // grenades at vehicles / heli
-      const isHeavy = A.target.kind === 'look' ? false : A.target.kind === 'car' || A.target.kind === 'heli' || (A.target.kind === 'gunman' && dist > 25);
-      if (isHeavy && A.grenadeT <= 0 && dist > 14 && dist < 70 && angErr < 0.08) {
+      const isHeavy = A.target.kind === 'look' ? false : (A.target.heavy ?? (A.target.kind === 'car' || A.target.kind === 'heli' || (A.target.kind === 'gunman' && dist > 25)));
+      if (isHeavy && A.grenadeT <= 0 && dist > (A.target.minNade ?? 14) && dist < 70 && angErr < 0.08) {
         A.grenadeT = range(2.5, 4.5);
         this.autoGrenade = { dist };
       }
       wantYaw = this.yaw + dy;
     } else {
-      // idle: slowly scan, glance at the sunset ahead now and then
+      // idle: the level decides where to look (default: slowly scan, glance at the sunset ahead now and then)
       A.lookAway += dt;
-      const ahead = Math.sin(A.lookAway * 0.25) > 0.3;
-      wantYaw = ahead ? 0.25 : Math.PI * 0.95 + Math.sin(A.lookAway * 0.4) * 0.5;
-      wantPitch = 0.02;
+      const idle = g.autoIdleLook ? g.autoIdleLook(A, this) : null;
+      if (idle) { wantYaw = idle.yaw; wantPitch = idle.pitch; }
+      else {
+        const ahead = Math.sin(A.lookAway * 0.25) > 0.3;
+        wantYaw = ahead ? 0.25 : Math.PI * 0.95 + Math.sin(A.lookAway * 0.4) * 0.5;
+        wantPitch = 0.02;
+      }
       let dy = wantYaw - this.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
       wantYaw = this.yaw + dy;
     }
     // critically damped spring (human-ish, readable on video)
-    const w = A.target ? 9 : 2.2;
+    const w = A.target ? (A.target.kind === 'look' ? (A.target.w ?? 4) : 9) : (A.idleW ?? 2.2);
     const ay = (wantYaw - this.yaw) * w * w - 2 * w * this.vyaw;
     const ap = (wantPitch - this.pitch) * w * w - 2 * w * this.vpitch;
     this.vyaw += ay * rdt; this.vpitch += ap * rdt;
@@ -216,8 +206,7 @@ export class Player {
     // gentle magnetism toward gunmen/rockets within ~3 degrees (VR only)
     let best = null, bestA = 0.05;
     const tryP = (p) => { _v.subVectors(p, origin); const d = _v.length(); if (d > 90) return; _v.divideScalar(d); const a = Math.acos(Math.min(1, _v.dot(dir))); if (a < bestA) { bestA = a; best = _v.clone(); } };
-    for (const c of this.g.cars) for (const gm of c.gunmen) if (gm.alive) tryP(gm.g.chestCenter.getWorldPosition(new THREE.Vector3()));
-    for (const r of this.g.rockets) tryP(r.pos);
+    this.g.aimAssistPoints?.(tryP);
     if (best) dir.lerp(best, 0.6).normalize();
   }
 }

@@ -202,7 +202,7 @@ export class HUD {
     const hurtA = Math.min(1, game.hurtFlash * 0.9 + (game.hp < 40 ? (40 - game.hp) / 40 * 0.55 : 0));
     this.hurt.material.opacity = hurtA;
     this.slow.material.opacity = Math.min(1, (1 - game.timeScale) * 1.3) * 0.85;
-    const h = game.heli;
-    if (h && h.phase !== 'enter' && h.alive) { this.boss.visible = true; this.drawBoss(h.hp / h.maxHp, 'GUNSHIP  "WIDOWMAKER"'); } else this.boss.visible = false;
+    const b = game.boss;
+    if (b) { this.boss.visible = true; this.drawBoss(b.frac, b.name); } else this.boss.visible = false;
   }
 }
