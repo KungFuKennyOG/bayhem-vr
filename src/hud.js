@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { textTexture } from './textures.js';
 
 const texCache = new Map();
+const _d1 = new THREE.Vector3(), _d2 = new THREE.Vector3();
 function cachedText(key, fn) {
   if (!texCache.has(key)) texCache.set(key, fn());
   return texCache.get(key);
@@ -101,7 +102,21 @@ export class HUD {
     this.scene.add(s);
     const ang = style === 'huge' ? 0.22 : style === 'big' ? 0.13 : 0.07; // angular height (rad)
     // avoid stacking: offset if other callouts are near
-    for (const c of this.callouts) if (c.s.position.distanceTo(s.position) < 3) s.position.y += 1.8;
+    // screen-space stacking: if this callout overlaps a live one from the camera's view, lift it above
+    const cam = this.lastCam;
+    if (cam) {
+      s.position.lerp(cam, 0.15); // sit in front of the explosion it labels
+      for (let k = 0; k < 4; k++) {
+        let moved = false;
+        for (const c of this.callouts) {
+          const a = _d1.subVectors(c.s.position, cam), b = _d2.subVectors(s.position, cam);
+          const da = a.length(), db = b.length();
+          const sep = a.angleTo(b), need = (ang + c.ang) * 0.62;
+          if (sep < need) { s.position.y += db * (need - sep + 0.02) * 1.1; moved = true; }
+        }
+        if (!moved) break;
+      }
+    }
     this.callouts.push({ s, t: 0, life: style === 'huge' ? 2.4 : 1.6, ang, aspect: tt.aspect, vy: 1.0 });
   }
 
@@ -152,7 +167,7 @@ export class HUD {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(16, 100, 300, 16);
     const hpc = hp > 50 ? '#f4e3c4' : hp > 25 ? '#ffae3a' : '#ff3a1a';
     ctx.fillStyle = hpc; ctx.fillRect(18, 102, 296 * Math.max(0, hp) / 100, 12);
-    ctx.fillStyle = '#fff1dc'; ctx.font = '700 40px Oswald, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff1dc'; ctx.font = '700 46px Oswald, sans-serif'; ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 6;
     ctx.fillText(ammo, 14, 146);
     this.scoreTex.needsUpdate = true;
@@ -175,6 +190,7 @@ export class HUD {
   }
 
   update(rdt, game, camPos) {
+    this.lastCam = (this.lastCam || new THREE.Vector3()).copy(camPos);
     // callouts: pop in, drift up, keep constant angular size
     for (const c of this.callouts) {
       c.t += rdt;

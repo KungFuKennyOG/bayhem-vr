@@ -1004,8 +1004,8 @@ export class Game {
       g.pos.addScaledVector(g.vel, dt);
       if (!g.last) g.last = g.pos.clone();
       g.last.z += dz;
-      const gs = g.pos.distanceTo(g.last), gn = Math.min(10, Math.floor(gs / 0.4));
-      for (let k = 0; k < gn; k++) { _v.lerpVectors(g.last, g.pos, (k + rand()) / gn); this.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, vy: 0.3, drag: 2, frame: CELL.WISP, s0: 0.12, s1: 0.6, life: 0.7, rot: rand() * 6, r: 0.8, g: 0.8, b: 0.8, a: 0.35, fadeOut: 0.3 }); }
+      const gs = g.pos.distanceTo(g.last), gn = Math.min(16, Math.floor(gs / 0.25));
+      for (let k = 0; k < gn; k++) { _v.lerpVectors(g.last, g.pos, (k + rand()) / gn); this.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, vy: 0.3, drag: 2, frame: CELL.WISP, s0: 0.28, s1: 0.9, life: 0.8, rot: rand() * 6, r: 0.75, g: 0.73, b: 0.7, a: 0.4, fadeOut: 0.3 }); }
       if (gn > 0) g.last.copy(g.pos);
       this.fx.main.spawn({ x: g.pos.x, y: g.pos.y, z: g.pos.z, frame: CELL.GLOW, s0: 0.35, life: 0.04, r: 3.6, g: 1.4, b: 0.5, a: 1, anchored: false });
       let boom = g.pos.y <= 0.15 || g.life <= 0;
@@ -1041,12 +1041,12 @@ export class Game {
       if (!r.last) r.last = r.pos.clone();
       r.last.z += dz;
       const seg = r.pos.distanceTo(r.last);
-      const nT = Math.min(12, Math.floor(seg / 0.32));
+      const nT = Math.min(20, Math.floor(seg / 0.22));
       for (let k = 0; k < nT; k++) {
         const t = (k + rand()) / Math.max(1, nT);
         _v.lerpVectors(r.last, r.pos, t);
         const sz = range(0.35, 0.6);
-        this.fx.main.spawn({ x: _v.x + range(-0.08, 0.08), y: _v.y + range(-0.08, 0.08), z: _v.z, vx: range(-0.6, 0.6), vy: range(0, 0.7), vz: range(-0.6, 0.6), drag: 1.5, frame: CELL.WISP, s0: sz, s1: sz * range(3.5, 5.5), ease: 0.6, life: range(1.6, 2.6), rot: rand() * 6, vrot: range(-0.5, 0.5), r: 0.78, g: 0.74, b: 0.7, a: 0.5, fadeIn: 0.02, fadeOut: 0.35 });
+        this.fx.main.spawn({ x: _v.x + range(-0.08, 0.08), y: _v.y + range(-0.08, 0.08), z: _v.z, vx: range(-0.6, 0.6), vy: range(0, 0.7), vz: range(-0.6, 0.6), drag: 1.5, frame: CELL.WISP, s0: sz * 1.5, s1: sz * range(4.5, 6.5), ease: 0.5, life: range(1.6, 2.6), rot: rand() * 6, vrot: range(-0.5, 0.5), r: 0.7, g: 0.66, b: 0.62, a: 0.55, fadeIn: 0.0, fadeOut: 0.35 });
       }
       if (nT > 0) r.last.copy(r.pos);
       this.fx.main.spawn({ x: r.pos.x, y: r.pos.y, z: r.pos.z, frame: CELL.FLASH, s0: 1.0, s1: 0.6, life: 0.04, r: 3.8, g: 2.4, b: 1.2, a: 1, anchored: false });

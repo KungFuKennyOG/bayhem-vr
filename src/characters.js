@@ -80,12 +80,13 @@ function camoPaint(P, N, out, mir) {
   if (m > out.m) { out.s2 = S.CAMO; out.m = m; }
   out.k *= 1 - 0.24 * sst(0.55, 0.62, fbm(P.x * 8 + 11 + ox, P.y * 8, P.z * 8 + 4));
 }
+const FABRIC = new Set([S.FAT, S.FAT2, S.VEST, S.VEST2, S.BELT, S.MASK, S.JEANS, S.TEE, S.KNEE]);
 // cheap analytic occlusion for crevices the bind-pose AO bake cannot see (armpits, crotch, under the vest)
 function bodyAO(kind, P, N) {
   const ax = Math.abs(P.x);
-  if (kind === 'torso') return (1 - 0.4 * sst(0.115, 0.165, ax) * gs((P.y - 1.35) / 0.06)) * (1 - 0.45 * sst(0.93, 0.86, P.y)) * (1 - 0.3 * gs((P.y - 1.1) / 0.03));
-  if (kind === 'arm') return (1 - 0.45 * sst(0.34, 0.2, P.x) * Math.max(0, -N.y)) * (1 - 0.3 * gs((P.x - 0.49) / 0.035) * Math.max(0, -N.z));
-  if (kind === 'leg') return (1 - 0.5 * sst(0.72, 0.93, P.y) * sst(0.0, -0.8, N.x)) * (1 - 0.35 * gs((P.y - 0.5) / 0.04) * Math.max(0, N.z)) * (1 - 0.3 * sst(0.93, 0.98, P.y));
+  if (kind === 'torso') return (1 - 0.58 * sst(0.11, 0.165, ax) * gs((P.y - 1.34) / 0.07)) * (1 - 0.6 * sst(0.95, 0.86, P.y)) * (1 - 0.45 * gs((P.y - 1.13) / 0.035));
+  if (kind === 'arm') return (1 - 0.6 * sst(0.36, 0.2, P.x) * Math.max(0, -N.y)) * (1 - 0.35 * gs((P.x - 0.49) / 0.035) * Math.max(0, -N.z));
+  if (kind === 'leg') return (1 - 0.65 * sst(0.7, 0.93, P.y) * sst(0.1, -0.8, N.x)) * (1 - 0.4 * gs((P.y - 0.5) / 0.04) * Math.max(0, N.z)) * (1 - 0.4 * sst(0.9, 0.98, P.y));
   if (kind === 'neck') return 0.82 - 0.2 * sst(1.56, 1.6, P.y) * sst(0.0, -0.04, P.z);
   return 1;
 }
@@ -265,15 +266,24 @@ function faceFeatures(p, o) {
   const ax = Math.abs(x), sx = x < 0 ? -1 : 1;
   const fr = sst(-0.02, -0.07, z); // frontness
   // lower face forward (maxilla / chin), jaw angle flare
-  z -= 0.006 * gs(x / 0.04) * gs((y + 0.06) / 0.03) * fr;
+  z -= 0.004 * gs(x / 0.04) * gs((y + 0.06) / 0.03) * fr;
   // chin
   z -= 0.008 * gs(x / 0.022) * gs((y + 0.09) / 0.014) * fr;
   x += sx * 0.008 * gs((y + 0.066) / 0.022) * gs((z - 0.008) / 0.032);
   z -= 0.003 * gs((ax - 0.045) / 0.012) * gs((y + 0.075) / 0.012) * fr; // jawline edge
-  // lips (upper / lower) and the mouth line
-  z -= 0.0045 * gs(x / 0.021) * gs((y + 0.046) / 0.0055) * fr;
-  z -= 0.004 * gs(x / 0.019) * gs((y + 0.061) / 0.006) * fr;
-  z += 0.0025 * gs(x / 0.024) * gs((y + 0.0535) / 0.0028) * fr;
+  // lips (upper with a cupid's bow / lower), mouth line, corners tucked in, philtrum
+  z -= 0.003 * gs(x / 0.02) * gs((y + 0.0475 + 0.0015 * gs(x / 0.006)) / 0.005) * fr;
+  z -= 0.003 * gs(x / 0.018) * gs((y + 0.0605) / 0.0055) * fr;
+  z += 0.0018 * gs(x / 0.022) * gs((y + 0.0538) / 0.0022) * fr;
+  z += 0.0025 * gs((ax - 0.024) / 0.005) * gs((y + 0.054) / 0.006) * fr;
+  z += 0.0014 * gs(x / 0.0035) * gs((y + 0.039) / 0.005) * fr;
+  z += 0.0015 * gs(x / 0.016) * gs((y + 0.071) / 0.004) * fr; // mentolabial groove
+  // nasolabial folds: crease from the nose wing to the mouth corner, cheek fullness outside it
+  {
+    const ux = 0.012, uy = -0.032, ab = Math.hypot(ux, uy), t = sat(((ax - 0.017) * ux + (y + 0.026) * uy) / (ab * ab));
+    const d = Math.hypot(ax - 0.017 - ux * t, y + 0.026 - uy * t), sd = (ax - 0.017 - ux * t) * 0.94 - (y + 0.026 - uy * t) * 0.35;
+    z += 0.0022 * gs(d / 0.0035) * fr; z -= 0.0022 * gs((d - 0.009) / 0.006) * (sd > 0 ? 1 : 0) * fr;
+  }
   // nose: bridge -> tip -> base
   if (y > -0.04 && y < 0.02) {
     const t = sat((0.014 - y) / 0.044);
@@ -281,12 +291,15 @@ function faceFeatures(p, o) {
     if (t > 0.8) h *= 1 - Math.pow((t - 0.8) / 0.2, 2) * 0.85;
     const w = 0.0075 + 0.0085 * t;
     z -= h * gs(x / w) * fr;
-    // nostril wings
+    // defined tip, nostril wings, recessed base
+    z -= 0.004 * gs(x / 0.008) * gs((y + 0.023) / 0.006) * fr;
+    z += 0.003 * gs(x / 0.007) * gs((y + 0.034) / 0.0035) * fr;
     z -= 0.005 * gs((ax - 0.013) / 0.006) * gs((y + 0.027) / 0.006) * fr;
     x += sx * 0.003 * gs((ax - 0.013) / 0.007) * gs((y + 0.027) / 0.006) * fr;
   }
   // brow ridge + eye sockets + cheekbones + temples
-  z -= 0.0065 * gs((y - 0.024) / 0.01) * sst(0.07, 0.03, ax) * fr;
+  z -= 0.008 * gs((y - 0.024) / 0.009) * sst(0.07, 0.03, ax) * fr;
+  z += 0.003 * gs(x / 0.006) * gs((y - 0.016) / 0.006) * fr; // nose root notch between the brows
   z += 0.011 * gs((ax - 0.031) / 0.015) * gs((y - 0.006) / 0.011) * fr;
   z -= 0.006 * gs((ax - 0.05) / 0.013) * gs((y + 0.012) / 0.011) * fr;
   x += sx * 0.004 * gs((ax - 0.058) / 0.012) * gs((y + 0.012) / 0.014) * fr;
@@ -301,8 +314,11 @@ function faceFeatures(p, o) {
   }
   return [x, y, z];
 }
+// denser rings through the eyes, nose and mouth for the hero face
+const HEAD_YS_HI = [-0.108, -0.1, -0.092, -0.085, -0.079, -0.074, -0.07, -0.066, -0.0625, -0.059, -0.056, -0.0538, -0.0515, -0.049, -0.046, -0.0425, -0.039, -0.035, -0.031, -0.027,
+  -0.023, -0.019, -0.014, -0.009, -0.004, 0.001, 0.006, 0.011, 0.016, 0.021, 0.026, 0.031, 0.038, 0.047, 0.058, 0.07, 0.083, 0.095, 0.106, 0.115];
 function headGeo(o) {
-  const rings = HEAD_YS.map((y) => {
+  const rings = (o.ys || HEAD_YS).map((y) => {
     const p = prof(HEAD_KEYS, y);
     return seRing([0, y, p[3]], [1, 0, 0], [0, 0, 1], p[0], p[1], p[2], [p[4], p[5]], o.M || 22, (q) => faceFeatures(q, o), headWarp);
   });
@@ -326,13 +342,18 @@ function paintHead(P, N, out, o) {
     out.s1 = S.MASK; out.s2 = S.SKIN; out.m = open; out.k *= 1 - 0.25 * socket; return;
   }
   out.s1 = S.SKIN;
-  if (o.vary) { // under-eye shadow, mottling
-    out.k *= 1 - 0.16 * gs((ax - 0.03) / 0.016) * gs((y + 0.012) / 0.008) * fr;
-    out.k *= 0.93 + 0.1 * fbm(x * 60, y * 60, z * 60);
+  if (o.vary) { // under-eye shadow, crease shading, jaw shadow, subtle mottling
+    out.k *= 1 - 0.14 * gs((ax - 0.03) / 0.015) * gs((y + 0.012) / 0.007) * fr;
+    const ux = 0.012, uy = -0.032, ab = Math.hypot(ux, uy), t = sat(((ax - 0.017) * ux + (y + 0.026) * uy) / (ab * ab));
+    out.k *= 1 - 0.12 * gs(Math.hypot(ax - 0.017 - ux * t, y + 0.026 - uy * t) / 0.004) * fr;
+    out.k *= 1 - 0.12 * gs(x / 0.006) * gs((y + 0.035) / 0.0035) * fr; // under the nose
+    out.k *= 1 - 0.3 * sst(-0.075, -0.1, y) * Math.max(0, -N.y); // under the jaw
+    out.k *= 1 - 0.1 * gs(x / 0.014) * gs((y + 0.071) / 0.004) * fr;
+    out.k *= 0.97 + 0.05 * fbm(x * 40, y * 40, z * 40);
   }
   // lips
-  const lip = gs(x / 0.019) * (gs((y + 0.047) / 0.005) * 0.45 + gs((y + 0.061) / 0.006) * 0.7) * fr;
-  out.k *= 1 - 0.3 * gs(x / 0.02) * gs((y + 0.0535) / 0.0035) * fr;
+  const lip = gs(x / 0.019) * (gs((y + 0.0475) / 0.0045) * 0.55 + gs((y + 0.0605) / 0.0055) * 0.75) * fr;
+  out.k *= 1 - 0.3 * gs(x / (o.vary ? 0.017 : 0.022)) * gs((y + 0.0538) / (o.vary ? 0.0022 : 0.0035)) * fr; // dark lip line
   // warm flush on nose, cheeks
   const flush = (gs(x / 0.012) * gs((y + 0.02) / 0.012) * 0.5 + gs((ax - 0.045) / 0.016) * gs((y + 0.022) / 0.016) * (o.vary ? 0.8 : 0.35)) * fr;
   let m = 0, s2 = S.LIP;
@@ -609,7 +630,7 @@ function addNeckHead(add, face, o = {}) {
   add({ g: neck, bao: 'neck', wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.54, B.neck], [1.585, B.neck], [1.625, B.head]], W), slot: nslot,
     paint: (P, N, out) => { if (face === 'skin' && o.beard) { const t = sst(1.562, 1.592, P.y) * sst(0.02, -0.03, P.z); out.s2 = S.BEARD; out.m = t * o.beard * 0.8; } } });
   const dy = o.dy || 0;
-  const hd = headGeo({ M: o.M, hairVol: o.hair ? (x, y, z) => { const hl = hairline(x, z); return y > hl ? (o.hairVol ?? 0.006) * sst(hl, hl + 0.025, y) : 0; } : null });
+  const hd = headGeo({ M: o.M, ys: o.ys, hairVol: o.hair ? (x, y, z) => { const hl = hairline(x, z); return y > hl ? (o.hairVol ?? 0.006) * sst(hl, hl + 0.025, y) : 0; } : null });
   hd.scale(HS, HS, HS); hd.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z);
   const ho = { face, beard: o.beard || 0, hair: !!o.hair, brows: !!o.brows, brim: !!o.brim, vary: !!o.vary };
   add({ g: hd, slot: S.SKIN, wf: o.wf || ((P, W) => { const t = 0.55 * sst(1.582, 1.547, P.y) * sst(-0.03, 0.02, P.z); W[0] = B.head; W[1] = 1 - t; W[2] = B.neck; W[3] = t; return 2; }),
@@ -759,7 +780,7 @@ function bakeAO(P, N, A, rec, n, R = 0.085) {
         if (d2 > R2 || d2 < 1e-7) continue;
         const d = Math.sqrt(d2), ci = (dx * nx + dy * ny + dz * nz) / d;
         if (ci < 0.12) continue;
-        occ += (ci - 0.12) * (A[j] / (A[j] + 3.14 * d2)) * (1 - d / R) * 3.8;
+        occ += (ci - 0.12) * (A[j] / (A[j] + 3.14 * d2)) * (1 - d / R) * 4.4;
       }
     }
     ao[i] = Math.max(0.24, 1 / (1 + occ));
@@ -768,7 +789,7 @@ function bakeAO(P, N, A, rec, n, R = 0.085) {
 }
 const _psq = new THREE.Quaternion(), _psv = new THREE.Vector3();
 function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S }, bounds) {
-  const geos = [], s1 = [], s2 = [], mx = [], shade = [], recAO = [], cavA = [];
+  const geos = [], s1 = [], s2 = [], mx = [], shade = [], recAO = [], aoMin = [];
   const W = [0, 0, 0, 0, 0, 0, 0, 0], PT = { s1: 0, s2: 0, m: 0, k: 1 };
   const P = new THREE.Vector3(), N = new THREE.Vector3(), MP = new THREE.Vector3(), MN = new THREE.Vector3();
   const mir = skel.mir;
@@ -815,12 +836,16 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
       if (p.camo) camoPaint(MP, MN, PT, !!p.mirror);
       if (p.bao) PT.k *= bodyAO(p.bao, MP, MN);
       if (p.grad) PT.k *= lerp(0.58, 1, sst(0.04, 1.1, MP.y));
+      if (FABRIC.has(PT.s1)) { // fabric micro-detail: weave/wear noise + per-vertex grain
+        PT.k *= 0.9 + 0.16 * fbm(MP.x * 45 + 7, MP.y * 45, MP.z * 45) + 0.05 * (hash3(MP.x * 431, MP.y * 431, MP.z * 431) - 0.5);
+        if (p.grad && MP.y < 0.5) PT.k *= 1 + 0.25 * sst(0.5, 0.12, MP.y) * sst(0.45, 0.7, fbm(MP.x * 14, MP.y * 14, MP.z * 14)); // road dust on the shins
+      }
       const a = SURF[PT.s1], b = SURF[PT.s2];
       sf[i * 2] = lerp(a[0], b[0], PT.m); sf[i * 2 + 1] = lerp(a[1], b[1], PT.m);
       // cloth/hard-surface cavity: lighter worn edges, darker creases
       const cv = cav[i], eg = p.edge ? 2.2 : 1, ck = 1 + Math.min(0.28 * eg, Math.max(0, -cv - 0.12) * 0.7 * eg) - Math.min(0.5, Math.max(0, cv - 0.02) * 2.2);
       const sky = 0.86 + 0.14 * (N.y * 0.5 + 0.5), noise = 0.95 + 0.1 * hash3(P.x * 61, P.y * 61, P.z * 61);
-      s1.push(PT.s1); s2.push(PT.s2); mx.push(PT.m); shade.push(PT.k * ck * sky * noise); recAO.push(p.ao === false ? 0 : 1);
+      s1.push(PT.s1); s2.push(PT.s2); mx.push(PT.m); shade.push(PT.k * ck * sky * noise); recAO.push(p.ao === false ? 0 : 1); aoMin.push(p.aoMin || 0);
     }
     if (p.postMat) g.applyMatrix4(p.postMat);
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
@@ -834,7 +859,7 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
   // AO bake across every part (gear casts onto the body and vice versa)
   const A = new Float32Array(count); { let o = 0; for (const g of geos) { const a = vertexArea(g); A.set(a, o); o += a.length; } }
   const ao = bakeAO(geo.attributes.position.array, geo.attributes.normal.array, A, recAO, count);
-  const shadeF = Float32Array.from(shade); for (let i = 0; i < count; i++) shadeF[i] *= ao[i];
+  const shadeF = Float32Array.from(shade); for (let i = 0; i < count; i++) shadeF[i] *= Math.max(ao[i], aoMin[i]);
   geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(count * 3).fill(0.5), 3));
   const bb = bounds || { c: [0, 1.0, -0.2], r: 1.6, min: [-1, -0.2, -1.4], max: [1, 2.0, 1] };
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(...bb.c), bb.r);
@@ -888,10 +913,10 @@ const hexes = (arr) => arr.map(h => new THREE.Color(h));
 const PAL = {
   // fatigues as [base, camo blotch] pairs, kept >= 2 value steps darker than the vests
   fat: [['#3d3f42', '#4b4d51'], ['#3b4134', '#55593f'], ['#433e37', '#5a5446'], ['#373c46', '#4c525e'], ['#333436', '#3d3e41'], ['#47443b', '#615c4a']].map(hexes),
-  vest: hexes(['#7a8158', '#a08b64', '#6c7454', '#8a8468', '#96835f', '#707a5a']),
+  vest: hexes(['#4e5850', '#726a60', '#5c5f5d', '#4b5448', '#776f66', '#5c6458', '#464849']),
   skin: hexes(['#c49676', '#a87a5a', '#8a5d42', '#6a4834', '#cfa688', '#9a6e50']),
   hair: hexes(['#3a2e26', '#4a3a2c', '#5c4632', '#36322e', '#6a5440']),
-  helm: hexes(['#6e7552', '#8a7a5e', '#4c4e50', '#5c654c', '#807a62']),
+  helm: hexes(['#565e4e', '#766c5f', '#4c4e50', '#4f5646', '#6e6a60']),
   cap: hexes(['#47494c', '#5c6448', '#8f7a58', '#3e4658', '#7a6448', '#6e3a30']),
   glove: hexes(['#262628', '#2e2924', '#2a2a2a', '#2b2c28']),
   boot: hexes(['#272523', '#33291f', '#2b2724', '#382f25']),
@@ -1389,6 +1414,9 @@ const RANGES = [ // [a, b, minFrac, maxFrac] of bind distance
   [4, 2, 0.8, 1.02], [4, 5, 0.75, 1.12], [4, 6, 0.75, 1.12],
   [5, 9, 0.25, 1.0], [6, 10, 0.25, 1.0], [0, 13, 0.32, 1.0], [1, 14, 0.32, 1.0],
   [11, 2, 0.45, 1.06], [12, 2, 0.45, 1.06], [11, 12, 0.5, 3.6], [13, 14, 0.5, 6], [9, 2, 0.35, 9], [10, 2, 0.35, 9], [4, 11, 0.4, 9], [4, 12, 0.4, 9],
+  // limbs keep clear of the opposite shoulder / the head / each other (cheap self-collision)
+  [9, 6, 0.24, 9], [10, 5, 0.24, 9], [7, 6, 0.3, 9], [8, 5, 0.3, 9], [9, 4, 0.28, 9], [10, 4, 0.28, 9], [7, 4, 0.3, 9], [8, 4, 0.3, 9],
+  [9, 10, 0.12, 9], [7, 8, 0.25, 9], [13, 4, 0.2, 9], [14, 4, 0.2, 9], [11, 4, 0.25, 9], [12, 4, 0.25, 9], [9, 0, 0.15, 9], [10, 1, 0.15, 9],
 ];
 const GUN_RIGID = [[15, 16], [15, 17], [16, 17]];
 const GUN_PTS = [new THREE.Vector3(0, 0.0, -0.02).multiplyScalar(RS), MUZZLE.clone(), new THREE.Vector3(0, -0.17, -0.41).multiplyScalar(RS)];
@@ -1499,6 +1527,7 @@ export class Ragdoll {
         x[jj] -= dx * f * wj; x[jj + 1] -= dy * f * wj; x[jj + 2] -= dz * f * wj;
       }
       this._torsoCollide();
+      if (this.age > 0.06) this._selfCollide();
       if (it === 2) this._kneeHinge();
       this._ground(h, G);
     }
@@ -1554,6 +1583,51 @@ export class Ragdoll {
         const dx = x[j] - cx, dy = x[j + 1] - cy, dz = x[j + 2] - cz;
         const d = Math.sqrt(dx * dx + dy * dy + dz * dz), md = cr + P_RAD[i];
         if (d < md && d > 1e-6) { const f = (md - d) / d; x[j] += dx * f; x[j + 1] += dy * f; x[j + 2] += dz * f; }
+      }
+    }
+  }
+
+  // limb / rifle segments vs the pelvis + chest capsules and the head sphere (segment-segment closest points)
+  _selfCollide() {
+    const x = this.x, w = this.w, C = CAPS;
+    C[0] = (x[0] + x[3]) * 0.5; C[1] = (x[1] + x[4]) * 0.5; C[2] = (x[2] + x[5]) * 0.5;
+    for (let si = 0; si < SEGS.length; si++) {
+      const sg = SEGS[si], a = sg[0], b = sg[1], ra = sg[2], tMin = sg[3], mask = sg[4];
+      const ax = x[a * 3], ay = x[a * 3 + 1], az = x[a * 3 + 2], ux = x[b * 3] - ax, uy = x[b * 3 + 1] - ay, uz = x[b * 3 + 2] - az;
+      for (let ci = 0; ci < 3; ci++) {
+        if (!(mask & (1 << ci))) continue;
+        let px, py, pz, qx, qy, qz, cr, c0, c1, half = ci === 0;
+        if (ci === 0) { px = C[0]; py = C[1]; pz = C[2]; c0 = -1; c1 = 2; cr = 0.13; }
+        else if (ci === 1) { px = x[6]; py = x[7]; pz = x[8]; c0 = 2; c1 = 3; cr = 0.15; }
+        else { px = x[12]; py = x[13]; pz = x[14]; c0 = 4; c1 = 4; cr = 0.1; }
+        if (ci === 2) { qx = px; qy = py; qz = pz; } else { qx = x[c1 * 3]; qy = x[c1 * 3 + 1]; qz = x[c1 * 3 + 2]; }
+        const vx = qx - px, vy = qy - py, vz = qz - pz;
+        // closest points between segment a + u*t and capsule axis p + v*s
+        const rx = ax - px, ry = ay - py, rz = az - pz;
+        const uu = ux * ux + uy * uy + uz * uz || 1e-9, vv = vx * vx + vy * vy + vz * vz, uv = ux * vx + uy * vy + uz * vz, ur = ux * rx + uy * ry + uz * rz, vr = vx * rx + vy * ry + vz * rz;
+        let t, sc;
+        if (vv < 1e-9) { sc = 0; t = -ur / uu; }
+        else { const den = uu * vv - uv * uv; t = den > 1e-12 ? (uv * vr - vv * ur) / den : 0; }
+        t = t < tMin ? tMin : t > 1 ? 1 : t;
+        sc = vv < 1e-9 ? 0 : (vr + uv * t) / vv; sc = sc < 0 ? 0 : sc > 1 ? 1 : sc;
+        if (vv >= 1e-9) { t = (uv * sc - ur) / uu; t = t < tMin ? tMin : t > 1 ? 1 : t; }
+        const lx = ax + ux * t, ly = ay + uy * t, lz = az + uz * t, cx = px + vx * sc, cy = py + vy * sc, cz = pz + vz * sc;
+        let dx = lx - cx, dy = ly - cy, dz = lz - cz;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz), md = cr + ra;
+        if (d >= md || d < 1e-6) continue;
+        dx /= d; dy /= d; dz /= d;
+        const wa = w[a] * (1 - t), wb = w[b] * t;
+        let wc0, wc1;
+        if (half) { wc0 = (w[0] + w[1]) * 0.25 * (1 - sc); wc1 = w[2] * sc; } else if (ci === 2) { wc0 = w[4]; wc1 = 0; } else { wc0 = w[c0] * (1 - sc); wc1 = w[c1] * sc; }
+        const den2 = wa * (1 - t) + wb * t + wc0 * (1 - sc) + wc1 * sc || 1e-9;
+        let lam = (md - d) / den2;
+        const mx = Math.max(wa, wb, wc0, wc1) * lam; if (mx > 0.006) lam *= 0.006 / mx; // resolve deep overlaps gradually (no pops)
+        const fa = lam * wa, fb = lam * wb;
+        x[a * 3] += dx * fa; x[a * 3 + 1] += dy * fa; x[a * 3 + 2] += dz * fa;
+        x[b * 3] += dx * fb; x[b * 3 + 1] += dy * fb; x[b * 3 + 2] += dz * fb;
+        if (half) { for (let h = 0; h < 2; h++) { const f0 = lam * w[h] * (1 - sc) * 0.5; x[h * 3] -= dx * f0; x[h * 3 + 1] -= dy * f0; x[h * 3 + 2] -= dz * f0; } }
+        else { const f0 = lam * wc0; x[c0 * 3] -= dx * f0; x[c0 * 3 + 1] -= dy * f0; x[c0 * 3 + 2] -= dz * f0; }
+        if (ci !== 2) { const f1 = lam * wc1; x[c1 * 3] -= dx * f1; x[c1 * 3 + 1] -= dy * f1; x[c1 * 3 + 2] -= dz * f1; }
       }
     }
   }
@@ -1660,6 +1734,12 @@ export class Ragdoll {
     this.gm.disposed = true;
   }
 }
+// [a, b, radius, tMin (skip the part rooted on the torso), capsule mask: 1 pelvis, 2 chest, 4 head]
+const SEGS = [
+  [5, 7, 0.055, 0.4, 3], [6, 8, 0.055, 0.4, 3], [7, 9, 0.045, 0, 7], [8, 10, 0.045, 0, 7],
+  [0, 11, 0.07, 0.45, 2], [1, 12, 0.07, 0.45, 2], [11, 13, 0.055, 0, 7], [12, 14, 0.055, 0, 7],
+  [15, 16, 0.03, 0, 7], [16, 17, 0.03, 0, 7],
+];
 const CAPS = new Float64Array(9), FLAIL = [9, 10, 13, 14, 7, 8], RARM_CHAIN = [B.spine, B.chest, B.clavR, B.uarmR, B.farmR, B.handR];
 // particles tested against [pelvis capsule, chest capsule]
 const COLL = [[4, 7, 8, 9, 10, 13, 14], [7, 8, 9, 10, 11, 12, 13, 14]];
@@ -1722,7 +1802,7 @@ const pivotMat = (q, p) => new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).mu
 function driverParts() {
   const parts = [], add = (p) => { parts.push(p); return p; };
   // ---- leather bomber over a tee: torso with the zip open at the front, seated bunching, rib hem
-  const openW = (y) => 0.052 * sst(1.34, 1.49, y);
+  const openW = (y) => 0.042 * sst(1.42, 1.5, y);
   const torso = torsoGeo({ M: 26, bulk: 0.012, ys: lin(0.85, 1.53, 22), post: (q, th, y) => {
     let [x, yy, z] = q;
     const back = Math.max(0, Math.sin(th)), front = Math.max(0, -Math.sin(th));
@@ -1732,14 +1812,14 @@ function driverParts() {
       + 0.03 * gs((y - 0.975) / 0.02); // rib hem rolls out a little
     x *= k; z = z * k;
     // open front: the tee sits ~1.5 cm behind the jacket fronts
-    if (front > 0.3 && y > 1.34 && y < 1.5) { const t = sst(openW(y) + 0.008, openW(y) - 0.004, Math.abs(x)); z += 0.014 * t; }
+    if (front > 0.3 && y > 1.42 && y < 1.5) { const t = sst(openW(y) + 0.008, openW(y) - 0.004, Math.abs(x)); z += 0.014 * t; }
     return [x, yy, z];
   } });
   add({ g: torso, wf: torsoWF, slot: S.JACKET, paint: (P, N, out) => {
     if (P.y < 0.955) { out.s1 = S.JEANS; return; }
     if (P.y < 0.998) { out.s1 = S.KNEE; out.k *= 0.85 + 0.15 * Math.abs(Math.sin(Math.atan2(P.x, P.z) * 40)); return; }
     if (P.z < 0 && P.y < 1.5) {
-      const t = P.y > 1.34 ? sst(openW(P.y) + 0.006, openW(P.y) - 0.004, Math.abs(P.x)) : 0;
+      const t = P.y > 1.42 ? sst(openW(P.y) + 0.006, openW(P.y) - 0.004, Math.abs(P.x)) : 0;
       if (t > 0) { out.s2 = S.TEE; out.m = t; } else if (Math.abs(P.x) < 0.012) out.k *= 0.75; // zip line
     }
     out.k *= 0.92 + 0.12 * fbm(P.x * 18, P.y * 18, P.z * 18); // worn leather
@@ -1747,7 +1827,13 @@ function driverParts() {
   // shearling collar + crew neck
   add({ g: ringStack([[1.452, 0.068, 0.076, 0.062, 0.012], [1.456, 0.1, 0.108, 0.088, 0.014], [1.49, 0.108, 0.114, 0.086, 0.016], [1.528, 0.1, 0.104, 0.074, 0.018], [1.55, 0.086, 0.09, 0.062, 0.018], [1.552, 0.07, 0.076, 0.056, 0.014], [1.5, 0.064, 0.072, 0.054, 0.012], [1.452, 0.068, 0.076, 0.062, 0.012]], 22,
     (p, th, i) => { const b = Math.max(0, Math.sin(th)), f = Math.max(0, -Math.sin(th)); const up = [0, 0.01, 0.025, 0.04, 0.045, 0.042, 0.02, 0][i]; p[1] += up * b * b - (i > 2 && i < 6 ? 0.018 : 0) * f; return p; }),
-    wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.58, B.neck]], W), slot: S.RIB, paint: (P, N, out) => { out.k *= 0.86 + 0.2 * fbm(P.x * 70, P.y * 70, P.z * 70); if (N.y < -0.3) out.k *= 0.75; } });
+    wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.58, B.neck]], W), slot: S.RIB, aoMin: 0.62, paint: (P, N, out) => {
+      out.k *= 0.9 + 0.14 * fbm(P.x * 50, P.y * 50, P.z * 50);
+      const vf = sst(-0.02, -0.05, P.z - 0.012) * sst(0.08, 0.045, Math.abs(P.x)); // the shearling stops at the lapel edges: tee crew neck in front
+      if (vf > 0) { out.s2 = S.TEE; out.m = vf; }
+      const inward = -(N.x * P.x + N.z * (P.z - 0.012)) / (Math.hypot(P.x, P.z - 0.012) || 1);
+      if (inward > 0.2) out.k *= 1.12; else if (N.y < -0.3) out.k *= 0.8; // light fleece lining facing the neck
+    } });
   add({ g: ringStack([[1.47, 0.058, 0.058, 0.056, 0.0], [1.472, 0.066, 0.066, 0.064, 0.0], [1.5, 0.062, 0.062, 0.06, -0.002]], 16), wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.52, B.neck]], W), slot: S.TEE });
   // ---- neck + head (stubble, short hair) + aviators
   const jawWF = (P, W) => {
@@ -1756,7 +1842,7 @@ function driverParts() {
     const jw = sst(-0.046, -0.062, y) * sst(0.03, -0.012, z) * (1 - nk);
     W[0] = B.head; W[1] = 1 - jw - nk; W[2] = 19; W[3] = jw; W[4] = B.neck; W[5] = nk; return 3;
   };
-  addNeckHead(add, 'skin', { beard: 0.85, hair: true, hairVol: 0.006, brows: true, ears: true, wf: jawWF, dy: D_HDY, M: 28, vary: true });
+  addNeckHead(add, 'skin', { beard: 0.85, hair: true, hairVol: 0.006, brows: true, ears: true, wf: jawWF, dy: D_HDY, M: 30, ys: HEAD_YS_HI, vary: true });
   aviators(add, D_HDY);
   truckerCap(add, D_HDY);
   // ---- arms: leather sleeves with folds, rib cuffs, bare wrists, watch on the left
@@ -1796,17 +1882,19 @@ function driverParts() {
 }
 function truckerCap(add, dy) {
   const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z); return g; };
-  const ring = (t, rr) => { const pts = []; for (let j = 0; j < 20; j++) { const a = (j / 20) * Math.PI * 2 - Math.PI; const th = Math.PI * (0.48 - 0.07 * Math.cos(a)) * t; const sx = Math.sin(a), sz = -Math.cos(a); pts.push([0.083 * rr * Math.sin(th) * sx, 0.02 + 0.112 * rr * Math.cos(th) + 0.008 * Math.max(0, -sz) * t, 0.008 + (sz < 0 ? 0.097 : 0.113) * rr * Math.sin(th) * sz]); } return pts; };
+  const ring = (t, rr) => { const pts = []; for (let j = 0; j < 20; j++) { const a = (j / 20) * Math.PI * 2 - Math.PI; const th = Math.PI * (0.48 - 0.07 * Math.cos(a)) * t; const sx = Math.sin(a), sz = -Math.cos(a); pts.push([0.086 * rr * Math.sin(th) * sx, 0.02 + 0.118 * rr * Math.cos(th) + 0.008 * Math.max(0, -sz) * t, 0.008 + (sz < 0 ? 0.097 : 0.121) * rr * Math.sin(th) * sz]); } return pts; };
   const rs = [0.08, 0.3, 0.52, 0.72, 0.88, 1.0].map(t => ring(t, 1.045)); rs.push(ring(1.0, 0.99));
   // foam front panel + mesh back (lighter, dotted)
   add({ g: H(loftGeo(rs, true, false)), bone: B.head, slot: S.HAT, paint: (P, N, out) => {
     const z = P.z - HEAD_C.z;
-    if (z > -0.03) { out.s2 = S.FAT2; out.m = sst(-0.03, 0.0, z); out.k *= 0.85 + 0.15 * Math.abs(Math.sin(P.x * 900) * Math.sin(P.y * 900)); }
+    out.s2 = S.FAT2; out.m = sst(-0.015, -0.04, z); // white foam front panel, red mesh sides/back
+    if (z > -0.02) out.k *= 0.86 + 0.06 * fbm(P.x * 40, P.y * 40, P.z * 40);
+    if (Math.abs(P.x) < 0.006 && z > 0) out.k *= 0.75; // back seam
     if (P.y - HEAD_C.y - dy < 0.045) out.k *= 0.85;
   } });
   add({ g: H(place(bend(rbox(0.15, 0.011, 0.08, 0.005, 6, 3, 4), 0, -1.8), 0, 0.05, -0.128, -0.06)), bone: B.head, slot: S.HAT, paint: (P, N, out) => { if (N.y < -0.3) out.k *= 0.55; } });
   add({ g: H(ellip(0.009, 0, 0.133, 0.012, 1, 0.5, 1, 8, 4)), bone: B.head, slot: S.HAT });
-  add({ g: H(place(box(0.03, 0.02, 0.01), 0, 0.03, 0.118, -0.3)), bone: B.head, slot: S.STRAP }); // snapback strap
+  add({ g: H(place(bend(rbox(0.05, 0.012, 0.006, 0.002, 5, 3, 3), -6), 0, 0.034, 0.112, -0.35)), bone: B.head, slot: S.STRAP }); // snapback strap
 }
 function aviators(add, dy = 0) {
   const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z); return g; };
@@ -1847,7 +1935,7 @@ function driverPalette(seed) {
   const skin = new THREE.Color('#c39c82').multiplyScalar(0.96 + 0.08 * r()), hair = new THREE.Color('#4a3828');
   set(S.SKIN, skin); set(S.SKIN2, skin, 0.5); set(S.LIP, _col.copy(skin).multiply(new THREE.Color(0.9, 0.62, 0.6)));
   set(S.BEARD, _col.copy(skin).lerp(new THREE.Color('#3a3a40'), 0.55)); set(S.HAIR, hair); set(S.BROW, hair, 0.7);
-  set(S.JACKET, new THREE.Color('#5a3c2b')); set(S.RIB, new THREE.Color('#d6c7a8')); set(S.HAT, new THREE.Color('#8a2f27')); set(S.FAT2, new THREE.Color('#cfc8b6')); set(S.TEE, new THREE.Color('#74726d')); set(S.KNEE, new THREE.Color('#34302d'));
+  set(S.JACKET, new THREE.Color('#5a3c2b')); set(S.RIB, new THREE.Color('#d6c7a8')); set(S.HAT, new THREE.Color('#8a2f27')); set(S.FAT2, new THREE.Color('#cfc8b6')); set(S.TEE, new THREE.Color('#57565a')); set(S.KNEE, new THREE.Color('#34302d'));
   set(S.JEANS, new THREE.Color('#3b4762')); set(S.BOOT, new THREE.Color('#7a5638')); set(S.SOLE, new THREE.Color('#3a3430'));
   set(S.WATCH, new THREE.Color('#b8b8b4')); set(S.GOLD, new THREE.Color('#d8b060')); set(S.ALENS, new THREE.Color('#3a2a18')); set(S.LENS, new THREE.Color('#a8763c'));
   set(S.EYE, _col.setRGB(0.55, 0.5, 0.46)); set(S.IRIS, _col.setRGB(0.04, 0.03, 0.025)); set(S.STRAP, _col.setRGB(0.05, 0.05, 0.05));

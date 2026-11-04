@@ -13,7 +13,7 @@ export class FX {
     this.main = new ParticleSystem(big ? 4200 : 1600, atlas, { boost: 1, renderOrder: 20, fog, bigBudget: big ? 140 : 70 });
     this.sparks = new ParticleSystem(big ? 1400 : 800, atlas, { stretch: true, boost: 3.0, renderOrder: 21, fog });
     // near particles that live in the truck frame (muzzle flashes)
-    this.near = new ParticleSystem(200, atlas, { boost: 2.6, renderOrder: 22, fog });
+    this.near = new ParticleSystem(200, atlas, { boost: 1.5, renderOrder: 22, fog });
     this.carGlows = new BillboardBatch(260, atlas, { boost: 1, renderOrder: 19, fog });
     scene.add(this.main.mesh, this.sparks.mesh, this.near.mesh, this.carGlows.mesh);
     this.time = 0;
@@ -81,8 +81,8 @@ export class FX {
     this.onSound('explosion_big', P);
     this.light(_v.copy(P).setY(P.y + 1.5), 260 * s, 1.1, 0xff9040, true, 60 * s);
     // flash
-    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * ss, s1: 11 * ss, life: 0.2, r: 3.0, g: 2.1, b: 1.2, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
-    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * ss, s1: 16 * ss, life: 0.14, r: 2.8, g: 2.0, b: 1.1, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
+    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * ss, s1: 11 * ss, life: 0.12, r: 2.0, g: 1.35, b: 0.7, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
+    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * ss, s1: 16 * ss, life: 0.1, r: 1.8, g: 1.2, b: 0.6, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
     // main fireballs, staggered
     const n = Math.round(5 * cs + 2);
     for (let i = 0; i < n; i++) {
@@ -93,14 +93,14 @@ export class FX {
           x: P.x + range(-0.8, 0.8) * s, y: P.y + range(0.2, 1.4) * s, z: P.z + range(-0.8, 0.8) * s,
           vx: Math.cos(a) * Math.cos(el) * sp + (carVel ? carVel.x * 0.5 : 0), vy: Math.sin(el) * sp + range(1, 4), vz: Math.sin(a) * Math.cos(el) * sp + (carVel ? carVel.z * 0.5 : 0),
           drag: 2.6, grav: 2.2, frameKind: 1, s0: range(3.6, 5.0) * ss, s1: range(9.5, 14) * ss, ease: 0.55, life: range(1.1, 1.9), rot: rand() * 6.28, vrot: range(-0.8, 0.8),
-          r: 2.3, g: 1.9, b: 1.6, a: 1, fadeIn: 0.02, fadeOut: 0.85,
+          r: 2.0, g: 1.5, b: 1.1, a: 1, fadeIn: 0.02, fadeOut: 0.85,
         });
       };
       if (d === 0) fn(); else this.later(d, fn);
     }
     // rising mushroom core
     for (let i = 0; i < 3; i++) this.later(0.1 + i * 0.08, () => {
-      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 5.5 * ss, s1: 15 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1, g: 1.8, b: 1.5, fadeOut: 0.8 });
+      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 5.5 * ss, s1: 15 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 1.9, g: 1.45, b: 1.05, fadeOut: 0.8 });
     });
     // dark smoke column
     for (let i = 0; i < Math.round(6 * cs + 2); i++) this.later(range(0.25, 0.9), () => {
@@ -163,7 +163,7 @@ export class FX {
     const sys = near ? this.near : this.main;
     const k = near ? 1 : 2.4;
     const big = kind === 'launcher';
-    const s = big ? 0.5 : kind === 'enemy' ? 0.55 : 0.32;
+    const s = big ? 0.42 : kind === 'enemy' ? 0.5 : 0.24;
     sys.spawn({ x: pos.x + dir.x * s * 0.3, y: pos.y + dir.y * s * 0.3, z: pos.z + dir.z * s * 0.3, frame: rand() < 0.5 ? CELL.STAR : CELL.STAR2, s0: s, s1: s * 1.3, life: 0.05, rot: rand() * 6.28, r: 1.6 * k, g: 1.2 * k, b: 0.7 * k, a: 1, fadeIn: 0, fadeOut: 0.3, anchored: !near });
     sys.spawn({ x: pos.x + dir.x * s * 0.8, y: pos.y + dir.y * s * 0.8, z: pos.z + dir.z * s * 0.8, frame: CELL.GLOW, s0: s * 1.2, s1: s * 1.6, life: 0.06, r: 1.4 * k, g: 0.8 * k, b: 0.35 * k, a: 1, fadeIn: 0, fadeOut: 0.2, anchored: !near });
     if (!near || big) for (let i = 0; i < 2; i++) this.main.spawn({ x: pos.x + dir.x * 0.2, y: pos.y + dir.y * 0.2, z: pos.z + dir.z * 0.2, vx: dir.x * 3 + range(-0.5, 0.5), vy: dir.y * 3 + 0.5, vz: dir.z * 3 + range(-0.5, 0.5), drag: 4, frame: CELL.WISP, s0: 0.2, s1: 0.9, life: 0.7, rot: rand() * 6, r: 0.8, g: 0.78, b: 0.75, a: 0.35, fadeIn: 0.05, fadeOut: 0.3, anchored: true });

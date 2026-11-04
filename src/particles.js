@@ -126,7 +126,7 @@ attribute vec4 iColor;   // rgb mult, alpha
 attribute vec3 iVel;
 uniform float stretchMode;
 varying vec2 vUv0; varying vec2 vUv1; varying float vBlend;
-varying vec4 vColor; varying float vFogDepth; varying vec3 vFogViewPos;
+varying vec4 vColor; varying float vFogDepth; varying vec3 vFogViewPos; varying float vGroundY; varying float vSoft;
 vec2 cellUv(float f, vec2 uv){ float cx = mod(f, 16.0); float cy = floor(f / 16.0); return vec2((cx + uv.x) / 16.0, 1.0 - (cy + 1.0 - uv.y) / 16.0); }
 void main(){
   vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
@@ -154,6 +154,9 @@ void main(){
   float bigS = max(iSize.x, iSize.y);
   if (bigS > 1.5) vColor.a *= smoothstep(bigS * 0.35, bigS * 1.3, -mv.z);
   vFogDepth = -mv.z; vFogViewPos = mv.xyz;
+  // world height of this vertex (soft intersection with the road plane y=0, no depth buffer needed)
+  vGroundY = (inverse(viewMatrix) * vec4(mv.xyz, 1.0)).y;
+  vSoft = max(0.05, min(iSize.x, iSize.y) * 0.22);
   gl_Position = projectionMatrix * mv;
   if (iColor.a <= 0.0 || iSize.x <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
@@ -162,7 +165,7 @@ uniform sampler2D atlas;
 uniform vec3 fogColor; uniform vec3 fogColorSun; uniform vec3 fogSunDir; uniform float fogNear; uniform float fogFar;
 uniform float emissiveBoost;
 varying vec2 vUv0; varying vec2 vUv1; varying float vBlend;
-varying vec4 vColor; varying float vFogDepth; varying vec3 vFogViewPos;
+varying vec4 vColor; varying float vFogDepth; varying vec3 vFogViewPos; varying float vGroundY; varying float vSoft;
 void main(){
   vec4 a = texture2D(atlas, vUv0);
   vec4 b = texture2D(atlas, vUv1);
@@ -175,7 +178,8 @@ void main(){
   float fs = max(dot(fdir, fogSunDir), 0.0);
   vec3 fcol = mix(fogColor, fogColorSun, pow(fs, 3.0));
   rgb = mix(rgb, fcol * al, f);
-  gl_FragColor = vec4(rgb, al) * vColor.a;
+  float soft = smoothstep(0.0, vSoft, vGroundY);
+  gl_FragColor = vec4(rgb, al) * vColor.a * soft;
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
