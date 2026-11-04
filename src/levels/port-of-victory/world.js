@@ -283,9 +283,7 @@ export class PortWorld {
       for (const [x, boom] of [[-48, 'down'], [46, 'up']]) {
         const c = shipM.buildQuayCrane({ boom }); c.root.position.set(x, 0, -124); this.group.add(c.root);
         c.root.updateMatrixWorld(true); this._addCol(c, c.root); this.quayCranes.push(c);
-        const wp = (p) => (p.isVector3 ? p.clone().applyMatrix4(c.root.matrixWorld) : p.getWorldPosition(new THREE.Vector3()));
-        for (const p of (c.anchors?.warn || [])) this.lampGlows.push({ p: wp(p), size: 1.8, color: [2.6, 0.25, 0.1], blink: true });
-        for (const p of (c.anchors?.flood || [])) this.lampGlows.push({ p: wp(p), size: 2.6, color: [2.2, 1.9, 1.5], dusk: true });
+
       }
     }
     if (shipM?.buildRTG) {
@@ -432,6 +430,9 @@ export class PortWorld {
     this.time += dt;
     const t = this.time;
     if (this.waterNormal) { this.waterNormal.offset.set(t * 0.004, t * 0.009); }
+    for (const c of this.quayCranes) c.update?.(dt, t);
+    this.rtg?.update?.(dt, t);
+    this.ship?.update?.(dt, t);
     this.far.position.set(head.x * 0.9, 0, head.z * 0.9);
     // emissive windows / signs come up with the dusk
     const em = THREE.MathUtils.smoothstep(dusk, 0.1, 0.7);
