@@ -3,6 +3,7 @@ import { BillboardBatch, CELL } from '../../particles.js';
 import { CollisionWorld, NavGrid } from '../../collision.js';
 import { buildSedan, buildSUV, MAT } from '../../vehicles.js';
 import { concreteTexture } from '../../textures.js';
+import { splitByCells } from './chunks.js';
 import { AVE, CROSS, PLAZA, MERIDIAN, LOBBY, SUBWAY, LOTS, PARAPET, streetGround } from './layout.js';
 
 // The art is built by separate modules; each falls back to a stand-in so the level always runs.
@@ -65,6 +66,15 @@ export class DowntownWorld {
     this.scene.add(this.beacon.mesh);
     this.beaconK = 0;
     this.group.traverse(o => { if (o.isMesh && o.castShadow === undefined) o.castShadow = false; });
+    // per-area chunks so the eye and shadow passes can cull the merged city / street / lobby meshes
+    // (the lobby LED strip scrolls its own uvs, the subway toggles meshes: both stay whole)
+    if (!this.E.params?.has('nochunks')) {
+      this.chunkInfo = { meshes: 0, chunks: 0 };
+      for (const r of [this.city, this.street, this.lobby]) if (r?.root) {
+        const s = splitByCells(r.root, { skip: o => o.name === 'lobby_led' });
+        this.chunkInfo.meshes += s.meshes; this.chunkInfo.chunks += s.chunks;
+      }
+    }
     return this;
   }
 

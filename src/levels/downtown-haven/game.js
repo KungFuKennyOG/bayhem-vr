@@ -57,7 +57,7 @@ export class DowntownGame {
     this.glass = new GlassSystem(this, world.panes);
     this.traffic = new Traffic(this, world.mods.carMod, world.fallbackCar);
     this.lasers = new LaserFX(this);
-    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320 });
+    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320, occlusion: !E.params.has('noocc') });
     // dust veil over the (unfogged) sky dome: inside the dust there is no blue sky
     this.dustDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 12), new THREE.MeshBasicMaterial({ color: 0x6b5d4b, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
     this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
