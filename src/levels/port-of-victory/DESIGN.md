@@ -17,7 +17,7 @@ long shadows, backlit silhouettes with the shared sun rim light, sodium-orange f
 - **RTG crane** straddles x ∈ [-17.5, +5.5] (legs at those x), centred at z = -82, beam top ~19 m.
 - **Apron** z -110 … -151 (concrete). Forklift + fuel drums here.
 - **Quay edge** at z = -151.0 (coping 0.35 m high, bollards every 12 m). Water surface y = -2.2 for z < -151.
-- **STS quay cranes**: rails at z = -124 (landside) and z = -149 (waterside). Crane A centred x = -48
+- **STS quay cranes** (`cranes.js`): rails at z = -124 (landside) and z = -149 (waterside). Crane A centred x = -48
   (boom lowered over the ship), crane B centred x = +46 (boom raised). Portal legs at x ±9 from centre.
 - **Ship**: hull side facing the quay at z = -153.0, beam 27 m (far side z = -180). Bow at x = -95, stern at x = +65.
   Main deck y = 9.0. Superstructure (accommodation + bridge) at the stern x ∈ [+40, +58]; funnel aft of it.

@@ -1,0 +1,1 @@
+["(async()=>{ const T = await import('/src/_tex_orig_tmp.js'); const o={}; for (const k of ['roadTextures','groundTexture']) { const t=performance.now(); T[k](); o[k]=(performance.now()-t).toFixed(0); } let t=performance.now(); for (let v=0;v<8;v++){T.facadeTextures2(700+v*13,8,8);T.facadeTextures2(900+v*13,8,6);} o.facades=(performance.now()-t).toFixed(0); return o; })()"]

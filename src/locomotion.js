@@ -42,6 +42,7 @@ export class Locomotion {
     if (g < y - 1.2) { // ledge / water: don't walk off it
       _n.copy(_c); g = this.world.groundAt(_n.x, _n.z, y, 0.5);
       this.vel.multiplyScalar(0.2);
+      if (g < y - 1.2) g = y; // already over the edge (head bob / room-scale lean): hold height
     }
     const dx = _n.x - _c.x, dz = _n.z - _c.z;
     this.rig.position.x += dx; this.rig.position.z += dz;

@@ -252,7 +252,8 @@ export class PortGame {
       const t = tg.ray(origin, dir);
       if (t > 0 && t < best.t) best = { t, kind: 'target', target: tg };
     }
-    const hit = this.col.raycast(origin, dir, best.t, (b) => b.data.noBullet);
+    const manOn = this.setpieces?.man?.state === 'armed';
+    const hit = this.col.raycast(origin, dir, best.t, (b) => b.data.noBullet || (manOn && b.data.isManifold));
     if (hit) {
       const d = hit.box.data;
       best = { t: hit.t, kind: d.kind === 'drum' ? 'drum' : d.kind === 'hero' ? 'hero' : 'world', box: hit.box, normal: hit.normal, mat: d.mat };
@@ -567,8 +568,8 @@ export class PortGame {
     // distant black smoke columns (the freeway chase is still burning behind the port)
     this._colT = (this._colT || 0) - dt;
     if (this._colT <= 0) {
-      this._colT = 0.35;
-      for (const [x, z] of [[-140, 160], [95, 230]]) this.fx.main.spawn({ x: x + range(-4, 4), y: 6, z: z + range(-4, 4), vx: range(-0.5, 0.5) + 1.5, vy: range(4, 6), vz: range(-0.5, 0.5) - 1, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(30, 44), ease: 0.6, life: range(14, 18), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.16, g: 0.13, b: 0.11, a: 0.8, fadeIn: 0.08, fadeOut: 0.55 });
+      this._colT = 0.9;
+      for (const [x, z] of [[-140, 160], [95, 230]]) this.fx.main.spawn({ x: x + range(-4, 4), y: 6, z: z + range(-4, 4), vx: range(-0.5, 0.5) + 1.5, vy: range(4, 6), vz: range(-0.5, 0.5) - 1, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 12, s1: range(34, 48), ease: 0.6, life: range(11, 14), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.16, g: 0.13, b: 0.11, a: 0.8, fadeIn: 0.08, fadeOut: 0.55 });
     }
   }
 
@@ -586,7 +587,7 @@ export class PortGame {
       const d = p.distanceTo(head);
       if (d > 60) continue;
       // only what the player can actually see (checked lazily for the current target)
-      const vis = (A.target?.ref === s) ? A.targetVisible !== false : this.col.visible(head, p, b => b.data.noBullet);
+      const vis = this.col.visible(head, p, b => b.data.noBullet);
       if (!vis) continue;
       out.push({ kind: 'soldier', p, score: 60 - d * 0.7 + (A.target?.ref === s ? 25 : 0) + (s.role === 'rusher' ? 10 : 0), ref: s, heavy: d > 16 && (s.cover?.tall === false || s.role === 'perch'), minNade: 9 });
     }
@@ -597,17 +598,18 @@ export class PortGame {
       // shoot drums when enemies stand next to them (Bay logic)
       const near = this.soldiers.filter(s => s.alive && s.delay <= 0 && s.pos.distanceTo(d.pos) < 4.5).length;
       if (near === 0 && !d.onFork) continue;
+      if (d.onFork && dd > 24) continue;
       const p = d.pos.clone().setY(d.pos.y + 0.45);
       if (!this.col.visible(head, p, b => b.data.noBullet || b === d.box)) continue;
       out.push({ kind: 'drum', p, score: 50 + near * 22 + (d.onFork ? 40 : 0) - dd * 0.5 + (A.target?.ref === d ? 20 : 0), ref: d, tol: 0.03 });
     }
-    for (const tg of this.targets || []) if (tg.active() && tg.auto) { const t = tg.auto(head, A); if (t) out.push(t); }
+    for (const tg of this.targets || []) if (tg.active() && tg.auto) { const t = tg.auto(head, A); if (t && this.col.visible(head, t.p, b => b.data.noBullet || b.data.kind === 'drum' || b.data.isManifold)) out.push(t); }
     if (this.cinematicLook) { out.length = 0; out.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: this.cinematicW ?? 5 }); }
     A.targetVisible = true;
     return out;
   }
   autoTargetDead(t) {
-    if (t.kind === 'soldier') return !t.ref.alive || (this.time % 0.5 < 0.04 && !this.col.visible(this.headPos, t.ref.gm.chestCenter.getWorldPosition(_v), b => b.data.noBullet));
+    if (t.kind === 'soldier') { if (!t.ref.alive) return true; if (this.col.visible(this.headPos, t.ref.gm.chestCenter.getWorldPosition(_v), b => b.data.noBullet)) { t.lost = 0; return false; } t.lost = (t.lost || 0) + 1; return t.lost > 12; }
     if (t.kind === 'drum') return t.ref.state === 'gone' || t.ref.state === 'burning';
     if (t.kind === 'target') return !t.ref.active();
     return false;

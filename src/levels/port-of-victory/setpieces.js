@@ -3,6 +3,7 @@ import { rand, range, pick, chance, clamp, lerp, damp, smooth } from '../../rng.
 import { Gunman } from '../../characters.js';
 import { RigidBox } from '../../physics.js';
 import { CELL } from '../../particles.js';
+import { Mushroom } from './mushroom.js';
 import { CW, CH, C40, C20, RTG, DECK_Y, QUAY_Z } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _inv = new THREE.Matrix4();
@@ -30,6 +31,19 @@ function rayBox(o, d, mn, mx) {
 // =====================================================================================
 //  Set pieces: the gantry crane drop, the forklift charge, the ship's fuel hold finale.
 // =====================================================================================
+// additive glow sprite (beacons, strobes, headlights): soft radial falloff, no hard disc edge
+let _glowTex = null;
+function glowSprite(color, size) {
+  if (!_glowTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 64, 64); _glowTex = new THREE.CanvasTexture(c); _glowTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const m = new THREE.SpriteMaterial({ map: _glowTex, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+  const sp = new THREE.Sprite(m); sp.scale.setScalar(size); sp.renderOrder = 8; return sp;
+}
+
 export class SetPieces {
   constructor(game) {
     this.g = game; this.w = game.world;
@@ -50,7 +64,7 @@ export class SetPieces {
     const C = this.crane = { rtg, mode: 'idle', z: RTG.z, tz: RTG.z, trolley: 0, tTrolley: 0, hoist: 14.5, t: 0, drops: 0, opAlive: true, glass: true };
     rtg.setTrolley?.(0); rtg.setHoist?.(C.hoist);
     // the carried box
-    const hc = this.g.spawnHero(0, -500, 0, 0, 40, 0, 4242); // spawned far away, then re-parented to the spreader
+    const hc = this.g.spawnHero(0, -500, 0, 0, 40, 3, 4242); // KRONOS orange: reads against the sky // spawned far away, then re-parented to the spreader
     g.col.remove(hc.box); hc.box.enabled = false;
     C.box = hc;
     // RTGs carry boxes along the block rows (long axis along world z)
@@ -59,10 +73,13 @@ export class SetPieces {
     // leg colliders move with the gantry
     C.legBoxes = (rtg.boxes || []).map(b => ({ b, min: b.min.clone(), max: b.max.clone() }));
     // the operator (seated in the cab)
-    const op = new Gunman({ pose: 'window', side: -1, seed: 777 });
+    const op = new Gunman({ pose: 'window', side: -1, seed: 777, outfit: 'port' });
     (rtg.cabSeat || rtg.cab).add(op.root);
     op.root.position.set(0, 0, 0);
     C.op = op;
+    // amber strobes on the spreader ends + a warm cab light (the operator is visible at dusk)
+    C.strobes = [-5.6, 5.6].map(x => { const sp = glowSprite(0xffa020, 1.6); sp.position.set(x, 0.75, 0); sp.visible = false; rtg.spreader.add(sp); return sp; });
+    C.cabLight = glowSprite(0xffc080, 2.4); C.cabLight.position.set(0, 1.0, 0.75); (rtg.cabSeat || rtg.cab).add(C.cabLight); C.cabLight.material.opacity = 0.5;
     // drop shadow decal (grows while the box falls)
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
     sh.renderOrder = 3; g.scene.add(sh); C.shadow = sh;
@@ -130,6 +147,19 @@ export class SetPieces {
     if (C.mode === 'after') { C.tz = -96; C.tTrolley = 7; if (C.hoist < 14.5) C.hoist = Math.min(14.5, C.hoist + dt * 2); rtg.setHoist?.(C.hoist); }
     g.audio.setLoop('crane_motor', { x: RTG.x + C.trolley, y: 17, z: C.z, volume: C.mode === 'idle' ? 0 : 0.5 + Math.min(0.5, moving * 0.12), intensity: Math.min(1, moving * 0.2) });
     if (C.op && C.opAlive) C.op.update(dt, C.mode === 'idle' ? null : head);
+    { const on = C.mode === 'track' || (C.fall && C.fall.y > 1); for (let i = 0; i < C.strobes.length; i++) { const sp = C.strobes[i], k = Math.max(0, Math.sin(C.t * 14 + i * Math.PI)); sp.visible = on; sp.material.opacity = k * k; sp.scale.setScalar(1.2 + k * 1.4); }
+      C.cabLight.material.opacity = C.opAlive ? 0.75 + 0.08 * Math.sin(C.t * 3) : 0.12; }
+    if (C.mode === 'track') {
+      // telegraph: the hanging box sways and its shadow paints a pulsing target on the asphalt
+      const root = C.box.hc.root; root.rotation.z = Math.sin(C.t * 2.1) * 0.035; root.rotation.x = Math.sin(C.t * 1.6 + 1) * 0.025;
+      rtg.spreader.updateWorldMatrix(true, false); rtg.spreader.getWorldPosition(_v);
+      C.shadow.position.set(_v.x, 0.04, _v.z); C.shadow.scale.set(CW * 1.25, 1, C40 * 1.1);
+      C.shadow.material.opacity = 0.18 + 0.14 * (0.5 + 0.5 * Math.sin(C.t * 9));
+      C.shadow.material.color.setRGB(0.25 * (0.5 + 0.5 * Math.sin(C.t * 9)), 0.02, 0);
+    } else if (!C.fall && C.box && C.mode !== 'gone' && C.hoist > 8) {
+      rtg.spreader.updateWorldMatrix(true, false); rtg.spreader.getWorldPosition(_v);
+      C.shadow.position.set(_v.x, 0.04, _v.z); C.shadow.scale.set(CW * 1.2, 1, C40 * 1.05); C.shadow.material.color.setRGB(0, 0, 0); C.shadow.material.opacity = C.mode === 'after' ? 0 : 0.2;
+    } else if (!C.fall) C.shadow.material.opacity = 0;
     // falling box
     const F = C.fall;
     if (F) {
@@ -152,6 +182,7 @@ export class SetPieces {
     g.scene.attach(root);
     const L = C40;
     const e = new THREE.Euler().setFromQuaternion(root.quaternion, 'YXZ');
+    C.shadow.material.color.setRGB(0, 0, 0);
     C.fall = { obj: root, y: wp.y, y0: wp.y, v: 0, rx: 0, wr: range(-0.35, 0.35), yaw: e.y, Lx: CW, Lz: L };
     C.shadow.position.set(wp.x, 0.04, wp.z);
     g.audio.play('crane_release', { x: wp.x, y: wp.y + 3, z: wp.z, volume: 1 });
@@ -196,7 +227,7 @@ export class SetPieces {
   // ================================================================== forklift charge
   _forklift() {
     const g = this.g, pm = this.w.mods.propM;
-    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(46, 0, -128), yaw: Math.PI / 2, speed: 0, lift: 1.4, alive: true, drums: [], t: 0 };
+    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(29, 0, -112.5), yaw: Math.PI / 2 - 0.12, speed: 0, lift: 0.75, alive: true, drums: [], t: 0 };
     let model;
     if (pm?.buildForklift) model = pm.buildForklift();
     else {
@@ -206,12 +237,21 @@ export class SetPieces {
       model = { root, anchors: { forks, seat, exhaust: seat, beacon: seat }, setLift(h) { forks.position.y = 0.2 + h; }, spin() {}, steer() {}, colliders: [{ min: [-1.1, 0, -2.6], max: [1.1, 2.4, 2.2] }] };
     }
     F.model = model; F.root = model.root;
+    // rotating amber beacon + headlights (reads at range and at dusk)
+    F.beacon = glowSprite(0xff9a18, 1.1); (model.anchors.beacon || F.root).add(F.beacon);
+    F.heads = (model.anchors.headlights || []).map(o => { const sp = glowSprite(0xfff0d0, 0.9); o.add(sp); return sp; });
+    { const pool = glowSprite(0xffe0b0, 1); const pm = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 6.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: pool.material.map, color: 0x8a6a48, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+      pm.position.set(0, 0.03, -5.2); pm.renderOrder = 4; F.root.add(pm); F.pool = pm; }
     F.root.position.copy(F.pos); F.root.rotation.y = F.yaw; F.root.visible = false;
-    F.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    // it is always seen backlit (the sun is behind it): a little fake bounce keeps the safety yellow readable
+    const lifted = new Map();
+    F.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true;
+      const mats = [].concat(o.material).map(m => { if (!m?.isMeshStandardMaterial) return m; if (!lifted.has(m)) { const c = m.clone(); if (m.map) { c.emissiveMap = m.map; c.emissive = new THREE.Color(0.42, 0.36, 0.26); c.emissiveIntensity = 0.35; } lifted.set(m, c); } return lifted.get(m); });
+      o.material = Array.isArray(o.material) ? mats : mats[0]; } });
     g.scene.add(F.root);
     model.setLift?.(F.lift);
     // driver
-    const drv = new Gunman({ pose: 'window', side: -1, seed: 5150 });
+    const drv = new Gunman({ pose: 'window', side: -1, seed: 5150, outfit: 'port' });
     (model.anchors.seat || F.root).add(drv.root);
     F.driver = drv; F.driverAlive = true;
     // forklift hitbox (approx) as a shootable target + collider that follows it
@@ -221,6 +261,9 @@ export class SetPieces {
       ray: (o, d) => {
         let best = -1;
         if (F.driverAlive) { F.driver.headCenter.getWorldPosition(_v); let t = raySphere(o, d, _v, 0.2); if (t > 0) best = t; F.driver.chestCenter.getWorldPosition(_v); t = raySphere(o, d, _v, 0.33); if (t > 0 && (best < 0 || t < best)) { best = t; F._hitDrv = 'body'; } else if (best > 0) F._hitDrv = 'head'; }
+        // the drum pallet on the forks: a generous sphere (it is the obvious thing to shoot)
+        const live = F.drums.filter(d => d.state !== 'gone' && d.onFork);
+        if (live.length) { _v.set(0, 0, 0); for (const d of live) _v.add(d.pos); _v.divideScalar(live.length); _v.y += 0.45; const ts = raySphere(o, d, _v, 1.3); if (ts > 0 && (best < 0 || ts < best)) { best = ts; F._hitDrv = null; } }
         // body (OBB): transform the ray into forklift space
         _inv.copy(F.root.matrixWorld).invert();
         const lo = _v.copy(o).applyMatrix4(_inv), ld = _v2.copy(d).transformDirection(_inv);
@@ -231,6 +274,9 @@ export class SetPieces {
       hit: (P, dir) => {
         if (F._hitDrv && F.driverAlive) { F.drvHits = (F.drvHits || 0) + (F._hitDrv === 'head' ? 3 : 1); g.fx.impact(P, dir.clone().negate(), 'body'); g.hitMarker(F._hitDrv === 'head'); if (F.drvHits >= 2) this.killDriver(dir); return; }
         g.fx.impact(P, dir.clone().negate(), 'metal'); g.audio.play('impact_metal', { x: P.x, y: P.y, z: P.z, volume: 0.7 });
+        // rounds into the fork end find the fuel drums
+        const dr = F.drums.find(d => d.state !== 'gone' && d.pos.distanceTo(P) < 1.6);
+        if (dr) { g.hitDrum(dr, P, dir.clone().negate(), 'player'); return; }
         F.hp = (F.hp ?? 20) - 1; g.hitMarker(false);
         if (F.hp <= 0) this.wreckForklift('shot');
       },
@@ -243,7 +289,7 @@ export class SetPieces {
         const d = F.drums.find(x => x.state === 'ok' || x.state === 'leak');
         if (!d) return null;
         const p = d.pos.clone().setY(d.pos.y + 0.45);
-        if (p.distanceTo(head) > 55) return null;
+        if (p.distanceTo(head) > 24) return null; // let it come: the charge has to read before it blows
         return { kind: 'drum', p, score: 120, ref: d, tol: 0.07 };
       },
     });
@@ -251,10 +297,11 @@ export class SetPieces {
   forkliftStart() {
     const F = this.fork, g = this.g;
     F.state = 'charge'; F.root.visible = true; F.t = 0; F.speed = 0; F.hp = 22;
+    if (g.auto) { g.cinematicLook = F.root.position.clone().setY(1.6); g.cinematicW = 5; g.fx.later(1.4, () => { if (g.cinematicLook && g.cinematicLook.y === 1.6) g.cinematicLook = null; }); }
     // pallet of fuel drums on the forks
     const forks = F.model.anchors.forks;
     for (let i = 0; i < 4; i++) {
-      const d = g.addDrum(new THREE.Vector3(), { onFork: true, forkOff: new THREE.Vector3((i % 2 - 0.5) * 0.62, 0.14, (Math.floor(i / 2) - 0.5) * 0.62 - 0.7) });
+      const d = g.addDrum(new THREE.Vector3(), { hp: 1, onFork: true, forkOff: new THREE.Vector3((i % 2 - 0.5) * 0.62, 0.14, (Math.floor(i / 2) - 0.5) * 0.62 - 0.7) });
       F.drums.push(d);
     }
     // forklift collider (updated every frame)
@@ -274,6 +321,7 @@ export class SetPieces {
     F.state = 'runaway';
   }
   wreckForklift(cause) {
+    if (this.fork.beacon) { this.fork.beacon.visible = false; for (const h of this.fork.heads) h.visible = false; if (this.fork.pool) this.fork.pool.visible = false; }
     const F = this.fork, g = this.g;
     if (!F.alive) return;
     F.alive = false; F.state = 'wreck';
@@ -305,10 +353,11 @@ export class SetPieces {
       F.yaw += clamp(dy, -1.2 * dt, 1.2 * dt);
       // after a ram it backs off and lines up again (never pins the player)
       if (F.backT > 0) { F.backT -= dt; F.speed = damp(F.speed, -3, 3, dt); }
-      else { const top = F.state === 'charge' ? (dist < 7 ? 2.5 : 7.5) : 6.5; F.speed = damp(F.speed, top, 1.2, dt); }
+      else { const top = F.state === 'charge' ? (dist < 7 ? 2.5 : 5.8) : 6.5; F.speed = damp(F.speed, top, 1.2, dt); }
       F.pos.x += -Math.sin(F.yaw) * F.speed * dt; F.pos.z += -Math.cos(F.yaw) * F.speed * dt;
       F.pos.z = Math.max(F.pos.z, QUAY_Z + 3);
       F.root.position.copy(F.pos); F.root.rotation.set(0, F.yaw, 0);
+      { const k = Math.pow(Math.max(0, Math.sin(F.t * 9)), 3); F.beacon.material.opacity = 0.25 + k * 0.75; F.beacon.scale.setScalar(0.8 + k * 1.2); }
       F.model.spin?.(F.speed * dt); F.model.steer?.(clamp(dy, -0.6, 0.6));
       F.model.setLift?.(F.lift + Math.sin(F.t * 7) * 0.02);
       if (F.state === 'runaway' && dist < 4) this.wreckForklift('crash');
@@ -350,6 +399,8 @@ export class SetPieces {
     const g = this.g, ship = this.w.ship;
     const M = this.man = { hp: 14, state: 'idle', pos: (ship.anchors?.manifold?.isVector3 ? ship.anchors.manifold.clone() : ship.anchors?.manifold?.getWorldPosition?.(new THREE.Vector3())) || new THREE.Vector3(-6, DECK_Y, -155.5), t: 0, fires: [] };
     M.center = M.pos.clone().setY(M.pos.y + 0.9);
+    // the manifold's own colliders must not eat the bullets aimed at it
+    g.col.query(M.center.x - 2, M.center.z - 2, M.center.x + 2, M.center.z + 2, (b) => { if (b.min.x < M.center.x + 1 && b.max.x > M.center.x - 1 && b.min.z < M.center.z + 1 && b.max.z > M.center.z - 1 && b.max.y > DECK_Y + 0.3 && b.min.y < DECK_Y + 2) b.data.isManifold = true; });
     g.targets.push({
       name: 'manifold', active: () => M.state === 'armed',
       ray: (o, d) => raySphere(o, d, M.center, 0.95),
@@ -366,11 +417,16 @@ export class SetPieces {
     });
   }
   fuelJet(P, dir) { this.man.fires.push({ p: P.clone(), n: dir.clone().negate().setY(0.3).normalize(), life: 99 }); }
-  armManifold() { this.man.state = 'armed'; }
+  armManifold() {
+    this.man.state = 'armed';
+    // objective glow: a pulsing red-amber halo on the manifold so it reads from the gangway
+    if (!this.manGlow) { this.manGlow = glowSprite(0xff3a10, 3.2); this.manGlow.position.copy(this.man.center).setY(this.man.center.y + 0.9); this.g.scene.add(this.manGlow); }
+  }
   rupture() {
     const M = this.man, g = this.g;
     if (M.state !== 'armed') return;
     M.state = 'burning'; M.t = 0;
+    if (this.manGlow) this.manGlow.visible = false;
     g.audio.play('fuel_whoomp', { x: M.center.x, y: M.center.y, z: M.center.z });
     g.fx.explosion(M.center.clone(), 1.3, { noRing: true });
     g.lastExplosionT = g.time; g.lastExplosionShake = 1.0;
@@ -379,14 +435,39 @@ export class SetPieces {
     g.addScore(1500, 'FUEL LINE CUT!', M.center.clone().setY(M.center.y + 2.5), 'huge');
     g.events.push({ type: 'rupture' });
   }
+  // countdown: the ship is coming apart while you run
+  escapeFX(dt, t) {
+    const g = this.g;
+    if (!this.alarm) {
+      this.alarm = [[40, 21.5], [47, 23.5], [54, 21.5], [-2, 13.2], [24, 13.2]].map(([x, y]) => { const sp = glowSprite(0xff2010, 2.6); sp.position.set(x, y, -153.6); g.scene.add(sp); return sp; });
+      this.pipeT = 0.4;
+    }
+    this.alarm.forEach((sp, i) => { const k = Math.pow(Math.max(0, Math.sin(t * 7 + i * 1.3)), 4); sp.material.opacity = k; sp.scale.setScalar(1.6 + k * 2.2); });
+    // ruptured pipe run: fire jets + steam bursting out a few metres from the player
+    this.pipeT -= dt;
+    if (this.pipeT <= 0) {
+      this.pipeT = range(0.5, 0.9);
+      const x = clamp(g.headPos.x + range(-9, 3), -24, 34), fire = rand() < 0.55;
+      g.audio.play(fire ? 'fuel_whoomp' : 'barrel_hiss', { x, y: DECK_Y + 1, z: -157.4, volume: 0.7 });
+      const n = new THREE.Vector3(range(-0.3, 0.3), range(0.5, 1), 1).normalize();
+      for (let i = 0; i < 14; i++) g.fx.later(i * 0.035, () => g.fx.main.spawn({ x, y: DECK_Y + range(0.3, 0.9), z: -157.3, vx: n.x * range(5, 9), vy: n.y * range(5, 9), vz: n.z * range(5, 9), drag: 2.2, grav: fire ? -1 : -0.5, frameKind: fire ? 1 : 2, frame: rand() * 40, frames: 16, s0: 0.4, s1: range(1.8, 2.8), ease: 0.5, life: range(0.5, 0.8), rot: rand() * 6, vrot: range(-1, 1), r: fire ? 1.65 : 0.55, g: fire ? 0.75 : 0.55, b: fire ? 0.3 : 0.58, a: fire ? 1 : 0.5, fadeIn: 0.02, fadeOut: 0.6 }));
+      if (fire) g.fx.light(_v.set(x, DECK_Y + 1.2, -156.5), 140, 0.5, 0xff8030, true, 14);
+      g.lastExplosionT = g.time; g.lastExplosionShake = 0.25;
+    }
+  }
+  escapeEnd() { for (const sp of this.alarm || []) sp.material.opacity = 0.6; }
   // pre-blasts on the deck while you run
   deckBlast(x) { const g = this.g; g.boom(new THREE.Vector3(x, DECK_Y + 0.8, -158 - rand() * 2), 1.3, { radius: 5, dmg: 15, noRing: true }); g.audio.play('metal_groan', { x, y: DECK_Y, z: -165 }); }
   // the big one: the fuel hold goes up in a mushroom fireball, chain blasts along the hull
   kaboom() {
     const g = this.g, M = this.man;
     M.state = 'gone'; M.kaboomT = 0;
-    const P = new THREE.Vector3(-12, DECK_Y + 2, -166);
+    const P = new THREE.Vector3(-15, DECK_Y + 2, -167);
     this.mush = { P, t: 0 };
+    // the dominant silhouette: noise-displaced shells (stem, rolling cap, dome, skirt)
+    this.mushMesh = new Mushroom(g.scene, P);
+    { const H = g.E.hemi, S = g.E.sun; this.mushMesh.setLight(S ? _v.copy(S.position).normalize() : null, S ? S.color.clone().multiplyScalar(Math.min(1.4, 0.35 + S.intensity * 0.35)) : null, H ? H.color.clone().multiplyScalar(H.intensity * 0.9) : null, H ? H.groundColor.clone().multiplyScalar(H.intensity * 0.9) : null); }
+    g.fx.main.bigBudget = Math.max(g.fx.main.bigBudget, 170); // the mushroom itself is forced past the budget (one-off)
     g.slowmo(3.6, 0.2, true);
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.audio.play('fuel_whoomp', { x: P.x, y: P.y, z: P.z, volume: 1 });
@@ -398,15 +479,33 @@ export class SetPieces {
     g.fx.ring(P, 160, 1.4, DECK_Y);
     // kill anyone left on the deck
     for (const s of g.soldiers) if (s.alive && s.floorY > 5) g.killSoldier(s, new THREE.Vector3(range(-0.5, 0.5), 1, 0.6).normalize(), 3.5, false);
-    // secondary blasts marching along the hull
-    const xs = [-40, -28, 4, 14, -58, 28, -72, 36];
-    xs.forEach((x, i) => g.fx.later(0.25 + i * 0.32, () => { g.fx.explosion(new THREE.Vector3(x, DECK_Y + range(1, 4), -160 - rand() * 14), range(1.5, 2.2), { noRing: true }); g.audio.play('explosion_big', { x, y: DECK_Y, z: -165 }); g.lastExplosionT = g.time; g.lastExplosionShake = 0.8; }));
+    // the hull tears open on the quay side: fire jets punch out of the breaches toward the quay
+    this.breaches = [[-24.5, 3.7], [-6.4, 6.3], [-15, 4.7], [-31, 5.5]].map(([x, y], i) => ({ p: new THREE.Vector3(x, y, QUAY_Z - 2.3), t0: 0.35 + i * 0.28, dur: range(1.4, 2.0), s: range(1.3, 1.8) }));
+    this.breaches.forEach(B => g.fx.later(B.t0, () => {
+      const f = g.fx.main; f.spawn({ x: B.p.x, y: B.p.y, z: B.p.z + 1, frame: CELL.FLASH, s0: 4, s1: 9, life: 0.1, r: 2.4, g: 1.5, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.2, force: true });
+      for (let i = 0; i < 5; i++) f.spawn({ x: B.p.x + range(-1, 1), y: B.p.y + range(-0.8, 0.8), z: B.p.z + 1, vx: range(-3, 3), vy: range(1, 4), vz: range(7, 13), drag: 2.2, frameKind: 1, s0: range(3, 4), s1: range(7, 10), ease: 0.55, life: range(1.0, 1.5), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 1.6, g: 0.75, b: 0.32, a: 1, fadeIn: 0.02, fadeOut: 0.8, force: true });
+      for (let i = 0; i < 5; i++) g.fx.spawnDebris(B.p.clone().setZ(B.p.z + 1), range(-6, 6), range(1, 10), range(3, 15), range(0.15, 0.7), rand() < 0.2);
+      g.audio.play('explosion_big', { x: B.p.x, y: B.p.y, z: B.p.z, volume: 0.9 }); g.lastExplosionT = g.time; g.lastExplosionShake = 0.9;
+    }));
+    // later secondary blasts marching along the deck (after the cap has formed)
+    const xs = [-44, 8, -62];
+    xs.forEach((x, i) => g.fx.later(2.2 + i * 0.6, () => { g.fx.explosion(new THREE.Vector3(x, DECK_Y + range(1, 3), -162 - rand() * 10), 1.15, { noRing: true }); g.audio.play('explosion_big', { x, y: DECK_Y, z: -165 }); g.lastExplosionT = g.time; g.lastExplosionShake = 0.6; }));
     // deck containers thrown into the sky
     for (let i = 0; i < 4; i++) g.fx.later(0.15 + i * 0.2, () => this._flingBox(new THREE.Vector3(-30 + i * 14 + range(-3, 3), DECK_Y + 3, -168 + range(-4, 4))));
-    for (let i = 0; i < 40; i++) g.fx.spawnDebris(P.clone().setY(P.y + 3), range(-25, 25), range(14, 34), range(-10, 30), range(0.3, 0.9), rand() < 0.5);
+    // heavy wreckage trailing fat black smoke (not a spray of glitter)
+    for (let i = 0; i < 16; i++) {
+      // uneven launch: mostly up and toward the quay, wide size spread, only some of it on fire
+      const a = range(-0.4, Math.PI + 0.4), sp = range(3, 18) * (rand() < 0.3 ? 1.5 : 1), sz = rand() < 0.25 ? range(1.4, 2.4) : range(0.3, 1.1);
+      g.fx.spawnDebris(P.clone().set(P.x + range(-4, 4), P.y + range(2, 7), P.z + range(-3, 3)), Math.cos(a) * sp, range(10, 32), Math.sin(a) * sp * 0.8 + range(0, 6), sz, rand() < 0.35 ? 2 : (rand() < 0.3));
+    }
+    // the ship chars over a few seconds (ship.js setBurnt), windows die
+    this.burnK = 0;
     // persistent fires along the ship
     this.shipFires = [];
     for (let i = 0; i < 14; i++) this.shipFires.push({ p: new THREE.Vector3(range(-80, 34), DECK_Y + range(0.5, 2.5), range(-158, -176)), s: range(1.5, 3.5) });
+    // tall flame walls along the quay-side deck edge (what the player actually sees from the quay)
+    for (let i = 0; i < 9; i++) this.shipFires.push({ p: new THREE.Vector3(-42 + i * 6 + range(-2, 2), DECK_Y + range(0.6, 1.6), range(-154.6, -156.8)), s: range(2.8, 4.4), tall: true });
+    this.listK = 0;
     g.events.push({ type: 'kaboom' });
   }
   _flingBox(P) {
@@ -414,7 +513,7 @@ export class SetPieces {
     const h = g.spawnHero(P.x, P.z, P.y, 0, chance(0.5) ? 40 : 20, Math.floor(rand() * 8), Math.floor(rand() * 9999));
     g.col.remove(h.box);
     const L = h.L, rb = new RigidBox(L / 2, CH / 2, CW / 2, 20);
-    rb.pos.set(P.x, P.y + CH / 2, P.z); rb.vel.set(range(-8, 8), range(16, 26), range(4, 14)); rb.ang.set(range(-1.5, 1.5), range(-1, 1), range(-2, 2));
+    rb.pos.set(P.x, P.y + CH / 2, P.z); rb.vel.set(range(-8, 8), range(16, 26), range(-6, 5)); rb.ang.set(range(-1.5, 1.5), range(-1, 1), range(-2, 2));
     rb.restitution = 0.15;
     h.hc.dent?.(P.clone(), new THREE.Vector3(0, 1, 0), 2.5, 0.5);
     h.flying = { rb, burn: 12 };
@@ -424,33 +523,88 @@ export class SetPieces {
     const M = this.man, g = this.g;
     for (const f of M.fires) {
       // pressurised fuel jets: long licking flames out of the manifold
-      if (rand() < dt * 45) g.fx.main.spawn({ x: f.p.x, y: f.p.y, z: f.p.z, vx: f.n.x * range(6, 10), vy: f.n.y * range(6, 10) + 1, vz: f.n.z * range(6, 10), drag: 2.2, grav: 3, frameKind: 1, s0: 0.5, s1: range(2.2, 3.4), ease: 0.5, life: range(0.5, 0.8), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.8, b: 1.5, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
+      if (rand() < dt * 45) g.fx.main.spawn({ x: f.p.x, y: f.p.y, z: f.p.z, vx: f.n.x * range(6, 10), vy: f.n.y * range(6, 10) + 1, vz: f.n.z * range(6, 10), drag: 2.2, grav: 3, frameKind: 1, s0: 0.5, s1: range(2.2, 3.4), ease: 0.5, life: range(0.5, 0.8), rot: rand() * 6, vrot: range(-1, 1), r: 1.75, g: 0.95, b: 0.45, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
       if (rand() < dt * 8) g.fx.smoke(_v.copy(f.p).addScaledVector(f.n, 3).setY(f.p.y + 2.5), 1.6, 0.1, 4.5, 2.5, 0.75);
     }
     if (M.fires.length && M.state !== 'gone') g.audio.setLoop('fire_big', { x: M.center.x, y: M.center.y, z: M.center.z, volume: 0.9, intensity: 1 });
     if (M.state === 'burning' || M.state === 'gone') M.t += dt;
-    // mushroom cloud (rate-based emitters: slow-mo must not multiply the particle count)
+    if (this.manGlow && M.state === 'armed') { const k = 0.5 + 0.5 * Math.sin(this.g.time * 5); this.manGlow.material.opacity = 0.35 + 0.55 * k; this.manGlow.scale.setScalar(2.6 + k * 1.6); }
+    // mushroom cloud (rate-based emitters: slow-mo must not multiply the particle count).
+    // One dominant shape: a fire stem wrapped in black smoke rising into a rolling toroidal cap
+    // (glowing orange underside / interior, black-brown smoke on the outer edge and top) + a dust wall.
     const mu = this.mush;
     if (mu) {
       mu.t += dt;
       const P = mu.P, t = mu.t, fx = g.fx;
       const emit = (k, rate, fn) => { mu[k] = (mu[k] || 0) + rate * dt; while (mu[k] >= 1) { mu[k] -= 1; fn(); } };
-      // initial fireball: a few huge, dim-ish puffs (stacked additive fire blows out to white otherwise)
-      if (t < 0.35) emit('core', 60, () => fx.main.spawn({ x: P.x + range(-7, 7), y: P.y + range(0, 6), z: P.z + range(-6, 6), vx: range(-10, 10), vy: range(5, 16), vz: range(-8, 8), drag: 1.5, grav: 2.5, frameKind: 1, s0: range(9, 13), s1: range(24, 34), ease: 0.5, life: range(2.4, 3.4), rot: rand() * 6, vrot: range(-0.4, 0.4), r: 1.5, g: 1.1, b: 0.8, a: 1, fadeIn: 0.01, fadeOut: 0.75 }));
-      // stem: fire column rising into the cap, wrapped in dark smoke
-      if (t < 3.4) emit('stem', 16, () => fx.main.spawn({ x: P.x + range(-3, 3), y: P.y + range(0, 8), z: P.z + range(-3, 3), vx: range(-1, 1), vy: range(13, 20), vz: range(-1, 1), drag: 0.5, frameKind: 1, s0: range(5, 7), s1: range(10, 15), ease: 0.6, life: range(2.0, 2.8), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 1.45, g: 1.0, b: 0.7, a: 1, fadeOut: 0.7 }));
-      if (t > 0.3 && t < 4) emit('stemS', 8, () => { const sh = range(0.08, 0.14); fx.main.spawn({ x: P.x + range(-5, 5), y: P.y + range(2, 18), z: P.z + range(-5, 5), vx: range(-1.5, 1.5), vy: range(7, 12), vz: range(-1.5, 1.5), drag: 0.4, frameKind: 2, frame: rand() * 40, frames: 16, s0: 8, s1: range(18, 26), ease: 0.6, life: range(6, 9), rot: rand() * 6, vrot: range(-0.1, 0.1), r: sh * 1.4, g: sh, b: sh * 0.8, a: 0.85, fadeIn: 0.1, fadeOut: 0.6 }); });
-      // cap: a rolling ring of fire turning into black smoke at 38-55 m
-      if (t > 0.6 && t < 4.6) {
-        emit('capF', 13, () => { const a = rand() * Math.PI * 2, R = range(5, 12) + t * 3, cy = P.y + 32 + t * 4.5; fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(-3, 3), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(3, 6), vy: range(1, 3), vz: Math.sin(a) * range(3, 6), drag: 0.4, frameKind: 1, s0: range(9, 12), s1: range(18, 26), ease: 0.6, life: range(2.0, 3.0), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 1.35, g: 0.85, b: 0.55, a: 1, fadeOut: 0.65 }); });
-        emit('capS', 10, () => { const a = rand() * Math.PI * 2, R = range(7, 15) + t * 3.5, cy = P.y + 34 + t * 4.5, sh = range(0.07, 0.15); fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(0, 8), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(2, 4.5), vy: range(1.5, 4), vz: Math.sin(a) * range(2, 4.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 18, s0: range(13, 18), s1: range(32, 46), ease: 0.6, life: range(10, 15), rot: rand() * 6, vrot: range(-0.08, 0.08), r: sh * 1.5, g: sh * 1.05, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.9, a: 0.9, fadeIn: 0.1, fadeOut: 0.6 }); });
+      const tc = Math.min(t, 4.5), capH = P.y + 12 + tc * 5.2, capR = 6 + tc * 3.3;
+      const cool = clamp((t - 1.0) / 2.4, 0, 1); // the cap's fire burns out into smoke
+      // initial fireball punching up out of the hold (orange, not white)
+      if (t < 0.35) emit('core', 24, () => fx.main.spawn({ x: P.x + range(-4, 4), y: P.y + range(0, 4), z: P.z + range(-3, 3), vx: range(-4, 4), vy: range(14, 22), vz: range(-3, 3), drag: 1.2, grav: 1.5, frameKind: 1, s0: range(8, 10), s1: range(18, 24), ease: 0.5, life: range(2.0, 2.6), rot: rand() * 6, vrot: range(-0.4, 0.4), r: 1.55, g: 0.72, b: 0.32, a: 1, fadeIn: 0.01, fadeOut: 0.75, force: true }));
+      // stem: a narrow fire column feeding the cap, wrapped in black smoke
+      if (t > 0.15 && t < 4.2) emit('stem', 9, () => { const y0 = P.y + range(1, 6); fx.main.spawn({ x: P.x + range(-1.3, 1.3), y: y0, z: P.z + range(-1.3, 1.3), vx: range(-0.4, 0.4), vy: Math.max(6, (capH - 3 - y0) / 1.5), vz: range(-0.4, 0.4), drag: 0.15, frameKind: 1, s0: range(3.5, 4.5), s1: range(6.5, 8.5), ease: 0.6, life: range(1.4, 1.7), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 1.5 * (1 - cool * 0.35), g: 0.66 * (1 - cool * 0.45), b: 0.28 * (1 - cool * 0.55), a: 1, fadeOut: 0.55, force: true }); });
+      if (t > 0.25 && t < 5.5) emit('stemS', 4, () => { const sh = range(0.05, 0.09), y0 = P.y + range(2, Math.max(4, capH - P.y - 6)); fx.main.spawn({ x: P.x + range(-2.6, 2.6), y: y0, z: P.z + range(-2.6, 2.6), vx: range(-0.5, 0.5), vy: range(3, 6), vz: range(-0.5, 0.5), drag: 0.4, frameKind: 2, frame: rand() * 40, frames: 16, s0: 5, s1: range(8, 11), ease: 0.6, life: range(5, 7), rot: rand() * 6, vrot: range(-0.1, 0.1), r: sh * 1.5, g: sh, b: sh * 0.75, a: 0.9, fadeIn: 0.08, fadeOut: 0.6, force: true }); });
+      // cap: fire on the inner ring / underside of a flattened torus, rolling outward
+      if (t > 0.35 && t < 4.4) emit('capF', 9 * (1 - cool * 0.65), () => {
+        const a = rand() * Math.PI * 2, R = capR * range(0.25, 0.85), y = capH + range(-3, 1.5), ca = Math.cos(a), sa = Math.sin(a);
+        fx.main.spawn({ x: P.x + ca * R, y, z: P.z + sa * R, vx: ca * range(2.5, 4.5), vy: range(-0.8, 1.2), vz: sa * range(2.5, 4.5), drag: 0.5, frameKind: 1, s0: range(6, 8), s1: range(11, 15), ease: 0.6, life: range(1.8, 2.5), rot: rand() * 6, vrot: range(-0.25, 0.25), r: 1.45 - cool * 0.7, g: 0.62 - cool * 0.42, b: 0.26 - cool * 0.19, a: 1, fadeOut: 0.65, force: true });
+      });
+      // cap smoke: black-brown on the outer rim and over the top, long-lived, slowly rolling outward
+      if (t > 0.5 && t < 5.5) emit('capS', 7, () => {
+        const a = rand() * Math.PI * 2, top = rand() < 0.4, R = top ? capR * range(0, 0.8) : capR * range(0.85, 1.1), y = top ? capH + range(3, 6.5) : capH + range(-2.5, 4), ca = Math.cos(a), sa = Math.sin(a), sh = range(0.045, 0.1);
+        fx.main.spawn({ x: P.x + ca * R, y, z: P.z + sa * R, vx: ca * range(2.2, 3.6), vy: top ? range(1.5, 3) : range(-0.6, 1.2), vz: sa * range(2.2, 3.6), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 18, s0: range(8, 10), s1: range(15, 21), ease: 0.6, life: range(11, 15), rot: rand() * 6, vrot: range(-0.06, 0.06), r: sh * 1.55, g: sh * 1.05, b: sh * 0.75, r1: sh * 1.15, g1: sh * 0.95, b1: sh * 0.88, a: 0.93, fadeIn: 0.08, fadeOut: 0.6, force: true });
+      });
+      // shockwave dust wall sweeping across the deck and the quay toward the player
+      if (t > 0.12 && t < 1.5) emit('dust', 40, () => {
+        const rr = 6 + (t - 0.12) * 46, a = range(0.15, Math.PI - 0.15), x = P.x + Math.cos(a) * rr, z = P.z + Math.sin(a) * rr;
+        const gy = z > QUAY_Z ? 0 : (z < -153.2 && z > -180 ? DECK_Y : null);
+        if (gy === null) return;
+        fx.main.spawn({ x, y: gy + range(0.4, 1.6), z, vx: Math.cos(a) * range(8, 14), vy: range(0.5, 2.5), vz: Math.sin(a) * range(8, 14), drag: 1.6, frame: CELL.DUST, s0: range(3, 5), s1: range(9, 14), life: range(1.6, 2.6), rot: rand() * 6, r: 0.85, g: 0.66, b: 0.48, a: 0.6, fadeIn: 0.04, fadeOut: 0.4 });
+      });
+      // fire jets licking out of the hull breaches toward the quay
+      for (const B of this.breaches || []) {
+        const bt = t - B.t0; if (bt < 0 || bt > B.dur + 6) continue;
+        const k = bt < B.dur ? 1 : 0.25;
+        if (bt > B.dur) continue; // after the jet: the persistent breach fire below takes over
+        emit('br' + B.p.x, 22 * k, () => fx.main.spawn({ x: B.p.x + range(-0.8, 0.8), y: B.p.y + range(-0.6, 0.6), z: B.p.z + 0.3, vx: range(-1.5, 1.5), vy: range(1, 3), vz: range(5, 11) * k + 1, drag: 1.4, grav: -2, frameKind: 1, s0: B.s, s1: B.s * range(2.4, 3.4), ease: 0.6, life: range(0.6, 0.9), rot: rand() * 6, vrot: range(-1, 1), r: 1.6, g: 0.8, b: 0.36, a: 1, fadeIn: 0.02, fadeOut: 0.6 }));
+        emit('brs' + B.p.x, 3, () => fx.smoke(_v.set(B.p.x, B.p.y + 2, B.p.z + 2.5), 2.2, 0.06, 6, 3, 0.85));
       }
       if (t > 0.1 && t < 0.4) g.hud.white.material.opacity = Math.max(0, 0.85 - (t - 0.1) * 3);
-      if (t > 16) this.mush = null;
+      if (t > 3.2) emit('col', 4.5, () => { const sh = range(0.05, 0.09), y0 = P.y + range(0, 4); fx.main.spawn({ x: P.x + range(-3, 3), y: y0, z: P.z + range(-3, 3), vx: range(-0.8, 0.8) - 0.6, vy: range(3.5, 5.5), vz: range(-0.8, 0.8), drag: 0.12, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(7, 9), s1: range(24, 34), ease: 0.6, life: range(12, 15), rot: rand() * 6, vrot: range(-0.08, 0.08), r: 0.7, g: 0.26, b: 0.08, r1: sh * 1.3, g1: sh, b1: sh * 0.9, a: 0.9, fadeIn: 0.06, fadeOut: 0.5, force: true }); });
+      if (t > 3.8 && t < 13) emit('capR', 2.6, () => { const a = rand() * Math.PI * 2, tc = Math.min(t, 4.5) + (t - 4.5) * 0.15, R = (6 + tc * 3.3) * range(0.2, 1.15), y = P.y + 12 + tc * 5.2 + range(-3, 6), sh = range(0.05, 0.1); fx.main.spawn({ x: P.x + Math.cos(a) * R, y, z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(0.5, 1.5) - 0.5, vy: range(0.6, 1.6), vz: Math.sin(a) * range(0.5, 1.5), drag: 0.1, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(14, 18), s1: range(30, 42), ease: 0.5, life: range(13, 17), rot: rand() * 6, vrot: range(-0.04, 0.04), r: sh * 2.6, g: sh * 1.3, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.92, a: 0.88, fadeIn: 0.12, fadeOut: 0.55, force: true }); });
+      if (t > 40) this.mush = null;
+    }
+    if (this.mushMesh) {
+      this.mushMesh.update(dt);
+      // fire glow under the cap lights the ship + cranes (pooled light, re-armed while it burns)
+      const mt = this.mushMesh.t;
+      if (mt < 6 && (this._mlT = (this._mlT || 0) - dt) <= 0) { this._mlT = 0.9; g.fx.light(_v.copy(this.mushMesh.P).setY(this.mushMesh.P.y + 14 + Math.min(mt, 4.5) * 4), 5200 * (1 - mt / 7), 1.1, 0xff7a30, true, 200); }
+    }
+    // breaches keep burning: licking flames out of the torn plating + a smoke column up the hull
+    if (this.breaches && this.mushMesh) {
+      const mt = this.mushMesh.t;
+      for (const B of this.breaches) {
+        if (mt < B.t0 + B.dur) continue;
+        if (rand() < dt * 10) g.fx.main.spawn({ x: B.p.x + range(-0.9, 0.9), y: B.p.y + range(-0.3, 0.6), z: B.p.z + 0.4, vx: range(-0.4, 0.4), vy: range(2.5, 4.5), vz: range(0.6, 1.6), drag: 1.2, frameKind: 1, s0: B.s * 0.8, s1: B.s * 1.9, ease: 0.6, life: range(0.6, 0.9), rot: rand() * 6, vrot: range(-1, 1), r: 1.65, g: 0.72, b: 0.3, a: 1, fadeIn: 0.03, fadeOut: 0.6 });
+        if (rand() < dt * 2.2) g.fx.smoke(_v.set(B.p.x + range(-0.5, 0.5), B.p.y + 1.6, B.p.z + 0.9), 1.8, 0.05, 7, 2.6, 0.8);
+      }
+      // the quay-side hull is lit by its own fires (the blast light sits behind the hull)
+      if (mt < 40 && (this._hlT = (this._hlT || 0) - dt) <= 0) { this._hlT = 0.5; g.fx.light(_v.set(-17, 5, QUAY_Z + 3.5), (mt < 3 ? 1700 : 560) * range(0.85, 1.15), 0.6, 0xff6a24, true, 46); }
     }
     // burning ship after the blast
+    if (this.burnK !== undefined && this.burnK < 1) { this.burnK = Math.min(1, this.burnK + dt * 0.6); this.w.ship.setBurnt?.(this.burnK); }
     if (this.shipFires) {
-      for (const f of this.shipFires) if (rand() < dt * 9) { g.fx.flame(_v.copy(f.p).add(_v2.set(range(-1, 1), 0, range(-1, 1))), f.s); if (rand() < 0.35) g.fx.smoke(_v.setY(f.p.y + f.s * 1.5), f.s * 1.4, 0.09, 7, 3, 0.85); }
+      for (const f of this.shipFires) if (rand() < dt * (f.tall ? 14 : 9)) {
+        if (f.tall) g.fx.main.spawn({ x: f.p.x + range(-1.2, 1.2), y: f.p.y, z: f.p.z + range(-0.6, 0.6), vx: range(-0.4, 0.4) - 0.3, vy: range(5, 8), vz: range(-0.3, 0.3), drag: 0.6, frameKind: 1, s0: f.s * 0.8, s1: f.s * 1.9, ease: 0.65, life: range(0.9, 1.3), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 1.6, g: 0.7, b: 0.28, a: 1, fadeIn: 0.03, fadeOut: 0.6 });
+        else g.fx.flame(_v.copy(f.p).add(_v2.set(range(-1, 1), 0, range(-1, 1))), f.s);
+        if (rand() < (f.tall ? 0.22 : 0.35)) g.fx.smoke(_v.copy(f.p).setY(f.p.y + f.s * (f.tall ? 2.6 : 1.5)), f.s * 1.4, 0.07, 8, 3.2, 0.85);
+      }
+      // the gutted ship settles: a slow list toward the quay (pivot on the hull centreline)
+      if (this.listK < 1 && this.w.ship?.root) {
+        this.listK = Math.min(1, this.listK + dt * 0.08);
+        const th = 0.035 * smooth(this.listK), R = this.w.ship.root, cz = -166;
+        R.rotation.x = th; R.position.set(0, cz * Math.sin(th), cz - cz * Math.cos(th)); // rotate about (0, 0, cz)
+      }
       g.audio.setLoop('fire_big', { x: -12, y: DECK_Y, z: -165, volume: 1, intensity: 1 });
     }
     for (const h of this.flyBoxes || []) {
@@ -458,7 +612,7 @@ export class SetPieces {
       F.rb.floorY = g.world.fastGround(F.rb.pos.x, F.rb.pos.z);
       F.rb.step(dt, 0);
       h.hc.root.quaternion.copy(F.rb.quat); h.hc.root.position.copy(F.rb.pos).sub(_v.set(0, CH / 2, 0).applyQuaternion(F.rb.quat));
-      if (F.burn > 0) { F.burn -= dt; if (rand() < dt * 30) g.fx.flame(_v.copy(F.rb.pos), 1.6); }
+      if (F.burn > 0) { F.burn -= dt; if (rand() < dt * 24) g.fx.flame(_v.copy(F.rb.pos), 1.5, _v2.copy(F.rb.vel).multiplyScalar(0.8)); g.fx.trailEmit(F, _v.copy(F.rb.pos), 1.4, (q) => g.fx.smoke(q, 2.4, 0.05, 4, 0.8, 0.85), 0); }
       if (F.rb.contactSpeed > 6 && !F.landed) { F.landed = true; g.audio.play('container_slam', { x: F.rb.pos.x, y: F.rb.pos.y, z: F.rb.pos.z, volume: 0.9 }); h.hc.crush?.(0.5); }
     }
   }

@@ -1,6 +1,10 @@
 import * as THREE from 'three';
-import { Gunman } from '../../characters.js';
+import { Gunman, blobShadowMaterial, blobShadowGeometry, setGunmanLook, prebuildOutfit } from '../../characters.js';
 import { rand, range, chance, clamp, damp } from '../../rng.js';
+
+// dock goons wear the 'port' outfit (dark workwear, hi-vis carrier, reflective bands, coloured hard shells);
+// build its templates at level load rather than on the first spawn
+prebuildOutfit('port');
 
 // =====================================================================================
 //  On-foot soldier AI: cover -> peek -> burst -> back to cover, flanking, grenades, rushers,
@@ -8,6 +12,26 @@ import { rand, range, chance, clamp, damp } from '../../rng.js';
 // =====================================================================================
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _eye = new THREE.Vector3();
 let SEED = 1;
+
+// ---- soft contact shadows: one shared instanced batch (1 draw call) of dark radial decals at every on-foot
+//      soldier's feet; they follow the body for a moment after death and fade out
+const BLOB_N = 48, _bm4 = new THREE.Matrix4(), _bq4 = new THREE.Quaternion(), _bs4 = new THREE.Vector3(), _bp4 = new THREE.Vector3(), _bc = new THREE.Color();
+const BLOB_ZERO = new THREE.Matrix4().makeScale(0, 0, 0), _yAx = new THREE.Vector3(0, 1, 0);
+let BLOBS = null;
+function blobBatch(scene) {
+  if (BLOBS && BLOBS.scene === scene) return BLOBS;
+  const mesh = new THREE.InstancedMesh(blobShadowGeometry(), blobShadowMaterial(), BLOB_N);
+  mesh.name = 'blobShadows'; mesh.frustumCulled = false; mesh.renderOrder = 1; mesh.castShadow = false; mesh.receiveShadow = false;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  for (let i = 0; i < BLOB_N; i++) { mesh.setMatrixAt(i, BLOB_ZERO); mesh.setColorAt(i, _bc.setRGB(0, 0, 0)); }
+  scene.add(mesh);
+  BLOBS = { scene, mesh, free: Array.from({ length: BLOB_N }, (_, i) => BLOB_N - 1 - i) };
+  return BLOBS;
+}
+// look of the gunman material at this dusk level: raised floor so dark cloth never crushes to black, and the
+// hi-vis / reflective bands picking up light as the sun goes down
+const sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function lookAt(dusk) { setGunmanLook({ lift: 0.05 + 0.13 * sst(0.1, 0.9, dusk), band: 0.15 + 0.75 * sst(0.2, 0.85, dusk) }); }
 
 // cover points are generated once from the collision world
 export function buildCoverPoints(col, nav, { y = 0, kinds = null, spacing = 2.4 } = {}) {
@@ -40,7 +64,7 @@ export class Soldier {
     this.nav = o.nav || game.world.nav;
     this.floorY = o.y ?? this.nav?.y ?? 0;
     if (this.nav && o.role !== 'perch' && o.role !== 'seated' && !this.nav.free(o.x, o.z)) { const j = this.nav.nearestFree(o.x, o.z, 8); if (j >= 0) { const c = this.nav.center(j, _v); o = { ...o, x: c.x, z: c.z }; } }
-    this.gm = new Gunman({ pose: this.role === 'seated' ? 'window' : 'ground', side: o.side ?? -1, seed: (SEED++ * 7919 + 13) >>> 0, headgear: o.headgear });
+    this.gm = new Gunman({ pose: this.role === 'seated' ? 'window' : 'ground', side: o.side ?? -1, seed: (SEED++ * 7919 + 13) >>> 0, headgear: o.headgear, outfit: o.outfit ?? 'port' });
     this.root = this.gm.root;
     this.pos = new THREE.Vector3(o.x, this.floorY, o.z);
     this.vel = new THREE.Vector3();
@@ -68,14 +92,40 @@ export class Soldier {
       game.col.query(o.x, o.z, o.x, o.z, (b) => { if (Math.abs(b.max.y - o.y) < 0.3 && o.x >= b.min.x && o.x <= b.max.x && o.z >= b.min.z && o.z <= b.max.z) this.perchBox = b; });
     }
     this.gm.update(1 / 60, game.headPos);
+    // contact shadow slot (seated goons ride in vehicles: no blob)
+    this.blob = -1; this.blobA = 0; this.deadT = 0;
+    if (this.role !== 'seated' && game.scene) { const B = blobBatch(game.scene); this.blob = B.free.length ? B.free.pop() : -1; }
+    lookAt(game.dusk ?? 0);
+  }
+
+  _blob(dt) {
+    if (this.blob < 0) return;
+    const B = BLOBS, m = B.mesh;
+    let x = this.pos.x, z = this.pos.z, a, sx = 1, sz = 1;
+    if (this.alive) {
+      const c = this.gm.crouch || 0;
+      a = 0.62 + 0.1 * c; sx = 0.95 + 0.25 * c; sz = 1.15 + 0.2 * c;
+    } else {
+      // follow the body briefly, fade out (ragdolls sprawl; the blob would read wrong under a flying body)
+      this.deadT += dt;
+      const rd = this.gm.ragdoll;
+      if (rd && !rd.disposed) { x = rd.position.x; z = rd.position.z; }
+      a = 0.62 * Math.max(0, 1 - this.deadT / 0.7); sx = 1.2; sz = 1.4;
+      if (a <= 0) { m.setMatrixAt(this.blob, BLOB_ZERO); m.instanceMatrix.needsUpdate = true; B.free.push(this.blob); this.blob = -1; return; }
+    }
+    _bp4.set(x, this.pos.y + 0.035, z); _bq4.setFromAxisAngle(_yAx, this.yaw); _bs4.set(sx, 1, sz);
+    m.setMatrixAt(this.blob, _bm4.compose(_bp4, _bq4, _bs4)); m.instanceMatrix.needsUpdate = true;
+    if (Math.abs(a - this.blobA) > 0.005) { this.blobA = a; m.setColorAt(this.blob, _bc.setRGB(a, a, a)); m.instanceColor.needsUpdate = true; }
   }
 
   get chest() { return this.gm.chestCenter.getWorldPosition(_v); }
 
   // ------------------------------------------------------------ brain
-  update(dt) {
+  update(dt) { this._update(dt); this._blob(dt); }
+  _update(dt) {
     if (!this.alive) return;
     const g = this.g, gm = this.gm;
+    lookAt(g.dusk ?? 0);
     this.t += dt; this.stateT += dt;
     if (this.delay > 0) { this.delay -= dt; gm.setMove(0, 0); gm.update(dt, g.headPos); return; }
     const head = g.headPos;
@@ -229,6 +279,7 @@ export class Soldier {
     for (const c of pts) {
       if (c.taken && c.taken !== this) continue;
       if (c.bad && g.time - c.bad < 20) continue;
+      if (this.role === 'deck' && (c.p.z < -158.6 || c.p.x < -3.5)) continue; // deck goons hold the quay-side walkway
       if (c === this.cover && this.seenT > 5) continue;
       if (c.p.y !== this.floorY && Math.abs(c.p.y - this.floorY) > 0.5) continue;
       const dxs = c.p.x - this.pos.x, dzs = c.p.z - this.pos.z, ds = Math.hypot(dxs, dzs);

@@ -1230,7 +1230,16 @@ function getCache() {
   const cc = mkCanvas(8, 128), cx = cc.getContext('2d');
   const cg = cx.createLinearGradient(0, 0, 0, 128); cg.addColorStop(0, 'rgba(255,240,210,0.0)'); cg.addColorStop(0.1, 'rgba(255,240,210,0.55)'); cg.addColorStop(1, 'rgba(255,240,210,0)');
   cx.fillStyle = cg; cx.fillRect(0, 0, 8, 128);
-  const coneMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cc), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0.16, fog: false, toneMapped: false });
+  // volumetric-looking beam: falloff along the length (texture) * fresnel edge fade (faces seen edge-on vanish)
+  const coneMat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: new THREE.CanvasTexture(cc) }, opacity: { value: 0.22 } },
+    vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform sampler2D map; uniform float opacity; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){ float f = pow(abs(dot(normalize(vN), normalize(vV))), 2.2); vec4 t = texture2D(map, vUv);
+        gl_FragColor = vec4(vec3(1.0, 0.94, 0.82) * t.a * f * opacity, 1.0); }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+  });
   const coneGeo = new THREE.CylinderGeometry(0.12, 5.5, 34, 20, 1, true); coneGeo.translate(0, -17, 0);
   CACHE = { geo, tex, hull, glass, blur, coneMat, coneGeo, buildMs: 0 };
   CACHE.buildMs = performance.now() - t0;
