@@ -503,6 +503,9 @@ export class SetPieces {
     // persistent fires along the ship
     this.shipFires = [];
     for (let i = 0; i < 14; i++) this.shipFires.push({ p: new THREE.Vector3(range(-80, 34), DECK_Y + range(0.5, 2.5), range(-158, -176)), s: range(1.5, 3.5) });
+    // tall flame walls along the quay-side deck edge (what the player actually sees from the quay)
+    for (let i = 0; i < 9; i++) this.shipFires.push({ p: new THREE.Vector3(-42 + i * 6 + range(-2, 2), DECK_Y + range(0.6, 1.6), range(-154.6, -156.8)), s: range(2.8, 4.4), tall: true });
+    this.listK = 0;
     g.events.push({ type: 'kaboom' });
   }
   _flingBox(P) {
@@ -567,7 +570,7 @@ export class SetPieces {
         emit('brs' + B.p.x, 3, () => fx.smoke(_v.set(B.p.x, B.p.y + 2, B.p.z + 2.5), 2.2, 0.06, 6, 3, 0.85));
       }
       if (t > 0.1 && t < 0.4) g.hud.white.material.opacity = Math.max(0, 0.85 - (t - 0.1) * 3);
-      if (t > 3.2) emit('col', 3.2, () => { const sh = range(0.05, 0.09), y0 = P.y + range(0, 4); fx.main.spawn({ x: P.x + range(-3, 3), y: y0, z: P.z + range(-3, 3), vx: range(-0.8, 0.8) - 0.6, vy: range(3.5, 5.5), vz: range(-0.8, 0.8), drag: 0.12, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(6, 8), s1: range(20, 28), ease: 0.6, life: range(10, 13), rot: rand() * 6, vrot: range(-0.08, 0.08), r: 0.55, g: 0.2, b: 0.07, r1: sh * 1.3, g1: sh, b1: sh * 0.9, a: 0.9, fadeIn: 0.06, fadeOut: 0.5, force: true }); });
+      if (t > 3.2) emit('col', 4.5, () => { const sh = range(0.05, 0.09), y0 = P.y + range(0, 4); fx.main.spawn({ x: P.x + range(-3, 3), y: y0, z: P.z + range(-3, 3), vx: range(-0.8, 0.8) - 0.6, vy: range(3.5, 5.5), vz: range(-0.8, 0.8), drag: 0.12, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(7, 9), s1: range(24, 34), ease: 0.6, life: range(12, 15), rot: rand() * 6, vrot: range(-0.08, 0.08), r: 0.7, g: 0.26, b: 0.08, r1: sh * 1.3, g1: sh, b1: sh * 0.9, a: 0.9, fadeIn: 0.06, fadeOut: 0.5, force: true }); });
       if (t > 3.8 && t < 13) emit('capR', 2.6, () => { const a = rand() * Math.PI * 2, tc = Math.min(t, 4.5) + (t - 4.5) * 0.15, R = (6 + tc * 3.3) * range(0.2, 1.15), y = P.y + 12 + tc * 5.2 + range(-3, 6), sh = range(0.05, 0.1); fx.main.spawn({ x: P.x + Math.cos(a) * R, y, z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(0.5, 1.5) - 0.5, vy: range(0.6, 1.6), vz: Math.sin(a) * range(0.5, 1.5), drag: 0.1, frameKind: 2, frame: rand() * 40, frames: 20, s0: range(14, 18), s1: range(30, 42), ease: 0.5, life: range(13, 17), rot: rand() * 6, vrot: range(-0.04, 0.04), r: sh * 2.6, g: sh * 1.3, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.92, a: 0.88, fadeIn: 0.12, fadeOut: 0.55, force: true }); });
       if (t > 40) this.mush = null;
     }
@@ -591,7 +594,17 @@ export class SetPieces {
     // burning ship after the blast
     if (this.burnK !== undefined && this.burnK < 1) { this.burnK = Math.min(1, this.burnK + dt * 0.6); this.w.ship.setBurnt?.(this.burnK); }
     if (this.shipFires) {
-      for (const f of this.shipFires) if (rand() < dt * 9) { g.fx.flame(_v.copy(f.p).add(_v2.set(range(-1, 1), 0, range(-1, 1))), f.s); if (rand() < 0.35) g.fx.smoke(_v.setY(f.p.y + f.s * 1.5), f.s * 1.4, 0.09, 7, 3, 0.85); }
+      for (const f of this.shipFires) if (rand() < dt * (f.tall ? 14 : 9)) {
+        if (f.tall) g.fx.main.spawn({ x: f.p.x + range(-1.2, 1.2), y: f.p.y, z: f.p.z + range(-0.6, 0.6), vx: range(-0.4, 0.4) - 0.3, vy: range(5, 8), vz: range(-0.3, 0.3), drag: 0.6, frameKind: 1, s0: f.s * 0.8, s1: f.s * 1.9, ease: 0.65, life: range(0.9, 1.3), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 1.6, g: 0.7, b: 0.28, a: 1, fadeIn: 0.03, fadeOut: 0.6 });
+        else g.fx.flame(_v.copy(f.p).add(_v2.set(range(-1, 1), 0, range(-1, 1))), f.s);
+        if (rand() < (f.tall ? 0.22 : 0.35)) g.fx.smoke(_v.copy(f.p).setY(f.p.y + f.s * (f.tall ? 2.6 : 1.5)), f.s * 1.4, 0.07, 8, 3.2, 0.85);
+      }
+      // the gutted ship settles: a slow list toward the quay (pivot on the hull centreline)
+      if (this.listK < 1 && this.w.ship?.root) {
+        this.listK = Math.min(1, this.listK + dt * 0.08);
+        const th = 0.035 * smooth(this.listK), R = this.w.ship.root, cz = -166;
+        R.rotation.x = th; R.position.set(0, cz * Math.sin(th), cz - cz * Math.cos(th)); // rotate about (0, 0, cz)
+      }
       g.audio.setLoop('fire_big', { x: -12, y: DECK_Y, z: -165, volume: 1, intensity: 1 });
     }
     for (const h of this.flyBoxes || []) {

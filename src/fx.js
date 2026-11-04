@@ -114,10 +114,10 @@ export class FX {
     });
     // early shroud: dark oily smoke rolling off the fireball's edges (reads as layered, not a flat blob)
     if (U > 0) for (let i = 0; i < Math.round((4 * cs + 2) * this.smokeMul); i++) this.later(range(0.08, 0.3), () => {
-      const a = rand() * Math.PI * 2, R = range(1.2, 2.6) * ss, sh = range(0.05, 0.1);
+      const a = rand() * Math.PI * 2, R = range(2.2, 3.4) * ss, sh = range(0.05, 0.1); // ring outside the fireball: smoke must not dim the fire to olive
       this.main.spawn({ x: P.x + Math.cos(a) * R, y: P.y + range(0.8, 2.6) * ss, z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(1.5, 3.5), vy: range(3, 6), vz: Math.sin(a) * range(1.5, 3.5), drag: 0.9, grav: 0.3,
         frameKind: 2, frame: rand() * 40, frames: 20, s0: 4.5 * ss, s1: Math.min(22, range(11, 16) * ss), ease: 0.55, life: range(5, 8), rot: rand() * 6.28, vrot: range(-0.25, 0.25),
-        r: sh * 1.5, g: sh * 1.05, b: sh * 0.75, r1: sh * 1.1, g1: sh * 0.9, b1: sh * 0.8, a: 0.92, fadeIn: 0.04, fadeOut: 0.5 });
+        r: sh * 1.7, g: sh * 1.0, b: sh * 0.62, r1: sh * 1.15, g1: sh * 0.9, b1: sh * 0.8, a: 0.92, fadeIn: 0.04, fadeOut: 0.5 });
     });
     // dark smoke column
     for (let i = 0; i < Math.round((6 * cs + 2) * this.smokeMul); i++) this.later(range(0.25, 0.9), () => {
