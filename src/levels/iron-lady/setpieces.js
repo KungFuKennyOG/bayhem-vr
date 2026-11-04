@@ -203,7 +203,7 @@ export class SetPieces {
     B.m.setBurnt?.();
     g.boatsSunk++;
     g.slowmo(1.6, 0.3, true);
-    g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().setY(P.y + 7), 'huge');
+    g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().setY(P.y + 16), 'huge');
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.fx.light(P.clone().setY(P.y + 3), 500, 2, 0xff9040, true, 55);
     // a water column thrown up beside the hull
