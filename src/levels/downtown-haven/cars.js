@@ -116,17 +116,8 @@ const hex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };   
 function materials() {
   if (MAT) return MAT;
   ATLAS = buildAtlas();
-  const body = new THREE.MeshStandardMaterial({ map: ATLAS, vertexColors: true, roughness: 1, metalness: 1, envMapIntensity: 1.25, emissive: 0xffffff, emissiveIntensity: 1 });
+  const body = rmMaterial(ATLAS, { envMapIntensity: 1.25 });
   body.userData.duskEmissive = 1.4;               // signs / lenses ramp up at dusk
-  body.onBeforeCompile = (s) => {
-    s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 rm;\nvarying vec3 vRM;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRM = rm;');
-    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vRM;')
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
-      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
-      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * diffuseColor.rgb * vRM.z;');
-  };
-  body.customProgramCacheKey = () => 'carBody';
   const glass = new THREE.MeshStandardMaterial({ color: 0x0a0d11, metalness: 0.1, roughness: 0.04, transparent: true, opacity: 0.5, envMapIntensity: 2.2, depthWrite: false });
   glass.onBeforeCompile = (s) => {
     s.fragmentShader = s.fragmentShader.replace('#include <opaque_fragment>',
@@ -145,11 +136,11 @@ float chN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
              mix(mix(chH(i+vec3(0,0,1)), chH(i+vec3(1,0,1)), f.x), mix(chH(i+vec3(0,1,1)), chH(i+vec3(1,1,1)), f.x), f.y), f.z); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
   float cn = chN(vOP * 3.1) * 0.6 + chN(vOP * 11.0) * 0.3 + chN(vOP * 37.0) * 0.1;
-  vec3 soot = vec3(0.018, 0.016, 0.015), rust = vec3(0.16, 0.065, 0.025), ash = vec3(0.2, 0.19, 0.18);
-  vec3 cc = mix(soot, rust, smoothstep(0.42, 0.7, cn));
-  cc = mix(cc, ash, smoothstep(0.72, 0.9, chN(vOP * 5.3 + 4.0)) * 0.8);
+  vec3 soot = vec3(0.016, 0.014, 0.013), rust = vec3(0.075, 0.032, 0.014), ash = vec3(0.16, 0.15, 0.14);
+  vec3 cc = mix(soot, rust, smoothstep(0.5, 0.78, cn));
+  cc = mix(cc, ash, smoothstep(0.7, 0.9, chN(vOP * 5.3 + 4.0)) * 0.6);
   diffuseColor.rgb = cc;`)
-      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * 0.25 * pow(smoothstep(0.62, 0.82, chN(vOP * 6.0 + 9.0)), 3.0) * (1.0 - smoothstep(0.3, 1.2, vOP.y));')
+      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * 0.12 * pow(smoothstep(0.7, 0.86, chN(vOP * 6.0 + 9.0)), 3.0) * (1.0 - smoothstep(0.3, 1.0, vOP.y));')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.95, 0.6, smoothstep(0.42, 0.7, cn));');
   };
   charred.customProgramCacheKey = () => 'carCharred';
@@ -157,6 +148,22 @@ float chN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
   MAT = { body, glass, charred, blob };
   return MAT;
 }
+
+// MeshStandardMaterial driven per vertex: map × vertex colour, roughness / metalness / emission from the `rm` attribute
+export function rmMaterial(map, params = {}) {
+  const m = new THREE.MeshStandardMaterial({ map, vertexColors: true, roughness: 1, metalness: 1, emissive: 0xffffff, emissiveIntensity: 1, ...params });
+  m.onBeforeCompile = (s) => {
+    s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 rm;\nvarying vec3 vRM;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRM = rm;');
+    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vRM;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
+      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * diffuseColor.rgb * vRM.z;');
+  };
+  m.customProgramCacheKey = () => 'rmMat';
+  return m;
+}
+export { Bucket, pushGeo, M4, quad as atlasQuad };
 
 // ---------------------------------------------------------------------- vehicle specs
 // zF/zR: bumper faces, hw: half width, axles, R tyre radius, tw tyre width, rimR, ar arch radius,
@@ -253,12 +260,18 @@ function loft(stations, sec, { round = null, classify, color, uvf, inner = null,
     }
   }
   if (caps) for (const [i, dz] of [[0, -1], [ns - 1, 1]]) {
-    const row = P[i]; let ys = 0; for (const p of row) ys += p[1];
-    const ctr = [0, ys / m, row[0][2]], n = [0, 0, dz];
-    for (let j = 0; j < m - 1; j++) {
-      if (tags[j] === 'X') continue;
-      const [col, rm] = color(tags[j], row[j][2], (row[j][1] + row[j + 1][1]) / 2, 1, true);
-      curTag = 'cap'; for (const s of [1, -1]) emit('body', s, ctr, row[j], row[j + 1], n, n, n, col, rm);
+    const row = P[i], cont = [];
+    const push = (x, y) => { const l = cont[cont.length - 1]; if (!l || Math.abs(l.x - x) + Math.abs(l.y - y) > 1e-4) cont.push(new THREE.Vector2(x, y)); };
+    for (let j = 0; j < m; j++) push(row[j][0], row[j][1]);
+    for (let j = m - 2; j >= 1; j--) push(-row[j][0], row[j][1]);
+    if (cont.length > 2 && cont[0].distanceTo(cont[cont.length - 1]) < 1e-4) cont.pop();
+    if (cont.length < 3) continue;
+    const tri = THREE.ShapeUtils.triangulateShape(cont, []), z = row[0][2], n = [0, 0, dz];
+    curTag = 'cap';
+    for (const [a, b, c2] of tri) {
+      const A = cont[a], B = cont[b], Cc = cont[c2];
+      const [col, rm] = color('cap', z, (A.y + B.y + Cc.y) / 3, 1, true);
+      emit('body', 1, [A.x, A.y, z], [B.x, B.y, z], [Cc.x, Cc.y, z], n, n, n, col, rm);
     }
   }
   return P;
@@ -274,8 +287,8 @@ function stationList(z0, z1, step, extras) {
   for (const z of zs) if (!out.length || z - out[out.length - 1] > 0.012) out.push(z); else if (z === z1) out[out.length - 1] = z1;
   return out;
 }
-function archStations(S, segs = 10) { const e = []; for (const az of S.axles) for (let k = 0; k <= segs; k++) e.push(az - S.ar * Math.cos(k / segs * Math.PI)); return e; }
-function endStations(z0, z1, rr) { const e = []; for (const f of [0.012, 0.045, 0.1, 0.2, 0.36, 0.6, 1]) { e.push(z0 + rr[0] * f); e.push(z1 - rr[1] * f); } return e; }
+function archStations(S, segs = 7) { const e = []; for (const az of S.axles) for (let k = 0; k <= segs; k++) e.push(az - S.ar * Math.cos(k / segs * Math.PI)); return e; }
+function endStations(z0, z1, rr) { const e = []; for (const f of [0.02, 0.1, 0.3, 0.6]) { e.push(z0 + rr[0] * f); e.push(z1 - rr[1] * f); } return e; }
 
 // ---------------------------------------------------------------------- generic car body (sedan / suv / van cab)
 function hwAt(S, z) {
@@ -289,7 +302,7 @@ function archY(S, z) {
   for (const az of S.axles) { const d = z - az; if (Math.abs(d) < S.ar) y = Math.max(y, S.R + 0.02 + Math.sqrt(S.ar * S.ar - d * d)); }
   return y;
 }
-const SIDE_T = [[-0.045, 0], [-0.008, 0.1], [0, 0.3], [0.004, 0.52], [0, 0.74], [-0.012, 0.88], [-0.03, 0.95]];
+const SIDE_T = [[-0.045, 0], [-0.006, 0.12], [0.004, 0.45], [-0.004, 0.76], [-0.03, 0.95]];
 function carSection(S, z) {
   const yb = interp(S.sbKeys, z), yT = interp(S.topKeys, z), ySB = Math.max(yb, archY(S, z));
   const yF = Math.min(S.floorY, yb), hw = hwAt(S, z), wi = hw - S.wellIn, cr = S.cab.crown * 0.35;
@@ -299,7 +312,7 @@ function carSection(S, z) {
     let y = Math.max(yb + (yT - yb) * t, ySB); if (y < yPrev) y = yPrev; yPrev = y;
     pts.push([hw + dx, y, k === SIDE_T.length - 1 ? 's' : (k === 0 ? 's0' : 's')]);
   });
-  pts.push([hw - 0.075, Math.max(yPrev, yT - 0.012), 't'], [hw - 0.2, Math.max(yPrev, yT), 't'], [hw * 0.5, yT + cr * 0.7, 't'], [0, yT + cr, 'end']);
+  pts.push([hw - 0.09, Math.max(yPrev, yT - 0.006), 't'], [hw * 0.45, yT + cr * 0.75, 't'], [0, yT + cr, 'end']);
   return pts;
 }
 function roofY(S, z) {
@@ -342,40 +355,40 @@ function lathe(bk, m4, prof, segs, col, rm, uvMode) {
   }
 }
 // wheel centred at (x, y, z), outer face toward sign(x); style: spokes count / dish
-function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.chrome, rimRm = RM.alu, steer = 0, hub = 'alloy' } = {}) {
+function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.chrome, rimRm = RM.alu, steer = 0, hub = 'alloy', brakes = true } = {}) {
   const s = x < 0 ? -1 : 1;
   const m4 = M4(x, y, z, 0, steer, 0).multiply(new THREE.Matrix4().makeScale(s, 1, 1));
   const w = tw / 2;
   if (tyre) {
     const rs = rimR + 0.012, mid = (rs + R0) / 2;
-    const prof = [[-w + 0.02, rs], [-w - 0.004, rs + 0.03], [-w - 0.012, mid], [-w - 0.004, R0 - 0.04], [-w + 0.025, R0 - 0.006], [-w + 0.05, R0],
-      [w - 0.05, R0], [w - 0.025, R0 - 0.006], [w + 0.004, R0 - 0.04], [w + 0.012, mid], [w + 0.004, rs + 0.03], [w - 0.02, rs]];
+    const prof = [[-w + 0.02, rs], [-w - 0.01, mid], [-w + 0.004, R0 - 0.035], [-w + 0.05, R0],
+      [w - 0.05, R0], [w - 0.004, R0 - 0.035], [w + 0.01, mid], [w - 0.02, rs]];
     const sw = rectUV(R.sidewall), tr = rectUV(R.tread);
     const scx = (sw[0] + sw[2]) / 2, scy = (sw[1] + sw[3]) / 2, shw = (sw[2] - sw[0]) / 2;
-    lathe(bk, m4, prof, 16, C.white, RM.rubber, (a, r, th, u) => {
+    lathe(bk, m4, prof, 13, C.white, RM.rubber, (a, r, th, u) => {
       if (Math.abs(a) < w - 0.03) return [lerp(tr[0], tr[2], u), lerp(tr[1], tr[3], (a + w) / tw)];
       const rr = r / R0 * shw * (a > 0 ? 1 : 0.999); return [scx + Math.cos(th) * rr, scy + Math.sin(th) * rr];
     });
   }
   // rim: flange, lip, dish
   const L = (a, r) => [a, r];
-  lathe(bk, m4, [L(w - 0.03, rimR + 0.014), L(w - 0.004, rimR + 0.012), L(w + 0.004, rimR - 0.006), L(w - 0.012, rimR - 0.028), L(w - 0.07, rimR - 0.036), L(-w + 0.03, rimR - 0.036)], 16, rimCol, rimRm, () => WHITE_UV);
+  lathe(bk, m4, [L(w - 0.03, rimR + 0.014), L(w - 0.004, rimR + 0.012), L(w + 0.004, rimR - 0.006), L(w - 0.012, rimR - 0.028), L(w - 0.07, rimR - 0.036), L(-w + 0.03, rimR - 0.036)], 13, rimCol, rimRm, () => WHITE_UV);
   // back plate (hides the void) + brake disc + caliper
-  pushGeo(bk, CYL(rimR - 0.03, rimR - 0.03, 0.01, 18), m4.clone().multiply(M4(-w + 0.04, 0, 0, 0, 0, Math.PI / 2)), C.well, RM.under);
-  pushGeo(bk, CYL(rimR - 0.05, rimR - 0.05, 0.022, 18), m4.clone().multiply(M4(-0.02, 0, 0, 0, 0, Math.PI / 2)), [0.1, 0.095, 0.09], RM.metal);
-  pushGeo(bk, RBOX(0.05, 0.11, 0.16, 0.015), m4.clone().multiply(M4(0.0, rimR * 0.52, rimR * 0.3, -0.5, 0, 0)), [0.5, 0.06, 0.04], RM.satin);
+  pushGeo(bk, CYL(rimR - 0.03, rimR - 0.03, 0.01, 10), m4.clone().multiply(M4(-w + 0.04, 0, 0, 0, 0, Math.PI / 2)), C.well, RM.under);
+  if (brakes) pushGeo(bk, CYL(rimR - 0.05, rimR - 0.05, 0.022, 10), m4.clone().multiply(M4(-0.02, 0, 0, 0, 0, Math.PI / 2)), [0.1, 0.095, 0.09], RM.metal);
+  if (brakes) pushGeo(bk, BOX(0.05, 0.11, 0.16), m4.clone().multiply(M4(0.0, rimR * 0.52, rimR * 0.3, -0.5, 0, 0)), [0.5, 0.06, 0.04], RM.satin);
   // spokes + centre cap
   const face = w - 0.035;
   if (hub === 'steel') {
-    pushGeo(bk, CYL(rimR - 0.03, rimR - 0.03, 0.012, 20), m4.clone().multiply(M4(face - 0.01, 0, 0, 0, 0, Math.PI / 2)), rimCol, rimRm);
-    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; pushGeo(bk, CYL(0.022, 0.022, 0.016, 8), m4.clone().multiply(M4(face - 0.003, Math.cos(a) * rimR * 0.62, Math.sin(a) * rimR * 0.62, 0, 0, Math.PI / 2)), C.black, RM.under); }
+    pushGeo(bk, CYL(rimR - 0.03, rimR - 0.03, 0.012, 14), m4.clone().multiply(M4(face - 0.01, 0, 0, 0, 0, Math.PI / 2)), rimCol, rimRm);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; pushGeo(bk, CYL(0.022, 0.022, 0.016, 5), m4.clone().multiply(M4(face - 0.003, Math.cos(a) * rimR * 0.62, Math.sin(a) * rimR * 0.62, 0, 0, Math.PI / 2)), C.black, RM.under); }
   } else {
     for (let k = 0; k < spokes; k++) {
       const a = k / spokes * Math.PI * 2, rm = rimR * 0.52;
       pushGeo(bk, BOX(0.03, rimR - 0.05, 0.06), m4.clone().multiply(M4(face - 0.006, Math.cos(a) * rm, Math.sin(a) * rm, a - Math.PI / 2, 0, 0)), rimCol, rimRm);
     }
   }
-  pushGeo(bk, CYL(0.062, 0.07, 0.035, 12), m4.clone().multiply(M4(face, 0, 0, 0, 0, -Math.PI / 2)), rimCol, RM.chrome);
+  pushGeo(bk, CYL(0.062, 0.07, 0.035, 8), m4.clone().multiply(M4(face, 0, 0, 0, 0, -Math.PI / 2)), rimCol, RM.chrome);
 }
 
 // ---------------------------------------------------------------------- atlas
@@ -476,7 +489,7 @@ function buildAtlas() {
     const [x, y, w, h] = R.vanLogo; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     g.fillStyle = '#d2461c'; g.beginPath(); g.moveTo(x + 20, y + 150); g.quadraticCurveTo(x + 250, y + 40, x + 500, y + 70); g.lineTo(x + 500, y + 95); g.quadraticCurveTo(x + 250, y + 70, x + 20, y + 175); g.fill();
     g.fillStyle = '#1d2f4f'; g.beginPath(); g.moveTo(x + 20, y + 185); g.quadraticCurveTo(x + 260, y + 85, x + 500, y + 110); g.lineTo(x + 500, y + 122); g.quadraticCurveTo(x + 260, y + 100, x + 20, y + 197); g.fill();
-    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#1d2f4f'; g.font = `400 70px ${FONT}`; g.fillText('KRANE & SONS', x + 28, y + 88);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#1d2f4f'; fit(g, 'KRANE & SONS', 70, FONT, 460); g.fillText('KRANE & SONS', x + 28, y + 88);
     g.font = `600 22px ${FONT2}`; g.fillStyle = '#d2461c'; g.fillText('COURIER  •  FREIGHT  •  SAME DAY', x + 30, y + 225);
     g.fillStyle = '#1d2f4f'; g.font = `600 20px ${FONT2}`; g.fillText('HAVEN CITY  555-0142', x + 300, y + 168);
   }
@@ -488,7 +501,7 @@ function buildAtlas() {
     g.font = `400 34px ${FONT}`; g.fillText('MERIDIAN SQ  via 5th AVE', x + 80, y + 33);
     g.fillStyle = 'rgba(0,0,0,0.55)'; for (let k = 0; k < w; k += 3) g.fillRect(x + k, y, 1, h); for (let k = 0; k < h; k += 3) g.fillRect(x, y + k, w, 1);
     [x, y, w, h] = R.busSide; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
-    g.fillStyle = '#0f5a6e'; g.font = `400 84px ${FONT}`; g.textAlign = 'left'; g.fillText('HAVEN TRANSIT', x + 24, y + 62);
+    g.fillStyle = '#0f5a6e'; fit(g, 'HAVEN TRANSIT', 84, FONT, 540); g.textAlign = 'left'; g.fillText('HAVEN TRANSIT', x + 24, y + 62);
     g.fillStyle = '#e0a21a'; g.fillRect(x + 590, y + 34, 380, 10); g.fillStyle = '#0f5a6e'; g.font = `600 26px ${FONT2}`; g.fillText('RIDE THE CITY OF LIGHTS', x + 594, y + 72);
     [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ffb21e'; g.font = `400 46px ${FONT}`; g.textAlign = 'center'; g.fillText('42', x + w / 2, y + h / 2 + 2);
   }
@@ -500,6 +513,7 @@ function buildAtlas() {
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
 }
+function fit(g, txt, px, font, maxW) { g.font = `400 ${px}px ${font}`; const w = g.measureText(txt).width; if (w > maxW) g.font = `400 ${Math.floor(px * maxW / w)}px ${font}`; }
 function sideMap(kind) {
   const S = kind === 'taxi' || kind === 'police' ? SPECS.sedan : SPECS[kind];
   const z0 = S.zMin ?? S.zF, z1 = S.zMax ?? S.zR, row = SIDE_ROW[kind];
@@ -528,8 +542,8 @@ function drawSide(g, kind, row) {
   }
   if (kind === 'suv') { g.fillStyle = '#d0d0d0'; g.fillRect(0, Y(1.0), AW, Y(0.6) - Y(1.0)); g.fillStyle = '#fff'; }
   if (kind === 'bus') {
-    g.fillStyle = '#0f5a6e'; g.fillRect(0, Y(0.95), AW, Y(0) - Y(0.95));
-    g.fillStyle = '#e0a21a'; g.fillRect(0, Y(1.02), AW, Y(0.97) - Y(1.02));
+    g.fillStyle = '#0f5a6e'; g.fillRect(0, Y(0.52), AW, Y(0) - Y(0.52));
+    g.fillStyle = '#e0a21a'; g.fillRect(0, Y(0.58), AW, Y(0.535) - Y(0.58));
     g.fillStyle = '#0f5a6e'; g.fillRect(0, Y(3.3), AW, Y(2.72) - Y(3.3));
     // body side panel seams
     for (let z = -5.3; z < 5.8; z += 1.32) line([[z, 0.4], [z, 1.12]], 2, 0.5);
@@ -623,7 +637,7 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
   const isSUV = kind === 'suv', isVan = kind === 'van';
   const inDoor = (z, s) => opts.doorOpen && s < 0 && z > S.doors[0][0] && z < S.doors[0][1];
   // lower body
-  const st = stationList(S.zF, S.zR, 0.32, [...archStations(S, 8), ...endStations(S.zF, S.zR, S.rr), c.zA, c.zC, ...S.doors.flat(), c.zA + 0.05, c.zC - 0.05]);
+  const st = stationList(S.zF, S.zR, 0.32, [...archStations(S, 7), ...endStations(S.zF, S.zR, S.rr), c.zA, c.zC, ...S.doors.flat(), c.zA + 0.05, c.zC - 0.05]);
   const ymid = (z) => (Math.min(S.floorY, interp(S.sbKeys, z)) + interp(S.topKeys, z)) / 2;
   loft(st, (z) => carSection(S, z), {
     round: { zF: S.zF, zR: S.zR, rr: S.rr, ymid },
@@ -639,6 +653,7 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
       if (cap && y < interp(S.sbKeys, z) + 0.12) return [C.trim, RM.plastic];
       if (isSUV && y < S.clad) return [C.trim, RM.plastic];
       if (isVan && y < 0.62) return [C.trim, RM.plastic];
+      if (kind === 'police' && (z < S.doors[0][0] || z > S.doors[1][1] || y < 0.42)) return [[0.012, 0.012, 0.014], RM.paint];
       return [paint, RM.paint];
     },
     inner: (tag, z, y) => (z > c.zA + 0.02 && z < c.zC - 0.02 && y > S.inFloor && (tag === 's' || tag === 's0') ? { col: C.interior, rm: RM.plastic, off: 0.045 } : null),
@@ -679,21 +694,21 @@ function interior(bk, S, kind, rng, { rows = 2, wide = false } = {}) {
   // dash: rounded block + cluster hood + gauges
   const dz0 = zA - 0.02, dz1 = zA + (isTall(kind) ? 0.55 : 0.48), dTop = belt - 0.035;
   pushGeo(bk, RBOX(iw * 2, dTop - fy - 0.1, dz1 - dz0, 0.06, 2), M4(0, (dTop + fy + 0.1) / 2, (dz0 + dz1) / 2), [0.07, 0.068, 0.066], RM.plastic);
-  pushGeo(bk, RBOX(0.42, 0.08, 0.2, 0.03, 1), M4(-0.38, dTop + 0.02, dz1 - 0.12), [0.05, 0.05, 0.05], RM.plastic);
+  pushGeo(bk, BOX(0.42, 0.08, 0.2), M4(-0.38, dTop + 0.02, dz1 - 0.12), [0.05, 0.05, 0.05], RM.plastic);
   quad(bk, [-0.38, dTop - 0.03, dz1 + 0.002], [1, 0, 0], [0, 1, 0], 0.34, 0.11, R.dash, C.white, [0.4, 0, 0.6]);
-  pushGeo(bk, RBOX(0.22, 0.32, 0.5, 0.04, 1), M4(0, fy + 0.16, dz1 + 0.15), [0.06, 0.06, 0.06], RM.plastic);   // console
+  pushGeo(bk, BOX(0.22, 0.32, 0.5), M4(0, fy + 0.16, dz1 + 0.15), [0.06, 0.06, 0.06], RM.plastic);   // console
   // steering wheel (driver = -x)
   const sw = M4(-0.38, dTop - 0.03, dz1 + 0.1, -1.05 + (isTall(kind) ? 0.35 : 0), 0, 0);
-  pushGeo(bk, new THREE.TorusGeometry(0.185, 0.018, 6, 18), sw, [0.04, 0.04, 0.04], RM.satin);
+  pushGeo(bk, new THREE.TorusGeometry(0.185, 0.018, 4, 14), sw, [0.04, 0.04, 0.04], RM.satin);
   for (const a of [0, 2.1, 4.2]) pushGeo(bk, BOX(0.03, 0.17, 0.02), sw.clone().multiply(M4(Math.sin(a) * 0.08, Math.cos(a) * -0.08, 0, 0, 0, a)), [0.05, 0.05, 0.05], RM.satin);
   pushGeo(bk, CYL(0.05, 0.06, 0.06, 10), sw.clone().multiply(M4(0, 0, 0.0, Math.PI / 2, 0, 0)), [0.05, 0.05, 0.05], RM.satin);
   pushGeo(bk, CYL(0.03, 0.03, 0.3, 6), sw.clone().multiply(M4(0, 0, -0.15, Math.PI / 2, 0, 0)), [0.05, 0.05, 0.05], RM.satin);
   // seats
   const sc = kind === 'police' ? [0.06, 0.06, 0.065] : (kind === 'taxi' ? [0.08, 0.07, 0.06] : C.seat);
   const seat = (x, z, w, recline = 0.22) => {
-    pushGeo(bk, RBOX(w, 0.14, 0.5, 0.05, 2), M4(x, fy + 0.2, z), sc, RM.cloth, R.seat);
+    pushGeo(bk, BOX(w, 0.14, 0.5), M4(x, fy + 0.2, z), sc, RM.cloth, R.seat);
     pushGeo(bk, RBOX(w, 0.62, 0.13, 0.05, 2), M4(x, fy + 0.52, z + 0.28, -recline, 0, 0), sc, RM.cloth, R.seat);
-    if (w < 0.7) pushGeo(bk, RBOX(w * 0.5, 0.17, 0.09, 0.04, 1), M4(x, fy + 0.93, z + 0.37, -recline, 0, 0), sc, RM.cloth, R.seat);
+    if (w < 0.7) pushGeo(bk, BOX(w * 0.5, 0.17, 0.09), M4(x, fy + 0.93, z + 0.37, -recline, 0, 0), sc, RM.cloth, R.seat);
   };
   const fz = dz1 + 0.55 + rng() * 0.08;
   if (kind !== 'van' || true) { seat(-0.38, fz, 0.5, 0.2 + rng() * 0.12); seat(0.38, fz, 0.5, 0.2 + rng() * 0.12); }
@@ -852,9 +867,9 @@ function buildBus(out, rng, lights) {
   };
   const bays = [];
   for (let z = -4.25; z < 4.6; z += 1.42) bays.push(z);
-  const extras = [...archStations(S, 12), ...endStations(zF, zR, S.rr), ...door, ...door2];
+  const extras = [...archStations(S, 8), ...endStations(zF, zR, S.rr), ...door, ...door2];
   for (const z of bays) extras.push(z - 0.06, z + 0.06);
-  const st = stationList(zF, zR, 0.5, extras);
+  const st = stationList(zF, zR, 0.8, extras);
   const isPillar = (z) => bays.some((b) => Math.abs(z - b) < 0.06) || z < -4.3 && z > door[1] || z > 4.55;
   const inDoor = (z, s) => s > 0 && ((z > door[0] && z < door[1]) || (z > door2[0] && z < door2[1]));
   loft(st, sec, {
@@ -911,12 +926,12 @@ function buildBus(out, rng, lights) {
   pushGeo(out.body, RBOX(1.8, 0.28, 2.6, 0.1, 2), M4(0, 3.2, 1.2), [0.9, 0.9, 0.88], [0.45, 0.2, 0]);
   for (const z of [-3.2, 3.6]) pushGeo(out.body, RBOX(0.8, 0.08, 0.8, 0.03), M4(0, 3.1, z), [0.75, 0.75, 0.74], [0.5, 0.2, 0]);
   // side lettering (both sides readable)
-  for (const s of [-1, 1]) sideDecal(out.body, null, s, s > 0 ? -1.3 : -1.7, s > 0 ? 3.1 : 2.7, 1.32 - 1.32 + 0.6, 0.6 + 0.5, R.busSide, [0.95, 0.95, 0.93], RM.paint, () => hw);
+  for (const s of [-1, 1]) sideDecal(out.body, null, s, s > 0 ? -2.65 : -1.75, s > 0 ? 0.1 : 1.85, s > 0 ? 0.66 : 0.6, s > 0 ? 1.0 : 1.05, R.busSide, [0.95, 0.95, 0.93], RM.paint, () => hw);
   // interior: floor, seats, poles, driver
   pushGeo(out.body, BOX(hw * 2 - 0.12, 0.04, 11.4), M4(0, 0.62, 0), [0.18, 0.18, 0.19], RM.plastic);
-  for (let z = -3.4; z < 5.4; z += 0.85) for (const s of [-1, 1]) {
+  for (let z = -3.4; z < 5.4; z += 1.0) for (const s of [-1, 1]) {
     if (s > 0 && z > door2[0] - 0.4 && z < door2[1] + 0.2) continue;
-    pushGeo(out.body, RBOX(0.9, 0.12, 0.45, 0.04, 1), M4(s * 0.68, 1.06, z), [0.12, 0.26, 0.4], RM.cloth, R.seat);
+    pushGeo(out.body, BOX(0.9, 0.12, 0.45), M4(s * 0.68, 1.06, z), [0.12, 0.26, 0.4], RM.cloth, R.seat);
     pushGeo(out.body, RBOX(0.9, 0.62, 0.1, 0.04, 1), M4(s * 0.68, 1.4, z + 0.24, -0.12, 0, 0), [0.12, 0.26, 0.4], RM.cloth, R.seat);
     pushGeo(out.body, BOX(0.08, 0.4, 0.3), M4(s * 0.68, 0.82, z), C.black, RM.satin);
   }
@@ -926,7 +941,7 @@ function buildBus(out, rng, lights) {
   pushGeo(out.body, RBOX(2.3, 0.4, 0.5, 0.08, 1), M4(0, 1.0, zF + 0.4), [0.08, 0.08, 0.08], RM.plastic);   // dash
   pushGeo(out.body, new THREE.TorusGeometry(0.24, 0.02, 6, 16), M4(-0.75, 1.35, zF + 0.85, -0.8, 0, 0), C.black, RM.satin);
   // wheels
-  for (const az of S.axles) for (const s of [-1, 1]) wheel(out.body, s * (hw - 0.03 - S.tw / 2), S.R, az, S.R, S.tw, S.rimR, { hub: 'steel', rimCol: [0.75, 0.76, 0.78], rimRm: [0.3, 0.9, 0] });
+  for (const az of S.axles) for (const s of [-1, 1]) wheel(out.body, s * (hw - 0.03 - S.tw / 2), S.R, az, S.R, S.tw, S.rimR, { hub: 'steel', brakes: false, rimCol: [0.75, 0.76, 0.78], rimRm: [0.3, 0.9, 0] });
   return S;
 }
 
@@ -987,7 +1002,8 @@ export function buildCar(type, opts = {}) {
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
   const out = { body: new Bucket(), glass: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
-  const lights = [];
+  const lights = [], bd = {};
+  const mark = (k) => { bd[k] = out.body.tris - (bd._t || 0); bd._t = out.body.tris; };
   const wreck = type === 'wreck';
   const kind = wreck ? 'sedan' : type;
   let S;
@@ -998,8 +1014,8 @@ export function buildCar(type, opts = {}) {
   else {
     S = SPECS[kind === 'taxi' || kind === 'police' ? 'sedan' : kind];
     const doorOpen = !!opts.doorOpen && !wreck;
-    buildCarBody(kind, S, wreck ? [0.2, 0.2, 0.2] : paint, { doorOpen }, out, rng);
-    interior(out.body, S, kind, rng, { rows: kind === 'van' ? 1 : 2 });
+    buildCarBody(kind, S, wreck ? [0.2, 0.2, 0.2] : paint, { doorOpen }, out, rng); mark('shell');
+    interior(out.body, S, kind, rng, { rows: kind === 'van' ? 1 : 2 }); mark('interior');
     if (!wreck) dressCar(out.body, S, kind, paint, { doorOpen }, rng, lights);
     else {   // wreck: bare frames where the lamps were, sagging bumper
       for (const s of [-1, 1]) pushGeo(out.body, BOX(0.34, 0.11, 0.1), M4(s * (S.hw - 0.27), interp(S.topKeys, S.zF) + 0.03, S.zF + 0.06), C.black, RM.under);
@@ -1020,6 +1036,7 @@ export function buildCar(type, opts = {}) {
       for (let i = lights.length - 1; i >= 0; i--) if (lights[i].kind === 'tail' && lights[i].p[2] < 0) lights.splice(i, 1);
     }
     if (doorOpen) finishDoor(out, S, kind, paint);
+    mark('extras');
     // wheels
     const steer = (rng() - 0.5) * 0.5;
     S.axles.forEach((az, i) => {
@@ -1082,7 +1099,8 @@ export function buildCar(type, opts = {}) {
     lights: wreck ? [] : lights,
   };
   let tris = out.body.tris + (glass ? out.glass.tris : 0) + 2;
-  const info = { type, tris, draws: 2 + (glass ? 1 : 0) };
+  mark('wheels'); delete bd._t;
+  const info = { type, tris, draws: 2 + (glass ? 1 : 0), breakdown: bd };
   const res = {
     root, half, center, anchors, info, mesh: body, glass, blob, burntMaterials: [M.charred], burnt: wreck,
     setBurnt() {
