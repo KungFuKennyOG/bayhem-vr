@@ -11,7 +11,7 @@ import { raySphere, rayOBB } from './game.js';
 import { TWY, RWY, TAXI, CARGO_HOLD, JEEP_STOP, LIFTOFF_Z } from './layout.js';
 import { loft } from './shapes.js';
 
-const _red = new THREE.Color(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _e = new THREE.Euler();
+const _fv = new THREE.Vector3(), _red = new THREE.Color(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -474,7 +474,7 @@ export class SetPieces {
       J.root.position.copy(rb.pos).sub(_v.set(0, 0.9, 0).applyQuaternion(rb.quat)); J.root.quaternion.copy(rb.quat);
       if (rb.contactSpeed > 4 && (J.lastHit ?? -9) < g.time - 0.3) { J.lastHit = g.time; g.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z, volume: 0.9 }); }
       if (!J.boomed && J.t > 0.9) { J.boomed = true; g.boom(rb.pos.clone().setY(1), 2.4, { radius: 8, dmg: 0, player: false }); g.fx.later(0.15, () => g.fx.explosion(rb.pos.clone().setY(2), 1.4)); J.mesh.material = J.mesh.material.map(() => MAT.charred); J.sign.visible = false; g.smokeCols.push({ p: rb.pos.clone().setY(0.5), k: 1.0, life: 200, fire: 1.3, follow: rb }); }
-      if (J.boomed) g.fx.trailEmit(J, rb.pos, 0.7, (q) => { g.fx.flame(q, 1.1); if (rand() < 0.5) g.fx.smoke(q, 1.3, 0.1, 3, 2, 0.7); }, 0);
+      if (J.boomed) g.fx.trailEmit(J, rb.pos, 0.7, (q) => { g.fx.flame(q, 1.1, _fv.copy(rb.vel).multiplyScalar(0.9)); if (rand() < 0.5) g.fx.smoke(q, 1.3, 0.1, 3, 2, 0.7); }, 0);
       return this._jeepVisuals(dt, true);
     }
     // velocity / pose
@@ -677,7 +677,7 @@ export class SetPieces {
         if (rb.contactSpeed > 4 && (car.lastHit ?? -9) < g.time - 0.3) { car.lastHit = g.time; g.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z, volume: 0.8 }); }
         if (rb.scrape > 6) for (let k = 0; k < 4; k++) g.fx.sparks.spawn({ x: rb.contactPoint.x, y: 0.1, z: rb.contactPoint.z, vx: rb.vel.x * 0.5 + range(-3, 3), vy: range(2, 5), vz: rb.vel.z * 0.5 + range(-3, 3), grav: -12, frame: CELL.SPARK, s0: 1, w: 0.05, life: range(0.3, 0.6), r: 1.8, g: 1.0, b: 0.4, a: 1, fadeOut: 0.5 });
         car.burnT += dt;
-        if (car.burnT < 30 && g.headPos.distanceTo(rb.pos) < 300) g.fx.trailEmit(car, rb.pos, 0.8, (q) => { g.fx.flame(q, 1.0); if (rand() < 0.4) g.fx.smoke(q, 1.2, 0.1, 3, 2, 0.7); }, 0);
+        if (car.burnT < 30 && g.headPos.distanceTo(rb.pos) < 300) g.fx.trailEmit(car, rb.pos, 0.8, (q) => { g.fx.flame(q, 1.0, _fv.copy(rb.vel).multiplyScalar(0.9)); if (rand() < 0.4) g.fx.smoke(q, 1.2, 0.1, 3, 2, 0.7); }, 0); // flames ride the wreck (no string of pearls), smoke stays behind
         if (rb.onGround && rb.vel.lengthSq() < 0.2) car.rb = null;
       }
     }
