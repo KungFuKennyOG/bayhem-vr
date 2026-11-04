@@ -50,7 +50,7 @@ vec3 nightSky(vec3 d){
     vec3 cc = mix(top, under, 0.35 + 0.65 * lit) * (0.75 + 0.5 * c2);
     // the afterglow catches the cloud bottoms in the west
     cc += vec3(0.8, 0.28, 0.12) * pow(sa, 3.0) * lit * mix(0.9, 0.25, n) * (0.6 + 0.6 * c2);
-    c = mix(c + vec3(0.85, 0.9, 1.0) * st * (1.0 - cov) * 0.8, cc, cov * 0.92);
+    c = mix(c + vec3(0.85, 0.9, 1.0) * st * (1.0 - cov) * 0.3, cc, cov * 0.92);
   }
   if (h < 0.0) c = mix(hor, hor * 0.6, smoothstep(0.0, -0.2, h));
   return c;

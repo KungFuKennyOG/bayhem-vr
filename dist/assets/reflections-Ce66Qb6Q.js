@@ -1,4 +1,4 @@
-import{a7 as g,F as u,a6 as h,a8 as l,r as p,a2 as f,a9 as w,D as y,ae as d,b6 as x,af as b,h as F}from"./index-CbIHAFn9.js";import{W as m,B as v,e as c,f as z,L as P}from"./index-B53Fho0u.js";import"./collision-BA5OYuxu.js";import"./player-NM9SR8fn.js";import"./dustfx-Dqri5aWN.js";import"./heli-Xh-ZYjUO.js";const A=1,D=2,k=`
+import{a7 as g,F as u,a6 as h,a8 as l,r as p,a2 as f,a9 as w,D as y,ae as d,b6 as x,af as b,h as F}from"./index-BlzOo-vx.js";import{W as m,B as v,e as c,f as z,L as P}from"./index-ESMHawOZ.js";import"./collision-49LFJlbB.js";import"./player-Dwak9-Hf.js";import"./dustfx-yJlST3gx.js";import"./heli-Bi1yeC-Y.js";const A=1,D=2,k=`
 attribute vec4 iP;   // light xyz, intensity
 attribute vec4 iC;   // rgb, width (m)
 attribute vec4 iD;   // len (m), plane y, flags, seed

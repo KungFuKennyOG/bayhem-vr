@@ -1,4 +1,4 @@
-import{r as w,a as x,a9 as y,p as z,b7 as S,V as k,P as b,h as R,G as N,m as d,f as u,w as F,R as W}from"./index-CbIHAFn9.js";import{e as m,W as M}from"./index-B53Fho0u.js";import"./collision-BA5OYuxu.js";import"./player-NM9SR8fn.js";import"./dustfx-Dqri5aWN.js";import"./heli-Xh-ZYjUO.js";const P=`
+import{r as w,a as x,a9 as y,p as z,b7 as S,V as k,P as b,h as R,G as N,m as d,f as u,w as F,R as W}from"./index-BlzOo-vx.js";import{e as p,W as M}from"./index-ESMHawOZ.js";import"./collision-49LFJlbB.js";import"./player-Dwak9-Hf.js";import"./dustfx-yJlST3gx.js";import"./heli-Bi1yeC-Y.js";const P=`
 // cheap copy of sky.js nightSky() without clouds / stars (night 0..1)
 vec3 nightSkyApprox(vec3 d, vec3 sunDir, float n) {
   float hh = max(d.y, 0.0);
@@ -16,7 +16,7 @@ vec3 nightSkyApprox(vec3 d, vec3 sunDir, float n) {
   c = mix(c, under + vec3(0.8, 0.28, 0.12) * pow(sa, 3.0) * mix(0.5, 0.15, n) * (1.0 - smoothstep(0.0, 0.4, hh)), 0.55 * smoothstep(0.0, 0.05, d.y));
   return c;
 }
-`;function V(l){const t=new Float32Array(65536),p=d(l,8),e=d(l+1,32),c=d(l+2,16);for(let a=0;a<256;a++)for(let r=0;r<256;r++){const s=r/256,o=a/256,i=u(p,s,o,8,4),f=u(e,s,o,32,3),v=u(c,s,o,16,2);t[a*256+r]=Math.pow(i,1.6)*.55+f*.3+Math.abs(v-.5)*.25+Math.sin((s*3+o*7+i*1.8)*Math.PI*2)*.04}const n=F(t,256,256,22);return n.wrapS=n.wrapT=W,n}function L(l={}){const h=l.scene,t=(h==null?void 0:h.fog)||{color:new w(.16,.11,.11),near:60,far:1500},p=V(5150),e={uTime:{value:0},uNight:{value:.3},uSun:{value:z},uNormal:{value:p},uWall:{value:new x(m.z0,m.z1)},uRain:{value:1},uFlow:{value:.8},fogColor:{value:t.color},fogNear:{value:t.near},fogFar:{value:t.far}},c=new y({uniforms:e,vertexShader:`
+`;function V(i){const t=new Float32Array(65536),m=d(i,8),e=d(i+1,32),c=d(i+2,16);for(let a=0;a<256;a++)for(let r=0;r<256;r++){const s=r/256,o=a/256,l=u(m,s,o,8,4),f=u(e,s,o,32,3),v=u(c,s,o,16,2);t[a*256+r]=Math.pow(l,1.6)*.55+f*.3+Math.abs(v-.5)*.25+Math.sin((s*3+o*7+l*1.8)*Math.PI*2)*.04}const n=F(t,256,256,22);return n.wrapS=n.wrapT=W,n}function L(i={}){const h=i.scene,t=(h==null?void 0:h.fog)||{color:new w(.16,.11,.11),near:60,far:1500},m=V(5150),e={uTime:{value:0},uNight:{value:.3},uSun:{value:z},uNormal:{value:m},uWall:{value:new x(p.z0,p.z1)},uRain:{value:1},uFlow:{value:.8},fogColor:{value:t.color},fogNear:{value:t.near},fogFar:{value:t.far}},c=new y({uniforms:e,vertexShader:`
       varying vec3 vW;
       varying vec3 vFogViewPos;
       void main() {
@@ -98,14 +98,14 @@ vec3 nightSkyApprox(vec3 d, vec3 sunDir, float n) {
         vec2 wc = vec2(hx / 3.6, (hy - 11.0) / 3.3);
         // ripples scatter the reflected ray across many window cells per pixel: past a small footprint use the
         // mean lit fraction (a smooth warm sheen) instead of single windows (that was orange TV static)
-        float wAA = 1.0 - smoothstep(0.06, 0.2, max(fwidth(wc.x), fwidth(wc.y)));
+        float wAA = (1.0 - smoothstep(0.02, 0.07, max(fwidth(wc.x), fwidth(wc.y)))) * (1.0 - smoothstep(0.15, 0.4, length(slope)));
         vec2 wf = fract(wc) - 0.5;
         float lit = step(0.6, rh(floor(wc) + 3.1)) * step(0.0, hy - 11.0) * step(hy, 27.0);
         float win = lit * (1.0 - smoothstep(0.18, 0.3, abs(wf.x))) * (1.0 - smoothstep(0.2, 0.36, abs(wf.y)));
         float winBand = step(0.0, hy - 11.0) * step(hy, 27.0);
         shore += vec3(0.3, 0.17, 0.07) * mix(0.075 * winBand, win * (0.5 + rh(floor(wc) + 9.7)), wAA) * (1.0 - smoothstep(120.0, 450.0, tz)) * (1.0 - smoothstep(80.0, 300.0, dist));
         // streetlamp line along the far parapet (just above the wall top) as a dim warm band
-        shore += vec3(0.16, 0.09, 0.04) * exp(-pow((hy - 11.5) / 1.6, 2.0)) * (1.0 - smoothstep(200.0, 900.0, tz));
+        shore += vec3(0.07, 0.04, 0.018) * exp(-pow((hy - 11.5) / 4.5, 2.0)) * (1.0 - smoothstep(200.0, 900.0, tz));
         sky = mix(shore, sky, smoothstep(skyline * 0.85, skyline * 1.15 + 0.004, tanR));
         // body: dark green-brown Seine
         vec3 body = mix(vec3(0.008, 0.011, 0.012), vec3(0.005, 0.007, 0.009), n);
@@ -131,4 +131,4 @@ vec3 nightSkyApprox(vec3 d, vec3 sunDir, float n) {
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
-      }`,fog:!1}),n=S.standard.uniforms;e.fogColorSun=n.fogColorSun||{value:new w(.4,.2,.1)},e.fogSunDir=n.fogSunDir||{value:new k(0,0,-1)},c.name="seine";const a=-1200,r=1400,s=new b(r-a,m.z1-m.z0,1,1);s.rotateX(-Math.PI/2);const o=new R(s,c);o.position.set((a+r)/2,M,0),o.renderOrder=-5,o.name="seine";const i=new N;return i.name="river",i.add(o),{root:i,mesh:o,material:c,uniforms:e,update(f,v,g=.9){e.uTime.value=v,e.uNight.value=Math.min(1,Math.max(0,(g-.85)/.15)),e.fogNear.value=t.near,e.fogFar.value=t.far},setRain(f){e.uRain.value=f},info:{draws:1,tris:2}}}export{P as SKY_APPROX_GLSL,L as buildRiver};
+      }`,fog:!1}),n=S.standard.uniforms;e.fogColorSun=n.fogColorSun||{value:new w(.4,.2,.1)},e.fogSunDir=n.fogSunDir||{value:new k(0,0,-1)},c.name="seine";const a=-1200,r=1400,s=new b(r-a,p.z1-p.z0,1,1);s.rotateX(-Math.PI/2);const o=new R(s,c);o.position.set((a+r)/2,M,0),o.renderOrder=-5,o.name="seine";const l=new N;return l.name="river",l.add(o),{root:l,mesh:o,material:c,uniforms:e,update(f,v,g=.9){e.uTime.value=v,e.uNight.value=Math.min(1,Math.max(0,(g-.85)/.15)),e.fogNear.value=t.near,e.fogFar.value=t.far},setRain(f){e.uRain.value=f},info:{draws:1,tris:2}}}export{P as SKY_APPROX_GLSL,L as buildRiver};

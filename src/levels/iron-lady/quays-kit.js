@@ -327,7 +327,7 @@ function stoneTex(aniso) {
   for (let j = 0; j < rows; j++) {
     const b = [0]; let x = 0;
     for (;;) { const L = (0.8 + r() * 0.9) * S / 4.8; if (x + L > S - 150) { b.push(S); break; } x += L; b.push(x); }
-    R.push({ off: Math.floor(r() * S), b, tone: b.map(() => (r() - 0.5) * 0.32), hue: b.map(() => r()), crust: b.map(() => r()), split: b.map(() => (r() < 0.12 ? 0.5 : -1)) });
+    R.push({ off: Math.floor(r() * S), b, tone: b.map(() => (r() - 0.5) * 0.13), hue: b.map(() => r()), crust: b.map(() => r()), split: b.map(() => (r() < 0.12 ? 0.5 : -1)) });
   }
   const o = gen(S, (x, y) => {
     const j = (y / rh) | 0, row = R[j], xx = (x + row.off) % S;
