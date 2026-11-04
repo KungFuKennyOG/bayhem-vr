@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { pick, range, clamp, damp, smooth } from '../../rng.js';
 import { DECK_Y, CH, QUAY_Z } from './layout.js';
+import { arrivedAtMarker } from '../../beats.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -39,7 +40,7 @@ export class Director {
           A?.go([ground(1.5, 26.5)]);
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.6); },
         until: (t) => t > (trailer ? 5.5 : 7.5) },
-      { name: 'gate', wp: V(0, 2.5, 4), hunt: true, music: 0.6, dusk: 0.17, enter: () => {
+      { name: 'gate', wp: V(0, 2.5, 4), hunt: true, arrive: true, music: 0.6, dusk: 0.17, enter: () => {
           hud.objective('Push into the container yard');
           S({ x: -6, z: 4, role: 'rusher', delay: 0.6, entry: V(-5, 0, 14) });
           S({ x: 8.5, z: 3, delay: 0.2 });
@@ -54,7 +55,7 @@ export class Director {
           later(1.4, () => say('Somebody hit the lights. Great — now they can see you.', 3));
           A?.go([ground(-0.6, 13), ground(-1.2, 2, { slow: 0.7 })]);
         }, until: (t) => t > 1.0 && pz() < 15 },
-      { name: 'maze1b', wp: V(0, 2.5, -28), hunt: true, music: 0.8, dusk: 0.28, enter: () => {
+      { name: 'maze1b', wp: V(0, 2.5, -28), hunt: true, arrive: true, music: 0.8, dusk: 0.28, enter: () => {
           S({ x: 2.5, z: -15, delay: 0.3 });
           S({ x: -1, z: -21, delay: 0.8 });
           S({ x: -20.3, z: -6, delay: 1.2, flanker: true, entry: V(-20.3, 0, -18) });
@@ -64,7 +65,7 @@ export class Director {
           later(5, () => say('Watch the side aisles, they\'re flanking!', 2.6));
           A?.go([ground(-3.3, -4, { slow: 0.6 }), ground(-3.3, -12, { slow: 0.6 }), ground(0.4, -19, { slow: 0.5 })]);
         }, until: (t) => cleared(t, 4) || t > 70 * T },
-      { name: 'maze2', wp: V(0, 2.5, -70), hunt: true, music: 0.85, dusk: 0.34, enter: () => {
+      { name: 'maze2', wp: V(0, 2.5, -70), hunt: true, arrive: true, music: 0.85, dusk: 0.34, enter: () => {
           this.lightsOn([2, 3], 0.3);
           S({ x: -5.2, z: -36, y: CH, role: 'perch', delay: 0.5 });
           S({ x: 2.2, z: -44, delay: 0.2 });
@@ -95,7 +96,7 @@ export class Director {
             if (e.type === 'operatorDown') later(1.4, () => say('Crane operator\'s fired. HR is gonna love that.', 3));
           }
         }, until: (t) => (setp.crane.mode === 'after' || setp.crane.mode === 'done') && !setp.crane.opAlive && alive() === 0 && t > 5 || t > 70 * T },
-      { name: 'apron', wp: V(-4, 2.6, -148.5), hunt: true, music: 0.95, dusk: 0.55, enter: () => {
+      { name: 'apron', wp: V(-4, 2.6, -148.5), hunt: true, arrive: () => this.forkGo && setp.fork.state !== 'charge', music: 0.95, dusk: 0.55, enter: () => {
           this.lightsOn([6, 7, 8, 9], 0.5);
           hud.objective('Get to the ship');
           this.forkGo = false;
@@ -203,7 +204,7 @@ export class Director {
     if (!this.done) {
       this.t += dt; this.total += dt;
       this.dt = dt; this.cur.update?.(this.t);
-      if (this.cur.until(this.t)) this.next();
+      if (this.cur.until(this.t) || arrivedAtMarker(this, dt)) this.next();
     }
     this.g.dusk = damp(this.g.dusk, this.duskTarget, 0.35, dt);
     this.g.events.length = 0;

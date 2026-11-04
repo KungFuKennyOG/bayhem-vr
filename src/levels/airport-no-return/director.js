@@ -3,6 +3,7 @@ import { pick, range, clamp, damp } from '../../rng.js';
 import { CARGO } from './aircraft.js';
 import { CREDITS_X } from './setpieces.js';
 import { JEEP_STOP, START, TAXI } from './layout.js';
+import { arrivedAtMarker } from '../../beats.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -35,7 +36,7 @@ export class Director {
           A?.go([ground(226, 352, { slow: 0.75 }), ground(228, 334, { slow: 0.8 })]);
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 6.0 : 8.0) },
-      { name: 'apronA', wp: V(212, 2.6, 288), hunt: true, music: 0.6, dusk: 0.03, enter: () => {
+      { name: 'apronA', wp: V(212, 2.6, 288), hunt: true, arrive: true, music: 0.6, dusk: 0.03, enter: () => {
           hud.objective('Cross the apron');
           S({ x: 214, z: 302, delay: 0.3, flanker: false });
           S({ x: 186, z: 312, delay: 0.8, flanker: true });
@@ -46,7 +47,7 @@ export class Director {
           later(1.2, () => say('Welcoming committee, twelve o\'clock! Use the fuel trucks — JET A-1 really wants to explode.', 3.6));
           A?.go([ground(226, 324, { slow: 0.6 }), ground(220, 308, { slow: 0.55 })]);
         }, until: (t) => (t > 4 && alive() === 0) || t > 70 * T || (t > 10 && pz() < 278) },
-      { name: 'apronB', wp: V(186, 2.6, 214), hunt: true, music: 0.8, dusk: 0.06, enter: () => {
+      { name: 'apronB', wp: V(186, 2.6, 214), hunt: true, arrive: true, music: 0.8, dusk: 0.06, enter: () => {
           S({ x: 240, z: 254, delay: 0.4 });
           S({ x: 240, z: 226, delay: 0.8, flanker: true });
           S({ x: 214, z: 246, delay: 0.2 });
@@ -213,7 +214,7 @@ export class Director {
     if (!this.done) {
       this.t += dt; this.total += dt;
       this.cur.update?.(this.t);
-      if (this.cur.until(this.t)) this.next();
+      if (this.cur.until(this.t) || arrivedAtMarker(this, dt)) this.next();
     }
     this.g.dusk = damp(this.g.dusk, this.duskTarget, 0.3, dt);
     this.g.events.length = 0;
