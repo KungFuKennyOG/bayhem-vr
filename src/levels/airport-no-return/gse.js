@@ -13,8 +13,8 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 //  Builders return { geometry (grouped by GM slot), colliders: [{min,max}], anchors }.
 // =====================================================================================
 const TAU = Math.PI * 2;
-export const GM = { yellow: 0, white: 1, dark: 2, metal: 3, tire: 4, rim: 5, glass: 6, hazard: 7, head: 8, tail: 9, belt: 10, bag: 11, orange: 12, check: 13, tank: 14, red: 15, curtain: 16, alu: 17, amber: 18, olive: 19, text: 20, seat: 21, diamond: 22, plastic: 23, follow: 24 };
-const NGM = 25;
+export const GM = { yellow: 0, white: 1, dark: 2, metal: 3, tire: 4, rim: 5, glass: 6, hazard: 7, head: 8, tail: 9, belt: 10, bag: 11, orange: 12, check: 13, tank: 14, red: 15, curtain: 16, alu: 17, amber: 18, olive: 19, text: 20, seat: 21, diamond: 22, plastic: 23, follow: 24, cater: 25, bus: 26 };
+const NGM = 27;
 let MATS = null;
 export function gseMaterials() {
   if (MATS) return MATS;
@@ -45,6 +45,8 @@ export function gseMaterials() {
   MATS[GM.seat] = m({ color: 0x2a2523, roughness: 0.8 });
   MATS[GM.diamond] = MAT.diamond || m({ color: 0xa0a4a8, metalness: 0.85, roughness: 0.35 });
   MATS[GM.plastic] = m({ color: 0x1c1d1f, roughness: 0.62, metalness: 0.05 });
+  MATS[GM.cater] = m({ map: caterTexture(), roughness: 0.5, metalness: 0.15 });
+  MATS[GM.bus] = m({ map: busTexture(), roughness: 0.45, metalness: 0.2 });
   MATS[GM.follow] = m({ map: followTexture(), roughness: 0.45, emissive: 0xffffff, emissiveMap: followTexture(), emissiveIntensity: 0.35 });
   return MATS;
 }
@@ -78,6 +80,34 @@ function wornPaintGSE() {
   x.putImageData(img, 0, 0);
   x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(0, S * 0.48, S, 2); x.fillRect(S * 0.5, 0, 2, S * 0.48); // panel seams
   return (_wear = T.canvasTex(c, { srgb: false }));
+}
+function caterTexture() {
+  // catering box side (any face, uv 0..1): white panels, rivet seams, a red/navy band, the SKYCHEF logo, road grime + streaks
+  const W = 512, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(961, 8), img = x.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
+    const u = xx / W, v = 1 - y / H;
+    let k = 0.93 + (T.fbm(n, u, v, 8, 3) - 0.5) * 0.08;
+    k *= 1 - 0.38 * Math.pow(Math.max(0, 0.3 - v) / 0.3, 1.3);                               // grime from the wheels up
+    k *= 1 - 0.1 * Math.max(0, T.fbm(n, u * 6, v * 0.4, 8, 2) - 0.55) * 4 * (1 - v);          // streaks under the seams
+    const i = (y * W + xx) * 4; img.data[i] = 236 * k; img.data[i + 1] = 234 * k; img.data[i + 2] = 228 * k; img.data[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  x.fillStyle = 'rgba(40,40,44,0.35)'; for (let k = 1; k < 6; k++) x.fillRect(k * W / 6, 0, 2, H);
+  x.fillStyle = 'rgba(40,40,44,0.5)'; for (let k = 1; k < 6; k++) for (let y = 6; y < H; y += 10) x.fillRect(k * W / 6 + 4, y, 2, 2);
+  x.fillStyle = '#a31a12'; x.fillRect(0, H * 0.1, W, H * 0.07); x.fillStyle = '#16305e'; x.fillRect(0, H * 0.17, W, H * 0.03);
+  x.fillStyle = '#16305e'; x.font = '700 64px Oswald, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('SKYCHEF', W / 2, H * 0.48);
+  x.fillStyle = '#a31a12'; x.font = '600 22px Oswald, sans-serif'; x.fillText('INFLIGHT CATERING  •  HAVEN', W / 2, H * 0.66);
+  x.fillStyle = 'rgba(20,20,22,0.8)'; x.font = '600 14px Oswald, sans-serif'; x.textAlign = 'left'; x.fillText('MAX LOAD 4500 KG   UNIT 07', 14, H - 30);
+  return T.canvasTex(c);
+}
+function busTexture() {
+  // crew bus skin (uv 0..1 per face): white over a dark skirt, teal stripe, fleet number, dirt
+  const W = 512, H = 128, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(962, 8), img = x.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) { const v = 1 - y / H; let k = (0.92 + (T.fbm(n, xx / W, v, 8, 3) - 0.5) * 0.08) * (1 - 0.35 * Math.pow(Math.max(0, 0.35 - v) / 0.35, 1.2)); const i = (y * W + xx) * 4; img.data[i] = 232 * k; img.data[i + 1] = 232 * k; img.data[i + 2] = 226 * k; img.data[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  x.fillStyle = '#0e6f74'; x.fillRect(0, H * 0.62, W, H * 0.08); x.fillStyle = '#f2b512'; x.fillRect(0, H * 0.7, W, H * 0.025);
+  x.fillStyle = '#1b1d20'; x.font = '700 26px Oswald, sans-serif'; x.fillText('APRON 14', 18, H * 0.9);
+  return T.canvasTex(c);
 }
 function hazardTexture() {
   const c = T.makeCanvas(128, 32), x = c.getContext('2d');
@@ -396,6 +426,49 @@ export function buildGPU() {
   L.push([strut([0, 0.4, -1.0], [0, 0.3, -1.8], 0.04), GM.metal]);
   wheels(L, [[-0.55, -0.6], [0.55, -0.6], [-0.55, 0.6], [0.55, 0.6]], 0.25, 0.16);
   return { geometry: finish(L), colliders: [{ min: [-0.7, 0, -1.05], max: [0.7, 1.45, 1.05] }] };
+}
+// ---------------------------------------------------------------- catering high-loader (tall box on a scissor lift: a big midground shape)
+export function buildCateringTruck(lift = 0.6) {
+  const L = [];
+  L.push([at(rb(2.4, 1.0, 7.4, 0.1, 2), 0, 0.85, 0), GM.dark]);
+  L.push([at(rb(2.4, 2.1, 2.0, 0.16, 2), 0, 1.9, -2.8), GM.white]); L.push([at(box(2.2, 0.9, 0.05), 0, 2.4, -3.82), GM.glass]);
+  for (const s of [-1, 1]) L.push([at(box(0.05, 0.7, 1.2), s * 1.21, 2.4, -2.7), GM.glass]);
+  L.push([at(box(0.5, 0.12, 0.16), 0, 3.0, -2.8), GM.amber]);
+  const y = 1.4 + lift * 2.6;
+  // scissor arms
+  for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { L.push([strut([s * 1.05, 1.35 + k * (y - 1.35) / 2, -0.8], [s * 1.05, 1.35 + (k + 1) * (y - 1.35) / 2, 3.0], 0.07), GM.metal]); L.push([strut([s * 1.05, 1.35 + k * (y - 1.35) / 2, 3.0], [s * 1.05, 1.35 + (k + 1) * (y - 1.35) / 2, -0.8], 0.07), GM.metal]); }
+  // the box: white with a coloured band, a platform + rails on the front
+  L.push([at(rb(2.5, 2.7, 4.6, 0.08, 2), 0, y + 1.35, 1.05), GM.cater]);
+  L.push([at(box(2.4, 0.08, 1.2), 0, y + 0.05, -1.75), GM.metal]);
+  for (const s of [-1, 1]) L.push([strut([s * 1.15, y, -2.3], [s * 1.15, y + 1.0, -2.3], 0.03), GM.yellow]);
+  L.push([strut([-1.15, y + 1.0, -2.3], [1.15, y + 1.0, -2.3], 0.03), GM.yellow]);
+  L.push([at(box(2.6, 0.18, 0.18), 0, 0.42, 3.75), GM.hazard]);
+  wheels(L, [[-1.0, -2.5], [1.0, -2.5], [-1.0, 2.6], [1.0, 2.6]], 0.45, 0.3);
+  return { geometry: finish(L), colliders: [{ min: [-1.25, 0, -3.8], max: [1.25, 2.95, 3.75] }, { min: [-1.25, y, -1.2], max: [1.25, y + 2.7, 3.35] }] };
+}
+// ---------------------------------------------------------------- apron crew bus (low-floor, lots of glass)
+export function buildCrewBus() {
+  const L = [];
+  L.push([at(rb(2.5, 2.6, 10.5, 0.22, 3), 0, 1.75, 0), GM.bus]);
+  L.push([at(box(2.54, 0.3, 10.4), 0, 0.75, 0), GM.olive]);
+  for (const s of [-1, 1]) L.push([at(box(0.04, 1.1, 9.4), s * 1.26, 2.25, 0.2), GM.glass]);
+  L.push([at(box(2.3, 1.3, 0.05), 0, 2.1, -5.26), GM.glass]);
+  L.push([at(box(0.8, 0.12, 0.2), 0, 3.12, -4.9), GM.amber]);
+  for (const z of [-3.6, 3.4]) for (const s of [-1, 1]) L.push([at(box(0.06, 2.0, 1.4), s * 1.27, 1.55, z), GM.dark]);
+  L.push([at(box(1.6, 0.5, 2.2), 0, 3.2, 1.6), GM.metal]);
+  wheels(L, [[-1.05, -3.6], [1.05, -3.6], [-1.05, 3.6], [1.05, 3.6]], 0.45, 0.3);
+  return { geometry: finish(L), colliders: [{ min: [-1.27, 0, -5.3], max: [1.27, 3.1, 5.3] }] };
+}
+// ---------------------------------------------------------------- concrete jersey barrier run (n segments of 3 m)
+export function buildBarriers(n = 4) {
+  const L = [];
+  const sh = new THREE.Shape([new THREE.Vector2(-0.3, 0), new THREE.Vector2(0.3, 0), new THREE.Vector2(0.3, 0.08), new THREE.Vector2(0.12, 0.33), new THREE.Vector2(0.1, 0.82), new THREE.Vector2(-0.1, 0.82), new THREE.Vector2(-0.12, 0.33), new THREE.Vector2(-0.3, 0.08)]);
+  for (let k = 0; k < n; k++) {
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 2.94, bevelEnabled: false }); g.translate(0, 0, -1.47 + (k - (n - 1) / 2) * 3);
+    const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.4, uv.getY(i) * 0.4);
+    L.push([g, k % 2 ? GM.white : GM.red]);
+  }
+  return { geometry: finish(L), colliders: [{ min: [-0.3, 0, -n * 1.5], max: [0.3, 0.82, n * 1.5] }] };
 }
 // ---------------------------------------------------------------- cone, chock, light mast, sign, blast fence
 export function buildCone() {
