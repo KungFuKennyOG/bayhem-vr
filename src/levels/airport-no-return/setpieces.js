@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { rand, range, pick, chance, clamp, lerp, damp, smooth } from '../../rng.js';
-import { Gunman } from '../../characters.js';
+import { Gunman, Driver } from '../../characters.js';
 import { RigidBox } from '../../physics.js';
 import { CELL } from '../../particles.js';
 import { MAT, buildSUV } from '../../vehicles.js';
 import { textTexture } from '../../textures.js';
 import { buildAirliner, buildCargoPlane, CARGO } from './aircraft.js';
-import { buildJeep, gseMaterials, JEEP } from './gse.js';
+import { buildJeep, gseMaterials, JEEP, JEEP_SEAT } from './gse.js';
 import { raySphere, rayOBB } from './game.js';
 import { TWY, RWY, TAXI, CARGO_HOLD, JEEP_STOP, LIFTOFF_Z } from './layout.js';
 import { loft } from './shapes.js';
@@ -381,12 +381,14 @@ export class SetPieces {
     const b = buildJeep();
     const root = new THREE.Group();
     const mesh = new THREE.Mesh(b.geometry, mats); mesh.castShadow = true; mesh.receiveShadow = true; root.add(mesh);
-    const driver = new THREE.Mesh(b.driver, mats); driver.position.copy(b.driverPos); driver.castShadow = true; root.add(driver);
+    // the shared animated sidekick (Level 1's buddy): steers, flinches at blasts, talks on the radio, glances back
+    const buddy = new Driver({ seed: 11, seat: JEEP_SEAT }); buddy.root.position.fromArray(JEEP_SEAT.position); root.add(buddy.root);
+    const driver = buddy.root;
     const sign = new THREE.Mesh(b.sign, mats); sign.position.copy(b.signPos); sign.castShadow = true; root.add(sign);
     { const bl = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 6.2).rotateX(-Math.PI / 2), MAT.blob); bl.position.y = 0.03; bl.renderOrder = 3; root.add(bl); }
     root.position.set(110, 0, -60); root.visible = false;
     g.scene.add(root);
-    const J = this.jeep = { root, mesh, driver, sign, signFold: 0, b, pos: root.position, yaw: Math.PI, v: 0, state: 'away', t: 0, s: 0, wheelSpin: 0, roll: 0, pitch: 0, sway: 0, lat: 0, vel: new THREE.Vector3(), lastPos: new THREE.Vector3() };
+    const J = this.jeep = { root, mesh, driver, buddy, buddySt: { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 }, sign, signFold: 0, b, pos: root.position, yaw: Math.PI, v: 0, state: 'away', t: 0, s: 0, wheelSpin: 0, roll: 0, pitch: 0, sway: 0, lat: 0, vel: new THREE.Vector3(), lastPos: new THREE.Vector3() };
     J.randomHullPoint = () => J.root.localToWorld(V3(range(-1, 1), range(0.7, 1.2), range(-2.5, 2.4)));
   }
   jeepArrive() {
@@ -489,6 +491,17 @@ export class SetPieces {
       J.root.position.copy(J.pos); J.root.position.y = bump;
       J.root.rotation.set(J.pitch + bump * 0.5, J.yaw, J.roll, 'YXZ');
     }
+    if (J.driver.visible) {
+      const st = J.buddySt, dl = (J.lat - (J.prevLat3 ?? J.lat)) / Math.max(1e-4, dt); J.prevLat3 = J.lat;
+      st.steer = clamp(dl * 0.5 + (J.yawRate || 0) * 0.6, -1, 1);
+      st.bump = J.v > 3 ? clamp(Math.abs(J.pitch) * 12, 0, 1) : 0;
+      st.talking = g.hud.subT > 0.25 && g.hud.subSpeaker === 'DRIVER';
+      const head = J.root.localToWorld(_v.set(-0.45, 1.8, -0.1));
+      st.lookBack = 0;
+      st.flinch = g.lastBoomP ? clamp(1 - (g.time - g.lastExplosionT) / 0.8, 0, 1) * clamp(1 - g.lastBoomP.distanceTo(head) / 30, 0, 1) : 0;
+      st.time = g.time;
+      J.buddy.update(dt, st);
+    }
     J.signFold = damp(J.signFold, this.riding ? 1 : 0, 3, dt);
     J.sign.rotation.x = -J.signFold * Math.PI / 2; // the driver folds it down when you climb in...
     J.sign.visible = J.signFold < 0.7;             // ...and it's gone (out of your sightline)
@@ -497,9 +510,12 @@ export class SetPieces {
     if (J.state !== 'away' && !(crashed && J.boomed)) {
       const on = Math.sin(g.time * 9) > 0;
       const bl = J.sign.localToWorld(_v.set(-0.6, 0.5, 0)), br = J.sign.localToWorld(_v2.set(0.6, 0.5, 0));
-      this.w.addGlow(on ? bl : br, 1.6, 3.2, 1.6, 0.2, 1);
-      this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 1.4, 2.6, 2.5, 2.2, 0.9);
-      this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 1.4, 2.6, 2.5, 2.2, 0.9);
+      // (folded sign = beacons sit a metre from your face; headlights point away from you once you ride)
+      if (J.sign.visible) this.w.addGlow(on ? bl : br, 1.6, 3.2, 1.6, 0.2, 1);
+      if (!this.riding) {
+        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 1.4, 2.6, 2.5, 2.2, 0.9);
+        this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 1.4, 2.6, 2.5, 2.2, 0.9);
+      }
     }
     // engine audio
     if (J.state === 'arrive') g.audio.setLoop('suv:jeep', { x: J.pos.x, y: 1, z: J.pos.z, volume: 0.9, intensity: 0.9 });

@@ -131,6 +131,8 @@ function signTexture() {
 // =====================================================================================
 //  FOLLOW-ME JEEP (the ride). Bed floor at y = 1.02, bed z ∈ [0.35, 2.35]. Driver sits front-left.
 // =====================================================================================
+// driver seat for the shared animated Driver (characters.js): cushion top y 1.06, back rest face z ≈ 0.04
+export const JEEP_SEAT = { position: [-0.45, 1.02, -0.13], wheel: [-0.45, 1.37, -0.63], wheelTilt: 0.42, wheelRadius: 0.185 };
 export const JEEP = { bedY: 1.02, bedZ0: 0.3, bedZ1: 2.3, halfW: 0.95, wheelR: 0.44, len: 5.2 };
 // side profile (z, y) extruded across the body width; arches cut around the wheels
 function jeepBody(W) {
@@ -183,8 +185,9 @@ export function buildJeep() {
   for (const [gx, gr] of [[-0.58, 0.06], [-0.32, 0.06], [-0.45, 0.04], [0.45, 0.05]]) { L.push([at(cyl(gr + 0.012, gr + 0.012, 0.03, 14), gx, 1.3, -0.66, Math.PI / 2 - 0.5), GM.metal]); L.push([at(cyl(gr, gr, 0.032, 14), gx, 1.3, -0.66, Math.PI / 2 - 0.5), GM.amber]); }
   L.push([at(cyl(0.07, 0.07, 0.42, 12), 0.88, 1.1, 0.15), GM.red]); L.push([at(cyl(0.03, 0.03, 0.08, 8), 0.88, 1.35, 0.15), GM.dark]);
   L.push([strut([0.62, 1.35, -0.72], [0.28, 1.35, -0.72], 0.018), GM.metal]);
-  const sw = new THREE.TorusGeometry(0.19, 0.025, 6, 18); sw.rotateX(-1.15); L.push([at(sw, -0.45, 1.36, -0.6), GM.plastic]);
-  L.push([strut([-0.45, 1.2, -0.75], [-0.45, 1.36, -0.6], 0.025), GM.plastic]);
+  const sw = new THREE.TorusGeometry(JEEP_SEAT.wheelRadius, 0.022, 8, 24); sw.rotateX(JEEP_SEAT.wheelTilt); L.push([at(sw, ...JEEP_SEAT.wheel), GM.plastic]);
+  for (const a of [0, 2.1, 4.2]) L.push([strut(JEEP_SEAT.wheel, [JEEP_SEAT.wheel[0] + Math.sin(a) * 0.17, JEEP_SEAT.wheel[1] - Math.cos(a) * 0.17 * Math.cos(JEEP_SEAT.wheelTilt), JEEP_SEAT.wheel[2] - Math.cos(a) * 0.17 * Math.sin(JEEP_SEAT.wheelTilt)], 0.012), GM.plastic]);
+  L.push([strut([-0.45, 1.16, -0.86], [-0.45, 1.37, -0.64], 0.03), GM.plastic]);
   L.push([strut([0, 0.95, -0.4], [0.02, 1.2, -0.32], 0.02), GM.metal]);
   // roll cage (you hold on to it) + FOLLOW ME sign + amber beacons
   for (const s of [-1, 1]) {

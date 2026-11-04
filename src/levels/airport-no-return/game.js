@@ -376,7 +376,7 @@ export class AirportGame {
   boom(P, size = 1, { radius = 7, dmg = 60, src = null, noRing = false, shake = null, player = true, truck = null } = {}) {
     this.fx.explosion(P, size, { noRing });
     this.recentExplosions.push(this.time);
-    this.lastExplosionT = this.time;
+    this.lastExplosionT = this.time; this.lastBoomP = P.clone ? P.clone() : P;
     const dp = this.headPos.distanceTo(P);
     this.lastExplosionShake = shake ?? clamp(1.4 * size * (1 - dp / (60 * Math.max(1, size * 0.7))), 0.15, 1.6);
     this.haptic(Math.min(1, size * 0.8), 160);
