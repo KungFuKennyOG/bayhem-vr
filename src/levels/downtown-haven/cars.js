@@ -14,7 +14,7 @@ import { blobShadowTexture } from '../../textures.js';
 const AW = 2048;                                  // atlas size (px)
 const SIDE_ROW = { sedan: 0, taxi: 1, police: 2, suv: 3, van: 4, bus: 5 }; // 256 px rows of side livery
 const R = {};                                     // named atlas rects [x, y, w, h] in px
-let ATLAS = null, MAT = null;
+let ATLAS = null, MAT = null, THIN = null;           // THIN: antenna / mirrors (kept out of the cover bounds)
 
 // ---------------------------------------------------------------------- small math
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -779,9 +779,9 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
   const belt = interp(S.topKeys, c.zA + 0.15);
   for (const s of [-1, 1]) {
     const mz = c.zA + 0.16, mx = s * (hwAt(S, mz) + 0.06);
-    pushGeo(bk, BOX(0.12, 0.05, 0.08), M4(mx - s * 0.05, belt + 0.04, mz), C.trim, RM.plastic);
-    pushGeo(bk, RBOX(0.2, 0.13, 0.1, 0.04, 2), M4(mx + s * 0.05, belt + 0.1, mz + 0.01, 0, -s * 0.15, 0), kind === 'taxi' || kind === 'sedan' ? paint : C.black, RM.paint);
-    pushGeo(bk, BOX(0.17, 0.1, 0.01), M4(mx + s * 0.05, belt + 0.1, mz + 0.065, 0, -s * 0.15, 0), [0.5, 0.52, 0.55], [0.05, 1, 0]);   // mirror glass
+    pushGeo(THIN, BOX(0.12, 0.05, 0.08), M4(mx - s * 0.05, belt + 0.04, mz), C.trim, RM.plastic);
+    pushGeo(THIN, RBOX(0.2, 0.13, 0.1, 0.04, 2), M4(mx + s * 0.05, belt + 0.1, mz + 0.01, 0, -s * 0.15, 0), kind === 'taxi' || kind === 'sedan' ? paint : C.black, RM.paint);
+    pushGeo(THIN, BOX(0.17, 0.1, 0.01), M4(mx + s * 0.05, belt + 0.1, mz + 0.065, 0, -s * 0.15, 0), [0.5, 0.52, 0.55], [0.05, 1, 0]);   // mirror glass
     for (const [z0, z1] of S.doors) {
       const hz = z1 - 0.2, hyy = interp(S.topKeys, hz) - 0.09;
       if (opts.doorOpen && s < 0 && z0 === S.doors[0][0]) continue;   // handle travels with the open door (added below)
@@ -799,7 +799,7 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
   const wy = interp(S.topKeys, c.zA) + 0.03, wz = c.zA + 0.09;
   for (const x of [-0.42, 0.18]) pushGeo(bk, BOX(0.62, 0.012, 0.025), M4(x, wy, wz, -0.55, 0, 0.05), C.black, RM.satin);
   pushGeo(bk, BOX(hw * 1.6, 0.02, 0.1), M4(0, wy - 0.02, c.zA - 0.03, -0.4, 0, 0), C.trim, RM.plastic);   // cowl
-  pushGeo(bk, CYL(0.003, 0.004, 0.7, 4), M4(0.4, roofY(S, (c.zW1 + c.zB0) / 2) + 0.35, c.zB0 - 0.05, -0.15, 0, 0), C.black, RM.satin);
+  pushGeo(THIN, CYL(0.003, 0.004, 0.7, 4), M4(0.4, roofY(S, (c.zW1 + c.zB0) / 2) + 0.35, c.zB0 - 0.05, -0.15, 0, 0), C.black, RM.satin);
 }
 
 // the open front-left door: card, handle (the skin is routed by the loft); hinge rotation
@@ -1002,6 +1002,7 @@ export function buildCar(type, opts = {}) {
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
   const out = { body: new Bucket(), glass: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
+  THIN = new Bucket();
   const lights = [], bd = {};
   const mark = (k) => { bd[k] = out.body.tris - (bd._t || 0); bd._t = out.body.tris; };
   const wreck = type === 'wreck';
@@ -1073,6 +1074,8 @@ export function buildCar(type, opts = {}) {
   }
   // ---------- assemble
   const root = new THREE.Group(); root.name = 'car:' + type;
+  const bb = out.body.geometry().boundingBox;      // cover bounds: without mirrors / antenna
+  if (!wreck) out.body.append(THIN, new THREE.Matrix4());
   const bodyGeo = out.body.geometry();
   const body = new THREE.Mesh(bodyGeo, wreck ? M.charred : M.body);
   body.castShadow = true; body.receiveShadow = true;
@@ -1080,7 +1083,6 @@ export function buildCar(type, opts = {}) {
   let glass = null;
   if (!wreck && out.glass.tris) { glass = new THREE.Mesh(out.glass.geometry(), M.glass); glass.renderOrder = 3; glass.castShadow = false; root.add(glass); }
   // bounds (without the swung door)
-  const bb = bodyGeo.boundingBox.clone();
   if (opts.doorOpen && !wreck && S.hw) bb.min.x = Math.max(bb.min.x, -(S.hw + 0.16));
   const half = [(bb.max.x - bb.min.x) / 2, (bb.max.y - Math.max(0, bb.min.y)) / 2, (bb.max.z - bb.min.z) / 2];
   const center = [(bb.max.x + bb.min.x) / 2, (bb.max.y + Math.max(0, bb.min.y)) / 2, (bb.max.z + bb.min.z) / 2];
