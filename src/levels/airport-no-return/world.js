@@ -121,7 +121,7 @@ export class AirportWorld {
     const aniso = this.aniso;
     // grass + far fields (vertex-coloured patchwork, gentle hills away from the airfield)
     const n = T.makeNoise(4401, 64), n2 = T.makeNoise(4402, 32);
-    const SZ = 12000, SEG = 96;
+    const SZ = 12000, SEG = 128;
     const gg = new THREE.PlaneGeometry(SZ, SZ, SEG, SEG); gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -1100);
     const pos = gg.attributes.position, col = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
@@ -130,9 +130,9 @@ export class AirportWorld {
       const d = Math.max(0, Math.max(Math.abs(x - 80) - 700, z > 1100 ? z - 1100 : z < -3500 ? -3500 - z : 0));
       const h = inField ? -0.08 : -0.08 + Math.min(1, d / 1500) * (T.fbm(n, x / 6000 + 0.5, z / 6000 + 0.5, 3, 4) * 70 - 12);
       pos.setY(i, h);
-      const pf = T.fbm(n2, x / 2500 + 0.3, z / 2500 + 0.7, 4, 3), cell = Math.floor(x / 380) * 7 + Math.floor(z / 300) * 13;
+      const pf = T.fbm(n2, x / 2500 + 0.3, z / 2500 + 0.7, 4, 3), wx = x + (T.fbm(n, x / 3000 + 0.1, z / 3000, 3, 3) - 0.5) * 600, wz = z + (T.fbm(n, x / 3000 + 0.6, z / 3000 + 0.3, 3, 3) - 0.5) * 600, cell = Math.floor(wx / 260) * 7 + Math.floor(wz / 210) * 13;
       const tone = (Math.sin(cell * 12.9898) * 43758.5) % 1;
-      let c = inField ? [0.62, 0.55, 0.3] : tone > 0.6 ? [0.42, 0.45, 0.22] : tone > 0.25 ? [0.62, 0.5, 0.28] : [0.5, 0.47, 0.3];
+      let c = inField ? [0.62, 0.55, 0.3] : tone > 0.75 ? [0.32, 0.42, 0.18] : tone > 0.5 ? [0.72, 0.58, 0.28] : tone > 0.25 ? [0.5, 0.36, 0.22] : [0.55, 0.52, 0.32];
       const k = 0.85 + pf * 0.3;
       col.set([c[0] * k, c[1] * k, c[2] * k], i * 3);
     }

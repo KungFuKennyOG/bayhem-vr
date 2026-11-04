@@ -342,7 +342,7 @@ export class SetPieces {
     // exhaust heat / thrust: smoke-ish shimmer behind the engines, dust kicked off the runway
     if (c.state !== 'hold' && c.alt < 40) {
       for (const p of c.anchors.exhausts) if (rand() < dt * 18 * c.spool) { const w = c.root.localToWorld(_v.copy(p)); g.fx.main.spawn({ x: w.x, y: w.y, z: w.z, vx: range(-1, 1), vy: range(0, 1), vz: c.vel.z * 0.2 + 30, drag: 1.5, frame: CELL.WISP, s0: 1.2, s1: 4, life: 0.8, rot: rand() * 6, r: 0.5, g: 0.45, b: 0.4, a: 0.12, fadeOut: 0.6 }); }
-      if (rand() < dt * 10 * c.spool) { const w = c.root.localToWorld(_v.set(range(-14, 14), 0, 8)); g.fx.main.spawn({ x: w.x, y: 0.4, z: w.z, vx: range(-2, 2), vy: range(0.5, 1.5), vz: 18, drag: 1.2, frame: CELL.DUST, s0: 2, s1: 9, life: 2.2, rot: rand() * 6, r: 0.85, g: 0.72, b: 0.58, a: 0.35, fadeOut: 0.5 }); }
+      if (rand() < dt * 10 * c.spool) { const w = c.root.localToWorld(_v.set(range(-14, 14), 0, 8)); g.fx.main.spawn({ x: w.x, y: 0.3, z: w.z, vx: range(-2, 2), vy: range(0.1, 0.5), vz: 18, drag: 1.2, frame: CELL.DUST, s0: 1.5, s1: 6, life: 1.4, rot: rand() * 6, r: 0.7, g: 0.58, b: 0.46, a: 0.14, fadeOut: 0.6 }); }
     }
     // ramp lip scraping the runway during rotation: sparks!
     if (c.state === 'rotate' || (c.state === 'climb' && c.alt < 1.5)) {
@@ -778,7 +778,7 @@ export class SetPieces {
     for (const L of lines) {
       if (!L) { y -= 3.2; continue; }
       const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big ? 'chrome' : (L.dim ? 'rgba(255,214,168,0.92)' : '#fff3df'), stroke: big ? 10 : 5, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.75)', padding: 30 });
-      const h = big ? 5.2 : L.sub ? 3.4 : 1.9;
+      const h = big ? 5.2 : L.sub ? 3.4 : 2.3;
       const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: 0 });
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * tt.aspect, h), mat);
       pl.rotation.y = 0; pl.position.set(0, y, 0); pl.renderOrder = 170;
@@ -792,12 +792,12 @@ export class SetPieces {
     const C = this.credits; if (!C) return;
     C.t += dt;
     const speed = 1.5;
-    C.grp.position.y = CARGO.floorY - 5 + C.t * speed;
+    C.grp.position.y = CARGO.floorY - 6 + C.t * speed;
     // face the player (plane frame: player looks toward +z out of the ramp)
     C.grp.rotation.set(-this.cargo.pitch, Math.PI, 0);
     for (const it of C.items) {
       const wy = C.grp.position.y + it.position.y - CARGO.floorY;
-      it.material.opacity = clamp(1.8 - Math.abs(wy - 2.6) / 3.2, 0, 1);
+      it.material.opacity = clamp(1.8 - Math.abs(wy - 1.0) / 2.8, 0, 1);
     }
   }
 
@@ -839,6 +839,8 @@ export class SetPieces {
     fx.casing = (pos, vel) => { if (this.riding) vel.add(this.ride.state === 'onPlane' ? this.cargo.vel : this.jeep.vel); return cas(pos, vel); };
   }
   frameAudio(rdt) {
+    const fog = this.g.scene.fog, wantNear = this.riding ? 260 : 70;
+    fog.near += (wantNear - fog.near) * Math.min(1, rdt * 0.8);
     const g = this.g, c = this.cargo;
     g.audio.setLoop('cargo', { x: c.root.position.x, y: c.root.position.y + 6, z: c.root.position.z, volume: 1, intensity: c.spool });
     if (this.riding && this.ride.state !== 'onPlane') {

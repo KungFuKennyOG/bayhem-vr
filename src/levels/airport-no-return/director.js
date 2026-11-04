@@ -154,7 +154,7 @@ export class Director {
           later(3.0, () => say('...Is that a question I should be worried about?', 2.8, 'DRIVER'));
           A?.go([]);
         }, update: (t) => {
-          g.cinematicLook = setp.cargo.root.localToWorld(V(0, CARGO.floorY + 2.4, 30)); g.cinematicW = 2;
+          g.cinematicLook = setp.cargo.root.localToWorld(V(0, CARGO.floorY + 1.2, 30)); g.cinematicW = 2;
           g.scene.fog.far = Math.min(7000, g.scene.fog.far + (1 / 30) * 300); // open up the view: airport lights on the horizon
           // last shot: the ramp starts closing on the sunset
           if (t > (trailer ? 18 : 24)) { setp.rampA = Math.max(-0.42, setp.rampA - (1 / 30) * 0.06); setp.cargo.setRamp(setp.rampA); }
