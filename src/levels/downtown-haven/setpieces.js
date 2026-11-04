@@ -15,6 +15,43 @@ function raySphere(o, d, c, r) {
   return t > 0 ? t : -1;
 }
 
+// ---- broken concrete / facade chunks (one instanced draw): jagged, tumbling, settle and sink into the dust
+class Rubble {
+  constructor(g) {
+    this.g = g;
+    const geo = new THREE.IcosahedronGeometry(0.5, 0).toNonIndexed();
+    const p = geo.attributes.position, R = (i) => ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1;
+    const map = new Map();
+    for (let i = 0; i < p.count; i++) { const k = `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`; if (!map.has(k)) map.set(k, 0.6 + R(map.size + 1) * 0.7); const s = map.get(k); p.setXYZ(i, p.getX(i) * s * 1.3, p.getY(i) * s * 0.7, p.getZ(i) * s); }
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x6d645b, roughness: 0.95, metalness: 0.05, flatShading: true });
+    this.mesh = new THREE.InstancedMesh(geo, mat, 220); this.mesh.count = 0; this.mesh.frustumCulled = false; this.mesh.castShadow = true;
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(220 * 3), 3);
+    g.scene.add(this.mesh);
+    this.list = []; this.cur = 0;
+  }
+  spawn(p, v, s) {
+    let r = this.list.length < 220 ? (this.list.push({}), this.list[this.list.length - 1]) : this.list[this.cur++ % 220];
+    Object.assign(r, { p: p.clone(), v: v.clone(), q: new THREE.Quaternion().setFromEuler(_e.set(rand() * 6, rand() * 6, rand() * 6)), w: new THREE.Vector3(range(-3, 3), range(-3, 3), range(-3, 3)), s, rest: false, sink: 0, dark: range(0.55, 1.05), glass: chance(0.25) });
+  }
+  update(dt) {
+    const m = this.mesh, gr = this.g.world.fastGround;
+    let k = 0;
+    for (const r of this.list) {
+      if (!r.rest) {
+        r.v.y -= 9.8 * dt; r.p.addScaledVector(r.v, dt);
+        const wl = r.w.length(); if (wl > 1e-3) { _q.setFromAxisAngle(_v.copy(r.w).divideScalar(wl), wl * dt); r.q.premultiply(_q); }
+        const gy = gr(r.p.x, r.p.z) + r.s * 0.3;
+        if (r.p.y < gy) { r.p.y = gy; if (r.v.y < -4) { r.v.y *= -0.25; r.v.x *= 0.5; r.v.z *= 0.5; r.w.multiplyScalar(0.5); } else r.rest = true; }
+      } else if (r.sink < r.s * 0.4) { r.sink += dt * 0.2; r.p.y -= dt * 0.2; }
+      _m.compose(r.p, r.q, _v.set(r.s, r.s, r.s)); m.setMatrixAt(k, _m);
+      if (r.glass) m.instanceColor.setXYZ(k, 0.35, 0.4, 0.44); else m.instanceColor.setXYZ(k, r.dark, r.dark * 0.95, r.dark * 0.9);
+      k++;
+    }
+    m.count = k; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true;
+  }
+}
+
 // =====================================================================================
 //  DOWNTOWN HAVEN CITY set pieces:
 //   - WIDOWMAKER 2: the gunship (strafes the avenue through the glass, rockets the cars,
@@ -51,6 +88,7 @@ export class SetPieces {
       },
     };
     game.targets.push(this.heliTarget);
+    this.rubble = new Rubble(game);
   }
 
   update(dt) {
@@ -60,12 +98,13 @@ export class SetPieces {
     this._updHole(dt);
     this._updCollapse(dt);
     this._updDust(dt);
+    this.rubble.update(dt);
   }
 
   // ================================================================== GUNSHIP
   spawnHeli() {
     const g = this.g, m = buildHeli();
-    m.root.scale.setScalar(1.2);
+    m.root.scale.setScalar(1.55); // the boss fills the canyon
     g.scene.add(m.root);
     // hit spheres (fuselage, cockpit, tail)
     const mk = (x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); m.tilt.add(o); return o; };
@@ -126,7 +165,7 @@ export class SetPieces {
       if (H.wpT <= 0) {
         H.wpT = range(3.5, 5.5);
         const inX = head.z < CROSS.z1 + 6 && head.z > CROSS.z0 - 6;
-        H.wp.set(inX ? range(-22, 22) : range(-6, 6), range(17, 27), clamp(head.z - range(24, 40), -140, 10));
+        H.wp.set(inX ? range(-22, 22) : range(-5, 5), range(14, 22), clamp(head.z - range(17, 30), -140, 10));
       }
       target.copy(H.wp);
       if (H.strafeT <= 0 && H.hp > 0) { H.phase = 'strafe'; H.t = 0; H.sx = range(-3, 3); H.s0 = clamp(head.z - 75, -150, -20); H.s1 = head.z + 30; g.events.push({ type: 'strafe' }); }
@@ -317,7 +356,7 @@ export class SetPieces {
     g.audio.stopLoop('heli'); this.glowB.commit(0);
     const I = new THREE.Vector3(...MERIDIAN.impact);
     // wedged in the facade, nose first, burnt
-    m.root.position.set(I.x, I.y - 0.5, I.z + 2.2); m.root.rotation.set(0.35, Math.PI * 0.12, 0.6); m.root.scale.setScalar(1.2);
+    m.root.position.set(I.x, I.y - 0.5, I.z + 2.2); m.root.rotation.set(0.35, Math.PI * 0.12, 0.6); m.root.scale.setScalar(1.55);
     m.tilt.rotation.set(0, 0, 0); m.body.material = [MAT.charred, MAT.charred, MAT.charred];
     for (const b of m.burnables || []) b.material = MAT.charred;
     m.rotorBlur?.(0, true);
@@ -337,14 +376,31 @@ export class SetPieces {
     for (let k = 0; k < 120; k++) g.fx.sparks.spawn({ x: I.x + range(-12, 12), y: I.y + range(-6, 8), z: MERIDIAN.z1 + 1, vx: range(-3, 3), vy: range(-2, 4), vz: range(2, 10), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.15, life: range(2, 4), r: 2, g: 2.1, b: 2.3, a: 0.9, fadeOut: 0.5, ground: true });
     g.slowmo(1.8, 0.35, true);
     g.addScore(1500, 'RIGHT IN THE LOBBY!', I.clone().add(_v.set(0, 10, 10)), 'big');
+    this.megaFireball(I.clone().add(_v.set(0, 2, 6)), 1.0);
+    for (let k = 0; k < 12; k++) g.fx.later(0.25 + k * 0.13, () => {
+      const P = new THREE.Vector3(I.x + range(-17, 17), I.y + (k % 2 ? 1 : -1) * range(2, 4 + k * 1.6), MERIDIAN.z1 + 0.8);
+      g.fx.explosion(P, range(1.1, 1.6), { noRing: true });
+      g.glass.burst(P, _v2.set(range(-0.2, 0.2), 0, 1), 14, { spread: 3, speed: 7, size: 0.5, life: 12, up: 1 });
+    });
     this.holeFire = 1;
     g.events.push({ type: 'heliCrash', P: I.clone() });
+  }
+  // one-off hero fireball: big rolling flipbook fire that climbs and turns to black smoke (crash, break floor)
+  megaFireball(P, k = 1) {
+    const g = this.g;
+    g.fx.light(P, 1600 * k, 2.2, 0xff9a40, true, 180);
+    g.fx.main.spawn({ x: P.x, y: P.y, z: P.z, frame: CELL.FLASH, s0: 30 * k, s1: 60 * k, life: 0.3, r: 3, g: 2.3, b: 1.4, a: 1, fadeIn: 0, fadeOut: 0.3 });
+    for (let i = 0; i < 12; i++) g.fx.later(i * 0.04, () => {
+      const a = rand() * 6.28, el = range(0.1, 1.2), sp = range(6, 16) * k;
+      g.fx.main.spawn({ x: P.x + range(-4, 4) * k, y: P.y + range(-2, 3) * k, z: P.z + range(-2, 4) * k, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp + 4, vz: Math.abs(Math.sin(a)) * Math.cos(el) * sp + 3, drag: 1.6, grav: 2, frameKind: 1, s0: range(9, 13) * k, s1: range(22, 32) * k, ease: 0.55, life: range(1.8, 2.6), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 2.3, g: 1.9, b: 1.6, a: 1, fadeIn: 0.02, fadeOut: 0.8 });
+    });
+    for (let i = 0; i < 8; i++) g.fx.later(range(0.5, 1.3), () => g.fx.main.spawn({ x: P.x + range(-8, 8), y: P.y + range(4, 12), z: P.z + range(0, 6), vx: range(-2, 2), vy: range(5, 9), vz: range(0, 3), drag: 0.5, frameKind: 2, frame: rand() * 40, frames: 16, s0: 14 * k, s1: range(36, 50) * k, ease: 0.6, life: range(7, 10), rot: rand() * 6, r: 0.12, g: 0.1, b: 0.09, a: 0.92, fadeIn: 0.1, fadeOut: 0.5 }));
   }
   _updHole(dt) {
     if (!this.holeFire || this.col?.phase === 'fall' || this.col?.phase === 'down') return;
     const g = this.g, I = _v.set(...MERIDIAN.impact).add(_v2.set(0, 0, 2));
     // a burning wound in the tower: fire belching out, a black column climbing past the crown
-    if (rand() < dt * 30) g.fx.main.spawn({ x: I.x + range(-6, 6), y: I.y + range(-3, 3), z: I.z + range(0, 2), vx: range(-1, 1), vy: range(3, 6), vz: range(1, 4), drag: 1.2, frameKind: 1, s0: range(2.5, 4), s1: range(6, 9), ease: 0.6, life: range(0.9, 1.5), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.8, b: 1.5, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
+    if (rand() < dt * 26) g.fx.main.spawn({ x: I.x + range(-7, 7), y: I.y + range(-3, 3), z: I.z + range(0, 2), vx: range(-1, 1), vy: range(3, 7), vz: range(1, 4), drag: 1.2, frameKind: 1, s0: range(4, 6), s1: range(10, 15), ease: 0.6, life: range(0.9, 1.5), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.8, b: 1.5, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
     if (rand() < dt * 3.5) g.fx.main.spawn({ x: I.x + range(-5, 5), y: I.y + 4, z: I.z + 2, vx: range(-0.5, 0.5) + 1.2, vy: range(6, 9), vz: range(0.5, 1.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 14, s0: 9, s1: range(34, 48), ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.1, 0.1), r: 0.1, g: 0.085, b: 0.075, a: 0.92, fadeIn: 0.05, fadeOut: 0.5 });
     if (g.headPos.distanceTo(I) < 90) g.audio.setLoop('fire_big', { x: I.x, y: I.y, z: I.z, volume: 0.9, intensity: 0.9 });
   }
@@ -407,6 +463,11 @@ export class SetPieces {
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.12 + C.t * 0.08;
       if (C.t > 2.4) {
         C.phase = 'fall'; C.t = 0; C.om = 0.04;
+        if (this.wreck) this.wreck.root.visible = false; // the floor it was wedged in just blew out
+        if (M.hole) M.hole.visible = false;
+        this.holeFire = 0;
+        this.megaFireball(new THREE.Vector3(0, MERIDIAN.breakY, MERIDIAN.z1 + 2), 1.1);
+        for (let i = 0; i < 36; i++) { const a = rand() * Math.PI; this.rubble.spawn(_v.set(range(-18, 18), MERIDIAN.breakY + range(-3, 3), MERIDIAN.z1 + range(0, 2)), _v2.set(Math.cos(a) * range(3, 9), range(0, 6), Math.sin(a) * range(4, 12)), range(0.6, 2.2)); }
         // the floors at the wound give way all at once
         for (let k = 0; k < 7; k++) g.fx.later(k * 0.09, () => g.fx.explosion(_v.set(range(-18, 18), MERIDIAN.breakY + range(-2, 2), lerp(MERIDIAN.z1, MERIDIAN.z0, rand() * 0.4)), range(1.8, 2.6), { noRing: true }));
         g.audio.play('explosion_big', { x: 0, y: 40, z: -168, volume: 1 });
@@ -421,7 +482,7 @@ export class SetPieces {
       if (C.sink < MERIDIAN.breakY * 0.75) { C.sink += C.sinkV * dt; M.lower.position.y = -C.sink; }
       // base dust: a boiling cloud swallowing the plaza
       const nb = Math.min(4, Math.round(dt * 14 + rand()));
-      for (let i = 0; i < nb; i++) { const up = rand() < 0.35; g.fx.main.spawn({ x: range(-26, 26), y: up ? range(10, C.pivot.y + 10) : range(1, 10), z: range(MERIDIAN.z1 - 10, MERIDIAN.z1 + 6), vx: range(-7, 7), vy: up ? range(2, 6) : range(1, 4), vz: range(3, 11), drag: 0.45, frameKind: 2, frame: rand() * 40, frames: 16, s0: 12, s1: range(30, 52), ease: 0.55, life: range(7, 10), rot: rand() * 6, vrot: range(-0.15, 0.15), r: 0.5, g: 0.43, b: 0.35, r1: 0.4, g1: 0.35, b1: 0.29, a: 0.95, fadeIn: 0.05, fadeOut: 0.4 }); }
+      for (let i = 0; i < nb; i++) { const up = rand() < 0.35; g.fx.main.spawn({ x: range(-26, 26), y: up ? range(10, C.pivot.y + 10) : range(1, 10), z: range(MERIDIAN.z1 - 10, MERIDIAN.z1 + 6), vx: range(-7, 7), vy: up ? range(2, 6) : range(1, 4), vz: range(3, 11), drag: 0.45, frameKind: 2, frame: rand() * 40, frames: 16, s0: 12, s1: range(30, 52), ease: 0.55, life: range(7, 10), rot: rand() * 6, vrot: range(-0.15, 0.15), r: up ? 0.48 : 0.36, g: up ? 0.41 : 0.31, b: up ? 0.34 : 0.26, r1: 0.32, g1: 0.28, b1: 0.23, a: 0.97, fadeIn: 0.05, fadeOut: 0.4 }); }
     }
     if (C.phase === 'fall') {
       // the upper section leans down the avenue about the break, riding the sinking stump
@@ -452,6 +513,9 @@ export class SetPieces {
       _q.setFromAxisAngle(_v.copy(f.w).normalize(), f.w.length() * dt); f.o.quaternion.premultiply(_q);
       g.fx.trailEmit(f, f.o.position, 4.5, (q) => { g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + range(-3, 5), z: q.z + range(-7, 7), vx: range(-1.5, 1.5), vy: range(0.5, 2.5), vz: range(-1, 1), drag: 0.8, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(26, 36), life: range(4, 6), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.5, g: 0.44, b: 0.36, a: 0.85, fadeIn: 0.05, fadeOut: 0.5 }); }, 0);
       if (rand() < dt * 10) g.glass.burst(f.o.position, f.v.clone().normalize().multiplyScalar(0.3), 4, { spread: 6, speed: 3, size: 0.5, life: 10 });
+      // the slab crumbles as it falls: concrete and facade chunks shed off its edges
+      if (rand() < dt * 9) { const h = f.o.userData.half; _v.set(range(-h[0], h[0]), range(-h[1], h[1]), range(-h[2], h[2])).applyQuaternion(f.o.quaternion).add(f.o.position); this.rubble.spawn(_v, _v2.copy(f.v).multiplyScalar(range(0.7, 1)).add(_v3.set(range(-3, 3), range(-1, 2), range(-3, 3))), range(0.5, 1.8)); }
+      if (f.o.userData.fire) g.fx.trailEmit(f.fire ||= {}, _v.set(0, f.o.userData.half[1] * 0.6, f.o.userData.half[2] * 0.6).applyQuaternion(f.o.quaternion).add(f.o.position), 3, (q) => { g.fx.flame(q.clone().add(_v2.set(range(-5, 5), 0, range(-4, 4))), 3.2); if (rand() < 0.5) g.fx.smoke(q, 4, 0.1, 6, 3, 0.85); }, 0);
       // lowest corner
       const h = f.o.userData.half; let lo = 1e9;
       f.o.updateMatrixWorld(true);
@@ -468,6 +532,7 @@ export class SetPieces {
     }
   }
   _detach(c) {
+    c.userData.fire = c.userData.idx >= this.world.meridian.chunks.length - 5; // top third burns
     const g = this.g, C = this.col;
     c.updateMatrixWorld(true);
     g.scene.attach(c);
@@ -497,7 +562,8 @@ export class SetPieces {
       const a = rand() * 6.28, sp = range(8, 24), up = rand() < 0.3;
       g.fx.main.spawn({ x: P.x + Math.cos(a) * 9, y: up ? range(6, 18) : range(1, 6), z: P.z + Math.sin(a) * 9, vx: Math.cos(a) * sp * (up ? 0.4 : 1), vy: up ? range(5, 11) : range(1, 5), vz: Math.sin(a) * sp * (up ? 0.4 : 1) + 4, drag: 0.85, frameKind: 2, frame: rand() * 40, frames: 16, s0: 14, s1: range(34, 56), ease: 0.55, life: range(6, 8), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.54, g: 0.47, b: 0.38, r1: 0.42, g1: 0.37, b1: 0.31, a: 0.95, fadeIn: 0.03, fadeOut: 0.4 });
     }
-    for (let i = 0; i < 18; i++) g.fx.spawnDebris(P, range(-12, 12), range(6, 18), range(-6, 14), range(0.4, 1.2), chance(0.3));
+    for (let i = 0; i < 18; i++) g.fx.spawnDebris(P, range(-12, 12), range(6, 18), range(-6, 14), range(0.25, 0.6), chance(0.3));
+    for (let i = 0; i < 26; i++) { const a = rand() * 6.28; this.rubble.spawn(_v.set(P.x + range(-9, 9), range(1, 6), P.z + range(-12, 12)), _v2.set(Math.cos(a) * range(4, 14), range(3, 12), Math.sin(a) * range(4, 14) + 3), range(0.5, 2.4)); }
     g.glass.burst(P.clone().setY(4), _v.set(0, 0.6, 0.5), 60, { spread: 9, speed: 9, size: 0.45, life: 12, up: 3 });
     g.glass.blast(P, 26, 1.5);
     // the canyon walls get hit too: shopfronts along the slab burst
@@ -514,6 +580,19 @@ export class SetPieces {
     for (let i = 0; i < 8; i++) bb.expandByPoint(_v.set(i & 1 ? h[0] : -h[0], i & 2 ? h[1] : -h[1], i & 4 ? h[2] : -h[2]).applyMatrix4(f.o.matrixWorld));
     bb.min.y = Math.max(0, bb.min.y);
     if (bb.max.y > 0.5) this.g.col.add(bb.min.toArray(), bb.max.toArray(), { kind: 'rubble', mat: 'concrete' });
+  }
+
+  // beat jumps past the finale: Meridian is down, the avenue is full of dust
+  collapsedState() {
+    const g = this.g, M = this.world.meridian;
+    M.upper.visible = false; M.lower.position.y = -MERIDIAN.breakY * 0.75;
+    if (M.hole) M.hole.visible = false;
+    if (this.wreck) this.wreck.root.visible = false;
+    this.holeFire = 0;
+    for (const b of M.boxes || []) if (b.data.chunk !== undefined || b.data.part === 'upper') g.col.remove(b);
+    this.col = { phase: 'done', t: 0, flying: [] };
+    g.finale = true; g.fx.main.bigBudget = Math.round(g.fx.main.bigBudget * 1.9);
+    this.startDust(g.headPos.z - 4);
   }
 
   // ================================================================== DUST WALL
@@ -539,10 +618,10 @@ export class SetPieces {
     const n = Math.min(12, Math.round(dt * 34 + rand()));
     for (let i = 0; i < n; i++) {
       const x = range(-half, half), low = rand() < 0.55, y = low ? range(0, 7) : range(5, 34);
-      g.fx.main.spawn({ x, y, z: zf + range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? Math.sign(x) * range(2, 6) : 0), vy: low ? range(0.5, 2.5) : range(-0.5, 1.5), vz: D.v * range(0.55, 0.95), drag: 0.35, frameKind: 2, frame: rand() * 40, frames: 16, s0: low ? 9 : 14, s1: low ? range(18, 26) : range(28, 44), ease: 0.55, life: range(4, 5.5), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 0.56, g: 0.49, b: 0.4, r1: 0.44, g1: 0.38, b1: 0.31, a: 0.97, fadeIn: 0.04, fadeOut: 0.4 });
+      g.fx.main.spawn({ x, y, z: zf + range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? Math.sign(x) * range(2, 6) : 0), vy: low ? range(0.5, 2.5) : range(-0.5, 1.5), vz: D.v * range(0.55, 0.95), drag: 0.35, frameKind: 2, frame: rand() * 40, frames: 16, s0: low ? 9 : 14, s1: low ? range(18, 26) : range(28, 44), ease: 0.55, life: range(4, 5.5), rot: rand() * 6, vrot: range(-0.3, 0.3), r: low ? 0.4 : 0.62, g: low ? 0.34 : 0.54, b: low ? 0.27 : 0.43, r1: low ? 0.33 : 0.48, g1: low ? 0.28 : 0.42, b1: low ? 0.22 : 0.34, a: 0.97, fadeIn: 0.04, fadeOut: 0.4 });
     }
     // debris and paper riding the front
-    if (rand() < dt * 25) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + 1, vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
+    if (rand() < dt * 60) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + range(1, 7), vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
     // you, inside it: brown-out, choking, glass ticking off everything
     const dz = head.z - zf;
     const k = THREE.MathUtils.smoothstep(-dz, -10, 3);

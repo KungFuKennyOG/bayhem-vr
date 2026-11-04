@@ -39,7 +39,7 @@ export class Director {
       { name: 'intro', wp: null, music: 0.3, dusk: 0.05, enter: () => {
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; }
-          hud.showTitle(V(0, 16, -30), 'DOWNTOWN HAVEN CITY', 'LEVEL 3  •  GLASS CANYON', trailer ? 4.2 : 5.5);
+          hud.showTitle(V(0, 34, -110), 'DOWNTOWN HAVEN CITY', 'LEVEL 3  •  GLASS CANYON', trailer ? 4.2 : 5.5);
           audio.startMusic();
           this.introSnipers = [sniper('s1', { delay: 1.2 }), sniper('s2', { delay: 2.2, lockTime: 2.4 })];
           for (const s of this.introSnipers) s.holdFire = true; // they paint you during the title, they shoot once the fight starts
@@ -160,6 +160,7 @@ export class Director {
       for (let i = 0; i < ji; i++) { const st = this.steps[i]; if (st.dusk !== undefined) this.duskTarget = game.dusk = st.dusk; }
       const p = START[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
       if (ji > this.steps.findIndex(s => s.name === 'gunship')) { setp.spawnHeli(); setp.heli.pos.set(...MERIDIAN.impact); setp.killHeli(); setp._heliCrash(); g.cinematicLook = null; }
+      if (ji > this.steps.findIndex(s => s.name === 'collapse')) setp.collapsedState();
       if (ji > this.steps.findIndex(s => s.name === 'lobby')) { setp.lobbyDone = true; for (const p of g.glass.panes) if (p.kind === 'sky' || p.kind === 'lobby') g.glass.shatter(p, p.c, p.n.clone().negate(), 0.5, { quiet: true, life: 1 }); }
       this.stepIdx = ji - 1;
     }
