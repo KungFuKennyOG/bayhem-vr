@@ -843,7 +843,7 @@ function buildPeniche(opts) {
     const lit = rng() < 0.72, wc = winCols[(rng() * (rng() < 0.12 ? 5 : 3)) | 0];
     body.add(BOX(0.06, 0.66, 1.06), M(s * (HX + 0.02), HY0 + 0.85, z), DMET, RM.metal);                            // frame
     if (lit) {
-      body.add(BOX(0.02, 0.56, 0.96), M(s * (HX + 0.045), HY0 + 0.85, z), mulc(wc, 0.9), E(1.6, 0.3));
+      body.add(BOX(0.02, 0.56, 0.96), M(s * (HX + 0.045), HY0 + 0.85, z), mulc(wc, 0.9), E(0.7, 0.3));
       // curtain halves (dark silhouettes against the glow)
       if (rng() < 0.6) for (const dz of [-0.36, 0.36]) body.add(BOX(0.025, 0.56, 0.22), M(s * (HX + 0.05), HY0 + 0.85, z + dz), mulc(wc, 0.35), E(0.6, 0.6));
       if (k % 2 === 0) glows.push({ p: [s * (HX + 0.25), HY0 + 0.85, z], color: mulc(wc, 1.1), size: 1.5 });

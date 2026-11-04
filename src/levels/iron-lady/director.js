@@ -60,7 +60,10 @@ export class Director {
           if (g.player) g.player.autoState.holdFire = false;
           setp.T.state.sparkle = 0;
           if (!this.introSnipers) this.introSnipers = [sniper('n1', { delay: 0.2 }), sniper('n2', { delay: 0.5, lockTime: 2.4 })];
-          for (const s of this.introSnipers) { s.holdFire = false; s.laser.lock = Math.min(s.laser.lock, s.laser.lockTime * 0.4); }
+          // one sniper at a time: the second one only opens up once the first has had a go
+          const [s1, s2] = this.introSnipers;
+          s1.holdFire = false; s1.laser.lock = 0;
+          s2.laser.lock = 0; later(9, () => { s2.holdFire = false; });
           S({ x: 142, z: 47, delay: 0.4 }); S({ x: 133, z: 43, delay: 1.0 }); S({ x: 120, z: 49, delay: 1.6, flanker: true });
           S({ x: 110, z: 44, delay: 2.4 }); S({ x: 98, z: 47.5, delay: 3.2 });
           S({ x: 82, z: 45, role: 'rusher', delay: 9, entry: V(105, 0, 44) });

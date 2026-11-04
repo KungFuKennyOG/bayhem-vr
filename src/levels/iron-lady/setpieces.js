@@ -511,7 +511,7 @@ export class SetPieces {
   megaFireball(P, k = 1) {
     const g = this.g;
     g.fx.light(P, 1600 * k, 2.2, 0xff9a40, true, 180);
-    g.fx.main.spawn({ x: P.x, y: P.y, z: P.z, frame: CELL.FLASH, s0: 30 * k, s1: 60 * k, life: 0.3, r: 3, g: 2.3, b: 1.4, a: 1, fadeIn: 0, fadeOut: 0.3, force: true });
+    g.fx.main.spawn({ x: P.x, y: P.y, z: P.z, frame: CELL.FLASH, s0: 16 * k, s1: 34 * k, life: 0.25, r: 2.2, g: 1.1, b: 0.4, a: 1, fadeIn: 0, fadeOut: 0.3, force: true });
     for (let i = 0; i < 12; i++) g.fx.later(i * 0.04, () => {
       const a = rand() * 6.28, el = range(0.1, 1.2), sp = range(6, 16) * k;
       g.fx.main.spawn({ x: P.x + range(-4, 4) * k, y: P.y + range(-2, 3) * k, z: P.z + range(-4, 4) * k, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp + 4, vz: Math.sin(a) * Math.cos(el) * sp, drag: 1.6, grav: 2, frameKind: 1, s0: range(9, 13) * k, s1: range(22, 32) * k, ease: 0.55, life: range(1.8, 2.6), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 2.3, g: 1.6, b: 1.1, a: 1, fadeIn: 0.02, fadeOut: 0.8 });
@@ -721,9 +721,9 @@ export class SetPieces {
     if (water) {
       this.splash(P, 4.5);
       // a wall of spray thrown up both sides of the falling shaft
-      for (let k = 0; k < 10; k++) this.clouds.spawn({ x: P.x + range(-14, 14), y: WATER_Y + range(2, 10), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(10, 20), vz: range(-4, 4), drag: 0.9, buoy: -2, s0: range(6, 9), s1: range(22, 32), life: range(4, 6), a: 0.75, fadeIn: 0.02, fadeOut: 0.6, vrot: range(-0.2, 0.2), r: 0.55, g: 0.58, b: 0.62, r1: 0.32, g1: 0.33, b1: 0.35 });
+      for (let k = 0; k < 10; k++) this.clouds.spawn({ x: P.x + range(-14, 14), y: WATER_Y + range(2, 10), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(10, 20), vz: range(-4, 4), drag: 0.9, buoy: -2, s0: range(6, 9), s1: range(22, 32), life: range(4, 6), a: 0.75, fadeIn: 0.02, fadeOut: 0.6, vrot: range(-0.2, 0.2), r: 0.26, g: 0.28, b: 0.32, r1: 0.14, g1: 0.15, b1: 0.17 });
     } else {
-      for (let k = 0; k < 8; k++) this.clouds.spawn({ x: P.x + range(-12, 12), y: P.y + range(1, 6), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(3, 8), vz: range(-6, 6), drag: 0.7, buoy: 0.15, s0: range(6, 10), s1: range(24, 36), life: range(8, 11), a: 0.92, fadeIn: 0.03, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.38, g: 0.35, b: 0.32, r1: 0.24, g1: 0.22, b1: 0.21 });
+      for (let k = 0; k < 8; k++) this.clouds.spawn({ x: P.x + range(-12, 12), y: P.y + range(1, 6), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(3, 8), vz: range(-6, 6), drag: 0.7, buoy: 0.15, s0: range(6, 10), s1: range(24, 36), life: range(8, 11), a: 0.92, fadeIn: 0.03, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.2, g: 0.18, b: 0.16, r1: 0.12, g1: 0.11, b1: 0.1, glow: 0.8, glowFade: 2 });
       for (let k = 0; k < 40; k++) g.fx.sparks.spawn({ x: P.x + range(-10, 10), y: P.y + range(0, 5), z: P.z + range(-6, 6), vx: range(-9, 9), vy: range(3, 12), vz: range(-9, 9), grav: -9.8, drag: 0.3, frame: CELL.SPARK, s0: 1, w: 0.06, len: 0.18, life: range(1, 2.5), r: 2.8, g: 1.7, b: 0.7, a: 1, fadeOut: 0.5, ground: true });
       g.fx.explosion(P.clone().setY(P.y + 2), big ? 2.4 : 1.6, { noRing: true });
     }
@@ -772,7 +772,8 @@ export class SetPieces {
       const z = range(-60, 60), onRiver = Math.abs(z) < 40;
       const y = (onRiver ? WATER_Y : groundAt(Wl.x, z)) + range(0, 4);
       const crest = rand() < 0.4;
-      this.clouds.spawn({ x: Wl.x + range(-4, 2), y: crest ? y + range(10, 26) : y + range(1, 6), z, vx: range(8, 12), vy: crest ? range(-1, 2) : range(1, 4), vz: range(-1, 1), drag: 0.35, buoy: 0, s0: range(7, 11), s1: range(22, 34), life: range(4.5, 6.5), a: 0.95, fadeIn: 0.06, fadeOut: 0.4, vrot: range(-0.3, 0.3), r: onRiver ? 0.42 : 0.4, g: onRiver ? 0.43 : 0.37, b: onRiver ? 0.46 : 0.34, r1: 0.26, g1: 0.25, b1: 0.25 });
+      const k = range(0.8, 1.1);
+      this.clouds.spawn({ x: Wl.x + range(-4, 2), y: crest ? y + range(10, 26) : y + range(1, 6), z, vx: range(8, 12), vy: crest ? range(-1, 2) : range(1, 4), vz: range(-1, 1), drag: 0.35, buoy: 0, s0: range(7, 11), s1: range(22, 34), life: range(4.5, 6.5), a: 0.95, fadeIn: 0.06, fadeOut: 0.4, vrot: range(-0.3, 0.3), r: (onRiver ? 0.13 : 0.15) * k, g: (onRiver ? 0.14 : 0.13) * k, b: (onRiver ? 0.17 : 0.12) * k, r1: 0.08, g1: 0.08, b1: 0.09, glow: Wl.t < 6 ? 0.6 : 0.2, glowFade: 1.5 });
     }
     const d = head.x - Wl.x;
     g.fogMix.k = damp(g.fogMix.k, clamp(1 - (d - 3) / 18, 0, 0.85) * (riding ? 0.4 : 1), 1.5, dt);
