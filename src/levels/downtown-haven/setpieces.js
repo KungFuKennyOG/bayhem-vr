@@ -471,7 +471,7 @@ export class SetPieces {
         this.megaFireball(new THREE.Vector3(0, MERIDIAN.breakY, MERIDIAN.z1 + 2), 1.1);
         for (let i = 0; i < 36; i++) { const a = rand() * Math.PI; this.rubble.spawn(_v.set(range(-18, 18), MERIDIAN.breakY + range(-3, 3), MERIDIAN.z1 + range(0, 2)), _v2.set(Math.cos(a) * range(3, 9), range(0, 6), Math.sin(a) * range(4, 12)), range(0.6, 2.2)); }
         // the floors at the wound give way all at once
-        for (let k = 0; k < 7; k++) g.fx.later(k * 0.09, () => g.fx.explosion(_v.set(range(-18, 18), MERIDIAN.breakY + range(-2, 2), lerp(MERIDIAN.z1, MERIDIAN.z0, rand() * 0.4)), range(1.8, 2.6), { noRing: true }));
+        for (let k = 0; k < 7; k++) g.fx.later(k * 0.09, () => g.fx.explosion(new THREE.Vector3(range(-18, 18), MERIDIAN.breakY + range(-2, 2), lerp(MERIDIAN.z1, MERIDIAN.z0, rand() * 0.4)), range(1.8, 2.6), { noRing: true })); // fresh vectors: fx keeps P for its delayed smoke
         g.audio.play('explosion_big', { x: 0, y: 40, z: -168, volume: 1 });
         g.slowmo(1.6, 0.4, true);
         g.events.push({ type: 'collapseFall' });
