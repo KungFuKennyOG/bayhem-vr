@@ -29,7 +29,7 @@ function backed(tt, size, hasSub) {
 function titleTexture(text, sub) {
   const size = 220, tt = textTexture(text, { size, color: 'chrome', stroke: 12, padding: 70 });
   if (!sub) return { ...tt, hk: 1 };
-  const src = tt.canvas, fs = 70, font = `700 ${fs}px Oswald, sans-serif`;
+  const src = tt.canvas, fs = 54, font = `700 ${fs}px Oswald, sans-serif`;
   const m = document.createElement('canvas').getContext('2d'); m.font = font;
   const sw = m.measureText(sub).width + fs * 0.12 * sub.length * 0.35;
   const textBottom = 70 + size * 0.68 + size * 0.42, subY = textBottom + fs * 0.95;

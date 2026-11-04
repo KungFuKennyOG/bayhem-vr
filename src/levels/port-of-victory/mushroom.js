@@ -114,6 +114,7 @@ export class Mushroom {
     this.cap = mk(new THREE.TorusGeometry(1, 0.5, 26, 56).rotateX(Math.PI / 2), { disp: 0.42, freq: 3.4, rise: 0.35, roll: 0.5 });
     const domeG = new THREE.SphereGeometry(1, 40, 18, 0, Math.PI * 2, 0, Math.PI * 0.55);
     this.dome = mk(domeG, { disp: 0.4, freq: 3.2, rise: 0.25, roll: 0.3 });
+    this.dome.material.side = THREE.DoubleSide; // seen from below through the torus hole: no blue window
     this.skirt = mk(new THREE.TorusGeometry(1, 0.35, 14, 48).rotateX(Math.PI / 2), { disp: 0.5, freq: 2.8, rise: 0.2, roll: 0.8 });
     this.parts = [this.core, this.stem, this.cap, this.dome, this.skirt];
     this.t = 0;
@@ -146,9 +147,9 @@ export class Mushroom {
       const u = this.cap.material.uniforms, s = capR * sm(0.25, 1.0, t);
       this.cap.position.set(0, capH, 0); this.cap.scale.set(s, s * 0.95, s);
       u.uHeat.value = 0.95 - cool * 0.78; u.uGlow.value = 1.15 - cool * 0.75 - late * 0.2; u.uAlpha.value = sm(0.3, 0.7, t) * (1 - late * 0.6); u.uSoot.value = cool;
-      const d = this.dome.material.uniforms, ds = capR * 0.95 * sm(0.35, 1.1, t);
+      const d = this.dome.material.uniforms, ds = capR * 1.08 * sm(0.35, 1.1, t);
       this.dome.position.set(0, capH + capR * 0.12, 0); this.dome.scale.set(ds, ds * 0.62, ds);
-      d.uHeat.value = 0.5 - cool * 0.48; d.uGlow.value = 0.35 - cool * 0.25; d.uAlpha.value = sm(0.45, 0.9, t) * (1 - late * 0.6); d.uSoot.value = cool;
+      d.uHeat.value = 0.5 - cool * 0.48; d.uGlow.value = 0.35 - cool * 0.25; d.uAlpha.value = sm(0.45, 0.9, t) * (1 - late * 0.35); // keeps the torus hole closed (no donut) d.uSoot.value = cool;
     }
     // base skirt: the ring of fire/smoke rolling across the deck
     {
