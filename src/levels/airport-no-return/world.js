@@ -65,6 +65,7 @@ export class AirportWorld {
     this.gseThin = new StaticBatch(this.gseMats);
     this._materials();
     this.wb = new StaticBatch(this.wm);
+    this.tb = new StaticBatch(terminalMaterials()); // every building (concourses, sheds, hangar offices): one mesh, one draw per material
     this._ground();
     this._markings();
     this._hangars();
@@ -79,6 +80,7 @@ export class AirportWorld {
     this.gseThin.build(this.group, { cast: false });
     this._buildBlobs();
     this.wb.build(this.group);
+    this.tb.build(this.group);
     this._lightBatch();
     return this;
   }
@@ -475,7 +477,7 @@ export class AirportWorld {
       off.push([box(24, 0.15, 0.06).translate(h.x - 8, 6.5, z1 - 3.15), TM_YEL]);
       for (let x = -19; x <= 3; x += 5.5) off.push([box(0.2, 5.4, 0.2).translate(h.x + x, 2.7, z1 - 3.1), TM_STEEL]);
     }
-    const om = new THREE.Mesh(mergeGrouped(off, TMat.length).geometry, TMat); om.receiveShadow = true; this.group.add(om);
+    this.tb.add(mergeGrouped(off, TMat.length).geometry);
     // floor: oil + tyre stains, painted walkway lines (into the shared stain / paint batches would need the apron's uvs; own small batch)
     const sm = new THREE.MeshBasicMaterial({ map: stainTexture(), transparent: true, depthWrite: false, color: 0x120c08, opacity: 0.45, polygonOffset: true, polygonOffsetFactor: -2 });
     const N = 36, im = new THREE.InstancedMesh(pg, sm, N);
@@ -581,7 +583,7 @@ export class AirportWorld {
   // ---------------------------------------------------------------- concourse B + cargo shed: the apron's midground
   _buildings() {
     const mats = terminalMaterials();
-    const add = (geo) => { const m = new THREE.Mesh(geo, mats); m.castShadow = true; m.receiveShadow = true; this.group.add(m); return m; };
+    void mats; const add = (geo, mtx = null) => this.tb.add(geo, mtx);
     // nose-in airliners at gates B12 / B16 (B14 sits empty with its bridge parked)
     const X = 358 - 10 - 18.6, gates = [];
     this.gateJets = [];
@@ -611,10 +613,10 @@ export class AirportWorld {
       const r = makeRng(5151);
       for (const [z, sign, w] of [[-330, 8, 110], [-640, 9, 90], [-980, 4, 120], [-1380, 8, 100]]) {
         const geo = buildCargoShed({ x0: -w / 2, x1: w / 2, z0: -36, z1: 0, seed: 40 + z, sign });
-        const m = add(geo); m.rotation.y = -Math.PI / 2; m.position.set(210 + r() * 20, 0, z);
+        const px = 210 + r() * 20; add(geo, M4(px, 0, z, -Math.PI / 2));
         // slab in front of the doors
         const pg = new THREE.PlaneGeometry(55, w + 10), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 55, uv.getY(i) * (w + 10));
-        pg.rotateX(-Math.PI / 2); this._w(pg, this.W.conc, M4(m.position.x - 27.5, 0.01, z));
+        pg.rotateX(-Math.PI / 2); this._w(pg, this.W.conc, M4(px - 27.5, 0.01, z));
       }
     }
     // trailers + containers at the docks
@@ -647,8 +649,8 @@ export class AirportWorld {
         if (liv) { const jet = buildAirliner(liv); jet.root.position.set(-28.6, 0, Z); jet.root.rotation.y = -Math.PI / 2; grp.add(jet.root); }
         gates.push({ z: Z, door: liv ? noseInDoor(-28.6, Z) : null, label });
       }
-      const m = new THREE.Mesh(buildConcourse({ x0: 0, z0: -260, z1: 260, d: 30, gates, seed: 23, sign: 6 }), terminalMaterials()); m.castShadow = true; m.receiveShadow = true;
-      grp.add(m); grp.rotation.y = Math.PI; grp.position.set(-315, 0, -700); this.group.add(grp);
+      this.tb.add(buildConcourse({ x0: 0, z0: -260, z1: 260, d: 30, gates, seed: 23, sign: 6 }), M4(-315, 0, -700, Math.PI));
+      grp.rotation.y = Math.PI; grp.position.set(-315, 0, -700); this.group.add(grp);
     }
   }
   // ---------------------------------------------------------------- fuel farm
