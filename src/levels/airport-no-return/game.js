@@ -611,7 +611,7 @@ export class AirportGame {
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire);
       }
       // from the air (credits) the burning airfield reads as fire glows under the smoke
-      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), f = 0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z); this.world.addGlow(_v.set(c.p.x, c.p.y + 3 * c.k, c.p.z), Math.max(7 * c.k, d * 0.012) * f, 2.6 * f, 1.0 * f, 0.3 * f, 0.9); }
+      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), f = 0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z); this.world.addGlow(_v.set(c.p.x, c.p.y + 3 * c.k, c.p.z), Math.max(7 * c.k, d * 0.028) * f, 5.2 * f, 1.9 * f, 0.5 * f, 1); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
     }
   }

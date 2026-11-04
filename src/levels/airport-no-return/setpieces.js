@@ -470,7 +470,7 @@ export class SetPieces {
       rb.floorY = 0; rb.step(dt, 0);
       J.root.position.copy(rb.pos).sub(_v.set(0, 0.9, 0).applyQuaternion(rb.quat)); J.root.quaternion.copy(rb.quat);
       if (rb.contactSpeed > 4 && (J.lastHit ?? -9) < g.time - 0.3) { J.lastHit = g.time; g.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z, volume: 0.9 }); }
-      if (!J.boomed && J.t > 0.5) {
+      if (!J.boomed && J.t > 0.22) {
         // the jeep goes up BIG: layered fireballs that travel with the tumbling wreck, a fuel-tank pop, a dark mushroom
         J.boomed = true; const P0 = rb.pos.clone().setY(1.2), cv = rb.vel.clone().multiplyScalar(0.7);
         g.boom(P0, 1.8, { radius: 8, dmg: 0, player: false });
