@@ -203,7 +203,7 @@ export class SetPieces {
     B.m.setBurnt?.();
     g.boatsSunk++;
     g.slowmo(1.6, 0.3, true);
-    g.fx.later(1.4, () => g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().add(_v.subVectors(g.headPos, P).setY(0).normalize().multiplyScalar(12)).setY(P.y + 1.5), 'huge'));
+    g.fx.later(1.4, () => !g.quietScore && g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().add(_v.subVectors(g.headPos, P).setY(0).normalize().multiplyScalar(12)).setY(P.y + 1.5), 'huge'));
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.fx.light(P.clone().setY(P.y + 3), 500, 2, 0xff9040, true, 55);
     // a water column thrown up beside the hull
@@ -281,7 +281,7 @@ export class SetPieces {
     H.phase = 'dying'; H.t = 0; H.spin = 0.6;
     g.fx.explosion(H.pos.clone(), 1.3, { noRing: true });
     g.slowmo(2.4, 0.28, true);
-    const hp0 = H.pos.clone(); g.fx.later(1.4, () => g.addScore(5000, 'BIRD DOWN!', hp0.clone().lerp(g.headPos, 0.55).setY(g.headPos.y - 1.2), 'huge'));
+    const hp0 = H.pos.clone(); g.fx.later(1.4, () => !g.quietScore && g.addScore(5000, 'BIRD DOWN!', hp0.clone().lerp(g.headPos, 0.55).setY(g.headPos.y - 1.2), 'huge'));
     g.audio.play('metal_crash', { x: H.pos.x, y: H.pos.y, z: H.pos.z });
     g.bossInfo = null;
     g.events.push({ type: 'heliDying' });
@@ -527,7 +527,7 @@ export class SetPieces {
     g.audio.play('metal_crash', { x: I.x, y: I.y, z: I.z, volume: 1 });
     for (let k = 0; k < 140; k++) g.fx.sparks.spawn({ x: I.x + range(-6, 6), y: I.y + range(-4, 8), z: I.z + range(-6, 6), vx: range(-5, 5), vy: range(-2, 5), vz: range(-5, 5), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.15, life: range(2, 4), r: 2.6, g: 1.6, b: 0.6, a: 0.9, fadeOut: 0.5, ground: true });
     g.slowmo(1.8, 0.35, true);
-    g.fx.later(1.6, () => g.addScore(1500, 'RIGHT IN THE LEG!', I.clone().lerp(g.headPos, 0.6).setY(g.headPos.y - 1), 'big'));
+    g.fx.later(1.6, () => !g.quietScore && g.addScore(1500, 'RIGHT IN THE LEG!', I.clone().lerp(g.headPos, 0.6).setY(g.headPos.y - 1), 'big'));
     g.fx.main.bigBudget += 90; g.fx.later(5, () => { g.fx.main.bigBudget -= 90; });
     this.megaFireball(I.clone(), 3.0);
     g.fx.later(0.3, () => this.megaFireball(I.clone().add(_v.set(range(-6, 6), 8, range(-6, 6))), 2.2));

@@ -194,6 +194,7 @@ export class Director {
       for (let i = 0; i < ji; i++) { const st = this.steps[i]; if (st.dusk !== undefined) this.duskTarget = game.dusk = st.dusk; }
       const p = START_P[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
       const idx = (n) => this.steps.findIndex(s => s.name === n);
+      g.quietScore = true; g.fx.later(3, () => { g.quietScore = false; }); // the fast-forward's delayed score callouts stay quiet
       if (ji > idx('quay')) { setp.spawnRiverboat(60); setp.explodeBoat(); setp.boat.x = BRIDGE.half + 30; setp.boat.burnT = 30; g.slowT = 0; }
       if (ji > idx('gunship')) { setp.spawnHeli(); setp.heli.pos.copy(setp.crashPoint()); setp.killHeli(); setp._heliCrash(); g.cinematicLook = null; g.slowT = 0; for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0; }
       if (ji > idx('collapse')) setp.collapsedState();
