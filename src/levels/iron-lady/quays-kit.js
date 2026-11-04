@@ -11,7 +11,7 @@ import { makeNoise, fbm, makeCanvas, canvasTex, heightToNormal } from '../../tex
 //  (= baked lamp light × albedo), so light pools, lit walls and warm undersides cost nothing.
 // =====================================================================================
 
-export const TS = 3.4;   // stone ashlar tile (m): 8 courses of ~0.42 m, blocks 0.6-1.2 m
+export const TS = 2.7;   // stone ashlar tile (m): 8 courses of ~0.34 m, blocks 0.45-0.95 m
 export const TC = 4;     // cobbles tile
 export const TA = 5;     // asphalt tile
 export const TG = 3;     // gravel tile
@@ -327,7 +327,7 @@ function stoneTex(aniso) {
   for (let j = 0; j < rows; j++) {
     const b = [0]; let x = 0;
     for (;;) { const L = (0.8 + r() * 0.9) * S / 4.8; if (x + L > S - 150) { b.push(S); break; } x += L; b.push(x); }
-    R.push({ off: Math.floor(r() * S), b, tone: b.map(() => (r() - 0.5) * 0.2), hue: b.map(() => r()), crust: b.map(() => r()), split: b.map(() => (r() < 0.12 ? 0.5 : -1)) });
+    R.push({ off: Math.floor(r() * S), b, tone: b.map(() => (r() - 0.5) * 0.32), hue: b.map(() => r()), crust: b.map(() => r()), split: b.map(() => (r() < 0.12 ? 0.5 : -1)) });
   }
   const o = gen(S, (x, y) => {
     const j = (y / rh) | 0, row = R[j], xx = (x + row.off) % S;

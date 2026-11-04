@@ -44,7 +44,7 @@ function stoneCol(p, { base = [0.7, 0.67, 0.62], y0 = LOW_Y, top = 0, water = fa
   const st = wfbm(x * 0.07 + z * 0.05, y * 0.02 + 5);                       // broad vertical weathering bands
   m *= 1 - 0.22 * sstep(0.5, 0.75, st);
   m *= 1 - 0.25 * Math.exp(-Math.max(0, top - y) * 1.6);                   // damp band under the cornice
-  m *= 0.62 + 0.38 * sstep(y0, y0 + 0.9, y);                                // splash grime at the foot
+  m *= 0.45 + 0.55 * sstep(y0, y0 + 1.8, y);                                // splash grime at the foot
   let c = mul(base, m * WET * k);
   if (water) {
     const alg = 1 - sstep(LOW_Y - 1.6, LOW_Y - 0.3, y);
@@ -769,7 +769,9 @@ function planter(S, x, y, z, w, d, rng, concrete = true) {
   if (concrete) addGeo(S.B.stone, BOX(w, 0.85, d), M4(x, y + 0.425, z), { ws: TS, col: (p) => stoneCol(p, { base: [0.62, 0.6, 0.57], y0: y, top: y + 0.85 }), rm: RM.stone });
   else { addGeo(P, BOX(w, 0.8, d), M4(x, y + 0.4, z), { rect: A.wood, col: [0.42, 0.34, 0.26], rm: RM.wood }); for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) addGeo(P, BOX(0.1, 0.86, 0.1), M4(x + a * w / 2, y + 0.43, z + b * d / 2), { col: COL.iron, rm: RM.iron }); }
   addGeo(P, BOX(w - 0.1, 0.04, d - 0.1), M4(x, y + 0.82, z), { col: [0.08, 0.06, 0.05], rm: RM.wet });
-  for (let k = 0; k < 4; k++) addGeo(S.B.green, SPH(0.42 + rng() * 0.2, 6, 5), M4(x + (rng() - 0.5) * (w - 0.6), y + 1.0 + rng() * 0.2, z + (rng() - 0.5) * (d - 0.6), 0, rng() * 3, 0, 1, 0.8, 1), { ws: TL, col: mul([0.5, 0.5, 0.36], 0.7 + rng() * 0.3), rm: RM.lawn });
+  // box-clipped shrubs: a cluster of small lumpy leaf clumps over the soil (not one dark ball), a few spilling over
+  const nC = Math.max(6, Math.round(w * d * 5));
+  for (let k = 0; k < nC; k++) { const r0 = 0.2 + rng() * 0.16; addGeo(S.B.green, SPH(r0, 6, 4), M4(x + (rng() - 0.5) * (w - 0.3), y + 0.86 + r0 * (0.5 + rng() * 0.9), z + (rng() - 0.5) * (d - 0.3), rng() * 3, rng() * 3, 0, 1, 0.7 + rng() * 0.3, 1), { ws: TL, col: mul([[0.46, 0.56, 0.3], [0.38, 0.5, 0.28], [0.55, 0.55, 0.32]][k % 3], 0.8 + rng() * 0.35), rm: RM.lawn }); }
   S.colliders.push({ min: [x - w / 2, y, z - d / 2], max: [x + w / 2, y + 1.1, z + d / 2], data: { mat: concrete ? 'concrete' : 'wood', kind: 'planter' } });
 }
 function cafeChairStack(S, x, y, z, n, rot) {

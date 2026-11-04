@@ -542,7 +542,7 @@ export async function buildTower(ctx = {}) {
   }
   root.add(beacon);
 
-  const state = { sparkle: 1, sparkleT: 0, beacon: 1, aviation: 1, light: 1, dusk: 0.9 };
+  const state = { sparkle: 1, sparkleT: 0, beacon: 1, aviation: 1, light: 1, dusk: 0.9, wreck: 0 };
   const _w = new THREE.Vector3(), _w2 = new THREE.Vector3(), _rm = new THREE.Matrix3(), _rm4 = new THREE.Matrix4();
   const rootPos = root.position;
   // reflection anchors for the river / wet ground: sample points on the lit body (static rest positions, the
@@ -565,6 +565,19 @@ export async function buildTower(ctx = {}) {
         const p = rig.deform(s.p, _w).add(rootPos);
         const k = state.sparkle * L * (0.6 + s.r * 0.6);
         glow.set(gi++, p.x, p.y, p.z, 1.6, 1.6, 0, CELL.STAR, 0, 3.2 * k, 3.0 * k, 2.7 * k, 0.9 * k);
+        if (gi > 640) break;
+      }
+    }
+    // the wreck: a third of her bulbs hang on, warm and faulty (stutter, drop out), so she still reads as her
+    if (state.wreck > 0.01 && L > 0.2) {
+      for (let i = 0; i < sparkle.length; i++) {
+        const s = sparkle[i];
+        if (s.r > 0.34 || s.p.y < rig.u.uPowerLo.value - 40) continue;
+        const on = Math.sin(t * (1.3 + s.r * 4) + s.ph) > -0.35 && Math.sin(t * 23 + s.ph * 7) > -0.6;
+        if (!on) continue;
+        const p = rig.deform(s.p, _w).add(rootPos);
+        const k = state.wreck * (0.7 + s.r);
+        glow.set(gi++, p.x, p.y, p.z, 1.9, 1.9, 0, CELL.GLOW, 0, 2.6 * k, 1.55 * k, 0.62 * k, 0.85 * k);
         if (gi > 640) break;
       }
     }

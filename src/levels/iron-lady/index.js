@@ -27,16 +27,18 @@ export async function create(E) {
   scene.fog.near = 60; scene.fog.far = 1500;
   camera.far = 6000; camera.updateProjectionMatrix();
   // goons in dark kit against wet dark stone: lift them a little and light their reflective bands
-  setGunmanLook({ lift: 0.22, band: 0.55 });
+  setGunmanLook({ lift: 0.3, band: 0.6 });
   fx.fireHue = 1; // orange core, deep-red edges, dark smoke shroud (no white blow-outs at night)
   fx.heat = Math.min(fx.heat ?? 1, 0.85);
   // fire sprites: push toward orange and cool into near-black soot (the grade's teal shadows put cyan / olive rims on
   // pale fire edges against the night sky) — level-local patch, fx.js untouched
-  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.15; o.b = (o.b ?? 0.5) * 0.78; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.09; o.g1 = 0.07; o.b1 = 0.06; } } return spawn(o); }; }
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.3; o.g = (o.g ?? 0.5) * 0.97; o.b = (o.b ?? 0.5) * 0.6; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.11; o.g1 = 0.06; o.b1 = 0.045; } } return spawn(o); }; }
   const world = await new IronWorld(E).build();
   const game = new IronGame(E, world);
   // dark smoke puffs: keep them warm brown-black (the grade's teal split-tone turns neutral greys teal at night)
-  { const c = game.clouds, spawn = c.spawn.bind(c); c.spawn = (o) => { if (!o.spray && (o.r ?? 0.5) < 0.3 && Math.abs((o.r ?? 0) - (o.b ?? 0)) < 0.05) { o.r *= 1.22; o.g *= 1.02; o.b *= 0.72; if (o.r1 !== undefined) { o.r1 *= 1.18; o.b1 *= 0.75; } } return spawn(o); }; }
+  { const c = game.clouds, spawn = c.spawn.bind(c); c.spawn = (o) => { if (!o.spray && (o.r ?? 0.5) < 0.3 && Math.abs((o.r ?? 0) - (o.b ?? 0)) < 0.05) { o.r *= 1.38; o.g *= 1.02; o.b *= 0.6; if (o.r1 !== undefined) { o.r1 *= 1.3; o.b1 *= 0.62; } } return spawn(o); }; }
+  // their 'sun' term at night is the city's sodium glow, not a cold moon (it was tinting the lit tops teal)
+  game.clouds.material.uniforms.fogColorSun = { value: new THREE.Color(0.62, 0.4, 0.26) };
   game.dusk = night0;
   const setp = new SetPieces(game);
   game.setpieces = setp;

@@ -23,7 +23,7 @@ export class Traffic {
     for (const [x, z, yawDeg, type, flags = ''] of CARS) {
       const f = flags.split(/\s+/);
       const paint = type === 'sedan' || type === 'suv' || type === 'van' ? (type === 'suv' ? 0x101114 : type === 'van' ? 0xe8e6e0 : PAINTS[k % PAINTS.length]) : undefined;
-      const m = carMod?.buildCar ? carMod.buildCar(type, { paint, doorOpen: f.includes('open'), seed: 101 + k, city: 'paris' }) : fallback(type, paint);
+      const m = carMod?.buildCar ? carMod.buildCar(type, { paint, doorOpen: f.includes('open'), shattered: f.includes('intact') ? false : undefined, seed: 101 + k, city: 'paris' }) : fallback(type, paint);
       const yaw = yawDeg * Math.PI / 180;
       m.root.position.set(x, this.g.world.fastGround(x, z), z); m.root.rotation.y = yaw;
       m.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });

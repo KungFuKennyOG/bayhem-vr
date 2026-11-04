@@ -186,17 +186,65 @@ export class SetPieces {
     if (B.hp < 8 && !B.leak) { B.leak = true; this.g.callout('FUEL LEAK!', B.fuelW.clone().setY(B.fuelW.y + 3), 'small'); }
     if (B.hp <= 0) this.explodeBoat();
   }
+  // break her back: the hull mesh is cut in two at the saloon (triangles by centroid), each half on its own pivot
+  // at the break; the bow rears up, the stern settles, both slide apart and go down (same material: no new shaders)
+  _splitBoat(B) {
+    const body = B.m.mesh; if (!body || B.halves) return;
+    const src = body.geometry.index ? body.geometry.toNonIndexed() : body.geometry;
+    const CUT = 1.5, names = Object.keys(src.attributes), pos = src.attributes.position.array, nT = pos.length / 9;
+    const out = [{}, {}];
+    for (const n of names) { const it = src.attributes[n].itemSize; out[0][n] = []; out[1][n] = []; out[0][n].it = out[1][n].it = it; }
+    for (let t = 0; t < nT; t++) {
+      const cz = (pos[t * 9 + 2] + pos[t * 9 + 5] + pos[t * 9 + 8]) / 3, side = cz < CUT ? 0 : 1;
+      for (const n of names) { const A = src.attributes[n], it = A.itemSize; for (let k = 0; k < 3 * it; k++) out[side][n].push(A.array[t * 3 * it + k]); }
+    }
+    B.halves = out.map((o, i) => {
+      const geo = new THREE.BufferGeometry();
+      for (const n of names) { const A = src.attributes[n]; geo.setAttribute(n, new THREE.BufferAttribute(new A.array.constructor(o[n]), o[n].it, A.normalized)); }
+      const mesh = new THREE.Mesh(geo, body.material); mesh.castShadow = true; mesh.position.z = -CUT;
+      const piv = new THREE.Group(); piv.position.set(0, 0, CUT); piv.add(mesh); B.root.add(piv);
+      return { piv, mesh, s: i === 0 ? -1 : 1 };
+    });
+    body.visible = false;
+    B.splitT = 0; B.cut = CUT;
+  }
+  _updSplit(B, dt) {
+    if (!B.halves) return;
+    B.splitT += dt;
+    const k = 1 - Math.exp(-B.splitT * 0.9), sink = Math.min(1, B.splitT / 45);
+    for (const h of B.halves) {
+      // bow (s = -1, toward -z) rears up; the stern drops its break and lifts its transom a little
+      h.piv.rotation.x = h.s < 0 ? 0.2 * k + 0.12 * sink : -0.09 * k - 0.05 * sink;
+      h.piv.rotation.z = h.s * 0.05 * k;
+      h.piv.position.set(h.s * 0.4 * k, -0.6 * k - 2.2 * sink, B.cut + h.s * (1.6 * k + 1.2 * sink));
+      h.mesh.material = B.m.mesh.material;
+    }
+    // the break itself: fire and steam where the two halves part
+    if (rand() < dt * 18 && this.g.headPos.distanceToSquared(B.root.position) < 220 * 220) {
+      const p = _v.set(range(-3, 3), range(0, 2), B.cut + range(-1.5, 1.5)).applyMatrix4(B.root.matrixWorld);
+      this.g.fx.flame(p, range(1.1, 1.8));
+      if (rand() < 0.25) this.g.fx.main.spawn({ x: p.x, y: WATER_Y + 0.3, z: p.z, vx: range(-1, 1), vy: range(1.5, 3), vz: range(-1, 1), drag: 1, frame: CELL.WISP, s0: 1.5, s1: 5, life: 1.8, rot: rand() * 6, r: 0.5, g: 0.5, b: 0.52, a: 0.35, fadeOut: 0.6 });
+    }
+  }
   explodeBoat() {
     const g = this.g, B = this.boat;
     if (B.state !== 'cruise') return;
     B.state = 'burning'; B.burnT = 0;
     const P = B.fuelW.clone();
-    g.boom(P, 2.6, { radius: 14, dmg: 30 });
+    g.boom(P, 2.6, { radius: 14, dmg: 30, noRing: true });
     this.megaFireball(P.clone().setY(P.y + 2), 2.0);
     g.fx.later(0.25, () => g.boom(P.clone().add(_v.set(range(-3, 3), 1, 0)).applyAxisAngle(UP, 0), 1.6, { radius: 10, dmg: 20, player: false }));
     for (let k = 0; k < 7; k++) g.fx.later(0.3 + k * 0.18, () => { const p = _v.set(range(-2.5, 2.5), range(2, 4), range(-16, 14)).applyMatrix4(B.root.matrixWorld); g.fx.explosion(p.clone(), range(1.1, 1.6), { noRing: true }); g.smokeAfter(p, 1.2); });
     for (const s of B.gunmen) if (s.alive) { _v.set(range(-0.4, 0.4), 0.9, range(-0.4, 0.4)).normalize(); g.killSoldier(s, _v.clone(), 3.2, false, null); }
-    for (let i = 0; i < 16; i++) g.fx.spawnDebris(_v.set(range(-3, 3), range(2.5, 4), range(-14, 18)).applyMatrix4(B.root.matrixWorld).clone(), range(-9, 9), range(9, 20), range(-9, 9), range(0.35, 0.9), chance(0.7));
+    for (let i = 0; i < 8; i++) g.fx.spawnDebris(_v.set(range(-3, 3), range(2.5, 4), range(-14, 18)).applyMatrix4(B.root.matrixWorld).clone(), range(-9, 9), range(9, 20), range(-9, 9), range(0.35, 0.9), chance(0.7));
+    // planks and cabin panels: thin, long, tumbling (girder batch, lit warm by the fire)
+    for (let i = 0; i < 26; i++) {
+      const a = _v.set(range(-3, 3), range(2, 4), range(-10, 12)).applyMatrix4(B.root.matrixWorld).clone(), L = range(0.8, 3.2);
+      const c = a.clone().add(_v2.set(range(-1, 1), range(-1, 1), range(-1, 1)).normalize().multiplyScalar(L));
+      const dir = _v3.subVectors(a, P).setY(0).normalize();
+      this.girders.spawn(a, c, range(0.06, 0.22), dir.multiplyScalar(range(4, 13)).add(_v2.set(0, range(8, 19), 0)), 6);
+    }
+    this._splitBoat(B);
     // the saloon roof goes: glass + panels blown up along the whole cabin
     for (let k = 0; k < 6; k++) g.fx.later(0.1 + k * 0.08, () => { const p = _v.set(range(-2, 2), 3.6, -16 + k * 6).applyMatrix4(B.root.matrixWorld); g.fx.explosion(p.clone(), range(1.2, 1.7), { noRing: true }); });
     this.splash(P, 1.8);
@@ -206,6 +254,9 @@ export class SetPieces {
     g.fx.later(1.4, () => !g.quietScore && g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().add(_v.subVectors(g.headPos, P).setY(0).normalize().multiplyScalar(12)).setY(P.y + 1.5), 'huge'));
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.fx.light(P.clone().setY(P.y + 3), 500, 2, 0xff9040, true, 55);
+    // a white spray dome + radial streaks skating out over the water (instead of a flat ring)
+    for (let k = 0; k < 22; k++) { const an = (k / 22) * 6.28 + range(-0.1, 0.1), sp = range(9, 16); g.fx.main.spawn({ x: P.x + Math.cos(an) * 2, y: WATER_Y + 0.4, z: P.z + Math.sin(an) * 2, vx: Math.cos(an) * sp, vy: range(2.5, 5), vz: Math.sin(an) * sp, grav: 6, drag: 1.3, frame: CELL.WISP, s0: 1.2, s1: range(4, 6), life: range(1.0, 1.5), rot: an + 1.57, r: 0.62, g: 0.64, b: 0.68, a: 0.55, fadeIn: 0.02, fadeOut: 0.7 }); }
+    for (let k = 0; k < 10; k++) g.fx.main.spawn({ x: P.x + range(-4, 4), y: WATER_Y + range(1, 3), z: P.z + range(-3, 3), vx: range(-3, 3), vy: range(3, 7), vz: range(-3, 3), grav: 4, drag: 0.9, frame: CELL.WISP, s0: 4, s1: range(10, 14), life: range(1.4, 2), rot: rand() * 6, r: 0.66, g: 0.68, b: 0.72, a: 0.5, fadeIn: 0.03, fadeOut: 0.7 });
     // a water column thrown up beside the hull
     for (let k = 0; k < 14; k++) g.fx.main.spawn({ x: P.x + range(-3, 3), y: WATER_Y + 0.5, z: P.z + range(-2, 2), vx: range(-2, 2), vy: range(10, 22), vz: range(-2, 2), grav: 9.8, drag: 0.4, frame: CELL.WISP, s0: 2, s1: range(6, 10), life: range(1.6, 2.4), rot: rand() * 6, r: 0.5, g: 0.52, b: 0.55, a: 0.6, fadeIn: 0.02, fadeOut: 0.6 });
     g.events.push({ type: 'boatBoom', P });
@@ -222,7 +273,8 @@ export class SetPieces {
     } else {
       B.burnT += dt;
       B.v = damp(B.v, B.x < BRIDGE.half + 28 ? 0 : 2.2, 0.6, dt);
-      B.sink = Math.min(2.6, B.burnT * 0.08); B.roll = damp(B.roll, 0.14, 0.2, dt);
+      B.sink = Math.min(2.2, B.burnT * 0.08); B.roll = damp(B.roll, 0.08, 0.2, dt);
+      this._updSplit(B, dt);
       // a burning hulk: fire along the cabin, a black column climbing over the river
       if (g.headPos.distanceToSquared(B.root.position) < 220 * 220) {
         if (rand() < dt * 24) g.fx.flame(_v.set(range(-2.5, 2.5), range(2, 3.5), range(-17, 15)).applyMatrix4(B.root.matrixWorld), range(1.0, 1.6));
@@ -246,11 +298,11 @@ export class SetPieces {
     const g = this.g, m = buildHeli();
     m.root.scale.setScalar(1.6);
     // under the tower's floods the belly picks up gold: a warm lift so it never reads as a black toy
-    m.root.traverse(o => { if (o.isMesh && o.material && !o.material.isShaderMaterial) { o.material = [].concat(o.material).map(mm => { if (!mm.isMeshStandardMaterial) return mm; const c = mm.clone(); c.emissive = new THREE.Color(0x3a2410); c.emissiveIntensity = 1; return c; }); if (o.material.length === 1) o.material = o.material[0]; } });
+    m.root.traverse(o => { if (o.isMesh && o.material && !o.material.isShaderMaterial) { o.material = [].concat(o.material).map(mm => { if (!mm.isMeshStandardMaterial) return mm; const c = mm.clone(); c.emissive = new THREE.Color(0x5a3818); c.emissiveIntensity = 1; return c; }); if (o.material.length === 1) o.material = o.material[0]; } });
     // a visible searchlight cone sweeping the gravel
     { const L = 70, cg = new THREE.ConeGeometry(9, L, 18, 1, true); cg.translate(0, -L / 2, 0);
       const cm = new THREE.ShaderMaterial({ vertexShader: `varying float vY; varying vec3 vN; varying vec3 vV; void main(){ vY = -position.y / ${L.toFixed(1)}; vec4 wp = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }`,
-        fragmentShader: `varying float vY; varying vec3 vN; varying vec3 vV; void main(){ float a = pow(abs(dot(vN, vV)), 1.5) * pow(1.0 - vY, 1.8) * 0.16; gl_FragColor = vec4(vec3(0.9, 0.92, 1.0) * a, a); }`,
+        fragmentShader: `varying float vY; varying vec3 vN; varying vec3 vV; void main(){ float a = pow(abs(dot(vN, vV)), 1.5) * pow(1.0 - vY, 1.8) * 0.3; gl_FragColor = vec4(vec3(0.9, 0.92, 1.0) * a, a); }`,
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
       const cone = new THREE.Mesh(cg, cm); cone.frustumCulled = false; cone.renderOrder = 18;
       this.spot = cone; g.scene.add(cone); }
@@ -405,8 +457,8 @@ export class SetPieces {
     // nav lights + searchlight glow
     const G = this.glowB, blink = Math.sin(g.time * 6) > 0.3;
     let gi = 0;
-    if (H.phase !== 'dying') for (const [pt, col] of m.navLights) { if (col[3] && !blink) continue; pt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 1.3, 1.3, 0, CELL.GLOW, 0, col[0], col[1], col[2], 1); }
-    if (H.phase !== 'dying') { m.lightPt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 4, 4, 0, CELL.GLOW, 0, 2.2, 2.0, 1.7, 0.9); }
+    if (H.phase !== 'dying') for (const [pt, col] of m.navLights) { if (col[3] && !blink) continue; pt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 2.6, 2.6, 0, CELL.GLOW, 0, col[0] * 1.4, col[1] * 1.4, col[2] * 1.4, 1); }
+    if (H.phase !== 'dying') { m.lightPt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 6, 6, 0, CELL.GLOW, 0, 2.6, 2.4, 2.0, 0.9); }
     G.commit(gi);
   }
   // soft repulsion from the four legs (and the first platform from below): it threads them, never clips them
@@ -636,9 +688,9 @@ export class SetPieces {
       F.slide = Math.min(16, F.slide + dt * F.th * 3);
       // power dies floor by floor from the feet up; flicker everywhere
       // she stays lit all the way down (the money shot); only the torn feet go dark, then everything dies on impact
-      F.powerLo = Math.min(F.bridgeHit ? 150 : 400, F.powerLo + dt * (F.bridgeHit ? 160 : 3.5));
+      F.powerLo = Math.min(F.bridgeHit ? 70 : 400, F.powerLo + dt * (F.bridgeHit ? 60 : 3.5));
       R.u.uPowerLo.value = F.powerLo; R.u.uFlicker.value = F.bridgeHit ? 0.7 : 0.2;
-      T.state.light = F.bridgeHit ? Math.max(0.55, T.state.light - dt * 0.45) : 1;
+      T.state.light = F.bridgeHit ? Math.max(0.72, T.state.light - dt * 0.45) : 1;
       if (F.th > 0.5) T.state.beacon = Math.max(0, T.state.beacon - dt * 0.15);
       if (F.th > 1.0) T.state.sparkle = Math.max(0, T.state.sparkle - dt * 0.4);
       // the bend: rivets let go in showers at the first platform and the second
@@ -665,8 +717,9 @@ export class SetPieces {
         this.clouds.spawn({ x: P.x + range(-6, 6), y: P.y + 6, z: P.z + range(-6, 6), vx: range(-0.4, 0.4) + 1.3, vy: range(5, 7), vz: range(-0.4, 0.4) + 0.4, drag: 0.1, buoy: 0.3, s0: 9, s1: range(38, 52), life: range(14, 17), a: 0.9, fadeIn: 0.05, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.06, g: 0.055, b: 0.05, r1: 0.13, g1: 0.12, b1: 0.11, glow: 1.0, glowFade: 3 });
       }
       // a third of her lights hang on, flickering, so the wreck still reads as the Iron Lady
-      T.state.light = damp(T.state.light, 0.55, 0.8, dt); T.state.beacon = Math.max(0, T.state.beacon - dt * 0.5); T.state.sparkle = 0; T.state.aviation = Math.max(0, T.state.aviation - dt);
-      R.u.uPowerLo.value = 150; R.u.uFlicker.value = 0.45;
+      T.state.light = damp(T.state.light, 0.72, 0.8, dt); T.state.beacon = Math.max(0, T.state.beacon - dt * 0.5); T.state.sparkle = 0;
+      T.state.aviation = damp(T.state.aviation, 0.6, 1, dt); T.state.wreck = Math.min(1, T.state.wreck + dt * 0.5);
+      R.u.uPowerLo.value = 70; R.u.uFlicker.value = 0.4;
     }
     this._solveSpine(F, dt);
   }
@@ -756,9 +809,9 @@ export class SetPieces {
     if (water) {
       this.splash(P, 4.5);
       // a wall of spray thrown up both sides of the falling shaft
-      for (let k = 0; k < 10; k++) this.clouds.spawn({ x: P.x + range(-14, 14), y: WATER_Y + range(2, 10), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(10, 20), vz: range(-4, 4), drag: 0.9, buoy: -2, s0: range(6, 9), s1: range(22, 32), life: range(4, 6), a: 0.75, fadeIn: 0.02, fadeOut: 0.6, vrot: range(-0.2, 0.2), r: 0.26, g: 0.28, b: 0.32, r1: 0.14, g1: 0.15, b1: 0.17 });
+      for (let k = 0; k < 10; k++) this.clouds.spawn({ x: P.x + range(-14, 14), y: WATER_Y + range(2, 10), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(10, 20), vz: range(-4, 4), drag: 0.9, buoy: -2, s0: range(6, 9), s1: range(22, 32), st: range(0.55, 0.8), life: range(4, 6), a: 0.75, fadeIn: 0.02, fadeOut: 0.6, vrot: range(-0.2, 0.2), r: 0.26, g: 0.28, b: 0.32, r1: 0.14, g1: 0.15, b1: 0.17 });
     } else {
-      for (let k = 0; k < 8; k++) this.clouds.spawn({ x: P.x + range(-12, 12), y: P.y + range(1, 6), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(3, 8), vz: range(-6, 6), drag: 0.7, buoy: 0.15, s0: range(6, 10), s1: range(24, 36), life: range(8, 11), a: 0.92, fadeIn: 0.03, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.2, g: 0.18, b: 0.16, r1: 0.12, g1: 0.11, b1: 0.1, glow: 0.8, glowFade: 2 });
+      for (let k = 0; k < 8; k++) this.clouds.spawn({ x: P.x + range(-12, 12), y: P.y + range(1, 6), z: P.z + range(-8, 8), vx: range(-6, 6), vy: range(3, 8), vz: range(-6, 6), drag: 0.7, buoy: 0.15, s0: range(6, 10), s1: range(24, 36), st: range(1.3, 1.9), rot: range(-0.2, 0.2), life: range(8, 11), a: 0.92, fadeIn: 0.03, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.2, g: 0.18, b: 0.16, r1: 0.12, g1: 0.11, b1: 0.1, glow: 0.8, glowFade: 2 });
       for (let k = 0; k < 40; k++) g.fx.sparks.spawn({ x: P.x + range(-10, 10), y: P.y + range(0, 5), z: P.z + range(-6, 6), vx: range(-9, 9), vy: range(3, 12), vz: range(-9, 9), grav: -9.8, drag: 0.3, frame: CELL.SPARK, s0: 1, w: 0.06, len: 0.18, life: range(1, 2.5), r: 2.8, g: 1.7, b: 0.7, a: 1, fadeOut: 0.5, ground: true });
       g.fx.explosion(P.clone().setY(P.y + 2), big ? 2.4 : 1.6, { noRing: true });
     }
@@ -778,8 +831,8 @@ export class SetPieces {
     for (let k = 0; k < 500; k++) { F.om += 0.13 * Math.sin(Math.max(F.th, 0.06)) / 30; F.th = Math.min(1.62, F.th + F.om / 30); if (F.th >= 1.62) F.om = 0; F.slide = Math.min(16, F.slide + F.th * 0.1); F.sink = Math.min(9, F.sink + 0.05); F.twist = 0.32; F.dir.set(0.05, 0, 1).normalize(); this._solveSpine(F, 1 / 30); }
     F.landed.fill(true); F.quiet = false;
     F.phase = 'down'; F.t = 40; F.bridgeHit = F.spireHit = true;
-    const S = this.T.state; S.light = 0.55; S.beacon = 0; S.sparkle = 0; S.aviation = 0;
-    this.T.rig.u.uPowerLo.value = 150;
+    const S = this.T.state; S.light = 0.72; S.beacon = 0; S.sparkle = 0; S.aviation = 0.6; S.wreck = 1;
+    this.T.rig.u.uPowerLo.value = 70;
     for (const c of this.g.traffic.cars) if (Math.abs(c.root.position.x) < BRIDGE.half && Math.abs(c.root.position.z) < BRIDGE.z1) { c.state = 'wreck'; c.burn = range(20, 60); c.m.setBurnt?.(); }
     this.tear(40, 260, 60, -1, 3);
   }
@@ -805,11 +858,15 @@ export class SetPieces {
     if (Wl.spawnT <= 0) {
       Wl.spawnT = g.E.isQuest ? 0.035 : 0.018;
       const z = range(-60, 60), onRiver = Math.abs(z) < 40;
-      const y = (onRiver ? WATER_Y : groundAt(Wl.x, z)) + range(0, 4);
-      const crest = rand() < 0.4;
+      const y = (onRiver ? WATER_Y : groundAt(Wl.x, z)) + range(0, 2);
+      const crest = rand() < 0.22;
       const k = range(0.8, 1.1);
-      // a low rolling front: many smaller puffs hugging the water/quay, a ragged crest, no clean cumulus
-      this.clouds.spawn({ x: Wl.x + range(-5, 2), y: crest ? y + range(8, 22) : y + range(0.5, 6), z, vx: range(8, 12), vy: crest ? range(-0.5, 1.5) : range(0.3, 2), vz: range(-1.5, 1.5), drag: 0.4, buoy: 0, s0: range(6, 9), s1: range(16, 26), life: range(3.5, 5), a: 0.95, fadeIn: 0.04, fadeOut: 0.45, vrot: range(-0.4, 0.4), spray: true, r: (onRiver ? 0.11 : 0.13) * k, g: (onRiver ? 0.11 : 0.11) * k, b: (onRiver ? 0.12 : 0.09) * k, r1: 0.07, g1: 0.065, b1: 0.06, glow: 0.12, glowFade: 1.5 });
+      // a low rolling front: wide flat sheets hugging the water/quay (dense, dark foot, hard leading edge), a thin
+      // wispy crest above it; stretched sprites, so it never reads as a bank of round cumulus
+      if (crest) this.clouds.spawn({ x: Wl.x + range(-8, 0), y: y + range(7, 18), z, vx: range(7, 10), vy: range(0, 1.5), vz: range(-1.5, 1.5), drag: 0.5, buoy: 0, s0: range(5, 8), s1: range(14, 22), st: range(1.3, 1.9), rot: range(-0.25, 0.25), life: range(3, 4.2), a: 0.5, fadeIn: 0.06, fadeOut: 0.5, vrot: range(-0.08, 0.08), spray: true, r: 0.15 * k, g: 0.14 * k, b: 0.14 * k, r1: 0.09, g1: 0.085, b1: 0.08, glow: 0.08, glowFade: 1.5 });
+      else this.clouds.spawn({ x: Wl.x + range(-3, 1.5), y: y + range(0.5, 4), z, vx: range(9, 12), vy: range(0.2, 1.2), vz: range(-1.5, 1.5), drag: 0.55, buoy: 0, s0: range(7, 10), s1: range(18, 28), st: range(1.6, 2.5), rot: range(-0.12, 0.12), life: range(3.2, 4.5), a: 1, fadeIn: 0.03, fadeOut: 0.4, vrot: range(-0.05, 0.05), spray: true, r: (onRiver ? 0.09 : 0.11) * k, g: (onRiver ? 0.09 : 0.095) * k, b: (onRiver ? 0.1 : 0.08) * k, r1: 0.06, g1: 0.056, b1: 0.052, glow: 0.12, glowFade: 1.5 });
+      // paper and grit tumbling out ahead of the front
+      if (rand() < 0.3) g.fx.main.spawn({ x: Wl.x + range(2, 10), y: y + range(0.5, 5), z: z * 0.85, vx: range(10, 16), vy: range(0.5, 3), vz: range(-2, 2), grav: 1.5, drag: 0.6, frame: CELL.CHIP, s0: range(0.15, 0.35), life: range(1, 2), rot: rand() * 6, vrot: range(-8, 8), r: 0.7, g: 0.66, b: 0.6, a: 0.9, fadeOut: 0.3 });
       // spray sheets and grit streaking ahead of it
       if (rand() < 0.8) g.fx.main.spawn({ x: Wl.x + range(0, 8), y: (onRiver ? WATER_Y : y) + range(0.2, 2.5), z: z * 0.8, vx: range(12, 18), vy: range(0, 1.5), vz: range(-1, 1), drag: 0.7, frame: CELL.WISP, s0: 2.5, s1: range(8, 14), life: range(1.2, 2), rot: rand() * 6, r: 0.42, g: 0.46, b: 0.52, a: 0.5, fadeIn: 0.05, fadeOut: 0.5 });
       if (rand() < 0.15) g.fx.spawnDebris(new THREE.Vector3(Wl.x + range(-2, 4), y + range(1, 6), z * 0.6), range(10, 16), range(1, 5), range(-2, 2), range(0.2, 0.5), false);

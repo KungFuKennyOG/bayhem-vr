@@ -83,7 +83,7 @@ export const CARS = [
   // north upper quay (behind the ramp top)
   [22, 64.5, 92, 'sedan', 'x'], [-22, 67.5, 268, 'van', 'x haz'],
   // the bridge: a jam heading south, a police block at the south end
-  [-5.2, 38, 2, 'sedan', 'x'], [4.6, 31, -4, 'taxi', 'x open'], [-4.8, 20, 6, 'van', 'x haz'],
+  [-5.2, 38, 2, 'sedan', 'x'], [4.6, 31, -4, 'taxi', 'x open intact'], [-4.8, 20, 6, 'van', 'x haz'],
   [5.0, 9, -10, 'sedan', 'x alarm'], [-5.4, -3, 4, 'suv', 'x'], [4.4, -15, 22, 'sedan', 'x'],
   [-1.5, -28, 64, 'police', 'x haz'], [6.0, -36, 104, 'police', 'x haz'], [-6.5, -42, 82, 'van', 'x'],
   // south upper quay
