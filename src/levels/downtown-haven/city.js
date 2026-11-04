@@ -578,14 +578,20 @@ const COL = {
 };
 const AWNING = [[[0.42, 0.05, 0.04]], [[0.05, 0.22, 0.12]], [[0.04, 0.07, 0.2]], [[0.06, 0.06, 0.06]], [[0.6, 0.05, 0.04], [0.85, 0.82, 0.76]], [[0.04, 0.2, 0.1], [0.85, 0.82, 0.76]], [[0.32, 0.04, 0.12]]];
 
+// atlases + the facade material are shared by buildCity and buildMeridian (5 canvas textures + 1 stone)
+let _shared = null;
+function shared() {
+  if (!_shared) { const fT = facadeAtlas(), sT = storeAtlas(); _shared = { fT, sT, facade: facadeMaterial(fT) }; }
+  return _shared;
+}
 export async function buildCity(ctx) {
   const t0 = performance.now();
   const rng = makeRng(31337);
   const R = (a, b) => a + (b - a) * rng();
-  const fT = facadeAtlas(), sT = storeAtlas();
+  const { fT, sT, facade: facadeMat } = shared();
   const stoneTex = concreteTexture(71, [0.94, 0.92, 0.9], 256, true);
   const mats = {
-    facade: facadeMaterial(fT),
+    facade: facadeMat,
     trim: new THREE.MeshStandardMaterial({ map: stoneTex, vertexColors: true, roughness: 0.86, metalness: 0, envMapIntensity: 0.7 }),
     metal: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.34, metalness: 0.85, envMapIntensity: 1.0 }),
     store: new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.55, metalness: 0, alphaTest: 0.5, vertexColors: true }),
@@ -1140,16 +1146,14 @@ function preview(mats) {
 // =====================================================================================
 //  MERIDIAN TOWER
 // =====================================================================================
-let _merShared = null;
 export async function buildMeridian(a, b) {
   const ctx = b || a, opts = b ? (a || {}) : {};
   const t0 = performance.now();
   const M = MERIDIAN, X = M.x1, ZF = M.z1, ZB = M.z0, NT = 1.5;   // notch
-  const fT = facadeAtlas(), sT = storeAtlas();
-  const facade = facadeMaterial(fT);
+  const { sT, facade } = shared();
   const store = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.5, metalness: 0, alphaTest: 0.5, vertexColors: true });
   store.userData.duskEmissive = 2.2;
-  const trim = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0x3a3632, roughness: 1, metalness: 0, envMapIntensity: 0.2 });
+  const trim = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x8a7a6a, side: THREE.DoubleSide });   // unlit: a smoky cavity, no rim sheen
   const ember = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 2.6, roughness: 0.9, vertexColors: true });
   const root = new THREE.Group(); root.name = 'meridian';
   const pivot = new THREE.Vector3(0, M.breakY, ZF);
@@ -1183,11 +1187,26 @@ export async function buildMeridian(a, b) {
     w('-z', ZB + NT, xs(X - NT), xs(X), y0, y1, { ...O, yb: 0 });
     w('-z', ZB, Math.min(0, xs(X - NT)), Math.max(0, xs(X - NT)), y0, y1, { ...O, yb: 0 });
     // cut face (exposed when the halves part): floor slabs
-    w(cut, 0, ZB, ZF, y0, y1, { sw: SW.char });
-    for (let fy = Math.ceil(y0 / 4.2) * 4.2; fy < y1; fy += 4.2) lwall(Bm, mkFace(cut, s * -0.02, ZB, ZF), 0, ZF - ZB, fy, Math.min(y1, fy + 0.5), 0, { sw: SW.interior });
+    // (the parts inside the blast cavity go to `patch`, hidden while the hole shows)
+    const DH = 9.5, inHoleY = patch && HOLE.y1 > y0 && HOLE.y0 < y1, hy0c = Math.max(y0, HOLE.y0), hy1c = Math.min(y1, HOLE.y1);
+    if (inHoleY) {
+      w(cut, 0, ZB, ZF - DH, y0, y1, { sw: SW.char });
+      if (hy0c > y0) w(cut, 0, ZF - DH, ZF, y0, hy0c, { sw: SW.char });
+      if (y1 > hy1c) w(cut, 0, ZF - DH, ZF, hy1c, y1, { sw: SW.char });
+      const f2 = mkFace(cut, 0, ZF - DH, ZF); lwall(patch, f2, 0, f2.len, hy0c, hy1c, 0, { sw: SW.char });
+    } else w(cut, 0, ZB, ZF, y0, y1, { sw: SW.char });
+    for (let fy = Math.ceil(y0 / 4.2) * 4.2; fy < y1; fy += 4.2) lwall(inHoleY && fy > HOLE.y0 - 0.5 && fy < HOLE.y1 ? patch : Bm, mkFace(cut, s * -0.02, ZB, ZF), 0, ZF - ZB, fy, Math.min(y1, fy + 0.5), 0, { sw: SW.interior });
     // caps (seen when chunks tumble)
     const xa = Math.min(0, xs(X)), xb = Math.max(0, xs(X));
-    if (o.bottom !== false) q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { sw: SW.char });
+    if (o.bottom !== false) {
+      if (patch && y0 > HOLE.y0 && y0 < HOLE.y1) {
+        const ha = Math.max(xa, HOLE.x0), hb = Math.min(xb, HOLE.x1);
+        q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - DH - ZB], { sw: SW.char });
+        if (ha > xa) q(Bm, [xa, y0, ZF - DH], [ha - xa, 0, 0], [0, 0, DH], { sw: SW.char });
+        if (xb > hb) q(Bm, [hb, y0, ZF - DH], [xb - hb, 0, 0], [0, 0, DH], { sw: SW.char });
+        if (hb > ha) q(patch, [ha, y0, ZF - DH], [hb - ha, 0, 0], [0, 0, DH], { sw: SW.char });
+      } else q(Bm, [xa, y0, ZB], [xb - xa, 0, 0], [0, 0, ZF - ZB], { sw: SW.char });
+    }
     if (o.top !== false) q(Bm, [xa, y1, ZF], [xb - xa, 0, 0], [0, 0, -(ZF - ZB)], { sw: o.topSw ?? SW.roof });
     // LED strip in the front notch
     box(Bm, xs(X - NT) - s * 0.05, y0, ZF - NT + 0.02, xs(X - NT) + s * 0.25, y1, ZF - NT + 0.3, { sw: SW.led, skip: 'yY' });
@@ -1368,7 +1387,7 @@ export async function buildMeridian(a, b) {
     for (let k = 0; k < 7; k++) {
       const x = -hw + 1 + r() * (2 * hw - 2), y = hw - 0.5 - r() * 3, w = 1.2 + r() * 0.8, h = 1.6 + r() * 2.2;
       const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - h / 2, 0.7 + r() * 0.5), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3 + r() * 0.6, (r() - 0.5) * 0.8, (r() - 0.5) * 0.9)), new THREE.Vector3(w, h, 0.06));
-      HF.geo(UNIT_BOX, m, { sw: k % 2 ? SW.blackGlass : SW.goldGlass });
+      HF.geo(UNIT_BOX, m, { sw: k % 3 ? SW.blackGlass : SW.darkAlu });
     }
     // scorch ring: irregular charred shards over the face around the rim
     for (let k = 0; k < 40; k++) {

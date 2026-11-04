@@ -151,10 +151,13 @@ export class SetPieces {
       H.yaw += H.spin * dt;
       const d = H.pos.distanceTo(H.crash);
       const sp = Math.min(34, 12 + H.t * 7);
-      _v2.subVectors(H.crash, H.pos).normalize();
+      // lurch down the middle of the avenue, then into the face of the tower
+      _v3.copy(H.crash); if (H.pos.z > H.crash.z + 40) { _v3.x = clamp(H.pos.x * 0.5, -6, 6); _v3.z = H.pos.z - 30; _v3.y = lerp(H.pos.y, H.crash.y, 0.3); }
+      _v2.subVectors(_v3, H.pos).normalize();
       // wobble so it doesn't fly a ruler line
       _v2.x += Math.sin(H.t * 2.3) * 0.25; _v2.y += Math.sin(H.t * 3.1) * 0.15; _v2.normalize();
       H.vel.lerp(_v2.multiplyScalar(sp), 1 - Math.exp(-dt * 2.5));
+      if (!(H.pos.z < CROSS.z1 && H.pos.z > CROSS.z0)) this._canyon(H, dt);
       g.fx.trailEmit(H, m.smokePt.getWorldPosition(_v3), 0.7, (q) => { g.fx.flame(q, 1.2); g.fx.smoke(q, 1.6, 0.1, 3.5, 1, 0.85); }, 0);
       // the tail boom lets go and tumbles down into the street
       if (H.t > 0.8 && !H.tail && m.breakTail) {
@@ -167,8 +170,7 @@ export class SetPieces {
       if (_v2.length() > maxV) _v2.setLength(maxV);
       H.vel.lerp(_v2, 1 - Math.exp(-dt * 1.6));
       // keep the rotor inside the canyon (no clipping into towers)
-      const lim = H.pos.z < CROSS.z1 + 2 && H.pos.z > CROSS.z0 - 2 ? 200 : AVE.half - 6.5;
-      if (Math.abs(H.pos.x) > lim) H.vel.x -= Math.sign(H.pos.x) * (Math.abs(H.pos.x) - lim) * 6 * dt * 10;
+      this._canyon(H, dt);
     }
     H.pos.addScaledVector(H.vel, dt);
     if (H.phase !== 'dying') {
@@ -203,6 +205,16 @@ export class SetPieces {
     if (H.phase !== 'dying') for (const [pt, col] of m.navLights) { if (col[3] && !blink) continue; pt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 1.3, 1.3, 0, CELL.GLOW, 0, col[0], col[1], col[2], 1); }
     if (H.phase !== 'dying') { m.lightPt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 4, 4, 0, CELL.GLOW, 0, 2.2, 2.0, 1.7, 0.9); }
     G.commit(gi);
+  }
+  // keep the rotor inside the canyon (the cross street is the only wide spot): a soft spring, never a kick
+  _canyon(H, dt) {
+    const inX = H.pos.z < CROSS.z1 - 1 && H.pos.z > CROSS.z0 + 1;
+    const lim = inX ? 230 : AVE.half - 7;
+    const over = Math.abs(H.pos.x) - lim;
+    if (over > 0) {
+      H.vel.x = damp(H.vel.x, -Math.sign(H.pos.x) * Math.min(14, over * 2.5), 5, dt);
+      if (over > 3) H.pos.x = Math.sign(H.pos.x) * (lim + 3);
+    }
   }
   _heliWeapons(dt) {
     const g = this.g, H = this.heli, m = H.m, head = g.headPos;
@@ -379,6 +391,8 @@ export class SetPieces {
     g.audio.play('collapse_rumble', { volume: 1 });
     g.audio.play('metal_groan', { x: 0, y: 40, z: -165, volume: 1 });
     // the finale owns the big-sprite budget: the distant columns stop, the dust gets the headroom
+    // the floors above the break leave: their colliders go with them
+    for (const b of M.boxes || []) if (b.data.chunk !== undefined || b.data.part === 'upper') g.col.remove(b);
     g.finale = true;
     g.fx.main.bigBudget = Math.round(g.fx.main.bigBudget * 1.9);
     g.events.push({ type: 'collapseStart' });
@@ -432,7 +446,7 @@ export class SetPieces {
     }
     // detached floors: ballistic, tumbling, then they hit the canyon floor
     for (const f of C.flying) {
-      if (f.rest) continue;
+      if (f.rest) { if ((f.sink ?? 0) < 5) { f.sink = (f.sink || 0) + dt * 1.6; f.o.position.y -= dt * 1.6; } continue; } // rubble settles into its own dust
       f.v.y -= 9.8 * dt * 0.85;
       f.o.position.addScaledVector(f.v, dt);
       _q.setFromAxisAngle(_v.copy(f.w).normalize(), f.w.length() * dt); f.o.quaternion.premultiply(_q);
@@ -447,8 +461,8 @@ export class SetPieces {
         f.o.position.y += gy - lo;
         if (!f.hit) this._chunkImpact(f);
         f.hit++;
-        f.v.y = Math.abs(f.v.y) * 0.08; f.v.x *= 0.5; f.v.z *= 0.55; f.w.multiplyScalar(0.45);
-        f.bury = Math.min(4, f.bury + 1.2);
+        f.v.y = Math.abs(f.v.y) * 0.08; f.v.x *= 0.4; f.v.z *= 0.3; f.w.multiplyScalar(0.4);
+        f.bury = Math.min(7, f.bury + 2.2);
         if (f.hit > 3 || f.v.lengthSq() < 4) { f.rest = true; this._rubble(f); }
       }
     }
@@ -463,7 +477,7 @@ export class SetPieces {
     v.y = clamp(v.y, -14, 2);
     // aim the landing: floors come down along the avenue, the closest one just behind the player
     const tFall = (v.y + Math.sqrt(v.y * v.y + 2 * 8.3 * Math.max(1, c.position.y))) / 8.3;
-    const zMax = Math.min(-96, g.headPos.z - 13) - range(0, 18);
+    const zMax = Math.min(-112, g.headPos.z - 32) - range(0, 14); // centre of a 38 m deep slab: its near edge lands ~13 m behind you
     v.z = clamp(v.z, 3, Math.max(3, (zMax - c.position.z) / tFall)); v.x += range(-1.5, 1.5) + Math.sign(c.position.x) * range(0.5, 2);
     const w = new THREE.Vector3(C.om * range(0.8, 1.6) + range(0.05, 0.25), range(-0.25, 0.25), range(-0.2, 0.2) + Math.sign(c.position.x) * -0.15);
     C.flying.push({ o: c, v, w, hit: 0, bury: 0, rest: false });
@@ -491,7 +505,7 @@ export class SetPieces {
     for (const s of g.soldiers) if (s.alive && s.pos.distanceTo(P) < 14) g.killSoldier(s, _v.subVectors(s.pos, P).normalize().clone(), 3, false);
     if (dp < 9) g.hurt(25, P);
     if (!C.firstLand) { C.firstLand = true; this.startDust(P.z + 10); g.events.push({ type: 'firstLand', P }); }
-    if (dp < 34 && !C.closeCall) { C.closeCall = true; g.slowmo(2.6, 0.28, true); g.events.push({ type: 'closeCall', P }); }
+    if (dp < 48 && !C.closeCall) { C.closeCall = true; g.slowmo(2.6, 0.28, true); g.events.push({ type: 'closeCall', P }); }
   }
   _rubble(f) {
     // resting slab becomes cover/blocker (coarse AABB)
@@ -516,6 +530,7 @@ export class SetPieces {
     D.still = (g.playerSpeed || 0) < 1.2 ? D.still + dt : Math.max(0, D.still - dt * 2);
     const gapT = safe ? -30 : D.still > 1.5 ? -6 : (g.trailer ? 7 : 8);
     D.gap = damp(D.gap, gapT, safe ? 0.8 : 1.5, dt);
+    D.v = head.z - D.gap - D.z > 25 ? 32 : 18;
     D.z = Math.min(D.z + D.v * dt, head.z - D.gap);
     if (safe) D.z += D.v * dt * 0.6;
     const zf = D.z;

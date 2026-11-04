@@ -106,7 +106,7 @@ export class Traffic {
     g.audio.stopLoop('car_alarm:' + c.i);
     g.events.push({ type: 'carBoom', c, P });
     // a door / hood / bumper comes off
-    for (let i = 0; i < 4; i++) g.fx.spawnDebris(P, range(-9, 9), range(8, 15), range(-9, 9), range(0.35, 0.7), chance(0.5));
+    for (let i = 0; i < 4; i++) g.fx.spawnDebris(P, range(-9, 9), range(8, 15), range(-9, 9), range(0.2, 0.42), chance(0.5));
   }
 
   // ------------------------------------------------------------ per frame

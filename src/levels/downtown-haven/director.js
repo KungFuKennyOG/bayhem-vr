@@ -108,17 +108,23 @@ export class Director {
         }, until: (t) => (t > 6 && alive(s => s.role !== 'sniper') === 0 && setp.lobbyDone) || t > 110 * T },
       { name: 'collapse', wp: V(subTop.x, 2.4, subTop.z), music: 1.0, dusk: 0.38, enter: () => {
           hud.objective('RUN! Get underground — the subway!');
-          setp.startCollapse();
+          later(1.0, () => setp.startCollapse());
           say('Meridian\'s coming down! It\'s coming DOWN THE AVENUE! RUN!', 3);
           later(3.5, () => say('The subway — back by the intersection! GO GO GO!', 3));
           // kill anything left (they run too)
           for (const s of g.soldiers) if (s.alive && s.role === 'sniper') s.delay = 999;
-          A?.go([ground(19.6, -88.6, { sprint: true }), ground(14.4, -88.4, { sprint: true }), ground(12.6, -74, { sprint: true }), ground(13.7, -46, { sprint: true }), { p: V(subTop.x, 0, SUBWAY.zTop + 0.6), nav: null, sprint: true }, { p: V(subTop.x, 0, SUBWAY.zBot + 1.5), nav: null, sprint: true, tol: 0.8 }]);
+          A?.go([ground(19.6, -88.6, { sprint: true }), ground(14.4, -88.4, { sprint: true }), ground(6.5, -82, { sprint: true }), ground(5.5, -52, { sprint: true }), ground(11.2, -44.5, { sprint: true }), ground(13.7, -43.2, { sprint: true }), { p: V(subTop.x, 0, SUBWAY.zTop + 0.6), nav: null, sprint: true }, { p: V(subTop.x, 0, SUBWAY.zBot + 1.5), nav: null, sprint: true, tol: 0.8 }]);
         }, update: (t) => {
           for (const e of g.events) {
-            if (e.type === 'collapseFall') { g.cinematicLook = V(0, 62, -150); g.cinematicW = 2.6; later(2.4, () => { g.cinematicLook = null; }); }
+            if (e.type === 'collapseFall') this.lookBack = 1; // as soon as you're out on the street
             if (e.type === 'closeCall') { g.cinematicLook = e.P.clone().setY(9); g.cinematicW = 3.2; later(trailer ? 2.0 : 2.4, () => { g.cinematicLook = null; }); later(0.6, () => say('DON\'T LOOK BACK! DUST! THERE\'S A WALL OF DUST!', 2.6)); }
           }
+          // the dust wall catches up: one last look over the shoulder in slow-mo, then dive
+          const D = setp.dust;
+          if (D && !this.dustLook && pz() - D.z < 15 && pz() < SUBWAY.zTop - 4) { this.dustLook = true; g.slowmo(2.2, 0.32, true); g.cinematicLook = V(px(), 9, D.z); g.cinematicW = 3.2; later(trailer ? 1.8 : 2.2, () => { g.cinematicLook = null; }); }
+          if (this.dustLook && g.cinematicLook && D) g.cinematicLook.set(px(), 9, D.z - 4);
+          // the look back down the avenue at the leaning tower, once you're out of the lobby
+          if (this.lookBack === 1 && px() < LOBBY.x0 - 1) { this.lookBack = 2; g.cinematicLook = V(0, 52, -165); g.cinematicW = 2.4; later(trailer ? 2.6 : 3.2, () => { g.cinematicLook = null; }); }
         }, until: () => g.rig.position.y < -1.4 && pz() > SUBWAY.zTop + 2 },
       { name: 'dive', wp: null, music: 1.0, dusk: 0.42, enter: () => {
           g.slowmo(2.6, 0.3, true);
