@@ -4,14 +4,19 @@ WebXR VR shooter for Quest 3 (three.js r170 + Vite). Michael Bay spectacle, poli
 
 ## Commands
 - `npm run dev` (port 5173) · `npm run build` (dist/, deployed to GitHub Pages by .github/workflows/deploy.yml) · `npm run build:single` (one HTML file)
-- Screenshots in the cloud sandbox (no GPU, SwiftShader ≈1 s/frame at 720p): `PRE="js" POST="js" node tools/shot.cjs "<query>" <outprefix> <frame,frame,...>` — renders only the listed frames, simulation runs without rendering in between. Query flags: `capture=1` (implied), `trailer=1`, `sandbox=1&yaw=..&pitch=..`.
-- Trailer: build to `dist-capture/`, serve it on 5174 (not the dev server — HMR reloads break long captures), `node tools/capture.cjs <outdir>` → `video.mp4` + `audio-events.json`; then `node tools/render-soundtrack.cjs <events.json> <out.wav>` (needs the dev server for /src/audio.js) and mux with ffmpeg.
+- Screenshots in the cloud sandbox (no GPU, SwiftShader ≈1 s/frame at 720p): `PRE="js" POST="js" node tools/shot.cjs "<query>" <outprefix> <frame,frame,...>` — renders only the listed frames, simulation runs without rendering in between. Query flags: `capture=1` (implied), `level=<id>` (default `the-405-job`), `trailer=1`, `sandbox=1&yaw=..&pitch=..`. Level 2 extras: `beat=<name>` jumps to a beat (teleports, lights, dusk), `px/py/pz` place the player, `dusk=0..1` (sandbox). Playwright is global: run node with `NODE_PATH=/opt/npm-tools/node_modules`.
+- Asset viewer: `node model-test/shot.cjs "mod=/src/...js&fn=<builder>&cx..&az..&el..&dist..&dusk..&sunel.." out.jpg` renders any builder that returns `{root}` with the game's lighting.
+- Trailer: build to `dist-capture/`, serve it on 5174 (not the dev server — HMR reloads break long captures), `QUERY=level=<id> node tools/capture.cjs <outdir>` → `video.mp4` + `audio-events.json`; then `node tools/render-soundtrack.cjs <events.json> <out.wav>` (needs the dev server for /src/audio.js) and mux with ffmpeg.
+
+## Layout
+- `src/` = shared engine (atmosphere, particles, fx, characters, weapons, audio, hud, physics, collision, locomotion, player, vehicles, heli). `src/main.js` boots the engine and lazy-loads one level.
+- `src/levels/<id>/index.js` exports `create(E)` returning `{ game, player, warm, start(), step(sdt, started), frame?(), ammoText(), state(), director }`; register the level in `src/levels/index.js`.
 
 ## Conventions / gotchas
 - Deterministic: never `Math.random` in game code; use `rand/range` (seeded stream) or `makeRng(seed)` from `src/rng.js`.
-- Level 1 is a treadmill: truck at the origin, world scrolls toward +z at `V`; "anchored" particles get `+dz`. On-foot levels should use ground speed 0.
+- Level 1 is a treadmill: truck at the origin, world scrolls toward +z at `V`; "anchored" particles get `+dz`. On-foot levels use ground speed 0, a `CollisionWorld` (AABB grid: walls, rays, ground heights) and `NavGrid` A* (src/collision.js); `fx.setGround(fn)` + `Ragdoll.world` make particles/debris/bodies land on decks and container tops.
 - Global shader patches live in `src/atmosphere.js` (`bayGrade` color grade, sun-aware fog, sun rim light). Custom ShaderMaterials must include `<tonemapping_fragment>` + `<colorspace_fragment>` to get the grade.
-- Fixed pool of 3 point lights (`fx.light`) — never add/remove lights at runtime (shader recompiles). Warm up new materials in `main.js` before gameplay.
+- Fixed pool of 3 point lights (`fx.light`) plus any lights a level creates at load (Level 2: 2 sodium lights that hop between the nearest lit masts) — never add/remove lights at runtime (shader recompiles). Warm up new materials via the level's `warm` group (main.js compiles it before gameplay).
 - `Object3D.lookAt` points +z at the target; guns/vehicles face -z → `rotateY(Math.PI)` after lookAt.
 - Fire/smoke particles are premultiplied: RGB = emission, A = smoke coverage. Use `fx.trailEmit` for moving emitters (no "string of pearls").
 - Quest budget: no screen-space post, instancing for repeated props, ≤2 draw calls per character, keep particles in the shared batches.

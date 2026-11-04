@@ -3,6 +3,8 @@
 BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model, texture or audio files.
 
 ## Status
+- **Level 2, "Port of Victory" (on foot, docks at dusk), is done** — see its section below and `src/levels/port-of-victory/DESIGN.md`.
+- **The repo is multi-level:** shared engine in `src/`, one folder per level in `src/levels/<id>/` (lazy-loaded), a level-select menu, `?level=<id>` in the URL.
 - **Level 1, "The 405 Job" (freeway chase), is done.** The player rides in a pickup bed.
   - Five beats: SUV wave, SUV wave plus one from ahead, fuel tanker, a four-SUV box-in, then the gunship "WIDOWMAKER", which crashes ahead of the truck.
   - It has animated skinned soldiers with ragdolls, hero guns with gloved hands, a procedural adaptive score and SFX, an in-shader color grade and rim light, and slow-mo.
@@ -16,17 +18,24 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **Engine:** stay in WebXR with three.js. Keep the art pipeline: procedural geometry and canvas/shader textures, with no screen-space post-processing. Grade, rim light and glows live in material shaders or sprites so they're free on Quest.
 
 ## Reusable modules (src/)
+- **`collision.js`** (new): `CollisionWorld` (AABB grid: `pushCircle` for bodies, `raycast`/`visible` for bullets and line of sight, `groundAt` for floors/ramps/box tops, `collidePoint` for particles) and `NavGrid` (A* + string pulling, dynamic blockers).
+- **`locomotion.js`** (new): smooth stick/WASD movement relative to the head, comfort vignette, 45° snap turn around the head, ground following, no walking off ledges; room-scale intrusions into walls push the rig back.
+- **`soundbus.js`**: the live/recording audio bus (was in main.js).
 - **`atmosphere.js`:** sunset sky shader, sun-aware fog, PMREM environment. The global shader patches add the color grade (`bayGrade`), fog toward the sun, and a sun rim light on every lit material.
 - **`particles.js`:** a GPU-generated FX atlas with 64-frame fire and smoke flipbooks, plus an instanced billboard renderer that draws in one call and supports stretched sparks.
 - **`fx.js`:** layered explosions (flash, fireballs, mushroom, oily smoke, sparks, embers, debris, shockwave ring, scorch decal, pooled lights). Also tracers, muzzle flashes, casings, and `trailEmit` for continuous smoke trails.
-- **`characters.js`:** sculpted skinned `Gunman` soldiers (window/roof poses, aiming, fire, hit, reload; 3 headgear variants; one draw call each), the verlet `Ragdoll` (the game also pushes ragdolls out of car bodies via `game.collideRagdoll`), and the animated sidekick `Driver` + `DRIVER_SEAT`. On-foot levels need new poses: stand, crouch, walk, run, take cover, and ground-based aiming. Build them on the same skeleton/mesh pipeline.
+  - Per-level look knobs: `fx.heat` (fire emission), `fx.fireHue` (0 = white-hot Level 1 look, 1 = orange core / deep-red edges with an early dark smoke shroud, no white blow-outs), `fx.smokeMul`.
+  - `fx.setGround(fn)` for on-foot levels (particles, debris, casings, scorch land on decks/container tops). `spawnDebris(..., burning = 2)` = heavy wreckage trailing a fat black smoke ribbon.
+  - Particles: `spawn({ force: true })` bypasses `bigBudget` (only for one-off hero effects like the Level 2 finale).
+- **`characters.js`:** `new Gunman({ outfit: 'port' })` gives the Level 2 dock-worker look (navy workwear, hi-vis carrier, reflective bands); `setGunmanLook({ lift, band })` keeps dark cloth readable at dusk (defaults 0 = Level 1 unchanged); `blobShadowMaterial/Geometry` for contact shadows.
+- **`characters.js`:** sculpted skinned `Gunman` soldiers (window/roof poses, aiming, fire, hit, reload; 3 headgear variants; one draw call each), the verlet `Ragdoll` (the game also pushes ragdolls out of car bodies via `game.collideRagdoll`), and the animated sidekick `Driver` + `DRIVER_SEAT`. Also the on-foot **ground** pose (stand, crouch, walk/run/strafe gait with 2-bone leg IK, peek lean, low-ready run, grenade throw) and `Ragdoll.world` (a CollisionWorld, so bodies land on decks/container tops and go to sleep).
 - **`weapons.js`:**
   - `buildRifle` and `buildLauncher` with gloved hands and animations (bolt, mag swap, drum, ammo counter).
   - The `Gun` state machine.
   - `VR_HOLD` offsets for the Quest controllers, which still need tuning on a headset.
 - **`audio.js`:** `AudioSystem` (procedural SFX, loops, 128 BPM D-minor adaptive score, stingers, bullet-time) and `renderOffline` for trailers.
 - **`physics.js`:** a small rigid box against a moving ground plane. On foot, the ground velocity is 0.
-- **`hud.js`:** world-space callouts, subtitles, score panel, boss bar, vignettes.
+- **`hud.js`:** world-space callouts (queued in two lanes, at most one big + one small line at a time, duplicates dropped), subtitles, score panel, boss bar, vignettes, comfort vignette, `objective()` (large text on a plate), `setWaypoint()`, `danger()` grenade markers. A title with `life > 900` (the outro card) hides the gameplay HUD (`hud.endCard(on)`).
 - **`director.js`:** scripted beats with `until` conditions, music intensity and radio chatter.
 - **`tools/capture.cjs` and `tools/render-soundtrack.cjs`:** deterministic headless trailer capture plus offline soundtrack mux. URL flags: `?capture&trailer`, `?demo`, `?sandbox`.
 
@@ -43,7 +52,15 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 
 ## Level briefs
 
-### Level 2: PORT OF VICTORY (on foot)
+### Level 2: PORT OF VICTORY (on foot) — DONE
+Built as briefed. Code: `src/levels/port-of-victory/` (`layout.js` maze + positions, `world.js` environment/lights/collision, `ai.js` soldiers, `game.js` combat, `setpieces.js` crane/forklift/ship finale, `director.js` beats, `auto.js` demo autopilot; assets in `ship.js`, `containers.js`, `props.js`). Beats: intro at the wreck → gate → maze (two waves, lights flicker on) → RTG crane drops a box on you (shoot the operator) → apron forklift with fuel drums → board the ship → shoot the fuel manifold → escape down the gangway → mushroom fireball in slow-mo → outro. Golden hour → blue hour is driven by `game.dusk` (`atmosphere.applyDusk`). Test any beat with `?level=port-of-victory&beat=<name>`.
+Level 2 notes for the next chats:
+- The finale mushroom is `mushroom.js`: five noise-displaced shader shells (core, stem, rolling toroidal cap, dome, base skirt) that cool from fire into black smoke, plus forced particles for soft edges. Reuse it for any "big one" (Level 3 tower collapse dust, Level 4 jet explosions).
+- Explosions in this level use `fx.fireHue = 1` (orange/red + dark smoke). Level 1 keeps the old look.
+- Environment pieces: `water.js` (harbour water), `far.js` (far shore / skyline with dusk windows), `decals.js` (ground grime, puddles), `warehouses.js`, `ship-detail.js` (hull plating, walkway, breaches, burnt state).
+- Polish status: independent screenshot reviews went 5 → 5.5 → 6.3 → 6.5 → 6.5 → 6.5 over the passes (environment/lighting/containers ≈ 8, finale + ship hull the weak spots). The last two reviews mostly asked for scale/readability (bigger hull breaches, a meatier mushroom cap, a ship hull with more shape, busier apron ground) and for things that exist but read small at 720p (mooring lines, quay fenders, alarm beacons, pipe jets, puddles). Next levers if someone continues: a real lofted hull with bow flare, a volumetric-looking cap (raymarched noise sprite or many lit puffs), apron clutter props.
+- Still to verify on a Quest 3: frame time during the finale (mushroom shells + forced particles are the heaviest moment), sodium light hopping, `VR_HOLD`.
+Original brief:
 - **Setting:** docks at dusk, the same golden hour drifting toward blue hour. Container stacks form a maze, gantry cranes and a moored cargo ship sit at the edge, with sodium lights flickering on.
 - **Beats:**
   1. Bail out of the wrecked truck at the port gate.

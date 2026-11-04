@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><title>L2 audio test</title></head><body><pre id="log"></pre>
+<script type="module">
+// Level 2 sound verification helpers (driven by l2.cjs).
+import { AudioSystem, renderOffline, audioBufferToWav } from '/src/audio.js';
+function b64(ab) { const u = new Uint8Array(ab); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+window.L2_ONESHOTS = ['step_concrete','step_metal','step_run','container_slam','container_dent','container_doors','crane_alarm','crane_release','barrel_hit','barrel_hiss','barrel_explode','grenade_bounce','grenade_pin','glass_break','ship_horn','metal_groan','alarm_klaxon','radio_squelch','body_fall','gear_rattle','fuel_whoomp'];
+window.L2_LOOPS = ['harbor','crane_motor','forklift','fire_big','sodium_hum'];
+window.REF = ['explosion_big','impact_metal','rifle','metal_crash','fire'];
+
+// raw baked buffers: init a system and inspect this.buf (every variant), plus per-bake timing
+window.rawBakes = async () => {
+  const sys = new AudioSystem(); const t0 = performance.now();
+  await sys.init(new OfflineAudioContext(2, 48000, 48000)); const ms = performance.now() - t0;
+  const out = {};
+  for (const [k, arr] of Object.entries(sys.buf)) {
+    out[k] = arr.map((buf) => {
+      let nan = 0, pk = 0, ss = 0, n = 0;
+      for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) { const x = d[i]; if (!Number.isFinite(x)) nan++; else { const a = Math.abs(x); if (a > pk) pk = a; ss += x * x; n++; } } }
+      return { dur: +buf.duration.toFixed(3), ch: buf.numberOfChannels, nan, pk: +pk.toFixed(3), rms: +(10 * Math.log10(ss / n + 1e-15)).toFixed(1) };
+    });
+  }
+  return { ms, out };
+};
+// play a list of [t, type, name, opts] events through the real runtime path; return wav
+window.renderEvents = async (ev, dur) => {
+  const t0 = performance.now();
+  const buf = await renderOffline(ev, dur, 48000);
+  return { ms: performance.now() - t0, wav: b64(audioBufferToWav(buf)) };
+};
+// dump every baked variant of the given names (raw, pre-mix) as one wav, 1.0 s gap between variants
+window.dumpRaw = async (names, gap = 0.5) => {
+  const sys = new AudioSystem(); await sys.init(new OfflineAudioContext(2, 48000, 48000));
+  const bufs = names.flatMap((n) => sys.buf[n] || []), sr = 48000;
+  const len = bufs.reduce((a, b) => a + Math.ceil(b.duration * sr) + gap * sr, 0), out = new AudioBuffer({ length: len, sampleRate: sr, numberOfChannels: 2 });
+  let o = 0; const marks = [];
+  for (const b of bufs) { // naive resample (linear) to 48k for analysis
+    const r = b.sampleRate / sr, n = Math.ceil(b.duration * sr);
+    for (let ch = 0; ch < 2; ch++) { const s = b.getChannelData(Math.min(ch, b.numberOfChannels - 1)), d = out.getChannelData(ch); for (let i = 0; i < n; i++) { const x = i * r, k = Math.floor(x), f = x - k; d[o + i] = (s[k] ?? 0) * (1 - f) + (s[k + 1] ?? 0) * f; } }
+    marks.push(+(o / sr).toFixed(3)); o += n + gap * sr;
+  }
+  return { marks, wav: b64(audioBufferToWav(out)) };
+};
+window.timeInit = async () => { const t0 = performance.now(); const s = new AudioSystem(); await s.init(new OfflineAudioContext(2, 48000, 48000)); return performance.now() - t0; };
+window.__loaded = true;
+</script></body></html>

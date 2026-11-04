@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { rand, range, pick, chance, clamp, lerp, damp } from './rng.js';
-import { buildSUV, buildSedan, buildTanker, buildPickup, MAT, addBulletHole } from './vehicles.js';
-import { Gunman, Driver, DRIVER_SEAT } from './characters.js';
+import { rand, range, pick, chance, clamp, lerp, damp } from '../../rng.js';
+import { buildSUV, buildSedan, buildTanker, buildPickup, MAT, addBulletHole } from '../../vehicles.js';
+import { Gunman, Driver, DRIVER_SEAT } from '../../characters.js';
 let gunmanSeed = 1;
-import { buildHeli } from './heli.js';
-import { RigidBox } from './physics.js';
+import { buildHeli } from '../../heli.js';
+import { RigidBox } from '../../physics.js';
 import { LANES } from './world.js';
-import { CELL } from './particles.js';
+import { CELL } from '../../particles.js';
 
 export const V = 31; // truck ground speed m/s (~112 km/h)
 const ONCOMING_LANES = [-13.25, -16.95, -20.65, -24.35];
@@ -166,6 +166,36 @@ export class Game {
   }
 
   enemiesAlive() { return this.cars.filter(c => c.team === 'enemy' && c.state === 'drive').length + (this.heli && this.heli.alive ? 1 : 0); }
+
+  // ---------------- player hooks (autopilot / aim assist / HUD) ----------------
+  get boss() { const h = this.heli; return h && h.phase !== 'enter' && h.alive ? { frac: h.hp / h.maxHp, name: 'GUNSHIP  "WIDOWMAKER"' } : null; }
+  aimAssistPoints(tryP) {
+    for (const c of this.cars) for (const gm of c.gunmen) if (gm.alive) tryP(gm.g.chestCenter.getWorldPosition(new THREE.Vector3()));
+    for (const r of this.rockets) tryP(r.pos);
+  }
+  autoTargets(A, head) {
+    const candidates = [];
+    for (const r of this.rockets) { const d = r.pos.distanceTo(head); if (d < 70 && d > 6) candidates.push({ kind: 'rocket', p: r.pos, score: 120 - d, ref: r }); }
+    for (const c of this.cars) {
+      if (c.state !== 'drive') continue;
+      const d = c.pos.distanceTo(head);
+      if (c.isTanker && d < 95 && d > 12) candidates.push({ kind: 'car', p: c.center(new THREE.Vector3()), score: 70 - d * 0.3, ref: c });
+      if (c.team !== 'enemy') continue;
+      for (const gm of c.gunmen) if (gm.alive && d < 75) {
+        const p = gm.g.chestCenter.getWorldPosition(new THREE.Vector3());
+        candidates.push({ kind: 'gunman', p, score: 60 - d * 0.6 + (A.target?.ref === gm ? 25 : 0), ref: gm });
+      }
+      if (!c.gunmen.some(x => x.alive) && d < 70) candidates.push({ kind: 'car', p: c.center(new THREE.Vector3()), score: 30 - d * 0.4 + (A.target?.ref === c ? 20 : 0), ref: c });
+    }
+    const h = this.heli;
+    if (h && h.alive && h.phase === 'fight') candidates.push({ kind: 'heli', p: h.pos, score: 35 + (A.target?.ref === h ? 20 : 0) + (h.hp < h.maxHp * 0.3 ? 45 : 0), ref: h });
+    // cinematic beats: watch the gunship go down / look at the end title
+    if (h && h.phase === 'dying') { candidates.length = 0; candidates.push({ kind: 'look', p: h.pos, score: 999, ref: h, w: 9 }); }
+    else if (this.cinematicLook && !candidates.some(c => c.kind === 'rocket')) { candidates.length = 0; candidates.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: 9 }); }
+    return candidates;
+  }
+  autoTargetDead(t) { return (t.kind === 'gunman' && !t.ref.alive) || (t.kind === 'car' && t.ref.state !== 'drive') || (t.kind === 'rocket' && t.ref.dead); }
+  autoAimPoint(t, out) { return t.kind === 'gunman' ? t.ref.g.chestCenter.getWorldPosition(out) : t.kind === 'car' ? t.ref.center(out) : out.copy(t.p); }
 
   // ---------------- player weapon fire ----------------
   fireRay(origin, dir, gunKind) {

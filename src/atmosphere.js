@@ -92,6 +92,34 @@ vec3 bayGrade(vec3 c){
   }
 }
 
+// Golden hour -> blue hour. One shared uniform drives the sky; applyDusk() moves the lights, fog and grade with it.
+export const duskShared = { value: 0 };
+const GOLD = {
+  sun: new THREE.Color(1.0, 0.62, 0.34), sunI: 4.8, hemiSky: new THREE.Color(0.5, 0.62, 0.95), hemiGround: new THREE.Color(0.6, 0.4, 0.26), hemiI: 0.95,
+  fog: new THREE.Color(0.86, 0.50, 0.36), fogSun: [2.3, 0.95, 0.36], rim: [1.6, 0.85, 0.45],
+};
+const BLUE = {
+  sun: new THREE.Color(1.0, 0.36, 0.16), sunI: 0.5, hemiSky: new THREE.Color(0.30, 0.42, 0.95), hemiGround: new THREE.Color(0.22, 0.16, 0.16), hemiI: 0.62,
+  fog: new THREE.Color(0.20, 0.17, 0.30), fogSun: [1.1, 0.34, 0.14], rim: [0.75, 0.32, 0.2],
+};
+const _ca = new THREE.Color();
+export function applyDusk(k, { sun, hemi, fog, renderer } = {}) {
+  k = Math.min(1, Math.max(0, k));
+  duskShared.value = k;
+  const L = (a, b) => a + (b - a) * k;
+  if (sun) { sun.color.copy(GOLD.sun).lerp(BLUE.sun, k); sun.intensity = L(GOLD.sunI, BLUE.sunI); }
+  if (hemi) { hemi.color.copy(GOLD.hemiSky).lerp(BLUE.hemiSky, k); hemi.groundColor.copy(GOLD.hemiGround).lerp(BLUE.hemiGround, k); hemi.intensity = L(GOLD.hemiI, BLUE.hemiI); }
+  if (fog) fog.color.copy(_ca.copy(GOLD.fog).lerp(BLUE.fog, k));
+  fogShared.sunColor.r = L(GOLD.fogSun[0], BLUE.fogSun[0]); fogShared.sunColor.g = L(GOLD.fogSun[1], BLUE.fogSun[1]); fogShared.sunColor.b = L(GOLD.fogSun[2], BLUE.fogSun[2]);
+  rimShared.color.r = L(GOLD.rim[0], BLUE.rim[0]); rimShared.color.g = L(GOLD.rim[1], BLUE.rim[1]); rimShared.color.b = L(GOLD.rim[2], BLUE.rim[2]);
+  if (renderer) renderer.toneMappingExposure = L(1.0, 1.32);
+}
+// put the sun at a given elevation (degrees) keeping its azimuth
+export function setSunElevation(deg, azimuthFrom = SUN_DIR) {
+  const h = Math.hypot(azimuthFrom.x, azimuthFrom.z) || 1, a = deg * Math.PI / 180;
+  SUN_DIR.set(azimuthFrom.x / h * Math.cos(a), Math.sin(a), azimuthFrom.z / h * Math.cos(a)).normalize();
+}
+
 const _v = new THREE.Vector3();
 export function updateFogView(camera) {
   // camera.matrixWorldInverse rotates world dir into view space
@@ -102,6 +130,7 @@ export function updateFogView(camera) {
 const skyGLSL = /* glsl */`
 uniform vec3 sunDir;
 uniform float time;
+uniform float dusk; // 0 = golden hour, 1 = blue hour (sun under the horizon)
 varying vec3 vDir;
 float h21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
 float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.-2.*f);
@@ -110,21 +139,25 @@ float fbm(vec2 p){ float s=0., a=.5; for(int i=0;i<5;i++){ s+=a*vnoise(p); p*=2.
 vec3 skyCol(vec3 d){
   float h = d.y;
   float sa = max(dot(d, sunDir), 0.0);
-  vec3 zenith = vec3(0.035, 0.11, 0.27);
-  vec3 midAway = vec3(0.20, 0.30, 0.48);
-  vec3 horAway = vec3(0.86, 0.50, 0.36);
-  vec3 horSun  = vec3(2.3, 0.95, 0.36);
+  vec3 zenith = mix(vec3(0.035, 0.11, 0.27), vec3(0.010, 0.025, 0.085), dusk);
+  vec3 midAway = mix(vec3(0.20, 0.30, 0.48), vec3(0.055, 0.075, 0.19), dusk);
+  vec3 horAway = mix(vec3(0.86, 0.50, 0.36), vec3(0.30, 0.20, 0.33), dusk);
+  vec3 horSun  = mix(vec3(2.3, 0.95, 0.36), vec3(1.25, 0.36, 0.12), dusk);
   vec3 hor = mix(horAway, horSun, pow(sa, 3.0));
   float hh = max(h, 0.0);
   vec3 c = mix(hor, mix(midAway, zenith, smoothstep(0.15, 0.7, hh)), smoothstep(0.0, 0.28, pow(hh, 0.75)));
   // warm wash toward the sun across the sky
-  c += vec3(1.3, 0.55, 0.16) * pow(sa, 3.0) * (1.0 - smoothstep(0.0, 0.55, hh));
-  c += vec3(0.5, 0.18, 0.05) * pow(sa, 1.5) * (1.0 - smoothstep(0.0, 0.3, hh));
-  c += vec3(1.6, 0.8, 0.35) * pow(sa, 48.0);
-  c += vec3(4.0, 2.6, 1.4) * pow(sa, 600.0);
+  float dk = 1.0 - 0.6 * dusk;
+  c += vec3(1.3, 0.55, 0.16) * pow(sa, 3.0) * (1.0 - smoothstep(0.0, 0.55, hh)) * dk;
+  c += vec3(0.5, 0.18, 0.05) * pow(sa, 1.5) * (1.0 - smoothstep(0.0, 0.3, hh)) * dk;
+  c += vec3(1.6, 0.8, 0.35) * pow(sa, 48.0) * dk;
+  c += vec3(4.0, 2.6, 1.4) * pow(sa, 600.0) * (1.0 - dusk);
+  // blue hour: a band of afterglow along the whole western horizon, stars overhead
+  c += vec3(0.55, 0.16, 0.06) * dusk * pow(max(0.0, dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(sunDir.x, 0.0, sunDir.z)))), 2.0) * (1.0 - smoothstep(0.0, 0.18, hh));
+  if (dusk > 0.01) { vec2 sp = d.xz / (h + 0.35) * 420.0; float st = step(0.9982, h21(floor(sp))) * smoothstep(0.3, 0.75, h) * (1.0 - smoothstep(0.02, 0.12, dot(c, vec3(0.3, 0.5, 0.2)))); c += vec3(0.9, 0.95, 1.1) * st * dusk * dusk * 0.7 * (0.6 + 0.4 * sin(time * 3.0 + h21(floor(sp) + 7.0) * 40.0)); }
   // sun disk
   float disk = smoothstep(0.99955, 0.99975, sa);
-  c = mix(c, vec3(28.0, 18.0, 9.0), disk);
+  c = mix(c, mix(vec3(28.0, 18.0, 9.0), vec3(18.0, 6.0, 1.5), dusk), disk);
   // below horizon -> haze
   if (h < 0.0) c = mix(hor, hor * 0.55, smoothstep(0.0, -0.2, h));
   // clouds
@@ -135,8 +168,8 @@ vec3 skyCol(vec3 d){
     float n2 = fbm(uv * vec2(0.9, 0.3) + 9.0);
     float cov = smoothstep(0.48, 0.78, n * 0.75 + n2 * 0.45);
     cov *= smoothstep(0.0, 0.06, h) * (1.0 - smoothstep(0.35, 0.8, h));
-    vec3 lit = mix(vec3(1.25, 0.52, 0.34), vec3(2.8, 1.3, 0.5), pow(sa, 2.0));
-    vec3 shade = mix(vec3(0.20, 0.15, 0.28), vec3(0.62, 0.26, 0.16), pow(sa, 2.0));
+    vec3 lit = mix(vec3(1.25, 0.52, 0.34), vec3(2.8, 1.3, 0.5), pow(sa, 2.0)) * mix(1.0, 0.42, dusk) + vec3(0.12, 0.0, 0.14) * dusk;
+    vec3 shade = mix(vec3(0.20, 0.15, 0.28), vec3(0.62, 0.26, 0.16), pow(sa, 2.0)) * mix(1.0, 0.35, dusk);
     float rim = smoothstep(0.3, 1.0, n2);
     vec3 cc = mix(shade, lit, 0.35 + 0.65 * rim);
     cc += vec3(3.0, 1.5, 0.6) * pow(sa, 14.0) * 1.2;
@@ -148,7 +181,7 @@ vec3 skyCol(vec3 d){
 
 export function createSky() {
   const mat = new THREE.ShaderMaterial({
-    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 } },
+    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 }, dusk: duskShared },
     vertexShader: /* glsl */`
       varying vec3 vDir;
       void main(){
@@ -175,7 +208,7 @@ export function createSky() {
 export function createEnvironment(renderer) {
   const s = new THREE.Scene();
   const mat = new THREE.ShaderMaterial({
-    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 } },
+    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 }, dusk: duskShared },
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
     fragmentShader: skyGLSL + `void main(){ vec3 d = normalize(vDir); vec3 c = skyCol(d);
       // darker ground hemisphere so cars get a horizon line
@@ -218,7 +251,10 @@ export function createLights(scene, shadowSize) {
   scene.add(hemi);
   return { sun, hemi };
 }
+const _sd = new THREE.Vector3();
 export function updateSun(sun, center) {
-  sun.target.position.set(center.x, 0, center.z - 10);
-  sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 140);
+  sun.target.position.set(center.x, center.y > 2 ? center.y - 1.7 : 0, center.z - 10);
+  // the light never goes under the horizon (shadows from below would be nonsense); the sky sun can
+  _sd.copy(SUN_DIR); if (_sd.y < 0.045) { _sd.y = 0.045; _sd.normalize(); }
+  sun.position.copy(sun.target.position).addScaledVector(_sd, 140);
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pick, range } from './rng.js';
+import { pick, range } from '../../rng.js';
 
 // Scripted set piece: "THE 405 JOB" — a highway chase in five beats.
 export class Director {

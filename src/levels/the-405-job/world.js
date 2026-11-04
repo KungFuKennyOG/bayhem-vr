@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import * as T from './textures.js';
-import { box, at, cyl, profileStrip, merge, mergeGrouped, mergeGeometries } from './geom.js';
+import * as T from '../../textures.js';
+import { box, at, cyl, profileStrip, merge, mergeGrouped, mergeGeometries } from '../../geom.js';
 function merge2(a, b) {
   // a has its own groups (materials 0..2), b has grouped materials -> merge keeping indices
   const A = a.index ? a.toNonIndexed() : a;
@@ -12,9 +12,9 @@ function merge2(a, b) {
   for (const g of b.groups) out.addGroup(offs + g.start, g.count, g.materialIndex);
   return out;
 }
-import { makeRng } from './rng.js';
-import { BillboardBatch, CELL } from './particles.js';
-import { SUN_DIR } from './atmosphere.js';
+import { makeRng } from '../../rng.js';
+import { BillboardBatch, CELL } from '../../particles.js';
+import { SUN_DIR } from '../../atmosphere.js';
 
 // World layout (relative frame: truck at origin, driving toward -z; world scrolls toward +z)
 export const LANES = [-5.55, -1.85, 1.85, 5.55];
