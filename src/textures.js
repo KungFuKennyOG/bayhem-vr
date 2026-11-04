@@ -84,11 +84,11 @@ export function roadTextures() {
     for (let x = 0; x < W; x++) {
       const u = x / W, xm = x / pxX, i = y * W + x;
       const large = fbm(n2, u, v, 3, 3), mid = fbm(n1, u, v, 12, 2), fine = n3(u * 256, v * 128);
-      let b = 0.5 + (large - 0.5) * 0.1 + (mid - 0.5) * 0.06 + (fine - 0.5) * 0.06;
+      let b = 0.5 + (large - 0.5) * 0.12 + (mid - 0.5) * 0.06 + (fine - 0.5) * 0.025;
       let rr = 0.88 + (mid - 0.5) * 0.1, h = fine * 0.45, w = 0;
       const g = r();
-      if (g > 0.968) { b += 0.08 + r() * 0.16; h += 0.55; w = (r() - 0.5) * 0.08; rr += 0.05; }
-      else if (g < 0.045) { b -= 0.07 + r() * 0.05; h -= 0.35; }
+      if (g > 0.975) { b += 0.03 + r() * 0.06; h += 0.35; w = (r() - 0.5) * 0.04; rr += 0.03; }
+      else if (g < 0.035) { b -= 0.03 + r() * 0.025; h -= 0.2; }
       if (xm < LANE0 || xm > LANE1) {
         const dust = fbm(n4, u, v, 4, 3);
         b += 0.055 + (dust - 0.5) * 0.1; w += 0.03;
@@ -97,7 +97,7 @@ export function roadTextures() {
         const d1 = lp - 0.92, d2 = lp - 2.78;
         const wv = 0.7 + 0.3 * mid;
         const wear = (Math.exp(-d1 * d1 / 0.075) + Math.exp(-d2 * d2 / 0.075)) * wv;
-        b -= wear * 0.06; rr -= wear * 0.25; h *= 1 - wear * 0.55;
+        b -= wear * 0.085; rr -= wear * 0.25; h *= 1 - wear * 0.55;
         const dc = lp - 1.85, ob = Math.exp(-dc * dc / 0.1);
         const blot = Math.min(1, Math.max(0, fbm(n5, u * 2, v * 2, 16, 2) - 0.47) * 4.5);
         const oil = ob * blot;
@@ -142,20 +142,20 @@ export function roadTextures() {
   for (const lx of [LANE0, 5.3, 9.0, 12.7, LANE1]) {
     const p = new Path2D(); let x = (lx + 0.28 + (r() - 0.5) * 0.08) * pxX; p.moveTo(x, -4);
     for (let y = 0; y <= H + 8; y += 24) { x += (r() - 0.5) * 3; p.lineTo(x, y); }
-    feat({ c: 'rgba(20,19,19,0.7)', r: grey(0.42), h: grey(0.65) }, p, false, 3.5);
+    feat({ c: 'rgba(52,46,40,0.32)', r: grey(0.42), h: grey(0.6) }, p, false, 2.2);
   }
   for (let k = 0; k < 17; k++) {
     const p = new Path2D(); let x = r() * W, y = r() * H, ang = k < 6 ? (r() < 0.5 ? 0 : Math.PI) + (r() - 0.5) * 0.4 : r() * Math.PI * 2;
     p.moveTo(x, y); const steps = 10 + r() * (k < 6 ? 60 : 30);
     for (let s = 0; s < steps; s++) { ang += (r() - 0.5) * 0.9; x += Math.cos(ang) * 9; y += Math.sin(ang) * 9; p.lineTo(x, y); }
-    feat({ c: `rgba(22,20,19,${0.4 + r() * 0.3})`, r: grey(0.45), h: grey(0.6) }, p, false, 1.5 + r() * 2.5);
-    feat({ c: 'rgba(0,0,0,0.5)', r: null, h: grey(0.05) }, p, false, 0.8);
+    feat({ c: `rgba(58,50,43,${0.14 + r() * 0.12})`, r: grey(0.45), h: grey(0.55) }, p, false, 0.8 + r() * 1.0);
+    feat({ c: 'rgba(20,18,16,0.18)', r: null, h: grey(0.1) }, p, false, 0.5);
   }
   // oil spots along the lane centres
   for (let k = 0; k < 70; k++) {
     const lane = Math.floor(r() * 4), cx = (LANE0 + lane * 3.7 + 1.85 + (r() - 0.5) * 0.7) * pxX, cy = r() * H, rr0 = 3 + r() * 14;
-    const p = new Path2D(); p.ellipse(cx, cy, rr0 * (0.6 + r() * 0.5), rr0 * (0.8 + r()), r() * 3, 0, Math.PI * 2);
-    feat({ c: `rgba(14,12,10,${0.2 + r() * 0.35})`, r: grey(0.3, 0.7), h: null }, p, true);
+    const p = new Path2D(); p.ellipse(cx, cy, rr0 * (0.35 + r() * 0.3), rr0 * (1.6 + r() * 1.6), (r() - 0.5) * 0.3, 0, Math.PI * 2);
+    feat({ c: `rgba(22,18,14,${0.07 + r() * 0.12})`, r: grey(0.3, 0.7), h: null }, p, true);
   }
   // skid marks (somebody else had a Bay day too)
   for (let k = 0; k < 3; k++) {
@@ -534,7 +534,7 @@ export function billboardTexture(kind) {
     g.addColorStop(0, '#f6d23a'); g.addColorStop(1, '#e08a14');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#1a1208'; ctx.font = '400 72px Anton, Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('HURT IN A CHASE? CALL VINNY', W / 2, H * 0.42);
+    ctx.fillText('CHASE GONE BAD? CALL VINNY', W / 2, H * 0.42);
     ctx.font = '700 32px Oswald, sans-serif'; ctx.fillText('1-800-WRECKED', W / 2, H * 0.8);
   } else {
     g.addColorStop(0, '#f0e2c0'); g.addColorStop(1, '#c9a56a');

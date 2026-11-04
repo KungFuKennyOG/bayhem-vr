@@ -45,7 +45,7 @@ export function initMaterials() {
   MAT.charred = new THREE.MeshStandardMaterial({ color: 0x0e0b09, metalness: 0.3, roughness: 0.85, emissive: 0x2a0a00, emissiveIntensity: 0.6 });
   // vertex-coloured so the chassis kit (rails, exhaust, tank, spare) reads on flipped wrecks
   MAT.underbody = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.35, roughness: 0.72, envMapIntensity: 0.8 });
-  MAT.interior = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.0, roughness: 0.78, envMapIntensity: 0.5 });
+  MAT.interior = new THREE.MeshStandardMaterial({ color: 0x8a8580, vertexColors: true, metalness: 0.0, roughness: 0.8, envMapIntensity: 0.35 });
   MAT.skins = [0xd8a283, 0xb57c58, 0x8d5a3b, 0x5e3b27].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, envMapIntensity: 0.6 }));
   // player truck
   MAT.paintRed = new THREE.MeshPhysicalMaterial({ color: 0x7c0d09, metalness: 0.25, roughness: 0.2, ior: 1.7, envMapIntensity: 1.5 });

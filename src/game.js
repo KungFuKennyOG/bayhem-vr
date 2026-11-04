@@ -617,8 +617,9 @@ export class Game {
         c.pos.z += c.vel.z * dt;
         // hard constraint: never overlap the player's truck (truck spans z -3.1..2.8, half width 1.05)
         const odx = c.pos.x - this.truckX, overlapZ = Math.abs(c.pos.z - c.hitboxCenter.z + 0.15) < c.hitboxHalf.z + 3.0;
-        const minX = c.hitboxHalf.x + 1.12;
-        if (overlapZ && Math.abs(odx) < minX) { c.pos.x = this.truckX + Math.sign(odx || 1) * minX; if (Math.sign(c.vel.x) === -Math.sign(odx)) c.vel.x = 0; }
+        const minX = c.hitboxHalf.x + 1.4; // body + mirrors never cross the bed rail
+        if (Math.abs(odx) < minX && c.pos.z > 0 && c.pos.z - c.hitboxHalf.z < 3.6) { c.pos.z = 3.6 + c.hitboxHalf.z; if (c.vel.z < 0) c.vel.z = 0; }
+        else if (overlapZ && Math.abs(odx) < minX) { c.pos.x = this.truckX + Math.sign(odx || 1) * minX; if (Math.sign(c.vel.x) === -Math.sign(odx)) c.vel.x = 0; }
         c.pos.x = clamp(c.pos.x, -7.6, 8.0);
         c.groundSpeed = V - c.vel.z;
         c.yaw = damp(c.yaw, -Math.atan2(c.vel.x, Math.max(5, c.groundSpeed)) + (c.yawWobble || 0), 8, dt);

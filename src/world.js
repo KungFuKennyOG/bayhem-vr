@@ -379,6 +379,7 @@ export class World {
       parts.push([at(box(110, 1.1, 0.35, 4), 0, deckY + 1.85, deckD / 2 - 0.17), 0]);
       parts.push([at(box(110, 1.1, 0.35, 4), 0, deckY + 1.85, -deckD / 2 + 0.17), 0]);
       for (let gx = -4; gx <= 4; gx++) parts.push([at(box(110, 1.0, 0.5, 4), 0, deckY - 0.45, gx * 1.4), 1]);
+      parts.push([at(box(110, 0.04, deckD - 0.4), 0, deckY - 0.97, 0), 3]); // dark sooty soffit (no light gets under the deck)
       for (const px of [-9.4, 12.2, -31.5]) {
         parts.push([at(box(1.2, 0.9, deckD - 1, 4), px, deckY - 1.2, 0), 1]);
         for (const pz of [-4, 0, 4]) parts.push([at(cyl(0.6, 0.7, deckY - 1.4, 12), px, (deckY - 1.4) / 2, pz), 0]);
@@ -389,8 +390,9 @@ export class World {
       parts.push([at(box(9, 2.4, 0.2), 1.5, deckY + 3.4, deckD / 2 + 0.2), 2]);
       parts.push([at(box(0.2, 1.4, 0.2), -2, deckY + 2.2, deckD / 2 + 0.2), 1]);
       parts.push([at(box(0.2, 1.4, 0.2), 5, deckY + 2.2, deckD / 2 + 0.2), 1]);
-      const { geometry } = mergeGrouped(parts, 3);
-      const mesh = new THREE.InstancedMesh(geometry, [m0, m1, m2], 3);
+      const { geometry } = mergeGrouped(parts, 4);
+      const soffit = new THREE.MeshBasicMaterial({ color: 0x1d1a17 });
+      const mesh = new THREE.InstancedMesh(geometry, [m0, m1, m2, soffit], 3);
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
       this.group.add(mesh);
       const sc = new Scroller(mesh, 3, SPAN / 3, 120, () => {});
