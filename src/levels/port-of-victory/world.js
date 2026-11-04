@@ -214,7 +214,7 @@ export class PortWorld {
       const gh = propM.buildGatehouse(); gh.root.position.set(12, 0, 30); gh.root.rotation.y = -Math.PI / 2; grp.add(gh.root);
       this.gatehouse = gh; this._addCol(gh, gh.root);
       // the truck went through the boom barrier: it hangs snapped
-      if (gh.anchors?.barrier) gh.anchors.barrier.rotation.z += -1.1;
+      if (gh.anchors?.barrier) { gh.anchors.barrier.rotation.z = -0.62; gh.anchors.barrier.rotation.x = 0.25; }
       const sg = propM.buildSignGantry(); sg.root.position.set(0, 0, 27); grp.add(sg.root); this._addCol(sg, sg.root);
       for (const [x0, x1] of [[-82, -9.5], [9.5, 82]]) {
         const f = propM.buildFence(x1 - x0); f.root.position.set((x0 + x1) / 2, 0, GATE_Z); grp.add(f.root); this._addCol(f, f.root);
