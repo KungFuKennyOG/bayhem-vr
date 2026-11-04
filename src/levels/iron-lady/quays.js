@@ -459,6 +459,8 @@ function trees(S) {
       if (STAIRS.some(([xt, b]) => b === s && x > xt - 4 && x < xt + 1.5)) continue;
       if (lampXs.some((lx) => Math.abs(lx - x) < 2.2)) continue;
       if (rng() < 0.06) continue;   // a missing tree here and there
+      // the south quay between the bridge and x 150 stays open: the view of the tower falling from the lower quay
+      if (s < 0 && x > 16 && x < 150) continue;
       const lod = x < -130 || x > 330 ? 1 : 0;
       planeTree(S, x + (rng() - 0.5) * 0.8, s * (55.6 + (rng() - 0.5) * 0.5), rng, lod);
     }

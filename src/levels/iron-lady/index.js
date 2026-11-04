@@ -35,6 +35,8 @@ export async function create(E) {
   { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.09; o.g1 = 0.07; o.b1 = 0.06; } } return spawn(o); }; }
   const world = await new IronWorld(E).build();
   const game = new IronGame(E, world);
+  // dark smoke puffs: keep them warm brown-black (the grade's teal split-tone turns neutral greys teal at night)
+  { const c = game.clouds, spawn = c.spawn.bind(c); c.spawn = (o) => { if ((o.r ?? 0.5) < 0.3 && Math.abs((o.r ?? 0) - (o.b ?? 0)) < 0.05) { o.r *= 1.22; o.g *= 1.02; o.b *= 0.72; if (o.r1 !== undefined) { o.r1 *= 1.18; o.b1 *= 0.75; } } return spawn(o); }; }
   game.dusk = night0;
   const setp = new SetPieces(game);
   game.setpieces = setp;

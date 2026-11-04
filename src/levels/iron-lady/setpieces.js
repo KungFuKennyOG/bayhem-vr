@@ -796,7 +796,10 @@ export class SetPieces {
       const y = (onRiver ? WATER_Y : groundAt(Wl.x, z)) + range(0, 4);
       const crest = rand() < 0.4;
       const k = range(0.8, 1.1);
-      this.clouds.spawn({ x: Wl.x + range(-4, 2), y: crest ? y + range(10, 26) : y + range(1, 6), z, vx: range(8, 12), vy: crest ? range(-1, 2) : range(1, 4), vz: range(-1, 1), drag: 0.35, buoy: 0, s0: range(7, 11), s1: range(22, 34), life: range(4.5, 6.5), a: 0.95, fadeIn: 0.06, fadeOut: 0.4, vrot: range(-0.3, 0.3), r: (onRiver ? 0.13 : 0.15) * k, g: (onRiver ? 0.14 : 0.13) * k, b: (onRiver ? 0.17 : 0.12) * k, r1: 0.08, g1: 0.08, b1: 0.09, glow: Wl.t < 6 ? 0.6 : 0.2, glowFade: 1.5 });
+      // a low rolling front: many smaller puffs hugging the water/quay, a ragged crest, no clean cumulus
+      this.clouds.spawn({ x: Wl.x + range(-5, 2), y: crest ? y + range(6, 16) : y + range(0.5, 4), z, vx: range(8, 12), vy: crest ? range(-0.5, 1.5) : range(0.3, 2), vz: range(-1.5, 1.5), drag: 0.4, buoy: 0, s0: range(4, 7), s1: range(12, 20), life: range(3.5, 5), a: 0.85, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.4, 0.4), r: (onRiver ? 0.11 : 0.13) * k, g: (onRiver ? 0.11 : 0.11) * k, b: (onRiver ? 0.12 : 0.09) * k, r1: 0.07, g1: 0.065, b1: 0.06, glow: 0.12, glowFade: 1.5 });
+      // spray sheets and grit streaking ahead of it
+      if (rand() < 0.6) g.fx.main.spawn({ x: Wl.x + range(0, 6), y: y + range(0.3, 3), z: z * 0.8, vx: range(10, 16), vy: range(0, 2), vz: range(-1, 1), drag: 0.8, frame: CELL.WISP, s0: 1.5, s1: range(5, 9), life: range(1.2, 2), rot: rand() * 6, r: 0.3, g: 0.31, b: 0.33, a: 0.45, fadeIn: 0.05, fadeOut: 0.5 });
     }
     const d = head.x - Wl.x;
     g.fogMix.k = damp(g.fogMix.k, clamp(1 - (d - 3) / 18, 0, 0.85) * (riding ? 0.4 : 1), 1.5, dt);
