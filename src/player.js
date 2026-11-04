@@ -241,6 +241,7 @@ export class Player {
       const sp = 0.006 + (this.auto ? 0.004 : 0);
       dir.x += range(-sp, sp); dir.y += range(-sp, sp); dir.z += range(-sp, sp); dir.normalize();
       const hit = g.fireRay(origin, dir);
+      g.hud?.setLastHit?.(hit.point);
       g.playerShot(this.mode === 'vr' ? origin : mz, hit.point.clone().sub(this.mode === 'vr' ? origin : mz).normalize(), 'rifle');
       g.fx.muzzle(mz, dir, 'rifle', true);
       g.fx.light(mz, 6, 0.05, 0xffb060, false, 6);

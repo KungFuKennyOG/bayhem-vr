@@ -112,6 +112,11 @@ export class HUD {
     this.marker = plane(hmt, 0.06, 0.06); this.marker.position.set(0, 0, -1.2); this.marker.material.opacity = 0;
     this.root.add(this.marker);
     this.markerT = 0;
+    // VR: there is no screen-centre crosshair (you aim with your hands), so the marker sits on the hit point
+    // in the world instead, at a constant angular size
+    this.markerW = new THREE.Sprite(new THREE.SpriteMaterial({ map: hmt, depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false, opacity: 0 }));
+    this.markerW.renderOrder = 141; this.markerW.visible = false; scene.add(this.markerW);
+    this.lastHit = new THREE.Vector3(); this.lastHitT = -1;
     // crosshair (desktop only)
     const ch = document.createElement('canvas'); ch.width = ch.height = 64;
     const cx = ch.getContext('2d'); cx.fillStyle = 'rgba(255,240,220,0.9)'; cx.shadowColor = 'rgba(0,0,0,0.9)'; cx.shadowBlur = 4;
@@ -213,7 +218,16 @@ export class HUD {
     this.warn.scale.setScalar(1 + 0.15 * Math.sin(performance.now() * 0.02));
   }
 
-  hitMarker(big) { this.markerT = 0.12; this.marker.scale.setScalar(big ? 1.5 : 1); }
+  hitMarker(big) {
+    this.markerT = 0.12; this.markerBig = big ? 1.5 : 1; this.marker.scale.setScalar(this.markerBig);
+    if (this.vr) {
+      // hits that didn't come from a recent bullet (grenade splash, scripted damage): no honest place to draw it
+      if ((this._clock || 0) - this.lastHitT > 0.4) { this.markerT = 0; return; }
+      this.markerW.position.copy(this.lastHit);
+    }
+  }
+  // the player's latest bullet end point (VR hit marker anchor)
+  setLastHit(p) { this.lastHit.copy(p); this.lastHitT = this._clock || 0; }
 
   // queue a world-space callout; lanes keep at most one big + one small on screen (see _laneUpdate)
   callout(text, pos, style = 'big', sub = null) {
@@ -361,6 +375,7 @@ export class HUD {
   }
 
   update(rdt, game, camPos) {
+    this._clock = (this._clock || 0) + rdt;
     this._rdt = rdt;
     this._laneUpdate(rdt);
     // callouts: pop in, drift up, keep constant angular size
@@ -391,7 +406,9 @@ export class HUD {
       if (k >= 1 && t.life < 900) { this.scene.remove(t.s); this.title = null; }
     }
     this.markerT -= rdt;
-    this.marker.material.opacity = this.markerT > 0 ? 1 : 0;
+    this.marker.material.opacity = this.markerT > 0 && !this.vr ? 1 : 0;
+    this.markerW.visible = this.vr && this.markerT > 0;
+    if (this.markerW.visible) { const d = Math.max(0.5, this.markerW.position.distanceTo(camPos)); this.markerW.scale.setScalar(d * 0.05 * this.markerBig); this.markerW.material.opacity = 1; }
     this.subT -= rdt;
     this.sub.material.opacity = Math.max(0, Math.min(1, this.subT * 3));
     const hurtA = Math.min(1, game.hurtFlash * 0.9 + (game.hp < 40 ? (40 - game.hp) / 40 * 0.55 : 0));
