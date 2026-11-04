@@ -75,15 +75,15 @@ function stoneTexture() {
   const n = makeTileNoise(51), n2 = makeTileNoise(52);
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const u = x / S, v = y / S;
-    const st = fbmT(n, u, v, 2, 24, 4), bl = fbmT(n2, u, v, 4, 4, 3);
-    const b = 0.86 + (st - 0.5) * 0.32 + (bl - 0.5) * 0.12;
+    const st = fbmT(n, u, v, 4, 16, 4), bl = fbmT(n2, u, v, 4, 4, 3);
+    const b = 0.9 + (st - 0.5) * 0.12 + (bl - 0.5) * 0.16;
     const i = (y * S + x) * 4;
     d[i] = 226 * b; d[i + 1] = 210 * b; d[i + 2] = 186 * b; d[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
   const r = makeRng(53);
-  for (let k = 0; k < 1400; k++) { ctx.fillStyle = `rgba(110,86,60,${0.12 + r() * 0.2})`; ctx.beginPath(); ctx.ellipse(r() * S, r() * S, 1 + r() * 4, 0.6 + r() * 1.2, 0, 0, 6.283); ctx.fill(); }
-  ctx.fillStyle = 'rgba(86,70,54,0.55)';
+  for (let k = 0; k < 1400; k++) { ctx.fillStyle = `rgba(150,120,88,${0.15 + r() * 0.25})`; ctx.beginPath(); ctx.ellipse(r() * S, r() * S, 1 + r() * 4, 0.6 + r() * 1.2, 0, 0, 6.283); ctx.fill(); }
+  ctx.fillStyle = 'rgba(96,80,64,0.5)';
   for (let row = 0; row < 4; row++) {
     const y = row * 128; ctx.fillRect(0, y, S, 2);
     const off = row % 2 ? 128 : 0;
@@ -241,8 +241,8 @@ export async function buildLobby(ctx = {}) {
   const root = new THREE.Group(); root.name = 'havenTrustLobby';
   const colliders = [], panes = [];
   const rng = makeRng(0x4a7e);
-  const L = { stone: [], bronze: [], steel: [], wood: [], misc: [], light: [], signs: [], letters: [], halo: [], led: [], glass: [], pools: [], shafts: [], inlay: [] };
-  const W = [1, 1, 1], DARK = [0.3, 0.27, 0.25], CREAM = [1.0, 0.97, 0.92], PLASTER = [1.0, 0.99, 0.96], EXT = [0.9, 0.85, 0.78];
+  const L = { ceil: [], stone: [], bronze: [], steel: [], wood: [], misc: [], light: [], signs: [], letters: [], halo: [], led: [], glass: [], pools: [], shafts: [], inlay: [] };
+  const W = [1, 1, 1], DARK = [0.3, 0.27, 0.25], CREAM = [1.0, 0.97, 0.92], PLASTER = [1.0, 0.99, 0.96], EXT = [0.9, 0.85, 0.78], GRAN = [0.2, 0.19, 0.2];
   const B = (list, x0, y0, z0, x1, y1, z1, col = W, uv = 2.4) => {
     const g = box(x1 - x0, y1 - y0, z1 - z0, uv); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     tint(g, ...col); list.push(g); return g;
@@ -253,27 +253,27 @@ export async function buildLobby(ctx = {}) {
   // ------------------------------------------------------------ textures & materials
   const marble = marbleTexture(), stoneT = stoneTexture(), woodT = woodTexture(), metalT = metalTexture(9);
   const { tex: atlas } = atlasTexture();
-  const ledT = atlas.clone(); ledT.wrapS = THREE.RepeatWrapping; ledT.needsUpdate = true;
+  atlas.wrapS = THREE.RepeatWrapping;   // only the LED row (full atlas width) ever samples outside [0,1] in u
   const M = {
     floor: new THREE.MeshStandardMaterial({ map: marble, roughness: 0.13, metalness: 0, envMapIntensity: 1.5 }),
     inlay: new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.5, roughness: 0.12, envMapIntensity: 1.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     stone: new THREE.MeshStandardMaterial({ map: stoneT, vertexColors: true, roughness: 0.42, metalness: 0, envMapIntensity: 0.7 }),
-    bronze: new THREE.MeshStandardMaterial({ map: metalT, color: 0xb07a46, metalness: 0.75, roughness: 0.3, envMapIntensity: 1.2 }),
+    bronze: new THREE.MeshStandardMaterial({ map: metalT, color: 0x8c7660, metalness: 0.8, roughness: 0.3, envMapIntensity: 1.3 }),
     steel: new THREE.MeshStandardMaterial({ map: metalT, color: 0xd8dce0, metalness: 0.7, roughness: 0.28, envMapIntensity: 1.3 }),
     wood: new THREE.MeshStandardMaterial({ map: woodT, roughness: 0.42, metalness: 0, envMapIntensity: 0.6 }),
+    ceil: new THREE.MeshStandardMaterial({ map: stoneT, color: 0xf4ece0, emissive: 0xb8a690, emissiveMap: stoneT, emissiveIntensity: 0.8, roughness: 0.6, envMapIntensity: 0.3 }),
     misc: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0, envMapIntensity: 0.6 }),
     light: new THREE.MeshStandardMaterial({ color: 0xfff4e6, emissive: 0xffdcb0, emissiveIntensity: 2.6, roughness: 0.5 }),
     signs: new THREE.MeshStandardMaterial({ map: atlas, emissiveMap: atlas, emissive: 0xffffff, emissiveIntensity: 1.4, alphaTest: 0.5, roughness: 0.35 }),
     letters: new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.5, color: 0xd9a565, metalness: 0.85, roughness: 0.28, emissive: 0xffb466, emissiveMap: atlas, emissiveIntensity: 0.45, envMapIntensity: 1.3, side: THREE.DoubleSide }),
     halo: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.62, 0.3), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
-    led: new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0xffffff, emissiveMap: ledT, emissiveIntensity: 1.7, roughness: 0.22, metalness: 0 }),
+    led: new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0xffffff, emissiveMap: atlas, emissiveIntensity: 1.7, roughness: 0.22, metalness: 0 }),
     glass: new THREE.MeshStandardMaterial({ color: 0xa8bcc0, transparent: true, opacity: 0.2, roughness: 0.05, metalness: 0.6, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.2 }),
     pools: new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.0, 0.78, 0.52).multiplyScalar(0.22), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     shafts: new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }),
   };
-  M.light.userData.duskEmissive = undefined;                 // interior lighting stays on all evening
   M.letters.userData.duskEmissive = 0.45;
-  const canopyLight = M.light.clone(); canopyLight.emissiveIntensity = 2.4; canopyLight.userData.duskEmissive = 2.4;
+  const canopyLight = M.light.clone(); canopyLight.color.set(0x2a2622); canopyLight.emissive.set(0xffc890); canopyLight.emissiveIntensity = 1.6; canopyLight.userData.duskEmissive = 1.6;
   L.canopy = [];
   M.canopy = canopyLight;
 
@@ -287,14 +287,14 @@ export async function buildLobby(ctx = {}) {
   }
   BC(L.stone, X1, 0, ZL0, XB, RY, ZL1, CREAM, 'wall', 'concrete');
   // spandrel above the glass (lettering zone) + cornice at the glass head
-  BC(L.stone, X0 - 0.15, TIER.head, Z0, X0 + 0.6, RY, Z1, EXT, 'wall', 'concrete');
+  BC(L.stone, X0 - 0.15, TIER.head, Z0, X0 + 0.6, RY - 0.25, Z1, GRAN, 'wall', 'concrete');
   B(L.bronze, X0 - 0.28, TIER.head - 0.08, Z0, X0 + 0.62, TIER.head + 0.1, Z1);
-  B(L.stone, X0 - 0.3, RY - 0.25, ZL0, X0, RY, ZL1, EXT);                          // roof-line band
+  B(L.stone, X0 - 0.3, RY - 0.25, Z0, X0, RY, Z1, EXT);                          // roof-line band
   // podium roof slab around the atrium lightwell
   const holes = [[X0, ZL0, SKY.x0, ZL1], [SKY.x1, ZL0, XB, ZL1], [SKY.x0, ZL0, SKY.x1, SKY.z0], [SKY.x0, SKY.z1, SKY.x1, ZL1]];
   for (const [xa, za, xb, zb] of holes) {
     BC(L.stone, xa, RY - 0.4, za, xb, RY, zb, [0.55, 0.53, 0.5], 'roof', 'concrete');
-    B(L.stone, Math.max(xa, X0 + 0.01), CY, Math.max(za, Z0), Math.min(xb, X1), CY + 0.2, Math.min(zb, Z1), PLASTER);   // ceiling
+    B(L.ceil, Math.max(xa, X0 + 0.01), CY, Math.max(za, Z0), Math.min(xb, X1), CY + 0.2, Math.min(zb, Z1), W, 3.6);   // ceiling
   }
   // parapets: avenue edge (PARAPET 1.05 x 0.35, flush with the facade) + the other edges, coping
   BC(L.stone, X0, RY, ZL0, X0 + 0.35, RY + 1.05, ZL1, EXT, 'parapet', 'concrete');
@@ -345,7 +345,8 @@ export async function buildLobby(ctx = {}) {
         const cz0 = za - 0.9, cz1 = zb + 0.9, cx = X0 - 3.0, cy = 5.05;
         B(L.bronze, cx, cy, cz0, X0 - 0.1, cy + 0.28, cz1);
         B(L.stone, cx + 0.15, cy + 0.28, cz0 + 0.15, X0 - 0.1, cy + 0.36, cz1 - 0.15, DARK);
-        B(L.canopy, cx + 0.3, cy - 0.02, cz0 + 0.3, X0 - 0.4, cy, cz1 - 0.3);
+        B(L.misc, cx + 0.3, cy - 0.01, cz0 + 0.3, X0 - 0.4, cy, cz1 - 0.3, [0.12, 0.11, 0.1]);
+        for (let zz = cz0 + 0.9; zz < cz1 - 0.5; zz += 1.2) for (const xx of [cx + 0.9, X0 - 1.0]) B(L.canopy, xx - 0.14, cy - 0.025, zz - 0.14, xx + 0.14, cy - 0.01, zz + 0.14);
         for (const z of [cz0 + 0.3, cz1 - 0.3]) {
           const dx = X0 - 0.1 - (cx + 0.3), dy = 8.0 - (cy + 0.28), len = Math.hypot(dx, dy);
           const g = new THREE.CylinderGeometry(0.035, 0.035, len, 6); tint(g, 1, 1, 1);
@@ -429,7 +430,7 @@ export async function buildLobby(ctx = {}) {
     const g = quad([X1 - 0.19, (ly0 + ly1) / 2, (lz0 + lz1) / 2], [0, 0, 1], [0, 1, 0], lz1 - lz0, ly1 - ly0, [0, 0.006, (lz1 - lz0) / (ly1 - ly0) / 4, 0.244]);
     L.led.push(g);
     // mezzanine doors (dark glazed openings) flanking the LED wall
-    for (const z of [-121, -88]) { B(L.misc, X1 - 0.05, MEZ.top, z - 1.5, X1 - 0.02, MEZ.top + 2.7, z + 1.5, [0.08, 0.08, 0.09]); B(L.bronze, X1 - 0.12, MEZ.top, z - 1.6, X1 - 0.04, MEZ.top + 2.8, z + 1.6); }
+    for (const z of [-121, -88]) { B(L.misc, X1 - 0.14, MEZ.top, z - 1.45, X1 - 0.125, MEZ.top + 2.65, z + 1.45, [0.05, 0.05, 0.06]); B(L.bronze, X1 - 0.12, MEZ.top, z - 1.6, X1 - 0.04, MEZ.top + 2.8, z + 1.6); }
   }
 
   // ------------------------------------------------------------ elevator bank (back wall, under the mezzanine)
@@ -451,7 +452,7 @@ export async function buildLobby(ctx = {}) {
 
   // ------------------------------------------------------------ security turnstiles
   {
-    const tx = 38.6;
+    const tx = 39.0;
     for (let k = 0; k < 9; k++) {
       const z = -109.5 + k * 1.5;
       B(L.steel, tx - 0.6, FY, z - 0.1, tx + 0.6, 1.0, z + 0.1);
@@ -516,14 +517,14 @@ export async function buildLobby(ctx = {}) {
     }
     C(x0 - 0.12, 0, z0 - 0.08, x1, 1.12, z1 + 0.08, 'desk', 'wood');
     // logo wall: walnut slats, bronze frame, glowing emblem + name
-    const wx = 34.0, wz0 = -108.5, wz1 = -99.5, wy = 6.0;
+    const wx = 34.0, wz0 = -107.8, wz1 = -100.2, wy = 6.0;
     B(L.wood, wx, FY, wz0, wx + 0.5, wy, wz1, W, 1.2);
     for (let z = wz0 + 0.15; z < wz1 - 0.1; z += 0.3) B(L.wood, wx - 0.07, FY + 0.15, z - 0.05, wx, wy - 0.15, z + 0.05, W, 1.2);
     B(L.bronze, wx - 0.1, wy, wz0 - 0.05, wx + 0.55, wy + 0.12, wz1 + 0.05);
     B(L.bronze, wx - 0.1, FY, wz0 - 0.05, wx + 0.55, FY + 0.15, wz1 + 0.05);
-    B(L.stone, wx - 0.12, 2.6, -106.2, wx - 0.07, 4.9, -101.8, [0.16, 0.14, 0.13]);
-    L.signs.push(quad([wx - 0.13, 3.85, -104], [0, 0, 1], [0, 1, 0], 2.0, 2.0, uvr(A.EMB, 1)));
-    L.letters.push(quad([wx - 0.13, 3.0, -104], [0, 0, 1], [0, 1, 0], 3.8, 0.6, uvr(A.LET, 1)));
+    B(L.stone, wx - 0.12, 2.35, -106.2, wx - 0.07, 5.05, -101.8, [0.16, 0.14, 0.13]);
+    L.signs.push(quad([wx - 0.13, 4.05, -104], [0, 0, 1], [0, 1, 0], 1.8, 1.8, uvr(A.EMB, 1)));
+    L.letters.push(quad([wx - 0.13, 2.78, -104], [0, 0, 1], [0, 1, 0], 3.8, 0.594, uvr(A.LET, 1)));
     C(wx - 0.1, 0, wz0, wx + 0.55, wy + 0.12, wz1, 'wall', 'wood');
   }
 
@@ -539,16 +540,16 @@ export async function buildLobby(ctx = {}) {
 
   // ------------------------------------------------------------ seating groups (leather sofas, tables, rugs)
   function seating(cx, cz) {
-    const LEATHER = [0.36, 0.17, 0.08], RUG = [0.2, 0.08, 0.06];
+    const LEATHER = [0.2, 0.085, 0.045], RUG = [0.16, 0.07, 0.06];
     B(L.misc, cx - 2.2, FY, cz - 2.6, cx + 2.2, FY + 0.018, cz + 2.6, RUG);
-    B(L.misc, cx - 2.0, FY + 0.018, cz - 2.4, cx + 2.0, FY + 0.02, cz + 2.4, [0.55, 0.36, 0.2]);
+    B(L.misc, cx - 2.0, FY + 0.018, cz - 2.4, cx + 2.0, FY + 0.02, cz + 2.4, [0.42, 0.3, 0.2]);
     for (const s of [-1, 1]) {
       const zf = cz + s * 1.05, zb = cz + s * 1.95;
       const za = Math.min(zf, zb), zz = Math.max(zf, zb);
       B(L.misc, cx - 1.25, FY + 0.08, za, cx + 1.25, FY + 0.45, zz, LEATHER);                         // seat
       B(L.misc, cx - 1.25, FY + 0.08, s < 0 ? za : zz - 0.25, cx + 1.25, FY + 0.85, s < 0 ? za + 0.25 : zz, LEATHER);   // back
       for (const e of [-1, 1]) B(L.misc, cx + e * 1.25 - (e > 0 ? 0.2 : 0), FY + 0.08, za, cx + e * 1.25 + (e < 0 ? 0.2 : 0), FY + 0.66, zz, LEATHER);
-      for (let k = 0; k < 3; k++) B(L.misc, cx - 1.05 + k * 0.72, FY + 0.45, za + (s < 0 ? 0.25 : 0.05), cx - 0.4 + k * 0.72, FY + 0.53, zz - (s < 0 ? 0.05 : 0.25), [0.42, 0.21, 0.1]);
+      for (let k = 0; k < 3; k++) B(L.misc, cx - 1.05 + k * 0.72, FY + 0.45, za + (s < 0 ? 0.25 : 0.05), cx - 0.4 + k * 0.72, FY + 0.53, zz - (s < 0 ? 0.05 : 0.25), [0.25, 0.11, 0.055]);
       B(L.steel, cx - 1.3, FY, za + 0.05, cx + 1.3, FY + 0.08, zz - 0.05);
       C(cx - 1.25, 0, za, cx + 1.25, FY + 0.85, zz, 'seating', 'wood');
     }
@@ -563,8 +564,8 @@ export async function buildLobby(ctx = {}) {
       C(ax - 0.4, 0, cz - 0.45, ax + 0.4, FY + 0.85, cz + 0.45, 'seating', 'wood');
     }
   }
-  seating(25, -87.6);
-  seating(25, -120.4);
+  seating(24.6, -87.6);
+  seating(24.6, -120.4);
 
   // ------------------------------------------------------------ planters with ficus trees
   function planter(px, pz, s = 1.5, h = 0.9, tree = 1) {
@@ -575,14 +576,16 @@ export async function buildLobby(ctx = {}) {
     L.misc.push(tint(at(new THREE.CylinderGeometry(0.06, 0.1, th, 7), px, h + th / 2, pz), 0.34, 0.26, 0.18));
     for (let k = 0; k < 5; k++) {
       const a = k * 2.4 + rng() * 0.6, rr = k === 0 ? 0 : 0.55 + rng() * 0.3;
-      let g = new THREE.IcosahedronGeometry((0.65 + rng() * 0.35) * tree, 1);
+      let g = new THREE.IcosahedronGeometry((0.65 + rng() * 0.35) * tree, 2);
       const p = g.attributes.position, col = [];
       for (let i = 0; i < p.count; i++) {
         p.setXYZ(i, p.getX(i) * (1 + (rng() - 0.5) * 0.2), p.getY(i) * 0.8, p.getZ(i) * (1 + (rng() - 0.5) * 0.2));
         const v = 0.75 + rng() * 0.45, up = p.getY(i) > 0 ? 1.15 : 0.8;
         col.push(0.13 * v * up, 0.27 * v * up, 0.09 * v * up);
       }
-      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      const nr = []; for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3(p.getX(i), p.getY(i) * 1.4, p.getZ(i)).normalize(); nr.push(v.x, v.y, v.z); }
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nr, 3));
       at(g, px + Math.cos(a) * rr, h + th - 0.1 + (k === 0 ? 0.5 : rng() * 0.4) * tree, pz + Math.sin(a) * rr); L.misc.push(g);
     }
   }
@@ -631,7 +634,7 @@ export async function buildLobby(ctx = {}) {
   }
 
   // ------------------------------------------------------------ meshes
-  const order = [['stone', true], ['bronze', true], ['steel', true], ['wood', true], ['misc', true], ['light', false], ['canopy', false],
+  const order = [['ceil', false], ['stone', true], ['bronze', true], ['steel', true], ['wood', true], ['misc', true], ['light', false], ['canopy', false],
     ['signs', false], ['letters', false], ['inlay', false], ['halo', false], ['led', false], ['glass', false], ['pools', false], ['shafts', false]];
   const meshes = {};
   for (const [k, cast] of order) {
@@ -660,7 +663,7 @@ export async function buildLobby(ctx = {}) {
     doors: DOORS.map(([a, b]) => V(X0 - 1.5, FY, (a + b) / 2)),
     inside: V(27, FY, -104),
     cover: [V(31.4, FY, -104), V(31.4, FY, -101.5), V(31.4, FY, -106.5), V(26.2, FY, -104), V(22, FY, -104), V(22, FY, -94), V(22, FY, -114),
-      V(37.6, FY, -94), V(37.6, FY, -114), V(19.9, FY, -99), V(19.9, FY, -109), V(25, FY, -90.5), V(25, FY, -117.5), V(27.0, FY, -95.6), V(27.0, FY, -112.4), V(33.2, FY, -104)],
+      V(37.6, FY, -94), V(37.6, FY, -114), V(19.9, FY, -99), V(19.9, FY, -109), V(24.6, FY, -90.5), V(24.6, FY, -117.5), V(27.0, FY, -95.6), V(27.0, FY, -112.4), V(33.2, FY, -104)],
     glows: [
       ...DOORS.map(([a, b]) => ({ p: [X0 - 1.6, 4.9, (a + b) / 2], color: [1.0, 0.78, 0.5], size: 3.0, dusk: true })),
       { p: [X1 - 0.6, 7.45, -104], color: [0.45, 0.6, 1.0], size: 14, dusk: true },
@@ -670,10 +673,11 @@ export async function buildLobby(ctx = {}) {
 
   // ------------------------------------------------------------ update: LED scroll, halo/shafts follow the dusk
   let t0 = 0;
+  const ledUV = meshes.led && meshes.led.geometry.attributes.uv, ledU0 = ledUV ? [0, 1, 2, 3].map(i => ledUV.getX(i)) : null;
   const update = (dt, t, dusk, head) => {
     const k = dusk ?? duskShared.value ?? 0;
     t0 += dt || 0;
-    ledT.offset.x = (t0 * 0.018) % 1;
+    if (ledUV) { const o = (t0 * 0.018) % 1; for (let i = 0; i < 4; i++) ledUV.setX(i, ledU0[i] + o); ledUV.needsUpdate = true; }
     M.halo.opacity = 0.35 + 0.65 * sstep(0.0, 0.4, k);
     M.shafts.opacity = 1 - sstep(0.15, 0.45, k);
   };
