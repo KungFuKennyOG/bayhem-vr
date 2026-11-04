@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { pick, range, clamp, damp, rand } from '../../rng.js';
 import { SNIPERS, SUBWAY, LOBBY, MERIDIAN, CROSS } from './layout.js';
+import { arrivedAtMarker } from '../../beats.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _look = new THREE.Vector3(), _to = new THREE.Vector3(), _tgt = new THREE.Vector3();
@@ -51,7 +52,7 @@ export class Director {
           if (g.player) g.player.autoState.holdFire = true; // let the title breathe
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 5.5 : 7.5) },
-      { name: 'avenue', wp: V(0, 2.5, -40), hunt: true, music: 0.65, dusk: 0.1, enter: () => {
+      { name: 'avenue', wp: V(0, 2.5, -40), hunt: true, arrive: () => alive(s => s.role === 'sniper') === 0, music: 0.65, dusk: 0.1, enter: () => {
           hud.objective('Take out the rooftop snipers');
           if (g.player) g.player.autoState.holdFire = false;
           if (!this.introSnipers) this.introSnipers = [sniper('s1', { delay: 0.2 }), sniper('s2', { delay: 0.4, lockTime: 2.4 })];
@@ -64,7 +65,7 @@ export class Director {
           later(2.0, () => say('Two on the roofs, more in the cars! Use the traffic for cover.', 3));
           A?.go([ground(-4.6, 24.5, { slow: 0.55 }), ground(5.4, 15.6, { slow: 0.5 }), ground(-0.6, 6.2, { slow: 0.45 })]);
         }, until: (t) => (t > 4 && alive() === 0) || t > 75 * T },
-      { name: 'avenue2', wp: V(0, 2.5, -53), hunt: true, music: 0.8, dusk: 0.16, enter: () => {
+      { name: 'avenue2', wp: V(0, 2.5, -53), hunt: true, arrive: () => alive(s => s.role === 'sniper') === 0, music: 0.8, dusk: 0.16, enter: () => {
           sniper('s3', { delay: 0.5 }); sniper('s4', { delay: 2.5, lockTime: 1.9 });
           S({ x: -30, z: -51, delay: 0.6, entry: V(-7.5, 0, -40) });
           S({ x: 30, z: -55, delay: 1.4, entry: V(7.4, 0, -38), flanker: true });
@@ -214,7 +215,7 @@ export class Director {
       this.t += dt; this.total += dt;
       for (const e of this.g.events) this.react(e);
       this.cur.update?.(this.t);
-      if (this.cur.until(this.t)) this.next();
+      if (this.cur.until(this.t) || arrivedAtMarker(this, dt)) this.next();
     }
     this.g.dusk = damp(this.g.dusk, this.duskTarget, 0.3, dt);
     this.g.events.length = 0;
