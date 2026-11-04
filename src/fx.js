@@ -160,7 +160,7 @@ export class FX {
     d.alive = true; d.x = P.x; d.y = P.y + 1; d.z = P.z; d.vx = vx; d.vy = vy; d.vz = vz;
     d.sx = size * range(0.6, 1.6); d.sy = size * range(0.1, 0.4); d.sz = size * range(0.6, 1.4);
     d.rx = rand() * 6; d.ry = rand() * 6; d.rz = rand() * 6; d.wx = range(-12, 12); d.wy = range(-12, 12); d.wz = range(-12, 12);
-    d.life = range(3, 5); d.burning = burning; d.emit = 0; d.ground = false;
+    d.life = range(3, 5); d.life0 = d.life; d.burning = burning; d.emit = 0; d.ground = false; d._tl = null;
   }
 
   muzzle(pos, dir, kind = 'rifle', near = true) {
@@ -260,9 +260,9 @@ export class FX {
         d.ground = true;
       }
       if (!d.ground) { d.rx += d.wx * dt; d.ry += d.wy * dt; d.rz += d.wz * dt; }
-      if (d.burning) {
-        // puffs start wider than their spacing so the trail reads as one ribbon, not a string of pearls
-        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.3, (q) => { if (rand() < 0.6) this.flame(q, 0.3); this.smoke(q, 0.75, 0.16, 1.3, 0.5, 0.45); }, dz);
+      // short burning streak off each chunk (a whole beaded arc reads as a string of pearls): ~0.8 s, jittered puffs
+      if (d.burning && d.life0 - d.life < 0.8) {
+        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.3, (q) => { if (rand() < 0.6) this.flame(q, 0.3 * range(0.6, 1.4)); this.smoke(q, 0.75 * range(0.6, 1.4), 0.16, 1.3 * range(0.6, 1.4), 0.5, 0.45); }, dz);
       }
       p.set(d.x, d.y, d.z); q.setFromEuler(new THREE.Euler(d.rx, d.ry, d.rz)); s.set(d.sx, d.sy, d.sz);
       m.compose(p, q, s); this.debrisMesh.setMatrixAt(n++, m);

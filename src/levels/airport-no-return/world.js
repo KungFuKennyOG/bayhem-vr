@@ -343,6 +343,7 @@ export class AirportWorld {
         this.col.add([x - 0.8, 0, z1 - 1.6], [x + 4.4, 3.2, z1 - 0.4], { kind: 'gse', mat: 'metal' });
       }
     }
+    this._sunShafts();
     for (const h of HANGARS) { this.addBlob(h.x - h.w / 2 + 1, h.z + h.d / 2, 4, h.d, 0, 0, 0); this.addBlob(h.x + h.w / 2 - 1, h.z + h.d / 2, 4, h.d); this.addBlob(h.x, h.z + h.d - 1.5, h.w, 5); }
     // hangar 2 hero dressing: a jet engine on a transport stand + a workbench + crates (low cover near the start)
     const h2 = HANGARS[1];
@@ -538,6 +539,33 @@ export class AirportWorld {
     }
     im.castShadow = false; im.receiveShadow = false; this.group.add(im);
   }
+  // ---------------------------------------------------------------- low sun pouring through the hangar doors (additive shaft sheets)
+  _sunShafts() {
+    const W = 64, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), r = makeRng(6061);
+    const img = x.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
+      const u = xx / W, v = 1 - y / H; // u across the sheet (height), v along the beam (0 = door; canvas rows are flipped into uv)
+      const a = Math.pow(Math.sin(u * Math.PI), 1.5) * Math.pow(1 - v, 1.6) * Math.min(1, v * 12) * (0.75 + 0.25 * Math.sin(u * 40 + v * 3));
+      const i = (y * W + xx) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255 * a; img.data[i + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    const mat = this.shaftMat = new THREE.MeshBasicMaterial({ map: T.canvasTex(c, { repeat: false }), color: new THREE.Color(1.0, 0.62, 0.32), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+    const dir = new THREE.Vector3(-SUN_DIR.x, -Math.max(0.08, SUN_DIR.y), -SUN_DIR.z).normalize(); // light travels into the hangar (+z)
+    for (const h of HANGARS) {
+      const open = (h.w - 5.2) * (1 - h.door) * 0.5 + 2.6, gap = (h.w - 5.2) * h.door; // the opening between the parked leaves
+      for (let k = 0; k < 7; k++) {
+        const len = 22 + r() * 14, hh = 6 + r() * 6;
+        const g = new THREE.PlaneGeometry(hh, len); // x = height, y = along the beam
+        const pl = new THREE.Mesh(g, mat);
+        const px = h.x - gap / 2 + 1 + r() * (gap - 2), py = 1.5 + hh / 2 + r() * 3;
+        // orient: plane y-axis along the beam, plane x-axis vertical-ish, facing sideways
+        const along = dir.clone(), up = new THREE.Vector3(0, 1, 0), side = new THREE.Vector3().crossVectors(along, up).normalize(), vert = new THREE.Vector3().crossVectors(side, along).normalize();
+        const tilt = (k / 7) * Math.PI + (r() - 0.5) * 0.3; side.applyAxisAngle(along, tilt); vert.applyAxisAngle(along, tilt); // fan of sheets so some face any viewer
+        pl.matrix.makeBasis(vert, along, side); pl.matrix.setPosition(px + along.x * len / 2, py + along.y * len / 2, h.z - 0.5 + along.z * len / 2);
+        pl.matrixAutoUpdate = false; pl.renderOrder = 5; this.group.add(pl);
+      }
+    }
+  }
   // ---------------------------------------------------------------- city lights (blue hour: the sprawl around the field)
   // Additive street-light texture on big ground planes around the airport; fades in with dusk (credits view from the ramp).
   _cityLights() {
@@ -573,7 +601,7 @@ export class AirportWorld {
     mat.color.setScalar(4.2);
     mat.polygonOffset = true; mat.polygonOffsetFactor = -8; mat.polygonOffsetUnits = -64; // kilometres out, 2 m over the grass is below depth precision // dots are sub-pixel at range: mip-averaged they need HDR punch
     // west, east and south of the field (the airport itself + its approach stay dark)
-    const tile = 1700;
+    const tile = 1150; // smaller dots (the near field from 120 m read as confetti)
     for (const [x0, x1, z0, z1, rot] of [[-7000, -720, -6800, 3600, 0.3], [820, 7000, -6800, 3600, 1.1], [-720, 820, 1150, 6500, 2.2], [-720, 820, -6800, -3300, 0.7]]) {
       const w = x1 - x0, d = z1 - z0, g = new THREE.PlaneGeometry(w, d, 32, 32);
       const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i) * w / tile, v = uv.getY(i) * d / tile; uv.setXY(i, u * Math.cos(rot) - v * Math.sin(rot) + rot * 3.1, u * Math.sin(rot) + v * Math.cos(rot)); }
@@ -630,13 +658,14 @@ export class AirportWorld {
     this.time += dt;
     const t = this.time, G = this.glow;
     const on = 0.55 + 0.45 * Math.min(1, dusk * 2.2); // runway lights are on at sunset, brighter at blue hour
+    if (this.shaftMat) this.shaftMat.opacity = 0.45 * Math.max(0, 1 - dusk * 3);
     if (this.grassMat) { const n = Math.min(1, Math.max(0, (dusk - 0.2) / 0.4)); this.grassMat.color.setRGB(1 - 0.62 * n, 1 - 0.6 * n, 1 - 0.5 * n); } // fields sink into blue hour
     if (this.cityMat) { const k = Math.min(1, Math.max(0, (dusk - 0.25) / 0.3)); this.cityMat.opacity = k * k * (3 - 2 * k); this.cityMat.visible = k > 0.001; }
     let gi = 0;
     for (const L of this.lights) {
       const p = L.p, d = Math.hypot(p.x - head.x, p.y - head.y, p.z - head.z);
       // keep a minimum angular size so lights read as points far down the runway
-      const s = Math.max(L.size, d * 0.0022) * (d > 900 ? 0.8 : 1);
+      const s = Math.max(L.size, d * (d > 1500 ? 0.0034 : 0.0022)) * (d > 900 && d <= 1500 ? 0.8 : 1); // from the climb-out the field still reads as light strings
       let r = 2, g = 1.8, b = 1.5, a = 0.9 * on;
       switch (L.kind) {
         case 'edge': r = 2.2; g = 1.9; b = 1.4; break;

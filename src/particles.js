@@ -83,13 +83,13 @@ void main(){
         outc = vec4(vec3(1.0, 0.75, 0.4) * a + vec3(0.6) * exp(-r*r*30.0), 0.0);
       }
       else if (id == 2) { float a = smoothstep(0.62, 0.86, r) * smoothstep(1.0, 0.88, r); outc = vec4(vec3(a), 0.0); }
-      else if (id == 3) { float n = fbm3(vec3(p*2.2, 4.0)); float a = smoothstep(0.95, 0.2, r + (n-0.5)*0.8); outc = vec4(vec3(0.62,0.52,0.40)*a, a); }
+      else if (id == 3) { float n = fbm3(vec3(p*2.2, 4.0)); float a = smoothstep(0.95, 0.2, r + (n-0.5)*0.8) * smoothstep(1.0, 0.8, r); outc = vec4(vec3(0.62,0.52,0.40)*a, a); }
       else if (id == 4) { float a = exp(-r*r*14.0) * smoothstep(1.0, 0.5, r); outc = vec4(vec3(a), 0.0); }
       else if (id == 5) { float a = step(abs(p.x) + abs(p.y) * 0.6, 0.6) ; outc = vec4(vec3(0.08)*a, a); }
       else if (id == 6) { float a = exp(-r*r*3.0) + exp(-r*r*30.0); float ang = atan(p.y,p.x); a += pow(abs(cos(ang*4.0)),40.0)*exp(-r*1.5)*0.6; outc = vec4(vec3(a)*smoothstep(1.0,0.55,r), 0.0); }
       else if (id == 7) { float ang = atan(p.y, p.x); float rays = pow(abs(cos(ang * 2.0)), 60.0); float a = (exp(-r*r*16.0) + rays*exp(-r*3.0))*smoothstep(1.0,0.8,r); outc = vec4(vec3(1.0,0.85,0.6)*a, 0.0); }
-      else if (id == 8) { float n = fbm3(vec3(p * vec2(1.0, 2.5) * 1.8, 7.0)); float a = smoothstep(0.9, 0.1, r + (n-0.5)*1.0) * 0.6; outc = vec4(vec3(0.6) * a, a); }
-      else if (id == 9) { float n = fbm3(vec3(p*3.0, 11.0)); float a = smoothstep(0.9, 0.3, r + (n-0.5)*1.2); outc = vec4(vec3(0.36,0.30,0.24)*a, a); }
+      else if (id == 8) { float n = fbm3(vec3(p * vec2(1.0, 2.5) * 1.8, 7.0)); float a = smoothstep(0.9, 0.1, r + (n-0.5)*1.0) * smoothstep(1.0, 0.8, r) * 0.6; outc = vec4(vec3(0.6) * a, a); }
+      else if (id == 9) { float n = fbm3(vec3(p*3.0, 11.0)); float a = smoothstep(0.9, 0.3, r + (n-0.5)*1.2) * smoothstep(1.0, 0.8, r); outc = vec4(vec3(0.36,0.30,0.24)*a, a); }
     }
   }
   gl_FragColor = outc;

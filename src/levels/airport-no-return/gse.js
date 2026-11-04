@@ -20,8 +20,9 @@ export function gseMaterials() {
   if (MATS) return MATS;
   const m = (o) => new THREE.MeshStandardMaterial(o);
   MATS = [];
-  MATS[GM.yellow] = m({ color: 0xe0a812, roughness: 0.45, metalness: 0.2 });
-  MATS[GM.white] = m({ color: 0xe9e6de, roughness: 0.42, metalness: 0.15 });
+  const wear = wornPaintGSE();
+  MATS[GM.yellow] = m({ map: wear, color: 0xd6a21e, roughness: 0.55, metalness: 0.15 });
+  MATS[GM.white] = m({ map: wear, color: 0xe4e1d8, roughness: 0.5, metalness: 0.12 });
   MATS[GM.dark] = m({ color: 0x18191b, roughness: 0.7, metalness: 0.2 });
   MATS[GM.metal] = m({ color: 0x8d9298, roughness: 0.35, metalness: 0.85 });
   MATS[GM.tire] = m({ color: 0x151413, roughness: 0.92 });
@@ -35,7 +36,7 @@ export function gseMaterials() {
   MATS[GM.orange] = m({ color: 0xff5a10, roughness: 0.5 });
   MATS[GM.check] = m({ map: checkTexture(), roughness: 0.4, metalness: 0.15 });
   MATS[GM.tank] = m({ map: tankTexture(), roughness: 0.32, metalness: 0.25, envMapIntensity: 1.2 });
-  MATS[GM.red] = m({ color: 0x9c1a12, roughness: 0.45, metalness: 0.2 });
+  MATS[GM.red] = m({ map: wear, color: 0x9c1a12, roughness: 0.5, metalness: 0.2 });
   MATS[GM.curtain] = m({ map: curtainTexture(), roughness: 0.85 });
   MATS[GM.alu] = m({ map: uldTexture(), color: 0xc8ccd0, roughness: 0.38, metalness: 0.75 });
   MATS[GM.amber] = m({ color: 0x402000, emissive: 0xff9a10, emissiveIntensity: 2.5, roughness: 0.3 });
@@ -61,6 +62,23 @@ function wheels(list, pos, r, w) {
 }
 
 // ---------------------------------------------------------------- textures
+let _wear = null;
+function wornPaintGSE() {
+  // greyscale multiplier for painted GSE (per box face, uv 0..1): road grime up the lower third, chipped edges, panel seams, streaks
+  if (_wear) return _wear;
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(951, 8), n2 = T.makeNoise(952, 32);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const u = xx / S, v = 1 - y / S, edge = Math.min(u, 1 - u, v, 1 - v);
+    let k = 0.96 + (T.fbm(n, u, v, 8, 3) - 0.5) * 0.06;
+    k *= 1 - 0.42 * Math.pow(Math.max(0, 0.38 - v) / 0.38, 1.4) * (0.8 + 0.4 * T.fbm(n, u * 2, v, 8, 2));   // grime from the ground up
+    if (edge < 0.025 && T.fbm(n2, u, v, 32, 2) > 0.66) k *= 0.62;                                          // chipped edges (dark primer)
+    k *= 1 - 0.12 * Math.max(0, T.fbm(n, u * 4, v * 0.5, 8, 2) - 0.55) * 4 * (1 - v);                     // drip streaks
+    const i = (y * S + xx) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = Math.max(0, Math.min(255, k * 255)); img.data[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(0, S * 0.48, S, 2); x.fillRect(S * 0.5, 0, 2, S * 0.48); // panel seams
+  return (_wear = T.canvasTex(c, { srgb: false }));
+}
 function hazardTexture() {
   const c = T.makeCanvas(128, 32), x = c.getContext('2d');
   x.fillStyle = '#e0a812'; x.fillRect(0, 0, 128, 32); x.fillStyle = '#151311';

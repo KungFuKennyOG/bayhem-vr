@@ -220,7 +220,7 @@ export class SetPieces {
         J.eng.forEach((E, e) => {
           if (!E.smoke) return;
           const P = J.a.root.localToWorld(_v.set(E.side * 5.05, 1.5, 0.2));
-          g.fx.trailEmit(E, P, 0.6, (q) => { g.fx.smoke(q, 1.0, E.hp <= 0 ? 0.08 : 0.22, 3.5, 1.4, 0.7); if (E.hp < 3) g.fx.flame(q, 0.9); }, 0);
+          g.fx.trailEmit(E, P, 0.4, (q) => { g.fx.smoke(q, 1.3 * range(0.6, 1.4), E.hp <= 0 ? 0.08 : 0.22, 3.5 * range(0.7, 1.3), 1.4, 0.7); if (E.hp < 3) g.fx.flame(q, 0.9 * range(0.7, 1.3)); }, 0);
         });
         if (J.state === 'hurt') { J.fuse -= dt; if (J.fuse <= 0) this.explodeJet(J); }
         // scripted fallback: the refueler parked by the taxiway catches it if nobody shoots it
@@ -251,6 +251,15 @@ export class SetPieces {
     P.smokeT = P.engine ? 0.06 : 0.05;
     const rb = P.rb, near = g.headPos.distanceTo(rb.pos) < 220;
     if (!near && rand() < 0.6) return;
+    // moving fast: emit along the path with jittered, overlapping puffs (timer emission beads into a string of pearls)
+    if (rb.vel.lengthSq() > 9) {
+      g.fx.trailEmit(P, rb.pos, 0.5, (q) => {
+        g.fx.flame(q, (P.engine ? 0.9 : 1.4) * P.fire * range(0.7, 1.3), _fv.copy(rb.vel).multiplyScalar(0.8));
+        if (rand() < 0.75) g.fx.smoke(q, (P.engine ? 2.0 : 3.0) * range(0.6, 1.4), 0.1, range(4, 7), range(2, 4), 0.75);
+      }, 0);
+      return;
+    }
+    P._tl = null;
     const h = P.engine ? 1 : rb.h.length() * 0.3;
     const p = _v.set(rb.pos.x + range(-1, 1) * h, Math.max(0.3, rb.pos.y + range(0, 1)), rb.pos.z + range(-1, 1) * h);
     g.fx.flame(p, (P.engine ? 0.9 : 1.6) * P.fire);
@@ -470,7 +479,7 @@ export class SetPieces {
       rb.floorY = 0; rb.step(dt, 0);
       J.root.position.copy(rb.pos).sub(_v.set(0, 0.9, 0).applyQuaternion(rb.quat)); J.root.quaternion.copy(rb.quat);
       if (rb.contactSpeed > 4 && (J.lastHit ?? -9) < g.time - 0.3) { J.lastHit = g.time; g.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z, volume: 0.9 }); }
-      if (!J.boomed && J.t > 0.22) {
+      if (!J.boomed && J.t > 0.06) { // right under the ramp, while it is still big in frame
         // the jeep goes up BIG: layered fireballs that travel with the tumbling wreck, a fuel-tank pop, a dark mushroom
         J.boomed = true; const P0 = rb.pos.clone().setY(1.2), cv = rb.vel.clone().multiplyScalar(0.7);
         g.boom(P0, 1.8, { radius: 8, dmg: 0, player: false });
@@ -662,7 +671,7 @@ export class SetPieces {
         car.root.position.y = 0;
         car.root.rotation.set(0, car.yaw, clamp(-car.vel.x * 0.01, -0.05, 0.05));
         car.root.updateMatrixWorld(true);
-        if (car.smoking) g.fx.trailEmit(car, car.root.localToWorld(_v.set(0, 1.0, -2.2)), 0.6, (q) => g.fx.smoke(q, 0.7, 0.12, 2, 1, 0.6), 0);
+        if (car.smoking) g.fx.trailEmit(car, car.root.localToWorld(_v.set(0, 1.0, -2.2)), 0.35, (q) => g.fx.smoke(q, 1.0 * range(0.6, 1.4), 0.12, 2 * range(0.7, 1.3), 1, 0.6), 0);
         // gunners
         for (const gg of car.gunmen) {
           if (!gg.alive) continue;
@@ -784,7 +793,7 @@ export class SetPieces {
     g.audio.play('body_fall', { volume: 1 }); g.audio.play('metal_crash', { volume: 0.7, pitch: 1.3 });
     g.player.shake = 1.2; g.haptic(1, 200);
     if (g.player.mode !== 'vr') { g.player.camDip = 0.5; g.player.camDipRate = 1.2; }
-    g.addScore(10000, 'STICK THE LANDING!', this.cargo.root.localToWorld(V3(0, CARGO.floorY + 4.4, 16)), 'huge'); // high in the opening: the jeep crash plays out below it
+    g.addScore(10000, 'STICK THE LANDING!', this.cargo.root.localToWorld(V3(0, CARGO.floorY + 5.4, 13)), 'huge'); // high in the opening: the jeep crash plays out below it
     g.events.push({ type: 'landed' });
     // the jeep peels off into the grass and flips; the driver bails first (we hear him on the radio)
     J.state = 'crash'; J.t = 0;
@@ -822,7 +831,8 @@ export class SetPieces {
     C.grp.rotation.set(-this.cargo.pitch, Math.PI, 0);
     for (const it of C.items) {
       const wy = C.grp.position.y + it.position.y - CARGO.floorY;
-      it.material.opacity = clamp(1.8 - Math.abs(wy - 1.0) / 2.8, 0, 1);
+      // visible only in the sky band between the horizon and the hold's ceiling edge (≈ 0..9° above the eye from the ramp)
+      it.material.opacity = clamp(1.6 - Math.abs(wy - 3.2) / 1.6, 0, 1);
     }
   }
 
