@@ -11,6 +11,8 @@ import { applyDusk, setSunElevation } from '../../atmosphere.js';
 // TODO(level-2 merge): move port-of-victory/ai.js to src/ once Level 2 lands — it's engine code now.
 import { Soldier, buildCoverPoints } from '../port-of-victory/ai.js';
 import { buildRefueler, gseMaterials } from './gse.js';
+// Level 3's lit volumetric puffs (own pool + draw call, never touches the shared big-sprite budget): the wreck columns
+import { DustClouds } from '../downtown-haven/dustfx.js';
 
 let _plumeTex = null;
 const SOOT_GLSL = /* glsl */`
@@ -87,6 +89,8 @@ export class AirportGame {
     this.events = [];
     this.bossInfo = null;
     this.smokeCols = [];   // persistent burning wrecks: { p, k, life }
+    this.isQuest = !!E.isQuest;
+    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 150 : 300 });
     this.fx.onSound = (n, p) => this.audio.play(n, p ? { x: p.x, y: p.y, z: p.z } : {});
     this.fx.setGround(world.fastGround);
     Ragdoll.world = this.col;
@@ -591,6 +595,7 @@ export class AirportGame {
       { const n = Math.min(1, Math.max(0, (this.dusk - 0.35) / 0.27)); this.scene.fog.color.lerp(_nightHaze, n * n * (3 - 2 * n) * 0.8); }
     }
     this.world.update(dt, this.headPos, this.dusk);
+    this.clouds.update(dt, this.headPos, 0.1);
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);
     return dt;
@@ -634,7 +639,14 @@ export class AirportGame {
       const near = this.headPos.distanceTo(c.p) < 260;
       if (emit) {
         const k = c.k;
-        if (near || rand() < 0.6) this.fx.main.spawn({ x: c.p.x + range(-2, 2) * k, y: c.p.y + 2 * k, z: c.p.z + range(-2, 2) * k, vx: range(-0.5, 0.5) + 1.8, vy: range(3.5, 5.5), vz: range(-0.5, 0.5) + 0.6, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 4 * k, s1: range(16, 26) * k, ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.13, g: 0.11, b: 0.1, a: 0.82, fadeIn: 0.06, fadeOut: 0.55 });
+        // a continuous column from the ground up (the shared smoke sprites hit the big-sprite budget and left one ball hanging in the sky)
+        c.ct = (c.ct ?? rand() * 0.3) - 0.12;
+        if (c.ct <= 0) {
+          c.ct = (this.isQuest ? 0.9 : 0.45) / Math.sqrt(k);
+          this.clouds.spawn({ x: c.p.x + range(-1.5, 1.5) * k, y: c.p.y + 1.2 * k, z: c.p.z + range(-1.5, 1.5) * k, vx: range(-0.4, 0.4) + 1.5, vy: range(4, 6) * Math.sqrt(k), vz: range(-0.4, 0.4) + 0.55, drag: 0.07, buoy: 0.12, s0: 6 * k, s1: range(19, 26) * k, life: range(13, 17), a: 0.93, fadeIn: 0.02, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.07, g: 0.062, b: 0.056, r1: 0.18, g1: 0.16, b1: 0.145, glow: c.fire ? 1.1 : 0, glowFade: 5 });
+          // the root: low, slow, fire-lit puffs that sit on the wreck (the column must visibly come out of something)
+          if (rand() < 0.7) this.clouds.spawn({ x: c.p.x + range(-2.5, 2.5) * k, y: c.p.y + 0.8 * k, z: c.p.z + range(-2.5, 2.5) * k, vx: range(-0.5, 0.5) + 0.6, vy: range(1.2, 2.2), vz: range(-0.5, 0.5), drag: 0.4, buoy: 0.3, s0: 4 * k, s1: range(9, 12) * k, life: range(4, 5.5), a: 0.95, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: c.fire ? 1.2 : 0, glowFade: 2.6 });
+        }
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire, c.follow ? _v2.copy(c.follow.vel).multiplyScalar(0.9) : null); // a tumbling wreck carries its fire
       }
       // from far out a wreck's smoke reads as a black plume silhouetted on the sky (particles would fog into lavender)

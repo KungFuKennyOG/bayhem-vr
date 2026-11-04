@@ -353,6 +353,11 @@ export class SetPieces {
     if (c.state !== 'hold' && c.alt < 40) {
       for (const p of c.anchors.exhausts) if (rand() < dt * 18 * c.spool) { const w = c.root.localToWorld(_v.copy(p)); g.fx.main.spawn({ x: w.x, y: w.y, z: w.z, vx: range(-1, 1), vy: range(0, 1), vz: c.vel.z * 0.2 + 30, drag: 1.5, frame: CELL.WISP, s0: 1.2, s1: 4, life: 0.8, rot: rand() * 6, r: 0.5, g: 0.45, b: 0.4, a: 0.12, fadeOut: 0.6 }); }
       if (rand() < dt * 10 * c.spool) { const w = c.root.localToWorld(_v.set(range(-14, 14), 0, 8)); g.fx.main.spawn({ x: w.x, y: 0.3, z: w.z, vx: range(-2, 2), vy: range(0.1, 0.5), vz: 18, drag: 1.2, frame: CELL.DUST, s0: 1.5, s1: 6, life: 1.4, rot: rand() * 6, r: 0.7, g: 0.58, b: 0.46, a: 0.14, fadeOut: 0.6 }); }
+      // jet blast tearing up grit + sand off the runway behind the outboard engines: big lit dust rolls the jeep drives through
+      if (c.v > 8 && c.alt < 8 && rand() < dt * (g.isQuest ? 3 : 6) * c.spool) {
+        const w = c.root.localToWorld(_v.set(pick([-14.7, -7.4, 7.4, 14.7]) + range(-2, 2), 0, range(12, 20)));
+        g.clouds.spawn({ x: w.x, y: 1.2, z: w.z, vx: range(-3, 3), vy: range(0.6, 2), vz: range(6, 14), drag: 0.9, buoy: 0.05, s0: 3, s1: range(11, 16), life: range(2.6, 3.6), a: 0.42, fadeIn: 0.06, fadeOut: 0.6, vrot: range(-0.3, 0.3), r: 0.62, g: 0.52, b: 0.42 });
+      }
     }
     // ramp lip scraping the runway during rotation: sparks!
     if (c.state === 'rotate' || (c.state === 'climb' && c.alt < 1.5)) {
@@ -404,7 +409,7 @@ export class SetPieces {
     const J = this.jeep, g = this.g;
     J.state = 'arrive'; J.t = 0; J.root.visible = true;
     // comes up taxiway A from the west at speed, handbrake-turns, stops at the apron edge facing -z
-    J.arrive = new Path([[114, -70], [114, 40], [115, 108], [118, 128], [124, 138], [JEEP_STOP.x, JEEP_STOP.z]]);
+    J.arrive = new Path([[113, 10], [114, 60], [115, 108], [118, 128], [124, 138], [JEEP_STOP.x, JEEP_STOP.z]]); // starts inside the view up the taxiway (from z = -70 it was a speck when the driver called it)
     J.s = 0; J.v = 26;
     g.audio.play('tire_screech', { x: 114, y: 1, z: 90, volume: 0.6 });
   }
@@ -562,7 +567,7 @@ export class SetPieces {
   wantGap(t) {
     if (this.leapT !== undefined) return -2;
     if (this.allowRotate) return 4;
-    const k = [[0, 210], [10, 180], [22, 115], [32, 60], [40, 30], [48, 18]];
+    const k = [[0, 150], [8, 115], [18, 75], [28, 44], [38, 24], [46, 14]]; // the plane fills the view early (from 210 m it was a speck)
     for (let i = 0; i < k.length - 1; i++) if (t < k[i + 1][0]) return lerp(k[i][1], k[i + 1][1], smooth((t - k[i][0]) / (k[i + 1][0] - k[i][0])));
     return 6;
   }

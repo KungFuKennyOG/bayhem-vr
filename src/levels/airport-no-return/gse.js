@@ -397,6 +397,50 @@ export function buildGPU() {
   wheels(L, [[-0.55, -0.6], [0.55, -0.6], [-0.55, 0.6], [0.55, 0.6]], 0.25, 0.16);
   return { geometry: finish(L), colliders: [{ min: [-0.7, 0, -1.05], max: [0.7, 1.45, 1.05] }] };
 }
+// ---------------------------------------------------------------- catering high-loader (tall box on a scissor lift: a big midground shape)
+export function buildCateringTruck(lift = 0.6) {
+  const L = [];
+  L.push([at(rb(2.4, 1.0, 7.4, 0.1, 2), 0, 0.85, 0), GM.dark]);
+  L.push([at(rb(2.4, 2.1, 2.0, 0.16, 2), 0, 1.9, -2.8), GM.white]); L.push([at(box(2.2, 0.9, 0.05), 0, 2.4, -3.82), GM.glass]);
+  for (const s of [-1, 1]) L.push([at(box(0.05, 0.7, 1.2), s * 1.21, 2.4, -2.7), GM.glass]);
+  L.push([at(box(0.5, 0.12, 0.16), 0, 3.0, -2.8), GM.amber]);
+  const y = 1.4 + lift * 2.6;
+  // scissor arms
+  for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { L.push([strut([s * 1.05, 1.35 + k * (y - 1.35) / 2, -0.8], [s * 1.05, 1.35 + (k + 1) * (y - 1.35) / 2, 3.0], 0.07), GM.metal]); L.push([strut([s * 1.05, 1.35 + k * (y - 1.35) / 2, 3.0], [s * 1.05, 1.35 + (k + 1) * (y - 1.35) / 2, -0.8], 0.07), GM.metal]); }
+  // the box: white with a coloured band, a platform + rails on the front
+  L.push([at(rb(2.5, 2.7, 4.6, 0.08, 2), 0, y + 1.35, 1.05), GM.white]);
+  L.push([at(box(2.52, 0.35, 4.62), 0, y + 2.2, 1.05), GM.red]);
+  L.push([at(box(2.4, 0.08, 1.2), 0, y + 0.05, -1.75), GM.metal]);
+  for (const s of [-1, 1]) L.push([strut([s * 1.15, y, -2.3], [s * 1.15, y + 1.0, -2.3], 0.03), GM.yellow]);
+  L.push([strut([-1.15, y + 1.0, -2.3], [1.15, y + 1.0, -2.3], 0.03), GM.yellow]);
+  L.push([at(box(2.6, 0.18, 0.18), 0, 0.42, 3.75), GM.hazard]);
+  wheels(L, [[-1.0, -2.5], [1.0, -2.5], [-1.0, 2.6], [1.0, 2.6]], 0.45, 0.3);
+  return { geometry: finish(L), colliders: [{ min: [-1.25, 0, -3.8], max: [1.25, 2.95, 3.75] }, { min: [-1.25, y, -1.2], max: [1.25, y + 2.7, 3.35] }] };
+}
+// ---------------------------------------------------------------- apron crew bus (low-floor, lots of glass)
+export function buildCrewBus() {
+  const L = [];
+  L.push([at(rb(2.5, 2.6, 10.5, 0.22, 3), 0, 1.75, 0), GM.white]);
+  L.push([at(box(2.54, 0.3, 10.4), 0, 0.75, 0), GM.olive]);
+  for (const s of [-1, 1]) L.push([at(box(0.04, 1.1, 9.4), s * 1.26, 2.25, 0.2), GM.glass]);
+  L.push([at(box(2.3, 1.3, 0.05), 0, 2.1, -5.26), GM.glass]);
+  L.push([at(box(0.8, 0.12, 0.2), 0, 3.12, -4.9), GM.amber]);
+  for (const z of [-3.6, 3.4]) for (const s of [-1, 1]) L.push([at(box(0.06, 2.0, 1.4), s * 1.27, 1.55, z), GM.dark]);
+  L.push([at(box(1.6, 0.5, 2.2), 0, 3.2, 1.6), GM.metal]);
+  wheels(L, [[-1.05, -3.6], [1.05, -3.6], [-1.05, 3.6], [1.05, 3.6]], 0.45, 0.3);
+  return { geometry: finish(L), colliders: [{ min: [-1.27, 0, -5.3], max: [1.27, 3.1, 5.3] }] };
+}
+// ---------------------------------------------------------------- concrete jersey barrier run (n segments of 3 m)
+export function buildBarriers(n = 4) {
+  const L = [];
+  const sh = new THREE.Shape([new THREE.Vector2(-0.3, 0), new THREE.Vector2(0.3, 0), new THREE.Vector2(0.3, 0.08), new THREE.Vector2(0.12, 0.33), new THREE.Vector2(0.1, 0.82), new THREE.Vector2(-0.1, 0.82), new THREE.Vector2(-0.12, 0.33), new THREE.Vector2(-0.3, 0.08)]);
+  for (let k = 0; k < n; k++) {
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 2.94, bevelEnabled: false }); g.translate(0, 0, -1.47 + (k - (n - 1) / 2) * 3);
+    const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.4, uv.getY(i) * 0.4);
+    L.push([g, k % 2 ? GM.white : GM.red]);
+  }
+  return { geometry: finish(L), colliders: [{ min: [-0.3, 0, -n * 1.5], max: [0.3, 0.82, n * 1.5] }] };
+}
 // ---------------------------------------------------------------- cone, chock, light mast, sign, blast fence
 export function buildCone() {
   const L = [];

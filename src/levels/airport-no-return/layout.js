@@ -30,7 +30,7 @@ export const JEEP_STOP = { x: 127, z: 146 };            // where the driver pull
 export const TOWER = { x: 360, z: 70 };
 export const FUEL_FARM = { x: 300, z: 30 };
 // the jets taxi along taxiway A toward the threshold (+z) and blow up in front of the apron
-export const TAXI = { x: TWY.x, zStart: -30, zBlow: 196 };
+export const TAXI = { x: TWY.x, zStart: 60, zBlow: 196 }; // they start in view of the apron edge (from -30 they were specks for 10 s)
 // the cargo plane holds on the runway at the hold line, then rolls toward -z
 export const CARGO_HOLD = { x: 0, z: 168 };
 export const LIFTOFF_Z = -1560;

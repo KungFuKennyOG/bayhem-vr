@@ -41,7 +41,7 @@ export class Director {
           S({ x: 214, z: 302, delay: 0.3, flanker: false });
           S({ x: 186, z: 312, delay: 0.8, flanker: true });
           S({ x: 246, z: 296, delay: 0.5 });
-          S({ x: 204 + 0, z: 316.5, y: 4.42, role: 'perch', delay: 0.6 });
+          S({ ...g.world.perches[0], role: 'perch', delay: 0.6 });
           S({ x: 264, z: 304, delay: 2.0, role: 'rusher' });
           S({ x: 196, z: 276, delay: 4.0, entry: V(200, 0, 296) });
           later(1.2, () => say('Welcoming committee, twelve o\'clock! Use the fuel trucks — JET A-1 really wants to explode.', 3.6));
@@ -61,7 +61,7 @@ export class Director {
       { name: 'taxi', wp: null, music: 0.95, dusk: 0.09, enter: () => {
           hud.objective('Stop those jets!');
           setp.startJets();
-          S({ x: 176, z: 170.5, y: 4.42, role: 'perch', delay: 1.0 });
+          S({ ...g.world.perches[1], role: 'perch', delay: 1.0 });
           S({ x: 164, z: 186, delay: 1.5 });
           S({ x: 150, z: 160, delay: 2.5, flanker: true });
           later(0.6, () => say('Two jets on the taxiway — packed with his guys! They are NOT taking off!', 3.2));
@@ -82,7 +82,7 @@ export class Director {
           for (const s of g.soldiers) if (s.alive && s.pos.distanceTo(g.headPos) > 45) s.alive = false, s.root.visible = false; // stragglers leave
           later(0.4, () => say('He\'s rolling! The cargo plane is ROLLING!', 2.4));
           later(1.6, () => setp.jeepArrive());
-          later(3.2, () => say('Look left! Checkered jeep! I borrowed it! Get in the back!', 3));
+          later(2.6, () => say('Checkered jeep, coming up the taxiway! I borrowed it! Get in the back!', 3));
           A?.go([ground(JEEP_STOP.x + 3.5, JEEP_STOP.z + 6, { sprint: true, tol: 1.0 })]);
         }, update: (t) => {
           if (setp.jeep.state === 'wait') {
