@@ -174,8 +174,8 @@ function lowerQuays(S) {
   const { stone, cobble } = S.B;
   for (const s of [1, -1]) {
     const runs = s > 0
-      ? [[X0, -16, 40.7, 52], [16, RAMPN_LAND, 40.7, 52], [RAMPN_LAND, RAMP_N.xLow, 40.7, 45.55], [RAMP_N.xLow, X1, 40.7, 52]]
-      : [[X0, -16, 40.7, 52], [16, RAMPS_LAND, 40.7, 52], [RAMPS_LAND, RAMP_S.xLow, 40.7, 45.55], [RAMP_S.xLow, X1, 40.7, 52]];
+      ? [[X0, -16, 40.7, 52], [-16, 16, 40.7, 46], [16, RAMPN_LAND, 40.7, 52], [RAMPN_LAND, RAMP_N.xLow, 40.7, 45.55], [RAMP_N.xLow, X1, 40.7, 52]]
+      : [[X0, -16, 40.7, 52], [-16, 16, 40.7, 46], [16, RAMPS_LAND, 40.7, 52], [RAMPS_LAND, RAMP_S.xLow, 40.7, 45.55], [RAMP_S.xLow, X1, 40.7, 52]];
     // cobbled berge (pavés) + a smoother flagstone gutter strip along the wall foot
     for (const [a, b, z0, z1] of runs) {
       const zs = brk(steps(z0, Math.min(z1, 51.1), 1.6), [z0, Math.min(z1, 51.1)]);
@@ -183,11 +183,11 @@ function lowerQuays(S) {
       if (z1 > 51.5) surf(stone, xsRange(a, b), [s * 51.1, s * 52], (x, z) => [x, LOW_Y + 0.004, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul(stoneCol(p, { base: [0.6, 0.58, 0.55] }), 0.7), rm: RM.wet });
     }
     // coping along the quay edge: flat top, bullnose, then the river wall down into the water
-    const xsE = xsRange(X0, -16), xsE2 = xsRange(16, X1);
+    const xsE = xsRange(X0, X1, [-16, 16]);
     const eCol = (p) => stoneCol(p, { base: [0.84, 0.8, 0.72], y0: LOW_Y - 0.6, top: LOW_Y, water: true, k: 1.05 });
-    for (const xsE of [xsE, xsE2]) prof(stone, xsE, [[0.7, 0], [0.04, 0], [0, -0.06], [-0.035, -0.17], [0, -0.3], [0.03, -0.36]], (u, a, b) => [u, LOW_Y + b, s * (40 + a)], (na, nb) => [0, nb, s * na], { col: eCol, rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
+    prof(stone, xsE, [[0.7, 0], [0.04, 0], [0, -0.06], [-0.035, -0.17], [0, -0.3], [0.03, -0.36]], (u, a, b) => [u, LOW_Y + b, s * (40 + a)], (na, nb) => [0, nb, s * na], { col: eCol, rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
     const ys = [LOW_Y - 0.36, LOW_Y - 0.8, LOW_Y - 1.4, -6.55, WATER_Y + 0.15, WATER_Y - 0.4, WATER_Y - 3];
-    for (const xsE of [xsE, xsE2]) surf(stone, xsE, ys, (x, y) => [x, y, s * 40.03], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, top: LOW_Y, water: true }), rm: RM.wet });
+    surf(stone, xsE, ys, (x, y) => [x, y, s * 40.03], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, top: LOW_Y, water: true }), rm: RM.wet });
     // retaining wall at |z| = 52 up to the street, string course, parapet (with gaps)
     const xsW = [...xsRange(X0, -16), ...xsRange(16, X1)];
     const wys = [LOW_Y, LOW_Y + 0.35, LOW_Y + 1.1, -3.4, -1.9, -0.9, -0.32];
@@ -213,24 +213,26 @@ function lowerQuays(S) {
     const y0 = groundY(x, s * 51.5);
     wallDecal(S.B.decal, [x, Math.max(y, y0 + 1.1), s * 51.98], [0, 0, -s], [0, 1, 0], w, w * 0.37, D.graffiti, [1, 1, 1]);
   }
-  // abutment faces closing the lower quays at x = ±16 (under the outer arch)
+  // the outer bridge arch spans the lower quay; it is walled in under the bridge (fill wall at |x| 13.6 with a
+  // service door) and fronted by a stone plinth at |x| 14..16 that closes the walkable quay at x = ±16
   for (const s of [1, -1]) for (const sx of [1, -1]) {
-    const xf = sx * 16;
-    surf(S.B.stone, [40, 52].map((z) => s * z), [LOW_Y, LOW_Y + 1, -3, -1.2, 0], (z, y) => [xf, y, z], { n: () => [sx, 0, 0], ws: TS, col: (p) => stoneCol(p, { k: 0.95 }), rm: RM.stone });
-    // abutment river face strip x 14..16 down into the water and top coping
-    surf(S.B.stone, [sx * 14, sx * 16], [WATER_Y - 3, WATER_Y + 0.2, LOW_Y - 0.4, -2, 0], (x, y) => [x, y, s * 40], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, water: true }), rm: RM.wet });
-    surf(S.B.stone, [sx * 14, sx * 16], [40, 52].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => stoneCol(p, { k: 0.9 }), rm: RM.wet });
-    // blind arch niche + iron service door + plaque
-    const zc = s * 46;
-    blindArch(S, xf, sx, s);
-    addGeo(S.B.props, BOX(0.12, 2.3, 1.3), M4(xf + sx * 0.04, LOW_Y + 1.15, zc), { col: [0.05, 0.06, 0.055], rm: RM.iron });
+    const xf = sx * 13.6, outer = s > 0 ? ARCHES[4] : ARCHES[0];
+    const zs = steps(s * 40.4, s * 52, 0.8);
+    surf(S.B.stone, zs, [0, 0.2, 0.5, 1], (z, v) => [xf, lerp(LOW_Y, archY(z, outer) + 0.02, v), z], { n: () => [sx, 0, 0], ws: TS, col: (p) => mul(stoneCol(p, { k: 0.85, top: -1 }), 0.85), rm: RM.stone });
+    // plinth (1.1 m) with coping, and its river end
+    const pc = (p) => stoneCol(p, { k: 1.0, top: LOW_Y + 1.1 });
+    addGeo(S.B.stone, BOX(2.4, 1.0, 11.4), M4(sx * 14.8, LOW_Y + 0.5, s * 46.3), { ws: TS, col: pc, rm: RM.stone });
+    addGeo(S.B.stone, BOX(2.6, 0.14, 11.6), M4(sx * 14.8, LOW_Y + 1.07, s * 46.3), { ws: TS, col: (p) => stoneCol(p, { k: 1.18, top: 3 }), rm: RM.wet });
+    const zc = s * 44.6;
+    addGeo(S.B.props, BOX(0.12, 2.3, 1.3), M4(xf + sx * 0.04, LOW_Y + 1.15 + 0.0, zc), { col: [0.05, 0.06, 0.055], rm: RM.iron });
     for (let k = 0; k < 4; k++) addGeo(S.B.props, BOX(0.03, 0.06, 1.3), M4(xf + sx * 0.11, LOW_Y + 0.35 + k * 0.6, zc), { col: [0.03, 0.035, 0.03], rm: RM.iron });
-    quadRU(S.B.props, [xf + sx * 0.02, LOW_Y + 2.75, zc - s * 3.2], RT([sx, 0, 0]), [0, 1, 0], 1.6, 0.4, A.quaiSign, COL.white, RM.paint);
-    quadRU(S.B.props, [xf + sx * 0.13, LOW_Y + 2.62, zc], RT([sx, 0, 0]), [0, 1, 0], 1.3, 0.32, A.plaque, COL.white, RM.paint);
-    wallDecal(S.B.decal, [xf + sx * 0.02, LOW_Y + 1.9, s * 42.5], [sx, 0, 0], [0, 1, 0], 3.2, 3.8, D.streak, [1, 1, 1]);
-    decal(S.B.decal, xf + sx * 1.2, LOW_Y + 0.012, s * 46, 2.6, 12, 0, D.aoRect, [0.7, 0.7, 0.7]);
-    // a lantern on the abutment so the dead end reads as a lit corner
-    S.B.props && wallLanternX(S, xf, LOW_Y + 3.2, s * 43.2, sx);
+    addGeo(S.B.stone, BOX(0.2, 0.3, 1.8), M4(xf + sx * 0.08, LOW_Y + 2.45, zc), { ws: TS, col: (p) => stoneCol(p, { k: 1.1 }), rm: RM.stone });
+    quadRU(S.B.props, [xf + sx * 0.02, LOW_Y + 2.2, zc + s * 2.4], RT([sx, 0, 0]), [0, 1, 0], 1.6, 0.4, A.quaiSign, COL.white, RM.paint);
+    quadRU(S.B.props, [sx * 16.01, LOW_Y + 0.6, s * 47.5], RT([sx, 0, 0]), [0, 1, 0], 1.3, 0.32, A.plaque, COL.white, RM.paint);
+    wallDecal(S.B.decal, [xf + sx * 0.02, LOW_Y + 1.6, s * 49.0], [sx, 0, 0], [0, 1, 0], 3.2, 3.0, D.streak, [1, 1, 1]);
+    wallDecal(S.B.decal, [sx * 16.01, LOW_Y + 0.45, s * 43.0], [sx, 0, 0], [0, -1, 0], 4.0, 0.9, D.moss, [1, 1, 1]);
+    decal(S.B.decal, sx * 16.9, LOW_Y + 0.012, s * 46, 2.0, 11.4, 0, D.aoRect, [0.7, 0.7, 0.7]);
+    wallLanternX(S, xf, LOW_Y + 3.0, s * 42.8, sx);
   }
 }
 // wall lantern on a face normal to x
@@ -349,6 +351,7 @@ function upperQuays(S) {
     surf(asph, steps(-9.5, 9.5, 1.9), [52, 54, 56, 57.8].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TA, col: (p) => asphCol(p), rm: RM.asph });
     surf(asph, steps(-9.5, 9.5, 1.9), [57.8, 60, 64, 68, 71.8].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TA, col: (p) => asphCol(p), rm: RM.asph });
     // bridge-head sidewalk corners (9.5..14 between parapet line and the quay curb)
+    for (const sx of [-1, 1]) surf(stone, [14, PED.x1 + 0.2].map((x) => sx * x), [52, 52.6].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], 0.9 * WET), rm: RM.wet });
     for (const sx of [-1, 1]) surf(stone, [9.5, 14].map((x) => sx * x), [52, 55, 57.8].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], (0.85 + 0.25 * wfbm(p[0] * 0.1, p[2] * 0.1)) * WET), rm: RM.wet });
     // curbs
     curbX(S, xsRange(X0, X1), s * 58, -s);
@@ -602,8 +605,8 @@ function pedestal(S, x, z, sx, s) {
 }
 
 // ---------------------------------------------------------------------- the bridge
-const ARCHES = [[-40, -26], [-22, -10], [-6, 6], [10, 22], [26, 40]];
-const SPRING = -5.2, CROWN = -1.9;
+const ARCHES = [[-52, -26], [-22, -10], [-6, 6], [10, 22], [26, 52]];
+const SPRING = -5.8, CROWN = -1.6;
 const archY = (z, [z0, z1]) => { const a = (z1 - z0) / 2, t = (z - (z0 + z1) / 2) / a; return SPRING + (CROWN - SPRING) * Math.sqrt(Math.max(0, 1 - t * t)); };
 function bridge(S) {
   const { stone, asph } = S.B, P = S.B.props, HB = BRIDGE.half;
@@ -656,9 +659,6 @@ function bridge(S) {
       // the pier side faces under the arches (toward the openings)
       for (const sz of [-1, 1]) surf(stone, [-HB, HB], [WATER_Y - 3, WATER_Y + 0.2, SPRING], (x, y) => [x, y, zc + sz * 2], { n: () => [0, 0, sz], ws: TS, col: sc(0.85), rm: RM.wet });
     }
-    // abutment faces under the outer arches (z = ±40, between the quay walls)
-    for (const s of [-1, 1]) surf(stone, [-HB, HB], [WATER_Y - 3, WATER_Y + 0.2, LOW_Y, SPRING], (x, y) => [x, y, s * 40], { n: () => [0, 0, -s], ws: TS, col: sc(0.85), rm: RM.wet });
-    // spandrel over the abutments (z 40..52)
     // deck cornice (moulded, dentils)
     prof(stone, steps(-52, 52, 2), [[0, -0.75], [0.12, -0.75], [0.14, -0.62], [0.3, -0.5], [0.36, -0.36], [0.36, -0.22], [0.42, -0.16], [0.42, 0], [0, 0]], (u, a, b) => [sx * (HB + a), b, u], (na, nb) => [sx * na, nb, 0], { col: sc(1.12), rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
     for (let z = -51.6; z < 52; z += 0.6) addGeo(stone, BOX(0.12, 0.12, 0.28), M4(sx * (HB + 0.2), -0.68, z), { ws: TS, col: sc(1.0), rm: RM.stone });
@@ -1166,8 +1166,8 @@ function park(S) {
   greenChairs(S, 26.5, -167.5, 4, 0.3);
   greenChairs(S, -22, -116, 3, -0.6);
   newsKiosk(S, -74, -84.5, Math.PI);
-  planter(S, 60, -140, 2.4, 2.4, r, false); planter(S, -60, -150, 2.4, 2.4, r, false); planter(S, 56, -152, 1.6, 1.6, r, false);
-  planter(S, 8, -190, 2.0, 1.2, r); planter(S, -7, -232, 3.2, 1.4, r);
+  planter(S, 60, 0, -140, 2.4, 2.4, r, false); planter(S, -60, 0, -150, 2.4, 2.4, r, false); planter(S, 56, 0, -152, 1.6, 1.6, r, false);
+  planter(S, 8, 0, -190, 2.0, 1.2, r); planter(S, -7, 0, -232, 3.2, 1.4, r);
   sandbags(S, 4.5, 0, -110, 3.2, 3, 0.1); S.colliders.push({ min: [2.7, 0, -110.8], max: [6.4, 0.66, -109.2], data: { mat: 'concrete', kind: 'sandbags' } });
   for (const [x, z, rt] of [[-64, -104, Math.PI / 2], [64, -104, -Math.PI / 2], [-64, -174, Math.PI / 2], [64, -176, -Math.PI / 2], [-20, -210, 0], [24, -210, 0]]) bench(S, S.B.props, x, 0, z, rt);
   // flight cases / stage gear for tonight's show (under the south-west of the arena)
