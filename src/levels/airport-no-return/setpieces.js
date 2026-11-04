@@ -813,7 +813,7 @@ export class SetPieces {
       if (!L) { y -= 3.2; continue; }
       const big = L.big, tt = textTexture(L.text, { size: big ? 200 : 110, color: big || !L.dim ? 'chrome' : 'rgba(255,200,130,0.95)', stroke: big ? 10 : 7, sub: L.sub || null, glow: big ? 'rgba(255,110,10,0.95)' : 'rgba(0,0,0,0.9)', padding: 30 });
       const h = big ? 5.2 : L.sub ? 3.4 : 2.3;
-      const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, toneMapped: false, fog: false, opacity: 0 });
+      const mat = new THREE.MeshBasicMaterial({ map: tt.texture, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, fog: false, opacity: 0 }); // clamped to the open band, drawn over everything
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * tt.aspect, h), mat);
       pl.rotation.y = 0; pl.position.set(0, y, 0); pl.renderOrder = 170;
       grp.add(pl); items.push(pl);
@@ -829,10 +829,15 @@ export class SetPieces {
     C.grp.position.y = CARGO.floorY - 6 + C.t * speed;
     // face the player (plane frame: player looks toward +z out of the ramp)
     C.grp.rotation.set(-this.cargo.pitch, Math.PI, 0);
+    // the readable band: between the world horizon and the lower edge of the hold lining, as seen from the eye right now
+    const E = this.cargo.root.worldToLocal(this.g.camera.getWorldPosition(_v));
+    const horizon = this.cargo.pitch, lip = Math.atan2(CARGO.floorY + 4.25 - E.y, 20.5 - E.z);
+    const target = horizon + 0.5 * (lip - horizon), dz = 30 - E.z;
+    const centre = E.y + Math.tan(target) * dz - CARGO.floorY, half = Math.max(0.9, 0.5 * Math.abs(Math.tan(lip) - Math.tan(horizon)) * dz);
+    C.centre = C.centre === undefined ? centre : damp(C.centre, centre, 3, dt);
     for (const it of C.items) {
       const wy = C.grp.position.y + it.position.y - CARGO.floorY;
-      // visible only in the sky band between the horizon and the hold's ceiling edge (≈ 0..9° above the eye from the ramp)
-      it.material.opacity = clamp(1.6 - Math.abs(wy - 4.3) / 1.6, 0, 1);
+      it.material.opacity = clamp(1.4 - Math.abs(wy - C.centre) / half, 0, 1);
     }
   }
 

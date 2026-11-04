@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as T from '../../textures.js';
 import { rand, range, pick, chance, clamp, damp } from '../../rng.js';
 import { Ragdoll, Gunman } from '../../characters.js';
 import { RigidBox } from '../../physics.js';
@@ -11,6 +12,20 @@ import { applyDusk, setSunElevation } from '../../atmosphere.js';
 import { Soldier, buildCoverPoints } from '../port-of-victory/ai.js';
 import { buildRefueler, gseMaterials } from './gse.js';
 
+let _plumeTex = null;
+let _emberTex = null;
+function emberTexture() {
+  // black with thin glowing crack lines + a few hot spots (tiles; works on any uv layout)
+  if (_emberTex) return _emberTex;
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(5151, 8);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const v = T.fbm(n, xx / S, y / S, 8, 4), crack = Math.max(0, 1 - Math.abs(v - 0.5) * 70) * (T.fbm(n, xx / S + 0.2, y / S, 8, 2) > 0.55 ? 1 : 0), hot = Math.max(0, T.fbm(n, xx / S + 0.37, y / S + 0.71, 8, 3) - 0.7) * 5;
+    const k = Math.min(1, crack * 0.8 + hot * 0.6);
+    const i = (y * S + xx) * 4; img.data[i] = 255 * k; img.data[i + 1] = 120 * k * k; img.data[i + 2] = 30 * k * k * k; img.data[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  return (_emberTex = T.canvasTex(c));
+}
 const _nightHaze = new THREE.Color(0.34, 0.24, 0.32); // blends into the blue-hour horizon sky
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -613,12 +628,39 @@ export class AirportGame {
         if (near || rand() < 0.6) this.fx.main.spawn({ x: c.p.x + range(-2, 2) * k, y: c.p.y + 2 * k, z: c.p.z + range(-2, 2) * k, vx: range(-0.5, 0.5) + 1.8, vy: range(3.5, 5.5), vz: range(-0.5, 0.5) + 0.6, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 4 * k, s1: range(16, 26) * k, ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.13, g: 0.11, b: 0.1, a: 0.82, fadeIn: 0.06, fadeOut: 0.55 });
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire, c.follow ? _v2.copy(c.follow.vel).multiplyScalar(0.9) : null); // a tumbling wreck carries its fire
       }
+      // from far out a wreck's smoke reads as a black plume silhouetted on the sky (particles would fog into lavender)
+      if (c.fire && c.k >= 1.5) this._plume(c);
       // from the air (credits) the burning airfield reads as fire glows under the smoke
       if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), F = this.scene.fog, fogK = 1 / Math.max(0.15, 1 - Math.min(1, Math.max(0, (d - F.near) / (F.far - F.near)))), f = (0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z)) * (1 + 0 * fogK); /* fog-free batch */ this.world.addFarGlow(_v.set(c.p.x, c.p.y + 3 * c.k + d * 0.008, c.p.z), /* lifted with range: kilometres out the ground's depth precision (~20 m) would swallow it */ Math.max(7 * c.k, d * 0.065) * Math.min(1.2, f), 1.7 * f, 0.48 * f, 0.08 * f, 1); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
     }
   }
 
+  _plume(c) {
+    if (!c.plume) {
+      if (!_plumeTex) {
+        const W = 128, H = 512, cv = T.makeCanvas(W, H), x = cv.getContext('2d'), img = x.createImageData(W, H), n = T.makeNoise(4411, 8);
+        for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
+          const v = 1 - y / H;                                         // 0 = base, 1 = top (canvas rows flip into uv)
+          const drift = Math.pow(v, 1.6) * 0.32, w = 0.1 + 0.34 * Math.pow(v, 0.7);
+          const u = xx / W - 0.5 - drift + (T.fbm(n, xx / W, v * 2, 8, 3) - 0.5) * 0.14 * v;
+          const body = Math.max(0, 1 - Math.pow(Math.abs(u) / w, 2)) * (0.65 + 0.5 * T.fbm(n, xx / W * 2, v * 4, 8, 4));
+          const a = Math.min(1, body) * Math.min(1, v * 12) * (1 - Math.pow(v, 3));
+          const i = (y * W + xx) * 4; img.data[i] = 14; img.data[i + 1] = 12; img.data[i + 2] = 12; img.data[i + 3] = 255 * a;
+        }
+        x.putImageData(img, 0, 0);
+        _plumeTex = T.canvasTex(cv, { repeat: false });
+      }
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ map: _plumeTex, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+      m.scale.set(260 * c.k / 2.4, 720 * c.k / 2.4, 1); m.renderOrder = 4; m.frustumCulled = false;
+      this.scene.add(m); c.plume = m;
+    }
+    const m = c.plume, d = Math.hypot(c.p.x - this.headPos.x, c.p.z - this.headPos.z);
+    m.position.set(c.p.x, c.p.y, c.p.z);
+    m.rotation.set(0, Math.atan2(this.headPos.x - c.p.x, this.headPos.z - c.p.z), 0);
+    m.material.opacity = Math.min(1, Math.max(0, (d - 450) / 500)) * Math.min(1, c.life / 20) * 0.92;
+    m.visible = m.material.opacity > 0.01;
+  }
   // burnt version of a material (cached per source): soot-dark, keeps its maps so liveries / text ghost through, ember glow
   scorch(m, plain = false, k = 0) {
     const key = (plain ? 'scorchedPlain' : 'scorched') + (k ? k : '');
@@ -626,7 +668,7 @@ export class AirportGame {
       const s = m.clone(); if (plain) s.map = null;
       s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(k || (m.map && !plain ? 0.3 : 0.22));
       if (s.vertexColors === undefined) s.vertexColors = m.vertexColors;
-      s.emissive = new THREE.Color(0x4a1204); s.emissiveIntensity = 0.45; s.emissiveMap = null;
+      s.emissive = new THREE.Color(0xff5a14); s.emissiveIntensity = 0.32; s.emissiveMap = emberTexture(); // only the cracks glow (a uniform ember tint read as maroon paint)
       s.roughness = 0.92; s.metalness = 0.15; s.envMapIntensity = 0.3;
       m.userData[key] = s;
     }

@@ -29,7 +29,7 @@ export async function create(E) {
   { const [g2, g1, st] = E.flare.children; g1.scale.setScalar(240); g2.scale.setScalar(480); g2.material.opacity = 0.3; st.material.opacity = 0.35; }
   // sunset grade for fire: the shared fireball emission (≈2.1/1.8/1.5) goes peach-pink against this sky, so this level's
   // FX instance pushes fire sprites toward orange (level-local patch, fx.js untouched)
-  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 1.0 && o.r > 1.8) { o.r *= 1.12; o.g *= 0.8; o.b *= 0.5; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.16; o.g1 = 0.12; o.b1 = 0.1; } } return spawn(o); /* long-lived fireballs cool into soot instead of fading out as salmon puffs */ }; }
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 1.0 && o.r > 1.8) { o.r *= 1.15; o.g *= 0.62; o.b *= 0.24; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.16; o.g1 = 0.12; o.b1 = 0.1; } } return spawn(o); /* long-lived fireballs cool into soot instead of fading out as salmon puffs */ }; }
   const world = await new AirportWorld(E).build();
   const game = new AirportGame(E, world);
   game.dusk = dusk0;
