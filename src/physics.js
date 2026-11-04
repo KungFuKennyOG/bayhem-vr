@@ -25,6 +25,7 @@ export class RigidBox {
     this.contactSpeed = 0;
     this.contactPoint = new THREE.Vector3();
     this.sleeping = false;
+    this.floorY = 0; // ground plane height (on-foot levels set it from the collision world each step)
   }
   // apply world inverse inertia to vector (in place)
   _invIWorld(vec) {
@@ -58,9 +59,9 @@ export class RigidBox {
     const h = this.h;
     for (let i = 0; i < 8; i++) {
       _v.set(i & 1 ? h.x : -h.x, i & 2 ? h.y : -h.y, i & 4 ? h.z : -h.z).applyQuaternion(this.quat).add(this.pos);
-      if (_v.y >= 0) continue;
+      if (_v.y >= this.floorY) continue;
       this.onGround = true;
-      deepest = Math.min(deepest, _v.y);
+      deepest = Math.min(deepest, _v.y - this.floorY);
       _r.subVectors(_v, this.pos);
       // point velocity
       _w.crossVectors(this.ang, _r).add(this.vel);

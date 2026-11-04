@@ -597,3 +597,4 @@ export function facadeTextures2(seed, floors, bays) {
   for (let i = 0; i < bays; i++) if (r() < 0.6) { ectx.fillStyle = `rgb(${200 + r() * 55 | 0},${120 + r() * 60 | 0},${60 + r() * 40 | 0})`; ectx.fillRect(i * bw + 4, H - fh + 6, bw - 8, fh - 10); ctx.fillStyle = '#c9a070'; ctx.fillRect(i * bw + 4, H - fh + 6, bw - 8, fh - 10); }
   return { map: tex(c), emissiveMap: tex(e) };
 }
+export { makeNoise, fbm, canvas as makeCanvas, tex as canvasTex, heightToNormal };

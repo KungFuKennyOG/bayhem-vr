@@ -467,6 +467,8 @@ function ik2(S, T, a, b, pole, outE, outN, outT) {
 function spring(s, k, c, h) { s.v += (-k * s.x - c * s.v) * h; s.x += s.v * h; }
 
 const RELOAD_T = 2.3, MAG_SIZE = 30, CLAVS = [B.clavL, B.clavR];
+const THROW_T = 1.05, THROW_REL = 0.55;
+const _bn = new THREE.Vector3();
 
 // =====================================================================================
 export class Gunman {
@@ -494,7 +496,14 @@ export class Gunman {
     this.hip = new THREE.Vector3();
     if (opts.hipOffset) this.hip.copy(opts.hipOffset);
     else if (this.pose === 'window') this.hip.set(-this.side * 0.16, 0.05, 0);
+    else if (this.pose === 'ground') this.hip.set(0, HEADS[B.pelvis].y, 0);
     else this.hip.set(0, 0.37, 0);
+    // on-foot locomotion state (pose 'ground': root sits on the floor at the feet, body faces root -z)
+    this.ground = this.pose === 'ground';
+    this.vel = new THREE.Vector3(); this.velW = new THREE.Vector3(); this.gait = r(); this.crouch = 0; this.crouchTarget = 0;
+    this.peek = 0; this.peekTarget = 0; this.runK = 0; this.forceLow = 0; this.throwT = -1; this.thrown = false;
+    this.feet = [new THREE.Vector3(-0.13, 0.085, -0.1), new THREE.Vector3(0.13, 0.085, 0.14)];
+    this.stepEvents = 0; this._lastFootDown = [true, true];
     // state
     this.t = r() * 10; this.ph = [r() * 6.28, r() * 6.28, r() * 6.28, r() * 6.28];
     this.out = this.pose === 'window' ? (this.side < 0 ? Math.PI / 2 : -Math.PI / 2) : 0;
@@ -512,7 +521,12 @@ export class Gunman {
     this._pose(0, this._idle);
   }
 
-  get canFire() { return !this.dead && this.reloadT < 0 && this.aimable && this.hitT <= 0 && this.aimErr < 0.3 && this.ready < 0.25; }
+  get canFire() { return !this.dead && this.reloadT < 0 && this.aimable && this.hitT <= 0 && this.aimErr < 0.3 && this.ready < 0.25 && this.throwT < 0; }
+  // on-foot controls (pose 'ground'): world-space velocity, crouch 0..1, lean -1 (left) .. +1 (right)
+  setMove(vx, vz) { this.velW.set(vx, 0, vz); }
+  setCrouch(c) { this.crouchTarget = c; }
+  setPeek(p) { this.peekTarget = p; }
+  throwGrenade() { if (this.throwT < 0 && !this.dead && this.reloadT < 0) { this.throwT = 0; this.thrown = false; return true; } return false; }
   get reloading() { return this.reloadT >= 0; }
 
   reload() { if (this.reloadT < 0 && !this.dead) this.reloadT = 0; }
@@ -580,6 +594,14 @@ export class Gunman {
     this.climbYaw = (this.climbYaw || 0) * Math.exp(-3.5 * dt);
     if (this.hitT > 0) this.hitT -= dt;
     if (this.reloadT >= 0) { this.reloadT += dt; if (this.reloadT >= RELOAD_T) { this.reloadT = -1; this.ammo = MAG_SIZE; } }
+    if (this.ground) {
+      const e = _inv.elements, w = this.velW;
+      _v2.set(e[0] * w.x + e[8] * w.z, 0, e[2] * w.x + e[10] * w.z);
+      this.vel.lerp(_v2, 1 - Math.exp(-9 * dt));
+      this.crouch += (this.crouchTarget - this.crouch) * (1 - Math.exp(-7 * dt));
+      this.peek += (this.peekTarget - this.peek) * (1 - Math.exp(-8 * dt));
+      if (this.throwT >= 0) { this.throwT += dt; if (this.throwT >= THROW_T) this.throwT = -1; }
+    }
     if (targetWorld) _t.copy(targetWorld).applyMatrix4(_inv); else _t.copy(this._idle);
     this._pose(dt, _t);
   }
@@ -609,7 +631,10 @@ export class Gunman {
     this.aimable = excess < 0.3;
     this.aimErr = Math.abs(wrap(yawD - this.yaw)) * (excess > 0 ? 0 : 1) + Math.abs(pitD - this.pitch);
     const reloadW = this.reloadT >= 0 ? smoothstep(0, 0.12, this.reloadT / RELOAD_T) * (1 - smoothstep(0.84, 1, this.reloadT / RELOAD_T)) : 0;
-    const readyG = this.aimable ? 0 : 1;
+    const sp = this.ground ? Math.hypot(this.vel.x, this.vel.z) : 0;
+    if (this.ground) this.runK += (smoothstep(2.6, 4.4, sp) - this.runK) * (dt > 0 ? 1 - Math.exp(-6 * dt) : 1);
+    const throwW = this.throwT >= 0 ? smoothstep(0, 0.15, this.throwT) * (1 - smoothstep(THROW_T - 0.25, THROW_T, this.throwT)) : 0;
+    const readyG = Math.max(this.aimable ? 0 : 1, this.runK * (1 - (this.aimWhileRunning ? 1 : 0)), this.forceLow, throwW);
     this.ready += (readyG - this.ready) * (dt > 0 ? 1 - Math.exp(-5 * dt) : 1);
     const pitch = this.pitch;
     // ---- lean (window shooters hang out of the frame)
@@ -639,6 +664,17 @@ export class Gunman {
       pelY = this.out * 0.28 + this.rel * 0.3;
       _q1.setFromAxisAngle(Z_AX, -side * lean * 0.3);
       Q[B.pelvis].copy(_q1).multiply(qEuler(_qi, 0, pelY, 0));
+    } else if (this.ground) {
+      const crouch = this.crouch, run = this.runK;
+      if (sp > 0.4) { const my = Math.atan2(-this.vel.x, -this.vel.z); const back = Math.abs(wrap(my - this.yaw)) > 1.9; const tgtY = back ? wrap(my + Math.PI) : my; this.pelYaw = wrap(this.pelYaw + wrap(wrap(tgtY + (this.yaw - 0.25 - tgtY) * (1 - run) * 0.6) - this.pelYaw) * (dt > 0 ? 1 - Math.exp(-6 * dt) : 1)); }
+      pelY = this.pelYaw;
+      const ph = this.gait * Math.PI * 4;
+      const bobA = (0.012 + 0.03 * run) * smoothstep(0.2, 1.2, sp);
+      P[B.pelvis].y = HEADS[B.pelvis].y - crouch * 0.38 - run * 0.05 - (1 - Math.cos(ph)) * bobA + bob * 0.3;
+      P[B.pelvis].x += this.peek * 0.22 * (0.5 + 0.5 * crouch);
+      P[B.pelvis].addScaledVector(_v1.set(-Math.sin(pelY), 0, -Math.cos(pelY)), 0.04 * run + 0.06 * crouch);
+      _q1.setFromAxisAngle(Z_AX, -this.peek * 0.08 + Math.sin(ph * 0.5) * 0.03 * smoothstep(0.3, 2, sp));
+      Q[B.pelvis].copy(qEuler(_qi, 0.03 + crouch * 0.25 + run * 0.12, pelY, 0)).multiply(_q1);
     } else {
       pelY = this.pelYaw;
       Q[B.pelvis].copy(qEuler(_qi, 0.03, pelY, 0));
@@ -649,12 +685,13 @@ export class Gunman {
     const counter = win ? lean * 0.55 * Math.max(0, Math.cos(this.rel)) : 0;
     const rec = this.rec.x;
     // spine
-    if (win) _q1.setFromAxisAngle(Z_AX, -side * lean * 0.8); else _q1.identity();
+    if (win) _q1.setFromAxisAngle(Z_AX, -side * lean * 0.8); else if (this.ground) _q1.setFromAxisAngle(Z_AX, -this.peek * 0.22); else _q1.identity();
+    const gLean = this.ground ? this.runK * 0.22 + this.crouch * 0.1 - throwW * 0.15 : 0;
     _q4.copy(_q3).slerp(QID, 0.5);
-    Q[B.spine].copy(_q2).multiply(_q4).multiply(_q1).multiply(qEuler(_qi, pitch * 0.18 + (win ? counter * 0.4 : 0.06) - reloadW * 0.05, spineY, 0));
+    Q[B.spine].copy(_q2).multiply(_q4).multiply(_q1).multiply(qEuler(_qi, pitch * 0.18 + (win ? counter * 0.4 : 0.06) - reloadW * 0.05 - gLean * 0.5, spineY, 0));
     // chest
-    if (win) _q1.setFromAxisAngle(Z_AX, -side * lean); else _q1.identity();
-    Q[B.chest].copy(_q2).multiply(_q3).multiply(_q1).multiply(qEuler(_qi, pitch * 0.38 + counter + breath - rec * 0.05 - reloadW * 0.12 + (win ? 0 : 0.05), chestY, 0));
+    if (win) _q1.setFromAxisAngle(Z_AX, -side * lean); else if (this.ground) _q1.setFromAxisAngle(Z_AX, -this.peek * 0.3); else _q1.identity();
+    Q[B.chest].copy(_q2).multiply(_q3).multiply(_q1).multiply(qEuler(_qi, pitch * 0.38 + counter + breath - rec * 0.05 - reloadW * 0.12 + (win ? 0 : 0.05) - gLean * 0.5, chestY + (this.ground ? throwW * 0.6 * Math.sin(Math.min(1, this.throwT / THROW_T) * Math.PI * 2) : 0), 0));
     // FK torso
     P[B.spine].copy(OFF[B.spine]).applyQuaternion(Q[B.pelvis]).add(P[B.pelvis]);
     P[B.chest].copy(OFF[B.chest]).applyQuaternion(Q[B.spine]).add(P[B.spine]);
@@ -711,6 +748,18 @@ export class Gunman {
       else if (p < 0.62) { s = smoothstep(0.42, 0.62, p); _v1.copy(pouch).lerp(wM, s); Q[B.handL].copy(gunQ).multiply(HQ_MAG); magInHand = true; }
       else if (p < 0.72) { s = Math.sin((p - 0.62) / 0.1 * Math.PI) * 0.025; _v1.copy(wM).addScaledVector(_v6.set(0, 1, 0).applyQuaternion(gunQ), s); Q[B.handL].copy(gunQ).multiply(HQ_MAG); magInHand = p < 0.66; }
       else { s = smoothstep(0.72, 0.9, p); _v1.copy(wM).lerp(wA, s); _q1.copy(gunQ).multiply(HQ_MAG); _qi.copy(gunQ).multiply(HQ_L); Q[B.handL].copy(_q1).slerp(_qi, s); }
+    } else if (throwW > 0.001) {
+      // grenade throw: left hand goes back over the shoulder, then whips forward and releases at THROW_REL
+      const p = this.throwT / THROW_T;
+      const back = _v6.set(-0.25, 0.32, 0.22).applyQuaternion(Q[B.chest]).add(P[B.chest]);
+      const fwdP = _v2.set(-0.12, 0.22, -0.62).applyQuaternion(Q[B.chest]).add(P[B.chest]);
+      const grip = _v3.copy(WRIST_L).applyQuaternion(gunQ).add(gunPos);
+      if (p < 0.4) _v1.copy(grip).lerp(back, smoothstep(0, 0.4, p));
+      else if (p < 0.62) _v1.copy(back).lerp(fwdP, smoothstep(0.4, 0.62, p));
+      else _v1.copy(fwdP).lerp(grip, smoothstep(0.62, 1, p));
+      Q[B.handL].copy(Q[B.chest]).multiply(qEuler(_qi, -0.6 + p * 1.2, 0.4, 1.2));
+      this.handLWorld = this.handLWorld || new THREE.Vector3();
+      if (!this.thrown && p >= THROW_REL) { this.thrown = true; this.releaseNow = true; }
     } else {
       _v1.copy(WRIST_L).applyQuaternion(gunQ).add(gunPos);
       Q[B.handL].copy(gunQ).multiply(HQ_L);
@@ -750,6 +799,8 @@ export class Gunman {
       Q[B.shinR].copy(lp).multiply(qEuler(_qi, -0.04, -0.1, 0));
       Q[B.footL].copy(Q[B.shinL]).multiply(qEuler(_qi, 0.12, 0, 0));
       Q[B.footR].copy(Q[B.shinR]).multiply(qEuler(_qi, 0.06, 0, 0));
+    } else if (this.ground) {
+      this._legs(dt, sp);
     } else {
       Q[B.thighL].copy(lp).multiply(qEuler(_qi, 0.12, 0.06, -0.05));
       Q[B.thighR].copy(lp).multiply(qEuler(_qi, 0.02, -0.06, 0.07));
@@ -759,6 +810,51 @@ export class Gunman {
       Q[B.footR].copy(Q[B.shinR]).multiply(qEuler(_qi, 0.03, 0, 0));
     }
     this._apply(P, Q);
+  }
+
+  // ---- on-foot legs: procedural gait (stance/swing cycle along the travel direction) + 2-bone leg IK
+  _legs(dt, sp) {
+    const P = _P, Q = _Q, run = this.runK, crouch = this.crouch;
+    const cyc = 0.82 + 0.3 * sp;                        // gait cycles per second
+    if (dt > 0) this.gait = (this.gait + cyc * dt * smoothstep(0.02, 0.25, sp + 0.0)) % 1;
+    const L = sp / cyc;                                  // stride length
+    const duty = 0.62 - 0.22 * run;                      // stance fraction
+    const gw = smoothstep(0.08, 0.5, sp);
+    const dirX = sp > 1e-4 ? this.vel.x / sp : 0, dirZ = sp > 1e-4 ? this.vel.z / sp : -1;
+    const fy = Math.atan2(-Math.sin(this.pelYaw), -Math.cos(this.pelYaw)); // pelvis forward yaw
+    const cy = Math.cos(this.pelYaw), sy = Math.sin(this.pelYaw);
+    for (let s = 0; s < 2; s++) {
+      const thigh = s ? B.thighR : B.thighL, shin = thigh + 1, foot = thigh + 2;
+      // hip (FK from the pelvis)
+      P[thigh].copy(OFF[thigh]).applyQuaternion(Q[B.pelvis]).add(P[B.pelvis]);
+      const hip = P[thigh];
+      const side = s ? 1 : -1;
+      // idle / crouch stance in pelvis-yaw space: left foot forward, right back (bladed rifle stance)
+      const fwdOff = s ? 0.16 + crouch * 0.12 : -0.12 - crouch * 0.18, latOff = side * (0.13 + crouch * 0.07);
+      _v1.set(cy * latOff + sy * fwdOff, 0.085, -sy * latOff + cy * fwdOff); // rotate (lat, fwd) by pelvis yaw
+      _v1.x += this.hip.x * 0 + P[B.pelvis].x * 0.6; _v1.z += P[B.pelvis].z * 0.6;
+      // gait
+      const phi = (this.gait + s * 0.5) % 1;
+      let along, lift = 0;
+      if (phi < duty) along = L * (0.5 - phi / duty);
+      else { const u = (phi - duty) / (1 - duty); along = L * (-0.5 + u * u * (3 - 2 * u)); lift = Math.sin(Math.PI * u) * (0.1 + 0.12 * run) * (1 - crouch * 0.5); }
+      _v2.set(hip.x * 0.4 + side * 0.04 * (1 - run) * cy, 0.085 + lift, hip.z * 0.4 - side * 0.04 * (1 - run) * sy);
+      _v2.x += dirX * along; _v2.z += dirZ * along;
+      const tgt = _v3.copy(_v1).lerp(_v2, gw);
+      const down = phi < duty || gw < 0.5;
+      if (down && !this._lastFootDown[s] && gw > 0.5) this.stepEvents++;
+      this._lastFootDown[s] = down;
+      // knee pole: forward of the pelvis, splayed out a little (more when crouched)
+      const pole = _v4.set(-sy + side * cy * (0.25 + crouch * 0.5), 0.05, -cy - side * sy * (0.25 + crouch * 0.5)).normalize();
+      ik2(hip, tgt, TH, SH, pole, _v5, _fy, _v6);
+      _bn.copy(_fy);
+      _v1.subVectors(_v5, hip); frameQuat(Q[thigh], _v1, _bn, BI_LEG);
+      _v1.subVectors(_v6, _v5); frameQuat(Q[shin], _v1, _bn, BI_LEG);
+      P[shin].copy(_v5); P[foot].copy(_v6);
+      // foot: flat, heel-toe roll during swing, pointing along the pelvis (toes out a bit)
+      const roll = phi < duty ? 0 : Math.sin(Math.PI * (phi - duty) / (1 - duty)) * 0.5 * gw;
+      Q[foot].copy(qEuler(_qi, -roll + 0.06, fy + Math.PI + side * -0.12, 0));
+    }
   }
 
   _arm(c, wrist, pole, binv, nStore) {
@@ -836,6 +932,7 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3
 const _RQ = Array.from({ length: NB }, () => new THREE.Quaternion());
 let _px = null;
 const p = (i, out) => out.set(_px[i * 3], _px[i * 3 + 1], _px[i * 3 + 2]);
+const _rdP = new THREE.Vector3(), _rdOut = { hit: false, nx: 0, ny: 0, nz: 0 };
 
 export class Ragdoll {
   constructor(gm, carVel, dirWorld, outW, power = 1) {
@@ -877,12 +974,13 @@ export class Ragdoll {
     dir.normalize();
     const od = dir.dot(outW);
     if (gm.pose === 'window' && od < 0) dir.addScaledVector(outW, -od); // never shove them back into the car
-    const out = gm.pose === 'window' ? 2.6 : 1.4;
+    const out = gm.pose === 'window' ? 2.6 : gm.pose === 'ground' ? 0.25 : 1.4;
+    const upK = gm.pose === 'ground' ? 0.35 : 1;
     for (let i = 0; i < NP; i++) {
       const upper = i >= 2 && i <= 10 ? 1 : i >= 15 ? 0.9 : 0.45;
       const limb = (i >= 7 && i <= 14) ? 1 : 0;
       v[i * 3] = (carVel ? carVel.x : 0) + dir.x * 3.4 * power * upper + outW.x * out * (0.6 + upper * 0.6) + (r() - 0.5) * (1 + limb * 3);
-      v[i * 3 + 1] = (carVel ? carVel.y : 0) + dir.y * 3.4 * power * upper + 1.8 + upper * 1.2 + (r() - 0.5) * (1 + limb * 3);
+      v[i * 3 + 1] = (carVel ? carVel.y : 0) + dir.y * 3.4 * power * upper + (1.8 + upper * 1.2) * upK + (r() - 0.5) * (1 + limb * 3);
       v[i * 3 + 2] = (carVel ? carVel.z : 0) + dir.z * 3.4 * power * upper + outW.z * out * (0.6 + upper * 0.6) + (r() - 0.5) * (1 + limb * 3);
     }
     if (!this.keepGun) { // fling the rifle with spin
@@ -896,16 +994,39 @@ export class Ragdoll {
   }
   get root() { return this._root; }
   get position() { return this._pos; }
-  get done() { return this.age > 12 || this._pos.z > 320; }
+  get done() { return Ragdoll.world ? false : (this.age > 12 || this._pos.z > 320); }
 
+  // Ragdoll.world: optional CollisionWorld (on-foot levels) -> floors from groundAt(), walls/box tops from collidePoint()
   update(dt, groundV = 0) {
     this.impact = 0; this.gunImpact = 0;
-    if (!(dt > 0) || this.disposed) return;
+    if (!(dt > 0) || this.disposed || this.asleep) return;
     dt = Math.min(dt, 0.05);
     this.age += dt;
+    const W = Ragdoll.world;
+    if (W) {
+      const x = this.x; this.floor ||= new Float64Array(NP);
+      for (let i = 0; i < this.np; i++) this.floor[i] = W.groundAt(x[i * 3], x[i * 3 + 2], x[i * 3 + 1] + 0.3, 0.2);
+    }
     const n = Math.max(1, Math.ceil(dt * 240 - 1e-6)), h = dt / n;
-    for (let s = 0; s < n; s++) this._substep(h, groundV);
+    for (let s = 0; s < n; s++) { this._substep(h, groundV); if (W) this._boxes(W); }
     this._writeBones();
+    // settle: once a body has come to rest it stops simulating (on-foot levels keep the bodies around)
+    if (W && this.age > 2.5) {
+      let ke = 0; const v = this.v; for (let i = 0; i < NBODY * 3; i++) ke += v[i] * v[i];
+      this.still = ke < 0.6 ? (this.still || 0) + dt : 0;
+      if (this.still > 0.8) this.asleep = true;
+    }
+  }
+  _boxes(W) {
+    const x = this.x, o = _rdOut;
+    for (let i = 0; i < this.np; i++) {
+      const j = i * 3; _rdP.set(x[j], x[j + 1], x[j + 2]);
+      W.collidePoint(_rdP, P_RAD[i], o);
+      if (o.hit) {
+        if (o.ny > 0.5) { this.contact[i] = 1; const dx = _rdP.x - x[j], dz = _rdP.z - x[j + 2]; x[j] = _rdP.x - (x[j] - this.x0[j]) * 0.5 + dx * 0; x[j + 2] = _rdP.z - (x[j + 2] - this.x0[j + 2]) * 0.5; x[j + 1] = _rdP.y; }
+        else { x[j] = _rdP.x; x[j + 1] = _rdP.y; x[j + 2] = _rdP.z; }
+      }
+    }
   }
 
   _substep(h, G) {
@@ -959,12 +1080,12 @@ export class Ragdoll {
   }
 
   _ground(h, G) {
-    const x = this.x, x0 = this.x0, np = this.np;
+    const x = this.x, x0 = this.x0, np = this.np, fl = Ragdoll.world ? this.floor : null;
     for (let i = 0; i < np; i++) {
-      const j = i * 3, rad = P_RAD[i];
-      if (x[j + 1] >= rad) continue;
-      const depth = rad - x[j + 1];
-      x[j + 1] = rad;
+      const j = i * 3, rad = P_RAD[i], f = fl ? fl[i] : 0;
+      if (x[j + 1] >= f + rad) continue;
+      const depth = f + rad - x[j + 1];
+      x[j + 1] = f + rad;
       this.contact[i] = 1;
       // positional Coulomb friction against the moving road
       const dx = x[j] - x0[j], dz = (x[j + 2] - x0[j + 2]) - G * h;

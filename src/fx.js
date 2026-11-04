@@ -57,6 +57,8 @@ export class FX {
     this.emitters = [];
     this.groundV = 30;
     this.onSound = () => {};
+    // on-foot levels: fast floor height (x,z)=>y used by particles, debris, casings, scorch decals, dust rings
+    this.groundAt = null;
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._s = new THREE.Vector3(); this._p = new THREE.Vector3();
   }
 
@@ -74,8 +76,10 @@ export class FX {
   }
 
   // ---------------- composite effects ----------------
+  setGround(fn) { this.groundAt = fn; this.main.groundAt = fn; this.sparks.groundAt = fn; this.near.groundAt = fn; }
   explosion(pos, s = 1, { carVel = null, noRing = false } = {}) {
     const P = pos;
+    const gy = this.groundAt ? this.groundAt(P.x, P.z) : 0, hy = P.y - gy;
     this.onSound('explosion_big', P);
     this.light(_v.copy(P).setY(P.y + 1.5), 260 * s, 1.1, 0xff9040, true, 60 * s);
     // flash
@@ -119,10 +123,10 @@ export class FX {
     // dust ring on ground
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      this.main.spawn({ x: P.x, y: 0.6, z: P.z, vx: Math.cos(a) * 14 * s, vz: Math.sin(a) * 14 * s, vy: 0.5, drag: 3, frame: CELL.DUST, s0: 2 * s, s1: 6 * s, life: 1.6, rot: rand() * 6, r: 0.9, g: 0.78, b: 0.62, a: 0.55, fadeIn: 0.05, fadeOut: 0.3 });
+      this.main.spawn({ x: P.x, y: gy + 0.6, z: P.z, vx: Math.cos(a) * 14 * s, vz: Math.sin(a) * 14 * s, vy: 0.5, drag: 3, frame: CELL.DUST, s0: 2 * s, s1: 6 * s, life: 1.6, rot: rand() * 6, r: 0.9, g: 0.78, b: 0.62, a: 0.55, fadeIn: 0.05, fadeOut: 0.3 });
     }
-    if (!noRing && P.y < 4) this.ring(P, 22 * s, 0.45);
-    if (P.y < 3) this.scorchAt(P.x, P.z, 7 * s);
+    if (!noRing && hy < 4) this.ring(P, 22 * s, 0.45, gy);
+    if (hy < 3) this.scorchAt(P.x, P.z, 7 * s, gy);
     // debris
     for (let i = 0; i < Math.round(9 * s + 3); i++) {
       const a = rand() * Math.PI * 2, sp = range(6, 18);
@@ -139,13 +143,13 @@ export class FX {
     for (let i = 0; i < 25; i++) { const a = rand() * 6.28, el = range(0, 1.2), sp = range(8, 20); this.sparks.spawn({ x: pos.x, y: pos.y, z: pos.z, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp, vz: Math.sin(a) * Math.cos(el) * sp, grav: -14, drag: 1, frame: CELL.SPARK, s0: 1, w: 0.06, life: range(0.3, 0.8), r: 1.6, g: 0.9, b: 0.4, fadeOut: 0.5, ground: true }); }
   }
 
-  ring(P, size, life) {
+  ring(P, size, life, gy = 0) {
     let r = this.rings.find(x => x.life <= 0) || this.rings[0];
-    r.life = life; r.max = life; r.x = P.x; r.y = Math.max(0.15, P.y * 0.2); r.z = P.z; r.size = size;
+    r.life = life; r.max = life; r.x = P.x; r.y = gy + Math.max(0.15, (P.y - gy) * 0.2); r.z = P.z; r.size = size;
   }
-  scorchAt(x, z, s) {
+  scorchAt(x, z, s, y = 0) {
     const d = this.scorch[this.scorchCursor++ % this.scorch.length];
-    d.x = x; d.z = z; d.s = s; d.r = rand() * 6.28;
+    d.x = x; d.z = z; d.s = s; d.r = rand() * 6.28; d.y = y;
   }
 
   spawnDebris(P, vx, vy, vz, size, burning) {
@@ -187,8 +191,8 @@ export class FX {
       this.main.spawn({ x: pos.x + normal.x * 0.05, y: pos.y + normal.y * 0.05, z: pos.z + normal.z * 0.05, frame: CELL.STAR2, s0: 0.35, s1: 0.5, life: 0.06, rot: rand() * 6, r: 3.6, g: 2.6, b: 1.6, fadeIn: 0, fadeOut: 0.2 });
       if (kind === 'glass') for (let i = 0; i < 10; i++) this.sparks.spawn({ x: pos.x, y: pos.y, z: pos.z, vx: normal.x * range(1, 4) + range(-2, 2), vy: range(0, 3), vz: normal.z * range(1, 4) + range(-2, 2), grav: -9.8, drag: 0.5, frame: CELL.SPARK, s0: 1, w: 0.03, len: 0.06, life: range(0.4, 0.8), r: 0.8, g: 0.9, b: 1.0, a: 0.8, fadeOut: 0.6, ground: true });
     } else if (kind === 'ground') {
-      this.main.spawn({ x: pos.x, y: 0.15, z: pos.z, vy: range(0.8, 2), frame: CELL.DIRT, s0: 0.3, s1: 1.4, ease: 0.5, life: 0.8, rot: rand() * 6, r: 1, g: 1, b: 1, a: 0.8, fadeIn: 0.02, fadeOut: 0.3 });
-      for (let i = 0; i < 3; i++) this.sparks.spawn({ x: pos.x, y: 0.05, z: pos.z, vx: range(-3, 3), vy: range(3, 7), vz: range(-3, 3), grav: -12, frame: CELL.SPARK, s0: 1, w: 0.03, life: 0.3, r: 1.5, g: 1.0, b: 0.5, fadeOut: 0.4 });
+      this.main.spawn({ x: pos.x, y: pos.y + 0.15, z: pos.z, vy: range(0.8, 2), frame: CELL.DIRT, s0: 0.3, s1: 1.4, ease: 0.5, life: 0.8, rot: rand() * 6, r: 1, g: 1, b: 1, a: 0.8, fadeIn: 0.02, fadeOut: 0.3 });
+      for (let i = 0; i < 3; i++) this.sparks.spawn({ x: pos.x, y: pos.y + 0.05, z: pos.z, vx: range(-3, 3), vy: range(3, 7), vz: range(-3, 3), grav: -12, frame: CELL.SPARK, s0: 1, w: 0.03, life: 0.3, r: 1.5, g: 1.0, b: 0.5, fadeOut: 0.4 });
     } else if (kind === 'body') {
       // non-gory: fabric/dust puff
       this.main.spawn({ x: pos.x, y: pos.y, z: pos.z, vx: normal.x, vy: 0.5, vz: normal.z, drag: 3, frame: CELL.DUST, s0: 0.2, s1: 0.8, life: 0.5, rot: rand() * 6, r: 0.5, g: 0.45, b: 0.42, a: 0.7, fadeIn: 0.02, fadeOut: 0.3 });
@@ -245,8 +249,9 @@ export class FX {
       if (d.life <= 0 || d.z > 320) { d.alive = false; continue; }
       d.vy -= 9.8 * dt;
       d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt + dz;
-      if (d.y < d.sy * 0.5) {
-        d.y = d.sy * 0.5;
+      const dgy = this.groundAt ? this.groundAt(d.x, d.z) : 0;
+      if (d.y < dgy + d.sy * 0.5) {
+        d.y = dgy + d.sy * 0.5;
         if (d.vy < -2) { d.vy = -d.vy * 0.3; d.wx *= 0.5; d.wz *= 0.5; } else d.vy = 0;
         // ground friction pulls toward ground speed (+z relative = 0 world)
         d.vx *= 0.8; d.vz = d.vz * 0.8;
@@ -267,8 +272,8 @@ export class FX {
       if (!c || !c.alive) { s.set(0, 0, 0); m.compose(p.set(0, -10, 0), q.identity(), s); this.casingMesh.setMatrixAt(i, m); continue; }
       c.life -= dt;
       c.vy -= 9.8 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt;
-      const inBed = ctx && Math.abs(c.x - ctx.bedX) < ctx.bedHalfW && c.z > ctx.bedZ0 && c.z < ctx.bedZ1;
-      const fy = inBed ? floor + 0.006 : 0.006;
+      const inBed = ctx && ctx.groundAt ? true : ctx && Math.abs(c.x - ctx.bedX) < ctx.bedHalfW && c.z > ctx.bedZ0 && c.z < ctx.bedZ1;
+      const fy = ctx && ctx.groundAt ? ctx.groundAt(c.x, c.z) + 0.006 : inBed ? floor + 0.006 : 0.006;
       if (!inBed) c.z += dz; // fell off onto road
       if (c.y < fy) { c.y = fy; if (c.vy < -0.5) { c.vy *= -0.4; c.vx *= 0.6; c.vz *= 0.6; c.w *= 0.6; if (c.bounced++ < 2 && ctx && ctx.onCasing && inBed) ctx.onCasing(c); } else { c.vy = 0; c.vx *= 0.9; c.vz *= 0.9; c.w *= 0.9; } }
       c.rz += c.w * dt; c.ry += c.w * 0.3 * dt;
@@ -293,7 +298,7 @@ export class FX {
     this.scorch.forEach((d, i) => {
       d.z += dz;
       const vis = d.z < 470;
-      p.set(d.x, 0.02, d.z); q.setFromEuler(new THREE.Euler(0, d.r, 0)); s.set(vis ? d.s : 0, 1, vis ? d.s : 0);
+      p.set(d.x, (d.y || 0) + 0.02, d.z); q.setFromEuler(new THREE.Euler(0, d.r, 0)); s.set(vis ? d.s : 0, 1, vis ? d.s : 0);
       m.compose(p, q, s); this.scorchMesh.setMatrixAt(i, m);
     });
     this.scorchMesh.instanceMatrix.needsUpdate = true;

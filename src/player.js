@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildRifle, buildLauncher, Gun, VR_HOLD } from './weapons.js';
 import { rand, range, clamp, damp } from './rng.js';
+import { rotateRigAboutHead } from './locomotion.js';
 
 const _v = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion();
 
@@ -35,7 +36,45 @@ export class Player {
       this.yaw -= e.movementX * 0.0022; this.pitch -= e.movementY * 0.0022;
       this.pitch = clamp(this.pitch, -1.35, 1.35);
     });
-    addEventListener('keydown', (e) => { if (e.code === 'KeyR') this.inputs.reload = true; });
+    this.keys = {};
+    addEventListener('keydown', (e) => { if (e.code === 'KeyR') this.inputs.reload = true; this.keys[e.code] = true; });
+    addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+    addEventListener('blur', () => { this.keys = {}; });
+  }
+
+  // ---------- on-foot movement (levels that call enableLocomotion) ----------
+  enableLocomotion(loco) { this.loco = loco; this.autoMove = new THREE.Vector3(); this._wish = new THREE.Vector3(); this.snapArmed = true; this.stepDist = 0; this.bob = 0; }
+  _moveInput(rdt) {
+    const w = this._wish.set(0, 0, 0);
+    if (this.auto) { w.copy(this.autoMove); return w; }
+    if (this.mode === 'desktop') {
+      const k = this.keys;
+      const f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), r = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
+      const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
+      w.set(-sy * f + cy * r, 0, -cy * f - sy * r);
+      if (w.lengthSq() > 1) w.normalize();
+      if (k.ShiftLeft || k.ShiftRight) w.multiplyScalar(1.5);
+      return w;
+    }
+    // VR: left stick moves relative to where the head looks, right stick snaps 45°
+    const xrCam = this.renderer.xr.getCamera();
+    xrCam.getWorldDirection(_d); _d.y = 0; if (_d.lengthSq() < 1e-6) _d.set(0, 0, -1); _d.normalize();
+    for (const c of this.controllers) {
+      const gp = c.source?.gamepad; if (!gp || gp.axes.length < 4) continue;
+      const ax = gp.axes[2], ay = gp.axes[3];
+      if (c.hand === 'left') {
+        const m = Math.hypot(ax, ay), dz = 0.15;
+        if (m > dz) {
+          const s = ((m - dz) / (1 - dz)) / m;
+          w.set(_d.x * -ay * s - _d.z * -ax * s * -1, 0, _d.z * -ay * s + _d.x * ax * s);
+          if (gp.buttons[3]?.pressed) w.multiplyScalar(1.5);
+        }
+      } else if (c.hand === 'right') {
+        if (this.snapArmed && Math.abs(ax) > 0.7) { this.snapArmed = false; rotateRigAboutHead(this.rig, this.camera, -Math.sign(ax) * Math.PI / 4); this.loco.turnFX = 1; this.g.audio.play('ui_select', { volume: 0.25, pitch: 0.6 }); }
+        else if (Math.abs(ax) < 0.3) this.snapArmed = true;
+      }
+    }
+    return w;
   }
 
   setupVR() {
@@ -132,11 +171,28 @@ export class Player {
     const g = this.g;
     if (this.auto) this.autopilot(rdt, dt);
     else if (this.mode === 'desktop') { this.inputs.fireR = this.mouseDown[0]; this.inputs.fireL = this.mouseDown[2]; }
+    let bobY = 0, bobX = 0;
+    if (this.loco) {
+      // movement runs on sim time (slow-mo slows the player too, like everything else)
+      this.camera.getWorldPosition(_v);
+      this.loco.update(dt, this._moveInput(rdt), _v);
+      const sp = this.loco.speed;
+      this.bob += dt * (sp > 0.3 ? 1.6 + sp * 0.55 : 0) * Math.PI * 2;
+      const bk = clamp(sp / 4, 0, 1) * (this.mode === 'desktop' ? 1 : 0);
+      bobY = -Math.abs(Math.sin(this.bob * 0.5)) * 0.045 * bk; bobX = Math.sin(this.bob * 0.5) * 0.02 * bk;
+      // footsteps by distance walked
+      const stride = sp > 4 ? 1.05 : 0.78;
+      if (this.loco.dist - this.stepDist > stride) {
+        this.stepDist = this.loco.dist;
+        g.audio.play(this.loco.onMetal ? 'step_metal' : (sp > 4 ? 'step_run' : 'step_concrete'), { volume: 0.35 + Math.min(0.35, sp * 0.06) });
+      }
+      g.hud.setComfort?.(this.mode === 'vr' ? Math.max(clamp((sp - 0.4) / 3, 0, 1) * 0.85, this.loco.turnFX) : 0);
+    }
     if (this.mode === 'desktop') {
       this.shake *= Math.exp(-rdt * 6);
       const sh = this.shake;
-      this.camera.rotation.set(this.pitch + (sh ? Math.sin(g.time * 47) * sh * 0.02 : 0), this.yaw + (sh ? Math.sin(g.time * 39) * sh * 0.02 : 0), 0, 'YXZ');
-      this.camera.position.set(0, 1.65, 0);
+      this.camera.rotation.set(this.pitch + (sh ? Math.sin(g.time * 47) * sh * 0.02 : 0) + bobY * 0.15, this.yaw + (sh ? Math.sin(g.time * 39) * sh * 0.02 : 0), 0, 'YXZ');
+      this.camera.position.set(Math.cos(this.yaw) * bobX, 1.65 + bobY, -Math.sin(this.yaw) * bobX);
       // viewmodel sway + converge onto the aim point
       this.camera.updateMatrixWorld();
       const aimDist = 30;

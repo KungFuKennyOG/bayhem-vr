@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { textTexture } from './textures.js';
 
 const texCache = new Map();
+const _hv = new THREE.Vector3(), _hq = new THREE.Quaternion();
 function cachedText(key, fn) {
   if (!texCache.has(key)) texCache.set(key, fn());
   return texCache.get(key);
@@ -34,7 +35,19 @@ export class HUD {
     this.slow.position.set(0, 0, -0.91); this.slow.material.opacity = 0;
     this.white = plane(null, 4, 4, { color: 0xfff0d8 }); this.white.position.set(0, 0, -0.89); this.white.material.opacity = 0;
     this.black = plane(null, 4, 4, { color: 0x000000 }); this.black.position.set(0, 0, -0.88); this.black.material.opacity = 0;
-    this.root.add(this.hurt, this.slow, this.white, this.black);
+    // comfort vignette (VR locomotion): tunnel the periphery while moving / right after a snap turn
+    this.comfort = plane(vignetteTexture('rgba(0,0,0,0)', 'rgba(0,0,0,1)'), 2.6, 2.6);
+    this.comfort.position.set(0, 0, -0.87); this.comfort.material.opacity = 0; this.comfortK = 0;
+    this.root.add(this.hurt, this.slow, this.white, this.black, this.comfort);
+    // objective line (top centre) and grenade warning
+    this.objCanvas = document.createElement('canvas'); this.objCanvas.width = 1024; this.objCanvas.height = 96;
+    this.objTex = new THREE.CanvasTexture(this.objCanvas); this.objTex.colorSpace = THREE.SRGBColorSpace;
+    this.obj = plane(this.objTex, 0.62, 0.058); this.obj.position.set(0, 0.36, -1.2); this.obj.material.opacity = 0;
+    this.root.add(this.obj); this.objT = 0;
+    this.warnCanvas = document.createElement('canvas'); this.warnCanvas.width = 256; this.warnCanvas.height = 256;
+    this.warnTex = new THREE.CanvasTexture(this.warnCanvas); this.warnTex.colorSpace = THREE.SRGBColorSpace;
+    this.warn = plane(this.warnTex, 0.09, 0.09); this.warn.material.opacity = 0; this.root.add(this.warn);
+    this._drawWarn();
     // hit marker
     const hm = document.createElement('canvas'); hm.width = hm.height = 128;
     const hx = hm.getContext('2d'); hx.strokeStyle = '#fff'; hx.lineWidth = 9; hx.lineCap = 'round';
@@ -76,8 +89,8 @@ export class HUD {
     this.vr = v;
     this.cross.visible = !v;
     // move panels a bit inward/down for headset comfort
-    if (v) { this.scorePanel.position.set(-0.3, -0.28, -1.2); this.sub.position.set(0, -0.42, -1.3); this.boss.position.set(0, 0.3, -1.3); }
-    else { this.scorePanel.position.set(-0.52, 0.33, -1.2); this.sub.position.set(0, -0.36, -1.2); this.boss.position.set(0, 0.42, -1.2); }
+    if (v) { this.scorePanel.position.set(-0.3, -0.28, -1.2); this.sub.position.set(0, -0.42, -1.3); this.boss.position.set(0, 0.3, -1.3); this.obj.position.set(0, 0.24, -1.3); }
+    else { this.scorePanel.position.set(-0.52, 0.33, -1.2); this.sub.position.set(0, -0.36, -1.2); this.boss.position.set(0, 0.42, -1.2); this.obj.position.set(0, 0.36, -1.2); }
   }
   setAspect(aspect) {
     if (this.vr) return;
@@ -87,7 +100,37 @@ export class HUD {
     this.scorePanel.position.set(-halfW + 0.24, halfH - 0.1, -1.2);
     this.boss.position.set(0, halfH - 0.09, -1.2);
     this.sub.position.set(0, -halfH + 0.13, -1.2);
+    this.obj.position.set(0, halfH - 0.2, -1.2);
   }
+  setComfort(k) { this.comfortK = k; }
+  objective(text, dur = 6) {
+    const c = this.objCanvas, ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 10;
+    ctx.font = '400 30px Anton, Impact, sans-serif'; ctx.fillStyle = '#ff9a3a'; ctx.fillText('OBJECTIVE', c.width / 2, 22);
+    ctx.font = '700 40px Oswald, sans-serif'; ctx.fillStyle = '#fff4e2'; ctx.fillText(text.toUpperCase(), c.width / 2, 64);
+    this.objTex.needsUpdate = true; this.objT = dur;
+  }
+  _drawWarn() {
+    const c = this.warnCanvas, x = c.getContext('2d');
+    x.clearRect(0, 0, 256, 256);
+    x.shadowColor = 'rgba(0,0,0,0.8)'; x.shadowBlur = 10;
+    x.fillStyle = 'rgba(255,60,20,0.92)'; x.beginPath(); x.arc(128, 128, 92, 0, Math.PI * 2); x.fill();
+    x.shadowBlur = 0; x.strokeStyle = '#fff0e0'; x.lineWidth = 8; x.stroke();
+    x.fillStyle = '#fff6ea'; x.font = '400 92px Anton, Impact'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('!', 128, 128);
+    this.warnTex.needsUpdate = true;
+  }
+  // grenade / danger indicator around the reticle pointing toward a world position (null = hide)
+  danger(pos, camPos, camQuat, k = 1) {
+    if (!pos) { this.warn.material.opacity = 0; return; }
+    const v = _hv.copy(pos).sub(camPos).applyQuaternion(_hq.copy(camQuat).invert());
+    const a = Math.atan2(v.x, v.y), r = v.z < 0 && Math.hypot(v.x, v.y) / -v.z < 0.25 ? 0 : 0.17;
+    this.warn.position.set(Math.sin(a) * r, Math.cos(a) * r - (r ? 0 : 0.08), -1.2);
+    this.warn.material.opacity = k;
+    this.warn.scale.setScalar(1 + 0.15 * Math.sin(performance.now() * 0.02));
+  }
+
   hitMarker(big) { this.markerT = 0.12; this.marker.scale.setScalar(big ? 1.5 : 1); }
 
   callout(text, pos, style = 'big', sub = null) {
@@ -202,6 +245,9 @@ export class HUD {
     const hurtA = Math.min(1, game.hurtFlash * 0.9 + (game.hp < 40 ? (40 - game.hp) / 40 * 0.55 : 0));
     this.hurt.material.opacity = hurtA;
     this.slow.material.opacity = Math.min(1, (1 - game.timeScale) * 1.3) * 0.85;
+    const ck = this.comfort.material.opacity; this.comfort.material.opacity = ck + (this.comfortK - ck) * Math.min(1, rdt * 10);
+    this.comfort.visible = this.comfort.material.opacity > 0.01;
+    this.objT -= rdt; this.obj.material.opacity = Math.max(0, Math.min(1, this.objT * 1.5, (6 - this.objT) * 3 + 0.0));
     const b = game.boss;
     if (b) { this.boss.visible = true; this.drawBoss(b.frac, b.name); } else this.boss.visible = false;
   }

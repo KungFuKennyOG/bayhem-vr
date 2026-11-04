@@ -280,11 +280,12 @@ export class ParticleSystem {
       q.vx *= dragK; q.vy = q.vy * dragK + q.grav * dt; q.vz *= dragK;
       q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
       if (q.anchored) q.z += dz;
-      if (q.ground && q.y < 0.02) { q.y = 0.02; q.vy = -q.vy * 0.35; q.vx *= 0.6; q.vz = q.vz * 0.6 + (dt > 0 ? (q.anchored ? 0 : 0) : 0); }
+      const gy = this.groundAt ? this.groundAt(q.x, q.z) : 0;
+      if (q.ground && q.y < gy + 0.02) { q.y = gy + 0.02; q.vy = -q.vy * 0.35; q.vx *= 0.6; q.vz = q.vz * 0.6 + (dt > 0 ? (q.anchored ? 0 : 0) : 0); }
       q.rot += q.vrot * dt;
       const st = Math.pow(t, q.ease);
       const size = q.s0 + (q.s1 - q.s0) * st;
-      if (q.fk > 0 && q.y < size * 0.4) q.y = size * 0.4; // keep volumetric sprites from slicing into the road
+      if (q.fk > 0 && q.y < gy + size * 0.4) q.y = gy + size * 0.4; // keep volumetric sprites from slicing into the road
       let a = q.a;
       if (t < q.fin) a *= t / q.fin;
       if (t > q.fout) a *= 1 - (t - q.fout) / (1 - q.fout);
