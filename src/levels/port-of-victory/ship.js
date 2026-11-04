@@ -99,20 +99,32 @@ function hullTexture() {
     ctx.save(); ctx.beginPath(); ctx.rect(0, top, HW, HBAND); ctx.clip();
     // navy topsides
     let g = ctx.createLinearGradient(0, hpy(13, band), 0, hpy(-0.5, band));
-    g.addColorStop(0, '#222c3d'); g.addColorStop(0.5, '#1b2434'); g.addColorStop(1, '#161d2a');
+    g.addColorStop(0, '#4e586a'); g.addColorStop(0.5, '#454e60'); g.addColorStop(1, '#3d4556');
     ctx.fillStyle = g; ctx.fillRect(0, top, HW, HBAND);
     // red oxide band + fouling
     g = ctx.createLinearGradient(0, hpy(-0.55, band), 0, hpy(-10.6, band));
-    g.addColorStop(0, '#8a3020'); g.addColorStop(0.12, '#7a2a1d'); g.addColorStop(0.2, '#5a2a1c'); g.addColorStop(0.5, '#3a2a1e'); g.addColorStop(1, '#2a241c');
+    g.addColorStop(0, '#a03a26'); g.addColorStop(0.12, '#8e3322'); g.addColorStop(0.2, '#5a2a1c'); g.addColorStop(0.5, '#3a2a1e'); g.addColorStop(1, '#2a241c');
     ctx.fillStyle = g; ctx.fillRect(0, hpy(-0.55, band), HW, hpy(-10.6, band) - hpy(-0.55, band));
     // white boot-top stripe
     ctx.fillStyle = '#d9d8cf'; ctx.fillRect(0, hpy(-0.22, band), HW, hpy(-0.55, band) - hpy(-0.22, band));
     // faint plate seams (strakes every 2.4 m, butts every 12 m staggered)
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    for (let k = -5; k < 6; k++) ctx.fillRect(0, hpy(k * 2.4, band), HW, 1.2);
+    // plate seams: dark groove + light weld bead just under it (reads in shadow)
+    for (let k = -5; k < 6; k++) {
+      ctx.fillStyle = 'rgba(8,10,16,0.55)'; ctx.fillRect(0, hpy(k * 2.4, band) - 1, HW, 2);
+      ctx.fillStyle = 'rgba(170,180,200,0.22)'; ctx.fillRect(0, hpy(k * 2.4, band) + 1, HW, 1.5);
+    }
     for (let k = -5; k < 6; k++) for (let xb = HX0 + ((k & 1) ? 6 : 0); xb < HX1; xb += 12) {
       const px = band === 1 ? HW - hpx(xb) : hpx(xb);
-      ctx.fillRect(px, hpy(k * 2.4 + 2.4, band), 1.2, 2.4 * PYM);
+      ctx.fillStyle = 'rgba(8,10,16,0.5)'; ctx.fillRect(px - 1, hpy(k * 2.4 + 2.4, band), 2, 2.4 * PYM);
+      ctx.fillStyle = 'rgba(170,180,200,0.2)'; ctx.fillRect(px + 1, hpy(k * 2.4 + 2.4, band), 1.5, 2.4 * PYM);
+    }
+    // frame lines (faint vertical stiffener shadows every 0.8 m -> 'hungry horse' look)
+    ctx.fillStyle = 'rgba(0,0,0,0.07)';
+    for (let xb = HX0; xb < HX1; xb += 0.8) { const px = band === 1 ? HW - hpx(xb) : hpx(xb); ctx.fillRect(px, hpy(9, band), 3, 9.5 * PYM); }
+    // touched-up primer patches
+    for (let i = 0; i < (band === 2 ? 6 : 36); i++) {
+      const px = r() * bw, py = hpy(lerp(0.5, 8.5, r()), band), w = (0.6 + r() * 2.5) * PXM, h = (0.3 + r() * 1.2) * PYM;
+      ctx.fillStyle = r() < 0.6 ? 'rgba(30,36,50,0.22)' : 'rgba(100,70,60,0.14)'; ctx.fillRect(px, py, w, h);
     }
     // weathering streaks
     for (let i = 0; i < (band === 2 ? 120 : 700); i++) {
@@ -120,8 +132,8 @@ function hullTexture() {
       const py = hpy(y0, band), w = 1 + r() * 4;
       g = ctx.createLinearGradient(0, py, 0, py + len);
       const dark = r() < 0.6;
-      const a = 0.04 + r() * 0.1;
-      g.addColorStop(0, dark ? `rgba(0,0,0,${a})` : `rgba(150,130,110,${a * 0.7})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      const a = 0.06 + r() * 0.14;
+      g.addColorStop(0, dark ? `rgba(10,12,18,${a})` : `rgba(170,150,130,${a * 0.8})`); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(px, py, w, len);
     }
     // waterline scum
@@ -134,7 +146,7 @@ function hullTexture() {
     for (let k = 0; k < 3; k++) {
       const ww = w * (0.5 + r() * 0.8), ox = (r() - 0.5) * w * 0.8, ll = len * (0.5 + r() * 0.6);
       const g = ctx.createLinearGradient(0, py, 0, py + ll);
-      g.addColorStop(0, `rgba(150,72,28,${a})`); g.addColorStop(0.3, `rgba(125,60,25,${a * 0.6})`); g.addColorStop(1, 'rgba(110,50,20,0)');
+      g.addColorStop(0, `rgba(150,80,42,${Math.min(1, a * 1.1)})`); g.addColorStop(0.3, `rgba(120,64,36,${a * 0.7})`); g.addColorStop(1, 'rgba(110,50,20,0)');
       ctx.fillStyle = g; ctx.fillRect(px + ox - ww / 2, py, ww, ll);
     }
   };
@@ -226,7 +238,7 @@ function hullTexture() {
     ctx.restore();
   }
   // grime overlay
-  const nc = noiseCanvas(512, 256, 91, 6, 0.72, 1.0, 3);
+  const nc = noiseCanvas(512, 256, 91, 6, 0.8, 1.0, 3);
   ctx.save(); ctx.globalCompositeOperation = 'multiply';
   ctx.fillStyle = ctx.createPattern(nc, 'repeat'); ctx.fillRect(0, 0, HW, HH);
   ctx.restore();
@@ -320,6 +332,21 @@ function containerTextures() {
   return { map: canvasTex(c), normal: heightToNormal(h, W, H, 2.0) };
 }
 
+// patchy ember mask (black with hot cracks/blotches) used as emissiveMap; emissive colour stays black until setBurnt
+function emberTexture() {
+  const W = 256, c = makeCanvas(W, W), ctx = c.getContext('2d'), img = ctx.createImageData(W, W);
+  const n = makeNoise(71, 32), n2 = makeNoise(72, 64);
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+    const u = x / W, v = y / W;
+    const m = fbm(n, u, v, 3, 4), cr = Math.abs(fbm(n2, u, v, 6, 4) - 0.5);
+    const e = clamp01((m - 0.62) * 5) * 0.5 + clamp01(1 - cr * 30) * clamp01((m - 0.55) * 4);
+    const i = (y * W + x) * 4;
+    img.data[i] = Math.min(255, e * 255); img.data[i + 1] = Math.min(255, e * e * 150); img.data[i + 2] = Math.min(255, e * e * e * 60); img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvasTex(c);
+}
+
 // sign atlas
 const ATL = 1024;
 const REG = {
@@ -405,10 +432,12 @@ export function buildShip(opts = {}) {
   const hullTex = hullTexture(), plateN = plateNormal();
   plateN.channel = 1;
   const deckT = deckTextures(), paintT = paintTextures(), contT = containerTextures(), atlas = atlasTexture();
-  const mHull = new THREE.MeshStandardMaterial({ map: hullTex, normalMap: plateN, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.55, metalness: 0.25 });
-  const mDeck = new THREE.MeshStandardMaterial({ map: deckT.map, normalMap: deckT.normal, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.8, metalness: 0.15 });
-  const mPaint = new THREE.MeshStandardMaterial({ map: paintT.map, normalMap: paintT.normal, normalScale: new THREE.Vector2(0.5, 0.5), vertexColors: true, roughness: 0.62, metalness: 0.2 });
-  const mCont = new THREE.MeshStandardMaterial({ map: contT.map, normalMap: contT.normal, roughness: 0.72, metalness: 0.3 });
+  const mHull = new THREE.MeshStandardMaterial({ map: hullTex, normalMap: plateN, normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.58, metalness: 0.12,
+    emissive: 0xffffff, emissiveMap: hullTex, emissiveIntensity: 0.2 }); // self-lit floor: never pure black on the shadowed quay side
+  const emberT = emberTexture();
+  const mDeck = new THREE.MeshStandardMaterial({ map: deckT.map, normalMap: deckT.normal, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.8, metalness: 0.15, emissive: 0x000000, emissiveMap: emberT });
+  const mPaint = new THREE.MeshStandardMaterial({ map: paintT.map, normalMap: paintT.normal, normalScale: new THREE.Vector2(0.5, 0.5), vertexColors: true, roughness: 0.62, metalness: 0.2, emissive: 0x000000, emissiveMap: emberT });
+  const mCont = new THREE.MeshStandardMaterial({ map: contT.map, normalMap: contT.normal, roughness: 0.72, metalness: 0.3, emissive: 0x000000, emissiveMap: emberT });
   const mLit = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.22, metalness: 0.5, emissive: 0xffc27a, emissiveIntensity: 0 });
   mLit.userData.duskEmissive = 1.6;
   if (opts && opts.lit) mLit.emissiveIntensity = 1.6 * opts.lit;
@@ -417,7 +446,9 @@ export function buildShip(opts = {}) {
 
   const P = [], DK = [], LIT = [], GL = [], SG = [], HUL = [];
   const C = (hex) => new THREE.Color(hex);
-  const pnt = (g, hex) => { const c = C(hex); tint(g, c.r, c.g, c.b); P.push(g); return g; };
+  let SINK = P; // painted parts go to SINK (normally P; the wreckable jib / funnel top collect separately)
+  const JIB = [], FTOP = [];
+  const pnt = (g, hex) => { const c = C(hex); tint(g, c.r, c.g, c.b); SINK.push(g); return g; };
   const bx = (w, h, d, x, y, z, hex, rx = 0, ry = 0, rz = 0) => pnt(at(box(w, h, d, 4), x, y, z, rx, ry, rz), hex);
   const blk = (x0, x1, y0, y1, z0, z1, hex) => bx(x1 - x0, y1 - y0, Math.abs(z1 - z0), (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, hex);
   const tubeG = (a, b, r, seg = 8, open = true) => {
@@ -697,7 +728,8 @@ export function buildShip(opts = {}) {
     for (const x of [8.5, -2.0, 27]) {
       pnt(at(cyl(0.45, 0.45, 0.45, 14), x, 10.4, -157.35, Math.PI / 2), RED);
       pnt(at(cyl(0.3, 0.3, 0.47, 14), x, 10.4, -157.35, Math.PI / 2), BLACK);
-      bx(0.08, 0.9, 0.3, x - 0.45, 10.1, -157.45, DGREY); bx(0.08, 0.9, 0.3, x + 0.45, 10.1, -157.45, DGREY);
+      bx(0.08, 1.4, 0.3, x - 0.45, DECK + 0.7, -157.42, DGREY); bx(0.08, 1.4, 0.3, x + 0.45, DECK + 0.7, -157.42, DGREY);
+      bx(1.0, 0.08, 0.36, x, DECK + 0.04, -157.42, DGREY);
     }
     for (const x of [4.5, -4.8, 33.5]) {
       bx(0.8, 1.1, 0.35, x, 10.0, -157.55, RED);
@@ -715,7 +747,7 @@ export function buildShip(opts = {}) {
     // lashing cage + gear bin near crane B
     blk(13.5, 14.8, DECK, DECK + 1.0, -157.4, -156.8, YEL);
     // deck light posts on the railing
-    for (const x of [20, 8, -4, -16, -30, -44, -58, -72, 30]) {
+    for (const x of [-18, -30, -44, -58, -72, 34]) {
       const z = -153.2;
       tube(new V(x, 9.35, z), new V(x, 12.6, z), 0.06, WHITE, 6);
       tube(new V(x, 12.6, z), new V(x, 12.6, z - 0.6), 0.05, WHITE, 6);
@@ -775,8 +807,8 @@ export function buildShip(opts = {}) {
     mbx(2.2, 0.62, 0.04, 0, 1.75, -0.98, DGREY);
     MS.push(decal('fuel', 2.1, 0.52, 0, 1.75, -0.955));
     // flexible hoses: one connected over the bulwark down to the quay, one coiled on the tray
-    const hosePts = [new V(-0.75, 1.15, 1.0), new V(-0.8, 1.3, 1.6), new V(-0.95, 1.55, 2.4), new V(-1.1, 1.0, 2.75), new V(-1.5, -2.5, 3.4), new V(-2.4, -6.5, 4.1), new V(-3.4, -8.75, 4.95), new V(-5.2, -8.9, 5.6), new V(-7, -8.92, 6.2)];
-    mp(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hosePts), 48, 0.13, 8), BLACK);
+    const hosePts = [new V(-0.75, 1.15, 1.0), new V(-0.9, 0.6, 1.25), new V(-2.2, 0.12, 1.3), new V(-6.5, 0.12, 1.2), new V(-8.6, 0.6, 1.6), new V(-9.1, 1.25, 2.4), new V(-9.4, 0.9, 2.75), new V(-9.9, -2.5, 3.3), new V(-10.8, -6.5, 4.0), new V(-11.8, -8.75, 4.95), new V(-13.0, -8.9, 5.7)];
+    mp(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hosePts), 64, 0.11, 8), BLACK);
     for (const t of [0.08, 0.95]) { const p = new THREE.CatmullRomCurve3(hosePts).getPoint(t); mp(at(cyl(0.18, 0.18, 0.2, 10), p.x, p.y, p.z, Math.PI / 2), 0x9a9a9a); }
     mp(at(new THREE.TorusGeometry(0.45, 0.1, 6, 18), 0.6, 0.34, 0.4, Math.PI / 2), BLACK);
     mp(at(new THREE.TorusGeometry(0.45, 0.1, 6, 18), 0.6, 0.48, 0.4, Math.PI / 2), BLACK);
@@ -784,12 +816,12 @@ export function buildShip(opts = {}) {
     for (const [x, z] of [[-1.6, 0.9], [1.6, 0.9]]) { mp(at(cyl(0.05, 0.05, 1.0, 6), x, 0.5, z), YEL); mp(at(cyl(0.055, 0.055, 0.2, 6), x, 0.6, z), BLACK); }
     const mpm = new THREE.Mesh(merge(MP), mPaint); mpm.castShadow = mpm.receiveShadow = true; manifoldObj.add(mpm);
     const msm = new THREE.Mesh(merge(MS), mSign); manifoldObj.add(msm);
-    lights.push(new V(-6, DECK + 3.0, -153.3));
   }
   root.add(manifoldObj);
   col(-7.45, DECK, -156.5, -4.55, DECK + 2.0, -154.5);
 
   // ---------- deck cranes
+  const jibPivot = {};
   const cranes = [[-53.25, ZC, Math.PI, 0.22], [17.75, ZC, Math.PI * 0.42, 0.95]];
   for (const [cx, cz, yaw, el] of cranes) {
     pnt(at(cyl(1.55, 1.8, 7.5, 18), cx, DECK + 3.75, cz), CRANE);
@@ -817,8 +849,9 @@ export function buildShip(opts = {}) {
       bx(0.4, 0.35, 0.4, lx1, hy + 4.0, lz1, DGREY); bx(0.4, 0.35, 0.4, lx2, hy + 4.0, lz2, DGREY);
       lamp(lx1, hy + 4.0, lz1, 0.28); lamp(lx2, hy + 4.0, lz2, 0.28);
       SG.push(at(decal('swl', 1.6, 0.6, 0, 0, 0), ...R(0.5, 2.21).flatMap((v, i) => (i === 0 ? [v, hy + 1.3] : [v])), 0, yaw, 0));
-      // jib: box section from heel to tip
+      // jib: box section from heel to tip (the raised crane's jib is its own mesh so setBurnt can drop it)
       const [jx, jz] = R(2.2, 0), heel = new V(jx, hy + 1.6, jz);
+      if (el > 0.5) { SINK = JIB; jibPivot.heel = heel.clone(); jibPivot.axis = new V(-sa, 0, -ca); }
       const L = 26, dir = new V(Math.cos(el) * ca, Math.sin(el), -Math.cos(el) * sa);
       const tip = heel.clone().addScaledVector(dir, L);
       for (const s of [-1, 1]) {
@@ -845,6 +878,7 @@ export function buildShip(opts = {}) {
         const rp = heel.clone().addScaledVector(dir, 17);
         tube(new V(rp.x, HTOP, rp.z), new V(rp.x, rp.y - 0.5, rp.z), 0.15, CRANE, 8);
       }
+      SINK = P;
       lights.push(tip.clone().add(new V(0, -0.6, 0)));
     }
     col(cx - 1.85, DECK, cz - 1.85, cx + 1.85, DECK + 11.4, cz + 1.85);
@@ -904,7 +938,7 @@ export function buildShip(opts = {}) {
   }
 
   // ---------- stern superstructure
-  const SX0 = 40, SX1 = 57;
+  const SX0 = 40, SX1 = 57, funnelPivot = new V();
   {
     // tier 0 (decks A, B), tier 1 (C, D, E), bridge
     blk(SX0, SX1, DECK, 14.6, -176.5, -156.5, WHITE);
@@ -1022,10 +1056,12 @@ export function buildShip(opts = {}) {
       g.translate(fx0 + ((y0 + y1) / 2 - 24.6) * Math.tan(rake), (y0 + y1) / 2, ZC);
       pnt(g, hex);
     };
-    seg(24.6, 28.6, NAVY); seg(28.6, 31.6, WHITE, 1.01); seg(31.6, 34.6, NAVY); seg(34.6, 36.4, BLACK, 1.0);
+    seg(24.6, 28.6, NAVY); seg(28.6, 31.6, WHITE, 1.01); seg(31.6, 34.6, NAVY);
+    SINK = FTOP; seg(34.6, 36.4, BLACK, 1.0);
     pnt(at(cyl(3.2, 3.2, 0.2, 22).scale(1.08, 1, 0.83), fxAt(36.4), 36.45, ZC), DGREY);
     for (const s of [-1, 1]) { const g = decal('star', 2.6, 2.6, fxAt(30.1), 30.1, ZC + s * 2.64, s > 0 ? 0 : Math.PI); g.rotateZ(0); SG.push(g); }
     for (const [dx, dz, r] of [[-0.8, -0.9, 0.38], [-0.8, 0.9, 0.38], [0.9, 0, 0.5]]) tube(new V(fxAt(36) + dx, 36.0, ZC + dz), new V(fxAt(37.6) + dx, 37.6, ZC + dz), r, BLACK, 10);
+    SINK = P; funnelPivot.set(fxAt(34.6), 34.6, ZC);
     // lifeboats on davits (quay + far side)
     for (const s of [1, -1]) {
       const z = s > 0 ? -155.0 : -178.0, yb = 16.3, xb = 48.5;
@@ -1088,9 +1124,12 @@ export function buildShip(opts = {}) {
     railing(25, -151.12, 25, -153.0, DECK, 1.0, 1.0, ALU);
     // platform brackets + davit with suspension wire
     for (const x of [22.3, 24.7]) tube(new V(x, DECK - 2.4, -153.05), new V(x, DECK - 0.1, -151.3), 0.07, ALU, 6);
-    tube(new V(25.4, DECK, -153.9), new V(25.4, DECK + 4.2, -153.9), 0.12, WHITE, 8);
-    tube(new V(25.4, DECK + 4.2, -153.9), new V(25.4, DECK + 4.2, -152.2), 0.1, WHITE, 8);
-    tube(new V(25.4, DECK + 4.2, -152.2), new V(6, sy(6) + 0.1, -152.0), 0.02, 0x222222, 3);
+    tube(new V(26.3, 9.35, -153.1), new V(26.3, DECK + 3.6, -153.1), 0.1, WHITE, 8);
+    tube(new V(26.3, DECK + 3.6, -153.1), new V(26.3, DECK + 3.6, -152.2), 0.08, WHITE, 8);
+    // lifebuoy hung on a bracket on the railing next to the gangway platform (faces the quay)
+    bx(0.08, 0.5, 0.08, 27.4, 9.35 + 0.55, -153.05, WHITE);
+    pnt(at(new THREE.TorusGeometry(0.34, 0.08, 8, 20), 27.4, 9.35 + 0.48, -152.96), 0xe0461c);
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; bx(0.1, 0.17, 0.17, 27.4 + Math.cos(a) * 0.34, 9.83 + Math.sin(a) * 0.34, -152.96, WHITE, 0, 0, a); }
     // bottom landing on the quay + roller
     blk(-6, -2, 0.0, 0.08, -152.9, -150.8, ALU);
     for (let x = -5.8; x < -2; x += 0.35) pnt(at(box(0.04, 0.03, 2.0), x, 0.09, -151.85), 0x6a6e70);
@@ -1098,7 +1137,7 @@ export function buildShip(opts = {}) {
     railing(-6, -152.88, -2, -152.88, 0.08, 1.0, 1.0, ALU);
     SG.push(decal('gangway', 1.6, 0.18, 23.5, DECK + 0.65, -151.08));
     SG.push(decal('hazard', 2.9, 0.12, 23.5, DECK + 0.06, -151.07));
-    lamp(25.4, DECK + 4.0, -153.55, 0.28);
+    LIT.push(at(box(0.22, 0.14, 0.22), 26.3, DECK + 3.45, -152.3)); // gangway lamp lens (no glow anchor: glare)
   }
 
   // ---------- mooring lines (ship -> quay bollards at z -150.1)
@@ -1109,11 +1148,11 @@ export function buildShip(opts = {}) {
       [new V(-86.5, 12.3, ZC + hbAt(-86.5, 12.3)), new V(-64, BY, BZ), 0.9],
       [new V(-70, 9.3, -153.0), new V(-52, BY, BZ), 0.5],
       [new V(-30, 9.3, -153.0), new V(-40, BY, BZ), 0.35],
-      [new V(36, 9.3, -153.0), new V(44, BY, BZ), 0.35],
+      [new V(42, 9.6, -153.0), new V(56, BY, BZ), 0.45],
       [new V(61, 10.0, -153.0), new V(68, BY, BZ), 0.5],
       [new V(63.5, 10.0, -153.4), new V(80, BY, BZ), 0.8],
     ];
-    for (const [a, b, sag] of lines) line(catenary(a, b, sag, 10), 0.055, ROPE, 5);
+    for (const [a, b, sag] of lines) line(catenary(a, b, sag, 10), 0.032, ROPE, 4);
   }
 
   // ---------- hull side colliders (quay side open at the gangway gap) + walk areas
@@ -1137,6 +1176,14 @@ export function buildShip(opts = {}) {
     const m = new THREE.Mesh(merge(geos), mat); m.name = name; m.castShadow = cast; m.receiveShadow = recv; root.add(m); return m;
   };
   add(P, mPaint, 'paint');
+  // wreckable pieces: geometry re-centred on its pivot so a group transform can drop / tilt it
+  const pivotMesh = (geos, pivot, name) => {
+    const g = merge(geos); g.translate(-pivot.x, -pivot.y, -pivot.z);
+    const grp = new THREE.Group(); grp.name = name; grp.position.copy(pivot);
+    const m = new THREE.Mesh(g, mPaint); m.castShadow = true; m.receiveShadow = true; grp.add(m); root.add(grp); return grp;
+  };
+  const jibObj = pivotMesh(JIB, jibPivot.heel, 'craneJib');
+  const funnelTop = pivotMesh(FTOP, funnelPivot, 'funnelTop');
   add(DK, mDeck, 'deck', false, true);
   add(LIT, mLit, 'lit', false, false);
   add(GL, mGlass, 'glass', false, false);
@@ -1166,6 +1213,9 @@ export function buildShip(opts = {}) {
     const q = new THREE.Mesh(new THREE.BoxGeometry(400, 2.2, 160), new THREE.MeshStandardMaterial({ color: 0x77736c, roughness: 0.9 }));
     q.position.set(0, -1.1, -151 + 80); q.receiveShadow = true; root.add(q);
   }
+  let burnt = false;
+  const burnSet = [[mHull, 0x3a2618], [mDeck, 0x1e140d], [mPaint, 0x241810], [mCont, 0x2e1c12], [mGlass, 0x0c0907], [mSign, 0x2a1d14], [mLit, 0x0a0806]]
+    .map(([m, hex]) => [m, m.color.clone(), new THREE.Color(hex)]);
   // ---------- info
   let tris = 0, calls = 0;
   root.traverse((o) => {
@@ -1177,13 +1227,29 @@ export function buildShip(opts = {}) {
   const anchors = {
     manifold: new V(-6, DECK, -155.5), manifoldObj,
     gangwayBottom: new V(-4, 0, -151.5), gangwayTop: new V(23.5, DECK, -152),
-    radar, radar2, lights,
+    radar, radar2, lights, craneJib: jibObj, funnelTop,
     fuelHold: new V(-15, DECK, -166.8), bridge: new V(46, 24.6, ZC), funnel: new V(59.2, 36.4, ZC),
     bow: new V(-95, 12, ZC), stern: new V(65, 10, ZC),
   };
-  return {
+  const api = {
     root, colliders, walk, anchors,
-    update(dt) { radar.rotation.y += dt * 2.6; radar2.rotation.y -= dt * 3.4; },
+    update(dt) { if (!burnt) { radar.rotation.y += dt * 2.6; radar2.rotation.y -= dt * 3.4; } },
+    // k 0..1: char everything toward scorched black-brown with ember glow, kill windows, wreck a few parts
+    setBurnt(k) {
+      k = Math.max(0, Math.min(1, k));
+      burnt = k > 0;
+      for (const [m, c0, char] of burnSet) m.color.copy(c0).lerp(char, k);
+      for (const m of [mDeck, mPaint, mCont]) m.emissive.setRGB(1.1 * k, 0.33 * k, 0.07 * k);
+      mHull.emissive.setRGB(1 - 0.55 * k, 1 - 0.85 * k, 1 - 0.95 * k); mHull.emissiveIntensity = 0.2 * (1 - 0.5 * k);
+      mHull.roughness = mPaint.roughness = 0.62 + 0.3 * k; mGlass.roughness = 0.12 + 0.8 * k; mGlass.metalness = 0.75 - 0.6 * k;
+      if (k > 0) { mLit.userData.burnt = true; mLit.emissiveIntensity = 0; } else { mLit.userData.burnt = false; }
+      radar.visible = radar2.visible = k < 0.05;
+      funnelTop.rotation.set(-0.12 * k, 0, 0.42 * k);
+      funnelTop.position.copy(funnelPivot).add(new V(-0.8 * k, -0.25 * k, 0));
+      jibObj.quaternion.setFromAxisAngle(jibPivot.axis, 0.75 * k);
+    },
     info: { tris: Math.round(tris), drawCalls: calls, colliders: colliders.length, lights: lights.length },
   };
+  if (opts && opts.burnt) api.setBurnt(opts.burnt); // viewer preview
+  return api;
 }
