@@ -18,6 +18,7 @@ export class Director {
     const say = (line, d = 3) => { audio.play('radio_squelch', { volume: 0.6 }); hud.subtitle('DRIVER', line, d); };
     const later = (t, fn) => g.fx.later(t, fn);
     const alive = (f) => g.enemiesAlive(f);
+    const cleared = (t, min) => t > min && (alive() === 0 || (trailer && alive() <= 1 && t > min + 14));
     const pz = () => g.headPos.z, px = () => g.headPos.x;
     const A = auto;
     const ground = (x, z, o = {}) => ({ p: V(x, 0, z), nav: 'ground', ...o });
@@ -46,12 +47,12 @@ export class Director {
           S({ x: 12.4, z: 16.5, y: CH * 2, role: 'perch', delay: 0.4 });
           S({ x: -20, z: -4, delay: 2.5, entry: V(-18, 0, 14) });
           later(1.2, () => say('They\'re coming out of the containers!', 2.4));
-          A?.go([ground(2.5, 24, { slow: 0.6 }), ground(-3.5, 21, { slow: 0.6 })]);
-        }, until: (t) => (t > 4 && alive() === 0) || t > 60 * T },
+          A?.go([ground(2.5, 24, { slow: 0.6 }), ground(-0.8, 21, { slow: 0.6 })]);
+        }, until: (t) => cleared(t, 4) || t > 60 * T },
       { name: 'maze1', music: 0.7, dusk: 0.24, enter: () => {
           this.lightsOn([0, 1], 0.4);
           later(1.4, () => say('Somebody hit the lights. Great — now they can see you.', 3));
-          A?.go([ground(-3.2, 13), ground(-3.4, 2, { slow: 0.7 })]);
+          A?.go([ground(-0.6, 13), ground(-1.2, 2, { slow: 0.7 })]);
         }, until: (t) => t > 1.0 && pz() < 15 },
       { name: 'maze1b', wp: V(0, 2.5, -28), hunt: true, music: 0.8, dusk: 0.28, enter: () => {
           S({ x: 2.5, z: -15, delay: 0.3 });
@@ -61,8 +62,8 @@ export class Director {
           S({ x: 5.6, z: 3.5, y: CH, role: 'perch', delay: 0.6 });
           S({ x: -12, z: -26, role: 'rusher', delay: 4.5 });
           later(5, () => say('Watch the side aisles, they\'re flanking!', 2.6));
-          A?.go([ground(-3.3, -2, { slow: 0.6 }), ground(3.4, -12, { slow: 0.6 }), ground(2.8, -19, { slow: 0.5 })]);
-        }, until: (t) => (t > 4 && alive() === 0) || t > 70 * T },
+          A?.go([ground(-3.3, -4, { slow: 0.6 }), ground(-3.3, -12, { slow: 0.6 }), ground(0.4, -19, { slow: 0.5 })]);
+        }, until: (t) => cleared(t, 4) || t > 70 * T },
       { name: 'maze2', wp: V(0, 2.5, -70), hunt: true, music: 0.85, dusk: 0.34, enter: () => {
           this.lightsOn([2, 3], 0.3);
           S({ x: -5.2, z: -36, y: CH, role: 'perch', delay: 0.5 });
@@ -73,8 +74,8 @@ export class Director {
           S({ x: 9, z: -70, delay: 3.0, entry: V(3, 0, -62) });
           S({ x: 0, z: -64, role: 'rusher', delay: 6 });
           later(0.8, () => say('More of them in the stacks. Use the barrels — everything here burns.', 3.2));
-          A?.go([ground(1.8, -27, { slow: 0.6 }), ground(-2.2, -34, { slow: 0.55 }), ground(2.5, -46, { slow: 0.5 }), ground(-2.6, -56, { slow: 0.5 })]);
-        }, until: (t) => (t > 5 && alive() === 0) || t > 75 * T },
+          A?.go([ground(0.6, -27, { slow: 0.6 }), ground(0.2, -36, { slow: 0.55 }), ground(3.1, -46, { slow: 0.5 }), ground(3.0, -52, { slow: 0.5 }), ground(0, -58, { slow: 0.5 })]);
+        }, until: (t) => cleared(t, 5) || t > 75 * T },
       { name: 'crane', wp: V(0, 2.5, -106), music: 0.75, dusk: 0.42, enter: () => {
           this.lightsOn([4, 5], 0.3);
           setp.craneStart();

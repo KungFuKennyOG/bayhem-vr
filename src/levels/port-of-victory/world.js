@@ -214,7 +214,7 @@ export class PortWorld {
       const gh = propM.buildGatehouse(); gh.root.position.set(12, 0, 30); gh.root.rotation.y = -Math.PI / 2; grp.add(gh.root);
       this.gatehouse = gh; this._addCol(gh, gh.root);
       // the truck went through the boom barrier: it hangs snapped
-      if (gh.anchors?.barrier) gh.anchors.barrier.rotation.z += -1.1;
+      if (gh.anchors?.barrier) { gh.anchors.barrier.rotation.z = -0.62; gh.anchors.barrier.rotation.x = 0.25; }
       const sg = propM.buildSignGantry(); sg.root.position.set(0, 0, 27); grp.add(sg.root); this._addCol(sg, sg.root);
       for (const [x0, x1] of [[-82, -9.5], [9.5, 82]]) {
         const f = propM.buildFence(x1 - x0); f.root.position.set((x0 + x1) / 2, 0, GATE_Z); grp.add(f.root); this._addCol(f, f.root);
@@ -283,9 +283,7 @@ export class PortWorld {
       for (const [x, boom] of [[-48, 'down'], [46, 'up']]) {
         const c = shipM.buildQuayCrane({ boom }); c.root.position.set(x, 0, -124); this.group.add(c.root);
         c.root.updateMatrixWorld(true); this._addCol(c, c.root); this.quayCranes.push(c);
-        const wp = (p) => (p.isVector3 ? p.clone().applyMatrix4(c.root.matrixWorld) : p.getWorldPosition(new THREE.Vector3()));
-        for (const p of (c.anchors?.warn || [])) this.lampGlows.push({ p: wp(p), size: 1.8, color: [2.6, 0.25, 0.1], blink: true });
-        for (const p of (c.anchors?.flood || [])) this.lampGlows.push({ p: wp(p), size: 2.6, color: [2.2, 1.9, 1.5], dusk: true });
+
       }
     }
     if (shipM?.buildRTG) {
@@ -399,8 +397,8 @@ export class PortWorld {
     far.add(new THREE.Mesh(merge(ships), silMat));
     // behind the gate: warehouses / port buildings (fogged, simple)
     const bl = [], br = makeRng(91);
-    for (let i = 0; i < 12; i++) { const x = -150 + i * 26 + br() * 8, z = 80 + br() * 60, w = 18 + br() * 16, h = 8 + br() * 14; if (Math.abs(x) < 20) continue; bl.push(at(box(w, h, 20 + br() * 20), x, h / 2, z)); }
-    const bm = new THREE.Mesh(merge(bl), new THREE.MeshStandardMaterial({ color: 0x8c8580, roughness: 0.9 }));
+    for (let i = 0; i < 12; i++) { const x = -150 + i * 26 + br() * 8, z = 80 + br() * 60, w = 18 + br() * 16, h = 8 + br() * 14; if (Math.abs(x) < 20) continue; bl.push(at(box(w, h, 20 + br() * 20, 6), x, h / 2, z)); }
+    const bm = new THREE.Mesh(merge(bl), new THREE.MeshStandardMaterial({ map: sidingTexture(), color: 0xa49c94, roughness: 0.75, metalness: 0.3 }));
     bm.castShadow = true; this.group.add(bm);
   }
 
@@ -432,6 +430,9 @@ export class PortWorld {
     this.time += dt;
     const t = this.time;
     if (this.waterNormal) { this.waterNormal.offset.set(t * 0.004, t * 0.009); }
+    for (const c of this.quayCranes) c.update?.(dt, t);
+    this.rtg?.update?.(dt, t);
+    this.ship?.update?.(dt, t);
     this.far.position.set(head.x * 0.9, 0, head.z * 0.9);
     // emissive windows / signs come up with the dusk
     const em = THREE.MathUtils.smoothstep(dusk, 0.1, 0.7);
@@ -506,6 +507,14 @@ function hazardTexture() {
   const c = T.makeCanvas(64, 16), x = c.getContext('2d');
   x.fillStyle = '#d9a514'; x.fillRect(0, 0, 64, 16); x.fillStyle = '#151311';
   for (let i = -2; i < 6; i++) { x.beginPath(); x.moveTo(i * 16, 16); x.lineTo(i * 16 + 8, 16); x.lineTo(i * 16 + 16, 0); x.lineTo(i * 16 + 8, 0); x.fill(); }
+  return T.canvasTex(c);
+}
+function sidingTexture() {
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), r = makeRng(808);
+  x.fillStyle = '#8f8a84'; x.fillRect(0, 0, S, S);
+  for (let i = 0; i < S; i += 8) { const g = x.createLinearGradient(i, 0, i + 8, 0); g.addColorStop(0, 'rgba(255,255,255,0.18)'); g.addColorStop(0.5, 'rgba(0,0,0,0.0)'); g.addColorStop(1, 'rgba(0,0,0,0.28)'); x.fillStyle = g; x.fillRect(i, 0, 8, S); }
+  for (let k = 0; k < 40; k++) { x.fillStyle = `rgba(90,45,20,${0.05 + r() * 0.12})`; x.fillRect(r() * S, r() * S, 2 + r() * 3, 20 + r() * 70); }
+  const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(30,25,20,0.35)'); x.fillStyle = g; x.fillRect(0, 0, S, S);
   return T.canvasTex(c);
 }
 function poolTexture() {

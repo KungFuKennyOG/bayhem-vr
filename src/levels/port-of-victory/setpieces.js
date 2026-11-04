@@ -350,6 +350,8 @@ export class SetPieces {
     const g = this.g, ship = this.w.ship;
     const M = this.man = { hp: 14, state: 'idle', pos: (ship.anchors?.manifold?.isVector3 ? ship.anchors.manifold.clone() : ship.anchors?.manifold?.getWorldPosition?.(new THREE.Vector3())) || new THREE.Vector3(-6, DECK_Y, -155.5), t: 0, fires: [] };
     M.center = M.pos.clone().setY(M.pos.y + 0.9);
+    // the manifold's own colliders must not eat the bullets aimed at it
+    g.col.query(M.center.x - 2, M.center.z - 2, M.center.x + 2, M.center.z + 2, (b) => { if (b.min.x < M.center.x + 1 && b.max.x > M.center.x - 1 && b.min.z < M.center.z + 1 && b.max.z > M.center.z - 1 && b.max.y > DECK_Y + 0.3 && b.min.y < DECK_Y + 2) b.data.isManifold = true; });
     g.targets.push({
       name: 'manifold', active: () => M.state === 'armed',
       ray: (o, d) => raySphere(o, d, M.center, 0.95),
