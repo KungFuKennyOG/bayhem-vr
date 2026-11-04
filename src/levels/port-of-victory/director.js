@@ -129,20 +129,23 @@ export class Director {
           this.escapeT = trailer ? 12 : 16;
           this.escape0 = this.escapeT;
           later(2.5, () => setp.deckBlast(-16)); later(5.5, () => setp.deckBlast(-2)); later(8.5, () => setp.deckBlast(10));
-          A?.go([deck(23.5, -154.6, { sprint: true }), { p: V(23.6, DECK_Y, -152), nav: null, sprint: true }, { p: V(21.5, DECK_Y, -152), nav: null, sprint: true }, { p: V(-2.2, 0, -152), nav: null, sprint: true }, { p: V(-3.9, 0, -150.2), nav: null, sprint: true }, ground(-5, -142, { sprint: true })]);
+          A?.go([deck(23.5, -154.6, { sprint: true }), { p: V(23.6, DECK_Y, -152), nav: null, sprint: true }, { p: V(21.5, DECK_Y, -152), nav: null, sprint: true }, { p: V(-2.2, 0, -152), nav: null, sprint: true }, { p: V(-3.9, 0, -150.2), nav: null, sprint: true }, ground(-4, -145, { sprint: true }), ground(-6, -133, { sprint: true })]);
         }, update: (t) => {
           const left = Math.max(0, this.escape0 - t);
           g.bossInfo = { frac: left / this.escape0, name: 'FUEL HOLD  —  ' + left.toFixed(1) + ' s' };
           if (t % 1.6 < 1 / 30) audio.play('alarm_klaxon', { x: -6, y: DECK_Y + 3, z: -160, volume: 0.7 });
           if (t % 2.3 < 1 / 30) audio.play('metal_groan', { x: -10, y: DECK_Y, z: -165, volume: 0.8 });
-        }, until: (t) => t > this.escape0 || (t > 3 && px() < 10 && g.rig.position.y < 4.5 && g.headPos.z > -153.5) || (t > 3 && g.rig.position.y < 0.5 && pz() > -150.5) },
+        }, until: (t) => t > this.escape0 || (t > 3 && g.rig.position.y < 0.5 && pz() > -146.5) },
       { name: 'kaboom', wp: null, music: 1.0, dusk: 0.84, enter: () => {
           g.bossInfo = null;
+          if (g.rig.position.y > 4) g.hurt(70, V(-15, DECK_Y, -167)); // still on the ship: it hurts
           setp.kaboom();
           audio.musicStinger('boss');
-          g.cinematicLook = V(-12, DECK_Y + 22, -166); g.cinematicW = 3.2;
-          later(trailer ? 2.6 : 3.2, () => { g.cinematicLook = null; });
-        }, until: (t) => t > 3.0 && (g.rig.position.y < 0.3 && pz() > -150.6) || t > 14 },
+          hud.setWaypoint(null);
+          // look back over the shoulder while running: the camera follows the fireball up into the cap
+          if (A) { g.cinematicLook = V(-15, DECK_Y + 10, -167); g.cinematicW = 3.4; }
+        }, update: (t) => { if (g.cinematicLook) g.cinematicLook.y = DECK_Y + 10 + Math.min(1, t / 2.2) * 26; },
+        until: (t) => t > (trailer ? 4.2 : 6) },
       { name: 'outro', music: 1.0, dusk: 0.9, enter: () => {
           audio.musicStinger('victory');
           A?.go([ground(-4, -134)]);

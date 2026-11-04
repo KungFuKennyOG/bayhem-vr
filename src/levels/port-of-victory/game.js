@@ -568,8 +568,8 @@ export class PortGame {
     // distant black smoke columns (the freeway chase is still burning behind the port)
     this._colT = (this._colT || 0) - dt;
     if (this._colT <= 0) {
-      this._colT = 0.35;
-      for (const [x, z] of [[-140, 160], [95, 230]]) this.fx.main.spawn({ x: x + range(-4, 4), y: 6, z: z + range(-4, 4), vx: range(-0.5, 0.5) + 1.5, vy: range(4, 6), vz: range(-0.5, 0.5) - 1, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(30, 44), ease: 0.6, life: range(14, 18), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.16, g: 0.13, b: 0.11, a: 0.8, fadeIn: 0.08, fadeOut: 0.55 });
+      this._colT = 0.9;
+      for (const [x, z] of [[-140, 160], [95, 230]]) this.fx.main.spawn({ x: x + range(-4, 4), y: 6, z: z + range(-4, 4), vx: range(-0.5, 0.5) + 1.5, vy: range(4, 6), vz: range(-0.5, 0.5) - 1, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 12, s1: range(34, 48), ease: 0.6, life: range(11, 14), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.16, g: 0.13, b: 0.11, a: 0.8, fadeIn: 0.08, fadeOut: 0.55 });
     }
   }
 

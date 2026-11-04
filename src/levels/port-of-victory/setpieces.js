@@ -196,7 +196,7 @@ export class SetPieces {
   // ================================================================== forklift charge
   _forklift() {
     const g = this.g, pm = this.w.mods.propM;
-    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(46, 0, -128), yaw: Math.PI / 2, speed: 0, lift: 1.4, alive: true, drums: [], t: 0 };
+    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(34, 0, -122), yaw: Math.PI / 2, speed: 0, lift: 1.4, alive: true, drums: [], t: 0 };
     let model;
     if (pm?.buildForklift) model = pm.buildForklift();
     else {
@@ -254,7 +254,7 @@ export class SetPieces {
     // pallet of fuel drums on the forks
     const forks = F.model.anchors.forks;
     for (let i = 0; i < 4; i++) {
-      const d = g.addDrum(new THREE.Vector3(), { onFork: true, forkOff: new THREE.Vector3((i % 2 - 0.5) * 0.62, 0.14, (Math.floor(i / 2) - 0.5) * 0.62 - 0.7) });
+      const d = g.addDrum(new THREE.Vector3(), { hp: 1, onFork: true, forkOff: new THREE.Vector3((i % 2 - 0.5) * 0.62, 0.14, (Math.floor(i / 2) - 0.5) * 0.62 - 0.7) });
       F.drums.push(d);
     }
     // forklift collider (updated every frame)
@@ -387,8 +387,9 @@ export class SetPieces {
   kaboom() {
     const g = this.g, M = this.man;
     M.state = 'gone'; M.kaboomT = 0;
-    const P = new THREE.Vector3(-12, DECK_Y + 2, -166);
+    const P = new THREE.Vector3(-15, DECK_Y + 2, -167);
     this.mush = { P, t: 0 };
+    g.fx.main.bigBudget = Math.max(g.fx.main.bigBudget, 230); // the one moment worth the fill rate
     g.slowmo(3.6, 0.2, true);
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.audio.play('fuel_whoomp', { x: P.x, y: P.y, z: P.z, volume: 1 });
@@ -437,15 +438,15 @@ export class SetPieces {
       mu.t += dt;
       const P = mu.P, t = mu.t, fx = g.fx;
       const emit = (k, rate, fn) => { mu[k] = (mu[k] || 0) + rate * dt; while (mu[k] >= 1) { mu[k] -= 1; fn(); } };
-      // initial fireball: a few huge, dim-ish puffs (stacked additive fire blows out to white otherwise)
-      if (t < 0.35) emit('core', 60, () => fx.main.spawn({ x: P.x + range(-7, 7), y: P.y + range(0, 6), z: P.z + range(-6, 6), vx: range(-10, 10), vy: range(5, 16), vz: range(-8, 8), drag: 1.5, grav: 2.5, frameKind: 1, s0: range(9, 13), s1: range(24, 34), ease: 0.5, life: range(2.4, 3.4), rot: rand() * 6, vrot: range(-0.4, 0.4), r: 1.5, g: 1.1, b: 0.8, a: 1, fadeIn: 0.01, fadeOut: 0.75 }));
+      // initial fireball: a column of huge puffs punching up out of the hold, clearing the hull
+      if (t < 0.45) emit('core', 30, () => fx.main.spawn({ x: P.x + range(-6, 6), y: P.y + range(0, 5), z: P.z + range(-5, 5), vx: range(-7, 7), vy: range(16, 30), vz: range(-6, 6), drag: 1.1, grav: 1.5, frameKind: 1, s0: range(10, 14), s1: range(30, 42), ease: 0.5, life: range(2.6, 3.6), rot: rand() * 6, vrot: range(-0.4, 0.4), r: 1.6, g: 1.15, b: 0.8, a: 1, fadeIn: 0.01, fadeOut: 0.72 }));
       // stem: fire column rising into the cap, wrapped in dark smoke
-      if (t < 3.4) emit('stem', 16, () => fx.main.spawn({ x: P.x + range(-3, 3), y: P.y + range(0, 8), z: P.z + range(-3, 3), vx: range(-1, 1), vy: range(13, 20), vz: range(-1, 1), drag: 0.5, frameKind: 1, s0: range(5, 7), s1: range(10, 15), ease: 0.6, life: range(2.0, 2.8), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 1.45, g: 1.0, b: 0.7, a: 1, fadeOut: 0.7 }));
-      if (t > 0.3 && t < 4) emit('stemS', 8, () => { const sh = range(0.08, 0.14); fx.main.spawn({ x: P.x + range(-5, 5), y: P.y + range(2, 18), z: P.z + range(-5, 5), vx: range(-1.5, 1.5), vy: range(7, 12), vz: range(-1.5, 1.5), drag: 0.4, frameKind: 2, frame: rand() * 40, frames: 16, s0: 8, s1: range(18, 26), ease: 0.6, life: range(6, 9), rot: rand() * 6, vrot: range(-0.1, 0.1), r: sh * 1.4, g: sh, b: sh * 0.8, a: 0.85, fadeIn: 0.1, fadeOut: 0.6 }); });
-      // cap: a rolling ring of fire turning into black smoke at 38-55 m
-      if (t > 0.6 && t < 4.6) {
-        emit('capF', 13, () => { const a = rand() * Math.PI * 2, R = range(5, 12) + t * 3, cy = P.y + 32 + t * 4.5; fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(-3, 3), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(3, 6), vy: range(1, 3), vz: Math.sin(a) * range(3, 6), drag: 0.4, frameKind: 1, s0: range(9, 12), s1: range(18, 26), ease: 0.6, life: range(2.0, 3.0), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 1.35, g: 0.85, b: 0.55, a: 1, fadeOut: 0.65 }); });
-        emit('capS', 10, () => { const a = rand() * Math.PI * 2, R = range(7, 15) + t * 3.5, cy = P.y + 34 + t * 4.5, sh = range(0.07, 0.15); fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(0, 8), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(2, 4.5), vy: range(1.5, 4), vz: Math.sin(a) * range(2, 4.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 18, s0: range(13, 18), s1: range(32, 46), ease: 0.6, life: range(10, 15), rot: rand() * 6, vrot: range(-0.08, 0.08), r: sh * 1.5, g: sh * 1.05, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.9, a: 0.9, fadeIn: 0.1, fadeOut: 0.6 }); });
+      if (t < 3.6) emit('stem', 9, () => fx.main.spawn({ x: P.x + range(-3, 3), y: P.y + range(2, 10), z: P.z + range(-3, 3), vx: range(-1, 1), vy: range(15, 22), vz: range(-1, 1), drag: 0.5, frameKind: 1, s0: range(7, 9), s1: range(14, 20), ease: 0.6, life: range(2.0, 2.6), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 1.5, g: 1.0, b: 0.68, a: 1, fadeOut: 0.7 }));
+      if (t > 0.3 && t < 4) emit('stemS', 4, () => { const sh = range(0.08, 0.13); fx.main.spawn({ x: P.x + range(-5, 5), y: P.y + range(4, 20), z: P.z + range(-5, 5), vx: range(-1.5, 1.5), vy: range(7, 12), vz: range(-1.5, 1.5), drag: 0.4, frameKind: 2, frame: rand() * 40, frames: 16, s0: 10, s1: range(22, 30), ease: 0.6, life: range(6, 8), rot: rand() * 6, vrot: range(-0.1, 0.1), r: sh * 1.4, g: sh, b: sh * 0.8, a: 0.85, fadeIn: 0.1, fadeOut: 0.6 }); });
+      // cap: a rolling ring of fire turning into black smoke at 30-55 m
+      if (t > 0.5 && t < 4.6) {
+        emit('capF', 9, () => { const a = rand() * Math.PI * 2, R = range(6, 12) + t * 3.5, cy = P.y + 26 + t * 6; fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(-3, 3), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(3, 6), vy: range(1, 3), vz: Math.sin(a) * range(3, 6), drag: 0.4, frameKind: 1, s0: range(12, 15), s1: range(24, 32), ease: 0.6, life: range(2.2, 3.2), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 1.45, g: 0.9, b: 0.55, a: 1, fadeOut: 0.65 }); });
+        emit('capS', 5, () => { const a = rand() * Math.PI * 2, R = range(8, 15) + t * 4, cy = P.y + 30 + t * 6, sh = range(0.07, 0.14); fx.main.spawn({ x: P.x + Math.cos(a) * R, y: cy + range(0, 8), z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(2, 4.5), vy: range(1.5, 4), vz: Math.sin(a) * range(2, 4.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 18, s0: range(16, 22), s1: range(40, 56), ease: 0.6, life: range(10, 14), rot: rand() * 6, vrot: range(-0.08, 0.08), r: sh * 1.5, g: sh * 1.05, b: sh * 0.8, r1: sh * 1.1, g1: sh * 0.95, b1: sh * 0.9, a: 0.9, fadeIn: 0.1, fadeOut: 0.6 }); });
       }
       if (t > 0.1 && t < 0.4) g.hud.white.material.opacity = Math.max(0, 0.85 - (t - 0.1) * 3);
       if (t > 16) this.mush = null;

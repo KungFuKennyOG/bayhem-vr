@@ -66,12 +66,12 @@ export class PortWorld {
     const aniso = this.aniso;
     // asphalt (yard): tiled detail + a painted-markings overlay
     const asph = asphaltTexture(); asph.map.anisotropy = aniso; asph.map.repeat.set(160 / 9, 150 / 9); asph.normal.repeat.copy(asph.map.repeat);
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(160, 150), new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.82, metalness: 0, color: 0xb8aea4, envMapIntensity: 0.6 }));
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(160, 150), new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.3, 0.3), roughness: 0.8, metalness: 0, color: 0xa8a098, envMapIntensity: 0.6 }));
     yard.rotation.x = -Math.PI / 2; yard.position.set(0, 0, 40 - 75); yard.receiveShadow = true;
     this.group.add(yard);
     // concrete apron (quay)
     const conc = T.concreteTexture(31, [0.66, 0.63, 0.58], 512, false); conc.anisotropy = aniso; conc.repeat.set(160 / 7, 41 / 7);
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(160, 41), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.88, color: 0xc9bfb2, envMapIntensity: 0.5 }));
+    const apron = new THREE.Mesh(new THREE.PlaneGeometry(160, 41), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.88, color: 0x9a9590, envMapIntensity: 0.5 }));
     apron.rotation.x = -Math.PI / 2; apron.position.set(0, 0.005, QUAY_Z + 20.5); apron.receiveShadow = true;
     this.group.add(apron);
     // road outside the gate + verge
@@ -448,7 +448,7 @@ export class PortWorld {
       if (ms.on && ms.flick > 0) { ms.flick -= dt; k *= (Math.sin(t * 61 + i) > 0.1 ? 1 : 0.15) * (Math.sin(t * 13 + i * 3) > -0.6 ? 1 : 0); }
       ms.cur = k;
       const kk = k * (0.35 + 0.65 * Math.min(1, dusk * 1.6));
-      poolCol.setXYZ(i, SODIUM[0] * kk * 0.32, SODIUM[1] * kk * 0.32, SODIUM[2] * kk * 0.32);
+      poolCol.setXYZ(i, SODIUM[0] * kk * 0.2, SODIUM[1] * kk * 0.2, SODIUM[2] * kk * 0.2);
       for (const p of ms.lamps) if (gi < G.max - 1) G.set(gi++, p.x, p.y, p.z, 3.2, 3.2, 0, CELL.GLOW, 0, 2.6 * k, 1.5 * k, 0.5 * k, 0.9 * k);
       if (k > 0.05) nearest.push([ms, (ms.x - head.x) ** 2 + (ms.z - head.z) ** 2]);
     });
@@ -468,7 +468,7 @@ export class PortWorld {
       const n = nearest[i];
       if (!n) { l.intensity = 0; return; }
       l.position.set(n[0].x, 16, n[0].z);
-      l.intensity = 260 * n[0].cur * (0.3 + 0.7 * Math.min(1, dusk * 1.6));
+      l.intensity = 150 * n[0].cur * (0.3 + 0.7 * Math.min(1, dusk * 1.6));
     });
   }
 }
