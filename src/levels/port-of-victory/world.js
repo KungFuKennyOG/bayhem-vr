@@ -58,7 +58,7 @@ export class PortWorld {
   // nav grids are built once every static/hero obstacle is in the collision world
   buildNav() {
     this.nav = new NavGrid(this.col, { x0: -60, z0: -150.5, x1: 60, z1: 40, y: 0, cell: 1, clearance: 0.42 });
-    this.navDeck = new NavGrid(this.col, { x0: -90, z0: -179, x1: 62, z1: -153.2, y: DECK_Y, cell: 1, clearance: 0.4, walkable: (x, z) => Math.abs(this.col.groundAt(x, z, DECK_Y + 0.3, 0.3) - DECK_Y) < 0.2 });
+    this.navDeck = new NavGrid(this.col, { x0: -90, z0: -179, x1: 62, z1: -153.2, y: DECK_Y, cell: 0.5, clearance: 0.34, walkable: (x, z) => Math.abs(this.col.groundAt(x, z, DECK_Y + 0.3, 0.3) - DECK_Y) < 0.2 });
   }
 
   // ---------------------------------------------------------------- ground

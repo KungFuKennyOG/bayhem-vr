@@ -229,7 +229,7 @@ export class Soldier {
     for (const c of pts) {
       if (c.taken && c.taken !== this) continue;
       if (c.bad && g.time - c.bad < 20) continue;
-      if (this.role === 'deck' && c.p.z < -158.6) continue; // deck goons hold the quay-side walkway
+      if (this.role === 'deck' && (c.p.z < -158.6 || c.p.x < -3.5)) continue; // deck goons hold the quay-side walkway
       if (c === this.cover && this.seenT > 5) continue;
       if (c.p.y !== this.floorY && Math.abs(c.p.y - this.floorY) > 0.5) continue;
       const dxs = c.p.x - this.pos.x, dzs = c.p.z - this.pos.z, ds = Math.hypot(dxs, dzs);

@@ -100,7 +100,7 @@ export class Director {
           hud.objective('Get to the ship');
           this.forkGo = false;
           S({ x: 19, z: -117, delay: 0.5 }); S({ x: 31, z: -119, delay: 1.2 }); S({ x: -13, z: -123, delay: 1.5 }); S({ x: -27, z: -117, delay: 2.4, flanker: true });
-          S({ x: -18, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 2, noNade: true });
+          S({ x: -1, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 2, noNade: true });
           S({ x: 8, z: -155.4, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 3, noNade: true });
           A?.go([ground(2.0, -100, { slow: 0.6 }), ground(3.5, -113, { slow: 0.5 }), ground(4, -118, { slow: 0.45 })]);
         }, update: (t) => {
@@ -108,15 +108,15 @@ export class Director {
           if (!this.forkGo && (pz() < -109 || t > 12)) { this.forkGo = true; setp.forkliftStart(); later(0.5, () => say('Forklift! Forklift full of fuel drums! Of course!', 3)); }
           for (const e of g.events) if (e.type === 'forkliftWreck') later(1.5, () => say('...I have never seen a forklift do that.', 2.6));
         }, until: (t) => (t > 6 && this.forkGo && alive(s => s.floorY < 1) === 0 && setp.fork.state !== 'charge') || t > 75 * T },
-      { name: 'board', wp: V(23.5, DECK_Y + 2.4, -152), hunt: true, music: 0.85, dusk: 0.64, enter: () => {
+      { name: 'board', wp: V(23.5, DECK_Y + 2.4, -152), music: 0.85, dusk: 0.64, enter: () => {
           audio.play('ship_horn', { x: 30, y: 30, z: -170, volume: 1 });
           hud.objective('Board the ship');
           later(2.2, () => say('That\'s her. Up the gangway — the fuel hold is mid-ship.', 3.2));
-          S({ x: -30, z: -155.6, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 1, noNade: true });
+          S({ x: 4, z: -155.6, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 1, noNade: true });
           S({ x: 14, z: -155.8, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 6, noNade: true, entry: V(16, DECK_Y, -156) });
-          S({ x: -12, z: -156, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 8, noNade: true });
+          S({ x: 0, z: -156, y: DECK_Y, nav: navDeck(), role: 'deck', delay: 8, noNade: true });
           A?.go([ground(-3.5, -146.5, { slow: 0.8 }), { p: V(-3.9, 0, -150.2), nav: null }, { p: V(-1.6, 0, -152), nav: null }, { p: V(22.5, DECK_Y, -152), nav: null, slow: 0.9 }, { p: V(23.8, DECK_Y, -154.6), nav: null }, deck(17, -155.3, { slow: 0.55 })]);
-        }, until: (t) => { const on = g.rig.position.y > DECK_Y - 0.5; return on && ((px() < 20 && alive(s => s.floorY > 5) === 0 && t > 4) || t > 80 * T); } },
+        }, until: (t) => { const on = g.rig.position.y > DECK_Y - 0.5; return on && ((px() < 24 && alive(s => s.floorY > 5) === 0 && t > 4) || t > 80 * T); } },
       { name: 'manifold', wp: V(-6, DECK_Y + 2.6, -155.5), music: 0.9, dusk: 0.7, enter: () => {
           setp.armManifold();
           hud.objective('Shoot the fuel manifold');
