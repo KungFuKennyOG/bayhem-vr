@@ -1,6 +1,6 @@
 # BAYHEM — notes for Claude
 
-WebXR VR shooter for Quest 3 (three.js r170 + Vite). Michael Bay spectacle, polished PS2-era AAA look, **everything procedural** (no model/texture/audio files). Read `docs/HANDOFF.md` for the level roadmap and the decisions already made.
+WebXR VR shooter for Quest 3 (three.js r170 + Vite). Michael Bay spectacle, polished PS2-era AAA look, **everything procedural** (no model/texture/audio files). Read `docs/HANDOFF.md` for the level roadmap and the decisions already made, and `docs/QUALITY.md` for the quality bar, review loop and VR-first rules every level must meet.
 
 ## Commands
 - `npm run dev` (port 5173) · `npm run build` (dist/, deployed to GitHub Pages by .github/workflows/deploy.yml) · `npm run build:single` (one HTML file)

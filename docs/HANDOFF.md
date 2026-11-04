@@ -13,7 +13,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
   - It has animated skinned soldiers with ragdolls, hero guns with gloved hands, a procedural adaptive score and SFX, an in-shader color grade and rim light, and slow-mo.
 - **Source:** GitHub `KungFuKennyOG/bayhem-vr` (branch `main`).
   - It deploys to GitHub Pages at https://kungfukennyog.github.io/bayhem-vr/ once Pages is set to "GitHub Actions" in the repo settings.
-  - Start a new chat with: "continue BAYHEM from KungFuKennyOG/bayhem-vr, build <level>".
+  - Start a new chat with: "continue BAYHEM from KungFuKennyOG/bayhem-vr, build <level>". Read `docs/QUALITY.md` first.
 
 ## Decisions made (apply to all levels)
 - **Locomotion for the on-foot levels:** smooth thumbstick movement with a comfort vignette while moving, plus 45° snap turn.
@@ -128,6 +128,7 @@ Original brief:
   - The truck-bed "rail" mode from Level 1 can be reused for the chase.
 
 ## Quality bar and lessons from Level 1
+- **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).
 - An independent reviewer critiqued the screenshots twice, and both times it was worth it.
 - Recurring problems:
   - Backlit objects crushing to black (fixed by the rim light).
