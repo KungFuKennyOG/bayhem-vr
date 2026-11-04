@@ -116,16 +116,28 @@ function genSurface(S, seed, fn) {
   g.putImageData(img, 0, 0);
   return { c, g, h };
 }
-function crack(g, r, x, y, len, w, col) {
-  g.strokeStyle = col; g.lineCap = 'round';
-  let a = r() * Math.PI * 2;
+// crack polylines: gentle meander, rare short branches
+function crackPaths(r, x, y, len, out = [], depth = 0) {
+  let a = r() * Math.PI * 2; const pts = [[x, y]];
   for (let s = 0; s < len; s++) {
-    const nx = x + Math.cos(a) * 6, ny = y + Math.sin(a) * 6;
-    g.lineWidth = w * (1 - s / len * 0.7); g.beginPath(); g.moveTo(x, y); g.lineTo(nx, ny); g.stroke();
-    x = nx; y = ny; a += (r() - 0.5) * 1.1;
-    if (r() < 0.06) crack(g, r, x, y, (len - s) * 0.5 | 0, w * 0.6, col);
+    a += (r() - 0.5) * 0.55; x += Math.cos(a) * 5; y += Math.sin(a) * 5; pts.push([x, y]);
+    if (depth < 1 && s > 3 && r() < 0.035) crackPaths(r, x, y, (len - s) * 0.4 | 0, out, depth + 1);
   }
+  out.push({ pts, depth });
+  return out;
 }
+function strokePaths(g, paths, w, col) {
+  g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const { pts, depth } of paths) { g.lineWidth = w * (depth ? 0.6 : 1); g.beginPath(); pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py))); g.stroke(); }
+}
+// sealed crack: soft wide tar band (glossy in the roughness map) + faint hairline core
+function sealedCrack(g, rg, r, x, y, len, scale = 1) {
+  const P = crackPaths(r, x, y, len);
+  strokePaths(g, P, 11 * scale, 'rgba(16,16,18,0.12)'); strokePaths(g, P, 6 * scale, 'rgba(14,14,16,0.2)'); strokePaths(g, P, 1.2 * scale, 'rgba(8,8,10,0.3)');
+  if (rg) { strokePaths(rg, P, 9 * scale, 'rgb(90,90,90)'); }
+}
+function hairline(g, r, x, y, len, a = 0.22) { strokePaths(g, crackPaths(r, x, y, len), 1, `rgba(12,12,14,${a})`); }
+function crack(g, r, x, y, len, w, col) { void w; void col; hairline(g, r, x, y, len, 0.25); }
 function asphaltTex() {
   const S = 1024, n1 = makeNoise(501, 16), n2 = makeNoise(502, 256), n3 = makeNoise(504, 64), r = makeRng(503);
   const { c, g, h } = genSurface(S, 1, (x, y) => {
@@ -137,11 +149,13 @@ function asphaltTex() {
     const bit = Math.max(0, fbm(n3, u + 0.31, v + 0.77, 3, 3) - 0.6) * 2.2; b -= bit * 0.12; hh -= bit * 0.3;   // bitumen-rich, smooth
     return [b * 255 * 1.05, b * 255 * 0.99, b * 255 * 0.9, hh];
   });
-  for (let k = 0; k < 9; k++) crack(g, r, r() * S, r() * S, 12 + r() * 30 | 0, 1.6, 'rgba(14,14,16,0.45)');
-  for (let k = 0; k < 4; k++) { g.strokeStyle = 'rgba(8,8,10,0.85)'; g.lineWidth = 7; g.beginPath(); let x = r() * S, y = r() * S; g.moveTo(x, y); for (let s = 0; s < 14; s++) { x += (r() - 0.5) * 40; y += 18 + r() * 10; g.lineTo(x, y); } g.stroke(); } // sealed (tar) cracks
-  const map = canvasTex(c, { aniso: 16 }), normal = heightToNormal(h, S, S, 2.4);
+  // roughness map (G channel): asphalt 0.85, sealed tar bands glossier
+  const rc = makeCanvas(S, S), rg = rc.getContext('2d'); rg.fillStyle = 'rgb(217,217,217)'; rg.fillRect(0, 0, S, S);
+  for (let k = 0; k < 4; k++) hairline(g, r, r() * S, r() * S, 14 + r() * 24 | 0, 0.2);
+  for (let k = 0; k < 3; k++) sealedCrack(g, rg, r, r() * S, r() * S, 30 + r() * 40 | 0);
+  const map = canvasTex(c, { aniso: 16 }), normal = heightToNormal(h, S, S, 2.4), rough = canvasTex(rc, { srgb: false, aniso: 16 });
   normal.anisotropy = 16;
-  return { map, normal };
+  return { map, normal, rough };
 }
 function sidewalkTex() {
   const S = 1024, P = S / 4, n1 = makeNoise(611, 32), n2 = makeNoise(612, 256), r = makeRng(613);
@@ -159,7 +173,7 @@ function sidewalkTex() {
   // gum, stains, cracks, chips
   for (let k = 0; k < 260; k++) { const x = r() * S, y = r() * S, rr = 2 + r() * 4; g.fillStyle = `rgba(${40 + r() * 30 | 0},${40 + r() * 28 | 0},${42 + r() * 30 | 0},${0.55 + r() * 0.35})`; g.beginPath(); g.ellipse(x, y, rr, rr * (0.7 + r() * 0.3), r() * 3, 0, 7); g.fill(); }
   for (let k = 0; k < 10; k++) { const x = r() * S, y = r() * S, rr = 20 + r() * 50; const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, 'rgba(50,42,34,0.35)'); gr.addColorStop(1, 'rgba(50,42,34,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
-  for (let k = 0; k < 6; k++) crack(g, r, r() * S, r() * S, 8 + r() * 18 | 0, 1.6, 'rgba(30,28,26,0.8)');
+  for (let k = 0; k < 4; k++) hairline(g, r, r() * S, r() * S, 8 + r() * 16 | 0, 0.3);
   const map = canvasTex(c, { aniso: 16 }), normal = heightToNormal(h, S, S, 3);
   normal.anisotropy = 16;
   return { map, normal };
@@ -241,7 +255,7 @@ function markingsTex() {
   // patch: fresher darker asphalt with sealed seams
   { const [x, y, w, hh] = MK.patch; g.fillStyle = 'rgba(14,14,16,0.6)'; g.fillRect(x + 10, y + 10, w - 20, hh - 20); for (let k = 0; k < 700; k++) { g.fillStyle = `rgba(${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},${r() < 0.5 ? 0 : 90},0.25)`; g.fillRect(x + 10 + r() * (w - 20), y + 10 + r() * (hh - 20), 2, 2); } g.strokeStyle = 'rgba(4,4,6,0.9)'; g.lineWidth = 5; g.strokeRect(x + 10, y + 10, w - 20, hh - 20); }
   // crack network
-  { const [x, y, w, hh] = MK.cracks; g.save(); g.beginPath(); g.rect(x, y, w, hh); g.clip(); for (let k = 0; k < 7; k++) crack(g, r, x + w / 2 + (r() - 0.5) * 60, y + hh / 2 + (r() - 0.5) * 60, 14 + r() * 14 | 0, 1.4, 'rgba(14,14,16,0.42)'); g.restore(); }
+  { const [x, y, w, hh] = MK.cracks; g.save(); g.beginPath(); g.rect(x, y, w, hh); g.clip(); for (let k = 0; k < 2; k++) sealedCrack(g, null, r, x + w / 2 + (r() - 0.5) * 50, y + hh / 2 + (r() - 0.5) * 50, 18 + r() * 12 | 0, 0.8); hairline(g, r, x + w / 2, y + hh / 2, 14, 0.2); g.restore(); }
   // manhole cover
   { const [x, y, w] = MK.manhole, cx = x + w / 2, cy = y + w / 2, R = w / 2 - 4;
     g.fillStyle = '#2a2826'; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
@@ -264,7 +278,10 @@ function markingsTex() {
     g.fillStyle = 'rgba(30,40,50,0.5)'; g.beginPath(); g.ellipse(cx + 8, cy + 6, 40, 22, 0.3, 0, 7); g.fill();      // puddle
     g.restore(); }
   // tar snakes
-  { const [x, y, w, hh] = MK.tar; g.strokeStyle = 'rgba(4,4,6,0.85)'; g.lineWidth = 9; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x + 6, y + hh / 2); for (let k = 1; k < 24; k++) g.lineTo(x + 6 + k * (w - 12) / 23, y + hh / 2 + (r() - 0.5) * 30); g.stroke(); }
+  { const [x, y, w, hh] = MK.tar; const pts = []; const p1 = r() * 6, p2 = r() * 6;
+    for (let k = 0; k <= 48; k++) { const t = k / 48; pts.push([x + 8 + t * (w - 16), y + hh / 2 + Math.sin(t * 9 + p1) * 6 + Math.sin(t * 23 + p2) * 2.5]); }
+    const P = [{ pts, depth: 0 }];
+    strokePaths(g, P, 16, 'rgba(18,18,20,0.16)'); strokePaths(g, P, 9, 'rgba(14,14,16,0.26)'); strokePaths(g, P, 1.4, 'rgba(8,8,10,0.3)'); }
   // light pool (white radial)
   { const [x, y, w] = MK.pool, cx = x + w / 2, cy = y + w / 2; const gr = g.createRadialGradient(cx, cy, 0, cx, cy, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.5)'); gr.addColorStop(0.75, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, w); }
   // scorch (earlier chaos)
@@ -349,8 +366,8 @@ let MAT = null;
 function materials(renderer) {
   if (MAT) return MAT;
   const T = textures(renderer);
-  const road = new THREE.MeshStandardMaterial({ map: T.asph.map, normalMap: T.asph.normal, normalScale: new THREE.Vector2(0.35, 0.35), vertexColors: true, roughness: 0.84, metalness: 0, envMapIntensity: 0.55 });
-  const marks = new THREE.MeshStandardMaterial({ map: T.marks, vertexColors: true, transparent: true, depthWrite: false, roughness: 0.7, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, envMapIntensity: 0.5 });
+  const road = new THREE.MeshStandardMaterial({ map: T.asph.map, normalMap: T.asph.normal, roughnessMap: T.asph.rough, normalScale: new THREE.Vector2(0.35, 0.35), vertexColors: true, roughness: 1.0, metalness: 0, envMapIntensity: 0.55 });
+  const marks = new THREE.MeshStandardMaterial({ map: T.marks, vertexColors: true, transparent: true, depthWrite: false, roughness: 0.62, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, envMapIntensity: 0.5 });
   const side = new THREE.MeshStandardMaterial({ map: T.side.map, normalMap: T.side.normal, normalScale: new THREE.Vector2(0.6, 0.6), vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   const plaza = new THREE.MeshStandardMaterial({ map: T.pav.map, normalMap: T.pav.normal, normalScale: new THREE.Vector2(0.6, 0.6), vertexColors: true, roughness: 0.62, metalness: 0, envMapIntensity: 0.8 });
   const props = rmMaterial(T.atlas, { envMapIntensity: 1.0 });

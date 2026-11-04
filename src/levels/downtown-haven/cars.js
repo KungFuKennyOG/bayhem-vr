@@ -207,7 +207,7 @@ const SPECS = {
     floorY: 0.36, rr: [0.14, 0.02], taper: [0.06, 0], H: 3.2, zMin: -3.32, zMax: 3.42,
     sbKeys: [[-3.32, 0.4], [-2.9, 0.42], [-1.0, 0.44]],
     topKeys: [[-3.32, 0.86], [-3.27, 1.02], [-3.1, 1.1], [-2.7, 1.17], [-2.45, 1.2], [-1.0, 1.22]],
-    cab: { zA: -2.45, zW1: -1.82, zB0: -1.06, zC: -1.0, yRoof: 2.42, xr: 0.86, crown: 0.03, B: [-9, -9], Cp: -1.25 },
+    cab: { zA: -2.45, zW1: -1.66, zB0: -1.06, zC: -1.0, yRoof: 2.42, xr: 0.86, crown: 0.03, B: [-2.06, -1.97], Cp: -1.25 },
     doors: [[-2.0, -1.12]], doorY: 0.46, inFloor: 0.5,
   },
   bus: {
@@ -345,7 +345,7 @@ function cabSection(S, z) {
   const y1 = Math.min(yr, yb + 0.035), y2 = Math.max(y1, yr - 0.055);
   const x2 = lerp(xb - 0.012, xt + 0.022, clamp01((y2 - yb) / Math.max(0.01, yr - yb)));
   const cr = c.crown * q;
-  return [[xb, yb, 'frame'], [xb - 0.012, y1, 'win'], [x2, y2, 'drip'], [xt, yr, 'roofE'], [xt * 0.55, yr + cr * 0.8, 'roof'], [0, yr + cr, 'end']];
+  return [[xb, yb, 'frame'], [xb - 0.012, y1, 'win'], [x2, y2, 'drip'], [xt, yr, 'roofE'], [xt - 0.09, yr + cr * 0.15, 'roof'], [xt * 0.55, yr + cr * 0.8, 'roof'], [0, yr + cr, 'end']];
 }
 
 // ---------------------------------------------------------------------- wheel
@@ -527,8 +527,11 @@ function buildAtlas() {
     const [x, y, w, h] = R.vanRear;
     g.fillStyle = '#eceae4'; g.fillRect(x, y, w, h);
     const gr = g.createLinearGradient(0, y + h * 0.55, 0, y + h); gr.addColorStop(0, 'rgba(110,92,74,0)'); gr.addColorStop(1, 'rgba(96,80,64,0.65)'); g.fillStyle = gr; g.fillRect(x, y, w, h);
-    for (let k = 0; k < 90; k++) { g.fillStyle = `rgba(80,70,60,${0.05 + pr() * 0.08})`; g.fillRect(x + pr() * w, y + pr() * h * 0.3, 1 + pr() * 2, 20 + pr() * 90); }     // rain streaks
-    for (let k = 0; k < 700; k++) { g.fillStyle = `rgba(70,58,46,${0.2 + pr() * 0.4})`; g.fillRect(x + pr() * w, y + h - Math.pow(pr(), 2) * h * 0.4, 1 + pr() * 2, 1 + pr() * 2); }
+    for (let k = 0; k < 70; k++) {   // soft rain streaks from the header and the stiffeners
+      const sx = x + pr() * w, sy = y + [8, h * 0.33, h * 0.66][(pr() * 3) | 0], len = 20 + Math.pow(pr(), 1.5) * 110, a = 0.05 + pr() * 0.1;
+      const lg = g.createLinearGradient(0, sy, 0, sy + len); lg.addColorStop(0, `rgba(70,62,54,${a})`); lg.addColorStop(1, 'rgba(70,62,54,0)');
+      g.fillStyle = lg; g.fillRect(sx, sy, 2 + pr() * 4, len);
+    }
     // door seams: centre split, panel insets, horizontal stiffeners
     g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillRect(x + w / 2 - 1.5, y, 3, h);
     g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2;
@@ -563,7 +566,7 @@ function sideMap(kind) {
   return { S, X: (z) => (z - z0) / (z1 - z0) * AW, Y: (y) => row * 256 + 4 + (1 - Math.min(1, Math.max(0, y / S.H))) * 248, z0, z1, row };
 }
 function drawSide(g, kind, row) {
-  const { S, X, Y } = sideMap(kind);
+  const sm2 = sideMap(kind), { S, X, Y } = sm2;
   const top = row * 256, r = makeRng(row * 77 + 5);
   g.save(); g.beginPath(); g.rect(0, top, AW, 256); g.clip();
   g.fillStyle = '#fff'; g.fillRect(0, top, AW, 256);
@@ -604,11 +607,30 @@ function drawSide(g, kind, row) {
   // grime rising from the sills + speckle
   const gTop = (kind === 'bus' ? 0.9 : kind === 'van' ? 1.0 : rock + 0.42);
   const gr = g.createLinearGradient(0, Y(gTop), 0, Y(0));
-  gr.addColorStop(0, 'rgba(120,98,76,0)'); gr.addColorStop(0.6, 'rgba(112,92,72,0.38)'); gr.addColorStop(1, 'rgba(84,70,58,0.78)');
+  gr.addColorStop(0, 'rgba(120,98,76,0)'); gr.addColorStop(0.55, 'rgba(112,92,72,0.22)'); gr.addColorStop(1, 'rgba(84,70,58,0.6)');
   g.fillStyle = gr; g.fillRect(0, Y(gTop), AW, Y(0) - Y(gTop));
-  for (let k = 0; k < 2600; k++) { const y = Math.pow(r(), 2.4) * gTop; g.fillStyle = `rgba(${80 + r() * 40 | 0},${64 + r() * 30 | 0},${50 + r() * 20 | 0},${0.2 + r() * 0.4})`; g.fillRect(r() * AW, Y(y), 1 + r() * 3, 1 + r() * 2); }
-  // water streaks / dust
-  for (let k = 0; k < 60; k++) { const x = r() * AW, y0 = Y(0.5 + r() * 2), h = 10 + r() * 50; g.fillStyle = 'rgba(90,80,70,0.08)'; g.fillRect(x, y0, 1 + r() * 2, h); }
+  // soft weathering: arch dirt, road-spray fans behind each wheel, rain streaks running down from the feature lines
+  const pxX = AW / ((sm2.z1 - sm2.z0) || 1), pxY = 248 / S.H;
+  const blob = (zc, yc, rz, ry, col, a0) => {
+    g.save(); g.translate(X(zc), Y(yc)); g.scale(rz * pxX, ry * pxY);
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, 1); rg.addColorStop(0, `rgba(${col},${a0})`); rg.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore();
+  };
+  const axles = kind === 'van' ? [-2.5, 1.95] : (S.axles || []);
+  const AR = S.ar || 0.45, WR = S.R || 0.35;
+  for (const az of axles) {
+    blob(az, WR, AR + 0.32, AR + 0.3, '86,66,48', 0.55);                 // dirt ring around the arch
+    blob(az + AR + 0.35, 0.3, 0.75, 0.32, '96,80,62', 0.42);            // spray fan behind the wheel
+    blob(az - AR - 0.15, 0.25, 0.35, 0.22, '96,80,62', 0.3);
+    blob(az + 0.1, WR + AR + 0.05, 0.4, 0.12, '110,58,30', 0.18);       // faint rust bloom on the arch lip
+  }
+  const sTop = kind === 'bus' ? [1.12, 2.5] : kind === 'van' ? [3.0] : [interp(S.topKeys || [[0, 0.9]], 0) - 0.04];
+  for (let k = 0; k < (kind === 'bus' ? 140 : kind === 'van' ? 90 : 50); k++) {
+    const x = r() * AW, y0 = sTop[(r() * sTop.length) | 0] - r() * 0.03, len = (0.15 + Math.pow(r(), 1.6) * (kind === 'van' ? 1.6 : 0.6)), w = 2 + r() * 5;
+    const lg = g.createLinearGradient(0, Y(y0), 0, Y(y0 - len)); const a = 0.05 + r() * 0.1;
+    lg.addColorStop(0, `rgba(72,64,56,${a})`); lg.addColorStop(0.3, `rgba(72,64,56,${a * 0.8})`); lg.addColorStop(1, 'rgba(72,64,56,0)');
+    g.fillStyle = lg; g.fillRect(x, Y(y0), w, Y(y0 - len) - Y(y0));
+  }
   if (S.cab && kind !== 'bus') {
     const c = S.cab, d = S.doors;
     // shoulder crease shading + highlight
@@ -715,7 +737,8 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
       const door = inDoor(z, s) && (tag === 'frame' || tag === 'win' || tag === 'drip');
       let g = 'body';
       if (tag === 'win' && winGlass(z) === 'glass') g = 'glass';
-      if ((tag === 'roofE' || tag === 'roof') && (z < c.zW1 || z > c.zB0)) g = 'glass';
+      if (tag === 'roof' && z < c.zW1) g = 'glassW';
+      else if ((tag === 'roofE' || tag === 'roof') && (z < c.zW1 || z > c.zB0)) g = (tag === 'roofE' && z < c.zW1) ? 'body' : 'glass';
       if (door) return g === 'glass' ? 'doorGlass' : 'door';
       return g;
     },
@@ -729,6 +752,24 @@ function buildCarBody(kind, S, paint, opts, out, rng) {
   }, out);
 }
 
+// windshield: glass pushed 18 mm into the opening + a black rubber gasket around it (A-pillars, cowl, header)
+function windshieldTrim(out, S) {
+  const g = out.glassW, c = S.cab;
+  for (let i = 0; i < g.p.length; i += 3) for (let k = 0; k < 3; k++) g.p[i + k] -= g.n[i + k] * 0.018;
+  out.glass.append(g, new THREE.Matrix4());
+  const edge = (z, s) => { const p = cabSection(S, z)[4]; return new THREE.Vector3(s * p[0], p[1], z); };
+  const loop = [];
+  const zs = []; for (let k = 0; k <= 6; k++) zs.push(lerp(c.zA + 0.005, c.zW1, k / 6));
+  for (const z of zs) loop.push(edge(z, -1));
+  for (const z of zs.slice().reverse()) loop.push(edge(z, 1));
+  loop.push(loop[0].clone());
+  const up = new THREE.Vector3(0, 1, -0.9).normalize();
+  for (let i = 0; i < loop.length - 1; i++) {
+    const a = loop[i], b = loop[i + 1], L = a.distanceTo(b); if (L < 1e-3) continue;
+    const m = new THREE.Matrix4().lookAt(a, b, up); m.setPosition(a.clone().add(b).multiplyScalar(0.5).addScaledVector(up, 0.004));
+    pushGeo(out.body, BOX(S.H > 3 ? 0.075 : 0.045, S.H > 3 ? 0.02 : 0.014, L + 0.02), m, C.rubber, RM.rubber);
+  }
+}
 // interior: floor, dash, seats, wheel, console, parcel shelf
 function interior(bk, S, kind, rng, { rows = 2, wide = false } = {}) {
   const c = S.cab, iw = S.hw - 0.1, fy = S.inFloor, belt = interp(S.topKeys, c.zA);
@@ -777,11 +818,11 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
   const yF0 = interp(S.topKeys, zF + 0.02), yb = interp(S.sbKeys, zF);
   const tall = isTall(kind);
   // ---------- front: headlights, grille, valance, plate
-  const hy = (tall ? yF0 - 0.02 : yF0 + 0.035), hx = hw - (tall ? 0.24 : 0.27);
+  const hy = (kind === 'van' ? yF0 - 0.06 : tall ? yF0 - 0.02 : yF0 + 0.035), hx = hw - (tall ? 0.24 : 0.27);
   for (const s of [-1, 1]) {
     const m = M4(s * hx, hy, zF + 0.055, 0, s * 0.22, 0);
-    pushGeo(bk, RBOX(0.36, tall ? 0.15 : 0.12, 0.12, 0.03, 1), m, C.trim, RM.satin);                    // housing
-    pushGeo(bk, RBOX(0.3, tall ? 0.1 : 0.08, 0.03, 0.012, 1), m.clone().multiply(M4(0, 0, -0.06)), C.white, RM.chrome, R.reflector);   // reflector
+    pushGeo(bk, RBOX(0.36, kind === 'van' ? 0.22 : tall ? 0.15 : 0.12, 0.12, 0.03, 1), m, kind === 'van' ? C.chrome : C.trim, kind === 'van' ? RM.chrome : RM.satin);   // housing
+    pushGeo(bk, RBOX(0.3, kind === 'van' ? 0.17 : tall ? 0.1 : 0.08, 0.03, 0.012, 1), m.clone().multiply(M4(0, 0, -0.06)), C.white, RM.chrome, R.reflector);   // reflector
     pushGeo(bk, CYL(0.035, 0.035, 0.02, 12), m.clone().multiply(M4(-s * 0.06, 0, -0.07, Math.PI / 2, 0, 0)), [1.2, 1.15, 1.05], [0.05, 0, 0.5]);   // projector
     pushGeo(bk, BOX(0.28, 0.014, 0.012), m.clone().multiply(M4(s * 0.01, -0.045, -0.066)), [1.2, 1.18, 1.1], [0.1, 0, 1.4]);                       // DRL strip
     lights.push({ p: [s * hx, hy, zF - 0.02], kind: 'head' });
@@ -790,7 +831,15 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
     pushGeo(bk, BOX(0.05, 0.04, 0.2), M4(s * (hw - 0.03), hy - 0.07, zF + 0.32, 0, 0, 0), [1, 0.4, 0.05], [0.15, 0, 0.3]);
   }
   const gw = hx * 2 - 0.42;
-  if (kind === 'suv' || kind === 'police') {
+  if (kind === 'van') {
+    const gy0 = yb + 0.2, gy1 = yF0 + 0.02, gm = (gy0 + gy1) / 2, gh = gy1 - gy0;
+    pushGeo(bk, RBOX(gw + 0.12, gh + 0.06, 0.07, 0.03), M4(0, gm, zF + 0.03), C.chrome, RM.chrome);        // surround
+    pushGeo(bk, BOX(gw, gh - 0.04, 0.01), M4(0, gm, zF - 0.008), C.white, RM.satin, R.grille);
+    for (let k = 1; k < 3; k++) pushGeo(bk, BOX(gw, 0.02, 0.03), M4(0, gy0 + gh * k / 3, zF - 0.012), C.chrome, RM.chrome);
+    pushGeo(bk, CYL(0.06, 0.06, 0.02, 12), M4(0, gm, zF - 0.03, Math.PI / 2, 0, 0), C.chrome, RM.chrome);  // badge
+    pushGeo(bk, RBOX(hw * 2 + 0.06, 0.22, 0.18, 0.03), M4(0, yb + 0.06, zF - 0.02), [0.16, 0.16, 0.17], RM.metal);   // steel bumper
+    pushGeo(bk, BOX(hw * 2 - 0.2, 0.03, 0.02), M4(0, yb + 0.13, zF - 0.115), [0.05, 0.05, 0.05], RM.rubber);
+  } else if (kind === 'suv' || kind === 'police') {
     pushGeo(bk, RBOX(gw + 0.08, 0.25, 0.06, 0.02), M4(0, hy - 0.05, zF + 0.02), kind === 'suv' ? C.black : [0.06, 0.06, 0.06], RM.satin);
     pushGeo(bk, BOX(gw, 0.2, 0.01), M4(0, hy - 0.05, zF - 0.012), C.white, RM.satin, R.grille);
   } else {
@@ -798,10 +847,12 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
     pushGeo(bk, BOX(gw, 0.09, 0.01), M4(0, hy - 0.01, zF - 0.003), C.white, RM.satin, R.grille);
   }
   // lower intake + valance lip
-  pushGeo(bk, BOX(hw * 1.3, 0.1, 0.01), M4(0, yb + 0.14, zF - 0.004), C.white, RM.satin, R.grille);
-  pushGeo(bk, RBOX(hw * 1.75, 0.05, 0.12, 0.02), M4(0, yb + 0.02, zF + 0.06), C.trim, RM.plastic);
+  if (kind !== 'van') {
+    pushGeo(bk, BOX(hw * 1.3, 0.1, 0.01), M4(0, yb + 0.14, zF - 0.004), C.white, RM.satin, R.grille);
+    pushGeo(bk, RBOX(hw * 1.75, 0.05, 0.12, 0.02), M4(0, yb + 0.02, zF + 0.06), C.trim, RM.plastic);
+  }
   const plate = R.plates[(rng() * 8) | 0];
-  quad(bk, [0, yb + 0.155, zF - 0.012], [-1, 0, 0], [0, 1, 0], 0.32, 0.155, plate, C.white, RM.satin);
+  quad(bk, [0, yb + (kind === 'van' ? 0.06 : 0.155), zF - (kind === 'van' ? 0.115 : 0.012)], [-1, 0, 0], [0, 1, 0], 0.32, 0.155, plate, C.white, RM.satin);
   // ---------- rear: tail lamps, plate, bumper, exhaust
   const yR0 = interp(S.topKeys, zR - 0.05), rb = interp(S.sbKeys, zR);
   const ty = tall ? yR0 + 0.25 : yR0 - 0.09, tx = hw - 0.2;
@@ -822,9 +873,16 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
   const belt = interp(S.topKeys, c.zA + 0.15);
   for (const s of [-1, 1]) {
     const mz = c.zA + 0.16, mx = s * (hwAt(S, mz) + 0.06);
+    if (kind === 'van') {
+      const ax = s * (hwAt(S, mz) + 0.28);
+      for (const yy of [belt + 0.08, belt + 0.5]) pushGeo(THIN, CYL(0.014, 0.014, 0.3, 6), M4(s * (hwAt(S, mz) + 0.14), yy, mz + 0.04, 0, 0, Math.PI / 2), C.black, RM.satin);
+      pushGeo(THIN, RBOX(0.1, 0.4, 0.06, 0.02), M4(ax, belt + 0.3, mz + 0.04), C.black, RM.satin);
+      pushGeo(THIN, BOX(0.085, 0.36, 0.01), M4(ax, belt + 0.3, mz + 0.075), [0.5, 0.52, 0.55], [0.05, 1, 0]);
+    } else {
     pushGeo(THIN, BOX(0.12, 0.05, 0.08), M4(mx - s * 0.05, belt + 0.04, mz), C.trim, RM.plastic);
     pushGeo(THIN, RBOX(0.2, 0.13, 0.1, 0.04, 2), M4(mx + s * 0.05, belt + 0.1, mz + 0.01, 0, -s * 0.15, 0), kind === 'taxi' || kind === 'sedan' ? paint : C.black, RM.paint);
     pushGeo(THIN, BOX(0.17, 0.1, 0.01), M4(mx + s * 0.05, belt + 0.1, mz + 0.065, 0, -s * 0.15, 0), [0.5, 0.52, 0.55], [0.05, 1, 0]);   // mirror glass
+    }
     for (const [z0, z1] of S.doors) {
       const hz = z1 - 0.2, hyy = interp(S.topKeys, hz) - 0.09;
       if (opts.doorOpen && s < 0 && z0 === S.doors[0][0]) continue;   // handle travels with the open door (added below)
@@ -839,8 +897,13 @@ function dressCar(bk, S, kind, paint, opts, rng, lights) {
     }
   }
   // wipers (parked at the windshield base)
-  const wy = interp(S.topKeys, c.zA) + 0.03, wz = c.zA + 0.09;
-  for (const x of [-0.42, 0.18]) pushGeo(bk, BOX(0.62, 0.012, 0.025), M4(x, wy, wz, -0.55, 0, 0.05), C.black, RM.satin);
+  const yA = interp(S.topKeys, c.zA), slope = Math.atan2(roofY(S, c.zA + 0.12) - yA, 0.12);
+  const wy = yA + 0.04 + Math.sin(slope) * 0.06, wz = c.zA + 0.03 + Math.cos(slope) * 0.06, wl = kind === 'van' ? 0.72 : 0.62;
+  for (const x of [-0.44, 0.2]) {
+    pushGeo(bk, BOX(wl, kind === 'van' ? 0.025 : 0.014, kind === 'van' ? 0.045 : 0.03), M4(x, wy, wz, -slope, 0, 0.04), C.black, RM.satin);
+    pushGeo(bk, BOX(0.022, 0.012, 0.012), M4(x + wl * 0.42, wy - 0.012, wz - 0.012, 0, 0, 0.9), C.black, RM.satin);         // arm
+    pushGeo(bk, CYL(0.018, 0.018, 0.03, 6), M4(x + wl * 0.5, yA + 0.02, c.zA - 0.01), C.black, RM.satin);                     // pivot
+  }
   pushGeo(bk, BOX(hw * 1.6, 0.02, 0.1), M4(0, wy - 0.02, c.zA - 0.03, -0.4, 0, 0), C.trim, RM.plastic);   // cowl
   pushGeo(THIN, CYL(0.003, 0.004, 0.7, 4), M4(0.4, roofY(S, (c.zW1 + c.zB0) / 2) + 0.35, c.zB0 - 0.05, -0.15, 0, 0), C.black, RM.satin);
 }
@@ -1074,7 +1137,7 @@ export function buildCar(type, opts = {}) {
   const M = materials();
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
-  const out = { body: new Bucket(), glass: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
+  const out = { body: new Bucket(), glass: new Bucket(), glassW: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
   THIN = new Bucket();
   const lights = [], bd = {};
   const mark = (k) => { bd[k] = out.body.tris - (bd._t || 0); bd._t = out.body.tris; };
@@ -1089,6 +1152,7 @@ export function buildCar(type, opts = {}) {
     S = SPECS[kind === 'taxi' || kind === 'police' ? 'sedan' : kind];
     const doorOpen = !!opts.doorOpen && !wreck;
     buildCarBody(kind, S, wreck ? [0.2, 0.2, 0.2] : paint, { doorOpen }, out, rng); mark('shell');
+    if (!wreck) windshieldTrim(out, S);
     interior(out.body, S, kind, rng, { rows: kind === 'van' ? 1 : 2 }); mark('interior');
     if (!wreck) dressCar(out.body, S, kind, paint, { doorOpen }, rng, lights);
     else {   // wreck: bare frames where the lamps were, sagging bumper
@@ -1105,6 +1169,10 @@ export function buildCar(type, opts = {}) {
     }
     if (type === 'suv') suvKit(out.body, S);
     if (type === 'van') {
+      for (const s of [-1, 1]) for (const z of S.doors[0]) {
+        const y0 = S.doorY, y1 = interp(S.topKeys, z) - 0.01;
+        pushGeo(out.body, BOX(0.008, y1 - y0, 0.01), M4(s * (sideSurface(S, z, (y0 + y1) / 2) + 0.002), (y0 + y1) / 2, z), C.rubber, RM.rubber);
+      }
       lights.push(...vanBox(out, paint, rng));
       // drop the cab's own tail lamps (hidden in the box) from the light anchors
       for (let i = lights.length - 1; i >= 0; i--) if (lights[i].kind === 'tail' && lights[i].p[2] < 0) lights.splice(i, 1);
