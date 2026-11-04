@@ -79,7 +79,7 @@ void main(){
   // hot pockets: emission only where the noise peaks, scaled by the shell's heat
   float h = uHeat * smoothstep(0.42, 0.82, n + under * 0.12);
   col = mix(col, ramp(h) * 1.6, smoothstep(0.05, 0.45, h));
-  float a = uAlpha * smoothstep(0.03, 0.4, ndv) * smoothstep(0.08, 0.28, n + 0.12);
+  float a = uAlpha * smoothstep(0.05, 0.55, ndv) * smoothstep(0.1, 0.32, n + 0.1);
   gl_FragColor = vec4(col * a, a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -115,8 +115,7 @@ export class Mushroom {
     const domeG = new THREE.SphereGeometry(1, 40, 18, 0, Math.PI * 2, 0, Math.PI * 0.55);
     this.dome = mk(domeG, { disp: 0.4, freq: 3.2, rise: 0.25, roll: 0.3 });
     this.dome.material.side = THREE.DoubleSide; // seen from below through the torus hole: no blue window
-    this.skirt = mk(new THREE.TorusGeometry(1, 0.35, 14, 48).rotateX(Math.PI / 2), { disp: 0.5, freq: 2.8, rise: 0.2, roll: 0.8 });
-    this.parts = [this.core, this.stem, this.cap, this.dome, this.skirt];
+    this.parts = [this.core, this.stem, this.cap, this.dome];
     this.t = 0;
     scene.add(this.root);
     this.update(0);
@@ -132,9 +131,9 @@ export class Mushroom {
     for (const m of this.parts) m.material.uniforms.uTime.value = t;
     // core fireball: punches up out of the hold, then becomes the stem's foot
     {
-      const u = this.core.material.uniforms, r = 3 + sm(0, 0.5, t) * 9 - sm(1.2, 3.5, t) * 5;
-      this.core.position.set(0, 2 + sm(0, 1.2, t) * 7, 0); this.core.scale.set(r, r * 0.9, r);
-      u.uHeat.value = 1.1 - cool * 0.75; u.uGlow.value = 1.2 - cool * 0.7; u.uAlpha.value = sm(0, 0.06, t) * (1 - sm(3, 7, t) * 0.85); u.uSoot.value = cool;
+      const u = this.core.material.uniforms, r = 3 + sm(0, 0.5, t) * 8 - sm(1.5, 5, t) * 3.5;
+      this.core.position.set(0, 2 + sm(0, 2.4, t) * Math.max(0, capH - 7), 0); this.core.scale.set(r, r * 0.8, r);
+      u.uHeat.value = 1.2 - sm(0.8, 7, t) * 0.7; u.uGlow.value = 1.4 - sm(1, 8, t) * 0.8; u.uAlpha.value = sm(0, 0.06, t) * (1 - sm(6, 14, t) * 0.8); u.uSoot.value = cool * 0.5;
     }
     // stem: a narrow column feeding the cap
     {
@@ -150,12 +149,6 @@ export class Mushroom {
       const d = this.dome.material.uniforms, ds = capR * 1.08 * sm(0.35, 1.1, t);
       this.dome.position.set(0, capH + capR * 0.12, 0); this.dome.scale.set(ds, ds * 0.62, ds);
       d.uHeat.value = 0.5 - cool * 0.48; d.uGlow.value = 0.35 - cool * 0.25; d.uAlpha.value = sm(0.45, 0.9, t) * (1 - late * 0.35); // keeps the torus hole closed (no donut) d.uSoot.value = cool;
-    }
-    // base skirt: the ring of fire/smoke rolling across the deck
-    {
-      const u = this.skirt.material.uniforms, s = 5 + sm(0, 2.5, tc) * 14;
-      this.skirt.position.set(0, 0.5, 0); this.skirt.scale.set(s, s * 0.55, s);
-      u.uHeat.value = 0.7 - cool * 0.65; u.uGlow.value = 0.9 - cool * 0.6; u.uAlpha.value = sm(0.05, 0.4, t) * (1 - sm(2.5, 9, t)); u.uSoot.value = cool;
     }
     this.root.visible = t < 60;
   }

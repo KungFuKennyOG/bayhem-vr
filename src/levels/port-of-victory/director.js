@@ -119,6 +119,8 @@ export class Director {
         }, until: (t) => { const on = g.rig.position.y > DECK_Y - 0.5; return on && ((px() < 24 && alive(s => s.floorY > 5) === 0 && t > 4) || t > 80 * T); } },
       { name: 'manifold', wp: V(-6, DECK_Y + 2.6, -155.5), music: 0.9, dusk: 0.7, enter: () => {
           setp.armManifold();
+          // trailer: let the objective read for a beat before the autopilot lights it up
+          if (A?.p?.autoState) { A.p.autoState.holdFire = true; later(4.2, () => { A.p.autoState.holdFire = false; }); }
           hud.objective('Shoot the fuel manifold');
           say('Red valves, mid-deck. Light it up!', 2.6);
           A?.go([deck(4, -155.2, { slow: 0.6 })]);
@@ -129,19 +131,21 @@ export class Director {
           later(0.6, () => say('She\'s gonna blow! Get off the ship! RUN!!', 2.6));
           this.escapeT = trailer ? 13.5 : 18;
           this.escape0 = this.escapeT;
-          later(2.5, () => setp.deckBlast(-16)); later(5.5, () => setp.deckBlast(-2)); later(8.5, () => setp.deckBlast(10));
+          later(1.6, () => setp.deckBlast(-16)); later(3.6, () => setp.deckBlast(-4)); later(5.6, () => setp.deckBlast(6)); later(7.8, () => setp.deckBlast(14)); later(10, () => setp.deckBlast(20));
           A?.go([deck(23.5, -154.6, { sprint: true }), { p: V(23.6, DECK_Y, -152), nav: null, sprint: true }, { p: V(21.5, DECK_Y, -152), nav: null, sprint: true }, { p: V(-2.2, 0, -152), nav: null, sprint: true }, { p: V(-3.9, 0, -150.2), nav: null, sprint: true }, ground(-4, -145, { sprint: true }), ground(-6, -133, { sprint: true }), ground(-6.5, -126, { sprint: true })]);
         }, update: (t) => {
           const left = Math.max(0, this.escape0 - t);
           g.bossInfo = { frac: left / this.escape0, name: 'FUEL HOLD  —  ' + left.toFixed(1) + ' s' };
           if (t % 1.6 < 1 / 30) audio.play('alarm_klaxon', { x: -6, y: DECK_Y + 3, z: -160, volume: 0.7 });
           if (t % 2.3 < 1 / 30) audio.play('metal_groan', { x: -10, y: DECK_Y, z: -165, volume: 0.8 });
+          setp.escapeFX(this.dt, t);
           // off the gangway: keep running, get clear of the blast
           if (!this.offShip && t > 3 && g.rig.position.y < 0.5 && pz() > -150) { this.offShip = true; hud.objective('Get clear!'); hud.setWaypoint(V(-6, 0.5, -130)); }
         }, until: (t) => t > this.escape0 || (t > 3 && g.rig.position.y < 0.5 && pz() > -138.5) },
       { name: 'kaboom', wp: null, music: 1.0, dusk: 0.84, enter: () => {
           g.bossInfo = null;
           if (g.rig.position.y > 4) g.hurt(70, V(-15, DECK_Y, -167)); // still on the ship: it hurts
+          setp.escapeEnd();
           setp.kaboom();
           audio.musicStinger('boss');
           hud.setWaypoint(null);
@@ -198,7 +202,7 @@ export class Director {
   update(dt) {
     if (!this.done) {
       this.t += dt; this.total += dt;
-      this.cur.update?.(this.t);
+      this.dt = dt; this.cur.update?.(this.t);
       if (this.cur.until(this.t)) this.next();
     }
     this.g.dusk = damp(this.g.dusk, this.duskTarget, 0.35, dt);

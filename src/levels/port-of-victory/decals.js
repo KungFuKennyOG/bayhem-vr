@@ -248,7 +248,7 @@ export function buildPuddles(list) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx); g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.06, metalness: 0.1, alphaMap: puddleAlpha(), transparent: true, depthWrite: false, envMapIntensity: 1.25, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x221e1a, roughness: 0.1, metalness: 0.1, alphaMap: puddleAlpha(), transparent: true, opacity: 0.72, depthWrite: false, envMapIntensity: 0.75, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
   const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; mesh.renderOrder = 5;
   return { mesh };
 }

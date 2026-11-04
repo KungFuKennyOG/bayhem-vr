@@ -72,7 +72,7 @@ export class PortWorld {
     const aniso = this.aniso;
     // asphalt (yard): tiled detail + a painted-markings overlay
     const asph = asphaltTexture(); asph.map.anisotropy = aniso; asph.map.repeat.set(160 / 4.5, 150 / 4.5); asph.normal.repeat.copy(asph.map.repeat);
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(160, 150), new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.14, 0.14), roughness: 0.78, metalness: 0, color: 0x9a9894, envMapIntensity: 0.6 }));
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(160, 150), new THREE.MeshStandardMaterial({ map: asph.map, normalMap: asph.normal, normalScale: new THREE.Vector2(0.14, 0.14), roughness: 0.78, metalness: 0, color: 0xb4aea6, envMapIntensity: 0.75 }));
     yard.rotation.x = -Math.PI / 2; yard.position.set(0, 0, 40 - 75); yard.receiveShadow = true;
     this.group.add(yard);
     // concrete apron (quay); it runs on past the yard along the whole waterfront

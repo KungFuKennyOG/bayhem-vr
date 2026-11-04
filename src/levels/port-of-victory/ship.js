@@ -814,7 +814,7 @@ export function buildShip(opts = {}) {
     line([new V(-6.5, 9.32, zP), new V(-8, 9.32, zP), new V(-8, 11.5, zP), new V(-8, 11.5, -162.6), new V(-13.4, 11.5, -162.6)], 0.1, YEL, 10);
     col(-27, DECK, -157.6, 36, DECK + 1.0, -157.22);
     // mushroom vents (against the bulwark): grey painted trunk, mesh-guarded gap, flat mushroom cap, rust at the joints
-    for (const x of [11.5, -1.0, 30]) {
+    for (const x of [-14.0, -24.0, 30]) {
       const z = -153.9, VG = 0x9da29e, VR = 0x6a3d26;
       pnt(at(cyl(0.25, 0.27, 0.05, 14), x, DECK + 0.025, z), 0x5d6260);              // deck doubler
       for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; pnt(at(cyl(0.022, 0.022, 0.03, 5), x + Math.cos(a) * 0.22, DECK + 0.06, z + Math.sin(a) * 0.22), 0x3a3d3c); }

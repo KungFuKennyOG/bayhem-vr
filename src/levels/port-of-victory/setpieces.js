@@ -156,6 +156,9 @@ export class SetPieces {
       C.shadow.position.set(_v.x, 0.04, _v.z); C.shadow.scale.set(CW * 1.25, 1, C40 * 1.1);
       C.shadow.material.opacity = 0.18 + 0.14 * (0.5 + 0.5 * Math.sin(C.t * 9));
       C.shadow.material.color.setRGB(0.25 * (0.5 + 0.5 * Math.sin(C.t * 9)), 0.02, 0);
+    } else if (!C.fall && C.box && C.mode !== 'gone' && C.hoist > 8) {
+      rtg.spreader.updateWorldMatrix(true, false); rtg.spreader.getWorldPosition(_v);
+      C.shadow.position.set(_v.x, 0.04, _v.z); C.shadow.scale.set(CW * 1.2, 1, C40 * 1.05); C.shadow.material.color.setRGB(0, 0, 0); C.shadow.material.opacity = C.mode === 'after' ? 0 : 0.2;
     } else if (!C.fall) C.shadow.material.opacity = 0;
     // falling box
     const F = C.fall;
@@ -224,7 +227,7 @@ export class SetPieces {
   // ================================================================== forklift charge
   _forklift() {
     const g = this.g, pm = this.w.mods.propM;
-    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(30, 0, -117), yaw: Math.PI / 2 - 0.25, speed: 0, lift: 1.4, alive: true, drums: [], t: 0 };
+    const F = this.fork = { state: 'idle', pos: new THREE.Vector3(29, 0, -112.5), yaw: Math.PI / 2 - 0.12, speed: 0, lift: 0.75, alive: true, drums: [], t: 0 };
     let model;
     if (pm?.buildForklift) model = pm.buildForklift();
     else {
@@ -238,7 +241,11 @@ export class SetPieces {
     F.beacon = glowSprite(0xff9a18, 1.1); (model.anchors.beacon || F.root).add(F.beacon);
     F.heads = (model.anchors.headlights || []).map(o => { const sp = glowSprite(0xfff0d0, 0.9); o.add(sp); return sp; });
     F.root.position.copy(F.pos); F.root.rotation.y = F.yaw; F.root.visible = false;
-    F.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    // it is always seen backlit (the sun is behind it): a little fake bounce keeps the safety yellow readable
+    const lifted = new Map();
+    F.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true;
+      const mats = [].concat(o.material).map(m => { if (!m?.isMeshStandardMaterial) return m; if (!lifted.has(m)) { const c = m.clone(); if (m.map) { c.emissiveMap = m.map; c.emissive = new THREE.Color(0.42, 0.36, 0.26); c.emissiveIntensity = 0.35; } lifted.set(m, c); } return lifted.get(m); });
+      o.material = Array.isArray(o.material) ? mats : mats[0]; } });
     g.scene.add(F.root);
     model.setLift?.(F.lift);
     // driver
@@ -408,11 +415,16 @@ export class SetPieces {
     });
   }
   fuelJet(P, dir) { this.man.fires.push({ p: P.clone(), n: dir.clone().negate().setY(0.3).normalize(), life: 99 }); }
-  armManifold() { this.man.state = 'armed'; }
+  armManifold() {
+    this.man.state = 'armed';
+    // objective glow: a pulsing red-amber halo on the manifold so it reads from the gangway
+    if (!this.manGlow) { this.manGlow = glowSprite(0xff3a10, 3.2); this.manGlow.position.copy(this.man.center).setY(this.man.center.y + 0.9); this.g.scene.add(this.manGlow); }
+  }
   rupture() {
     const M = this.man, g = this.g;
     if (M.state !== 'armed') return;
     M.state = 'burning'; M.t = 0;
+    if (this.manGlow) this.manGlow.visible = false;
     g.audio.play('fuel_whoomp', { x: M.center.x, y: M.center.y, z: M.center.z });
     g.fx.explosion(M.center.clone(), 1.3, { noRing: true });
     g.lastExplosionT = g.time; g.lastExplosionShake = 1.0;
@@ -421,6 +433,27 @@ export class SetPieces {
     g.addScore(1500, 'FUEL LINE CUT!', M.center.clone().setY(M.center.y + 2.5), 'huge');
     g.events.push({ type: 'rupture' });
   }
+  // countdown: the ship is coming apart while you run
+  escapeFX(dt, t) {
+    const g = this.g;
+    if (!this.alarm) {
+      this.alarm = [[40, 21.5], [47, 23.5], [54, 21.5], [-2, 13.2], [24, 13.2]].map(([x, y]) => { const sp = glowSprite(0xff2010, 2.6); sp.position.set(x, y, -153.6); g.scene.add(sp); return sp; });
+      this.pipeT = 0.4;
+    }
+    this.alarm.forEach((sp, i) => { const k = Math.pow(Math.max(0, Math.sin(t * 7 + i * 1.3)), 4); sp.material.opacity = k; sp.scale.setScalar(1.6 + k * 2.2); });
+    // ruptured pipe run: fire jets + steam bursting out a few metres from the player
+    this.pipeT -= dt;
+    if (this.pipeT <= 0) {
+      this.pipeT = range(0.5, 0.9);
+      const x = clamp(g.headPos.x + range(-9, 3), -24, 34), fire = rand() < 0.55;
+      g.audio.play(fire ? 'fuel_whoomp' : 'barrel_hiss', { x, y: DECK_Y + 1, z: -157.4, volume: 0.7 });
+      const n = new THREE.Vector3(range(-0.3, 0.3), range(0.5, 1), 1).normalize();
+      for (let i = 0; i < 14; i++) g.fx.later(i * 0.035, () => g.fx.main.spawn({ x, y: DECK_Y + range(0.3, 0.9), z: -157.3, vx: n.x * range(5, 9), vy: n.y * range(5, 9), vz: n.z * range(5, 9), drag: 2.2, grav: fire ? -1 : -0.5, frameKind: fire ? 1 : 2, frame: rand() * 40, frames: 16, s0: 0.4, s1: range(1.8, 2.8), ease: 0.5, life: range(0.5, 0.8), rot: rand() * 6, vrot: range(-1, 1), r: fire ? 1.65 : 0.55, g: fire ? 0.75 : 0.55, b: fire ? 0.3 : 0.58, a: fire ? 1 : 0.5, fadeIn: 0.02, fadeOut: 0.6 }));
+      if (fire) g.fx.light(_v.set(x, DECK_Y + 1.2, -156.5), 140, 0.5, 0xff8030, true, 14);
+      g.lastExplosionT = g.time; g.lastExplosionShake = 0.25;
+    }
+  }
+  escapeEnd() { for (const sp of this.alarm || []) sp.material.opacity = 0.6; }
   // pre-blasts on the deck while you run
   deckBlast(x) { const g = this.g; g.boom(new THREE.Vector3(x, DECK_Y + 0.8, -158 - rand() * 2), 1.3, { radius: 5, dmg: 15, noRing: true }); g.audio.play('metal_groan', { x, y: DECK_Y, z: -165 }); }
   // the big one: the fuel hold goes up in a mushroom fireball, chain blasts along the hull
@@ -486,6 +519,7 @@ export class SetPieces {
     }
     if (M.fires.length && M.state !== 'gone') g.audio.setLoop('fire_big', { x: M.center.x, y: M.center.y, z: M.center.z, volume: 0.9, intensity: 1 });
     if (M.state === 'burning' || M.state === 'gone') M.t += dt;
+    if (this.manGlow && M.state === 'armed') { const k = 0.5 + 0.5 * Math.sin(this.g.time * 5); this.manGlow.material.opacity = 0.35 + 0.55 * k; this.manGlow.scale.setScalar(2.6 + k * 1.6); }
     // mushroom cloud (rate-based emitters: slow-mo must not multiply the particle count).
     // One dominant shape: a fire stem wrapped in black smoke rising into a rolling toroidal cap
     // (glowing orange underside / interior, black-brown smoke on the outer edge and top) + a dust wall.
@@ -522,6 +556,7 @@ export class SetPieces {
       for (const B of this.breaches || []) {
         const bt = t - B.t0; if (bt < 0 || bt > B.dur + 6) continue;
         const k = bt < B.dur ? 1 : 0.25;
+        if (bt > B.dur) continue; // after the jet: the persistent breach fire below takes over
         emit('br' + B.p.x, 22 * k, () => fx.main.spawn({ x: B.p.x + range(-0.8, 0.8), y: B.p.y + range(-0.6, 0.6), z: B.p.z + 0.3, vx: range(-1.5, 1.5), vy: range(1, 3), vz: range(5, 11) * k + 1, drag: 1.4, grav: -2, frameKind: 1, s0: B.s, s1: B.s * range(2.4, 3.4), ease: 0.6, life: range(0.6, 0.9), rot: rand() * 6, vrot: range(-1, 1), r: 1.6, g: 0.8, b: 0.36, a: 1, fadeIn: 0.02, fadeOut: 0.6 }));
         emit('brs' + B.p.x, 3, () => fx.smoke(_v.set(B.p.x, B.p.y + 2, B.p.z + 2.5), 2.2, 0.06, 6, 3, 0.85));
       }
@@ -533,6 +568,17 @@ export class SetPieces {
       // fire glow under the cap lights the ship + cranes (pooled light, re-armed while it burns)
       const mt = this.mushMesh.t;
       if (mt < 6 && (this._mlT = (this._mlT || 0) - dt) <= 0) { this._mlT = 0.9; g.fx.light(_v.copy(this.mushMesh.P).setY(this.mushMesh.P.y + 14 + Math.min(mt, 4.5) * 4), 5200 * (1 - mt / 7), 1.1, 0xff7a30, true, 200); }
+    }
+    // breaches keep burning: licking flames out of the torn plating + a smoke column up the hull
+    if (this.breaches && this.mushMesh) {
+      const mt = this.mushMesh.t;
+      for (const B of this.breaches) {
+        if (mt < B.t0 + B.dur) continue;
+        if (rand() < dt * 10) g.fx.main.spawn({ x: B.p.x + range(-0.9, 0.9), y: B.p.y + range(-0.3, 0.6), z: B.p.z + 0.4, vx: range(-0.4, 0.4), vy: range(2.5, 4.5), vz: range(0.6, 1.6), drag: 1.2, frameKind: 1, s0: B.s * 0.8, s1: B.s * 1.9, ease: 0.6, life: range(0.6, 0.9), rot: rand() * 6, vrot: range(-1, 1), r: 1.65, g: 0.72, b: 0.3, a: 1, fadeIn: 0.03, fadeOut: 0.6 });
+        if (rand() < dt * 2.2) g.fx.smoke(_v.set(B.p.x + range(-0.5, 0.5), B.p.y + 1.6, B.p.z + 0.9), 1.8, 0.05, 7, 2.6, 0.8);
+      }
+      // the quay-side hull is lit by its own fires (the blast light sits behind the hull)
+      if (mt < 40 && (this._hlT = (this._hlT || 0) - dt) <= 0) { this._hlT = 0.5; g.fx.light(_v.set(-17, 5, QUAY_Z + 3.5), (mt < 3 ? 2600 : 900) * range(0.85, 1.15), 0.6, 0xff6a24, true, 46); }
     }
     // burning ship after the blast
     if (this.burnK !== undefined && this.burnK < 1) { this.burnK = Math.min(1, this.burnK + dt * 0.6); this.w.ship.setBurnt?.(this.burnK); }

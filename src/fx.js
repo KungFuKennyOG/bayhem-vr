@@ -87,7 +87,7 @@ export class FX {
     const gy = this.groundAt ? this.groundAt(P.x, P.z) : 0, hy = P.y - gy;
     // sizes grow with s but are capped (fill rate); counts grow with sqrt(s)
     const ss = Math.min(s, 1.8), cs = Math.sqrt(s), H = this.heat, U = this.fireHue;
-    const fr = 2.3 * H * (1 - U * 0.15), fg = H * H * (1.9 - U * 0.75), fb = H * H * (1.6 - U * 0.95);
+    const fr = 2.3 * H * (1 - U * 0.15), fg = H * H * (1.9 - U * 0.9), fb = H * H * (1.6 - U * 0.95);
     this.onSound('explosion_big', P);
     this.light(_v.copy(P).setY(P.y + 1.5), 260 * s, 1.1, 0xff9040, true, 60 * s);
     // flash
@@ -276,7 +276,7 @@ export class FX {
       if (d.burning === 2) {
         // heavy wreckage: a fat black smoke trail behind a flaming chunk (Bay debris trails black, not white glitter)
         if (rand() < 0.6) { const fs = Math.min(1.3, d.sx * 0.8); this.main.spawn({ x: d.x, y: d.y, z: d.z, vx: d.vx * 0.9, vy: d.vy * 0.9 + 1, vz: d.vz * 0.9, drag: 0.6, frameKind: 1, s0: fs, s1: fs * 2, ease: 0.7, life: range(0.35, 0.55), rot: rand() * 6.28, vrot: range(-1, 1), r: 1.7, g: 0.8, b: 0.35, a: 1, fadeIn: 0.02, fadeOut: 0.6 }); }
-        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.9, (q) => this.smoke(q, Math.min(2.6, 0.9 + d.sx), 0.055, 3.2, 0.6, 0.82), dz);
+        this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.38, (q) => this.smoke(q, Math.min(2.2, 0.8 + d.sx * 0.8), 0.055, 3.4, 0.5, 0.7), dz);
       } else if (d.burning) {
         // fire rides along with the chunk (no "string of pearls"); smoke is left behind as a soft ribbon
         if (rand() < 0.7) this.flame(_v.set(d.x, d.y, d.z), 0.38, _u.set(d.vx, 0, d.vz));
