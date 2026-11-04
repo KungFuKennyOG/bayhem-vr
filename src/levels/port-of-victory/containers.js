@@ -500,7 +500,7 @@ const FRAG_MAP = /* glsl */`
 int fti = int(vD.z + 0.5);
 float sideK = floor((vD.z - float(fti)) * 10.0 + 0.5);
 float liF = floor(vI.x + 0.5);
-float seedI = vI.z * 113.7 + sideK * 7.31;
+float seedI = floor(vI.z * 4096.0 + 0.5) * 0.37 + sideK * 7.0; // quantised: interpolation noise x hash = speckle
 const float CELL = 1.112; // one corrugation sheet = 4 ribs
 float ci = floor(vD.x / CELL);
 float cfr = fract(vD.x / CELL);
@@ -544,7 +544,7 @@ if (fti == 3) {
       float ph = 0.45 + h3 * 1.1;
       float y0 = bottom ? ${SILL} : ${H - 0.1} - ph, y1 = y0 + ph;
       if (vD.y > y0 && vD.y < y1) {
-        vec3 pc = h3 > 0.8 ? vec3(0.43, 0.41, 0.38) : swC * (0.88 + 0.24 * h2);
+        vec3 pc = h3 > 0.88 ? vec3(0.26, 0.25, 0.23) : swC * (0.86 + 0.22 * h2);
         float e = min(min(cfr, 1.0 - cfr) * CELL, min(vD.y - y0, y1 - vD.y));
         col = mix(pc, vec3(0.28, 0.13, 0.05), 0.55 * edgeLine(e, 0.008, fwXY));
       }
@@ -1210,6 +1210,7 @@ export async function _demo(ctx = {}) {
   }
   // a cross row at the far end (long axis along x)
   for (let k = 0; k < 4; k++) for (let t = 0; t < 1 + (k % 3); t++) list.push({ x: -19 + k * 12.5, z: -42, tier: t, rot: 0, len: 40, livery: Math.floor(rng() * 8), seed: seed++ });
+  list.push({ x: 0, z: -12, tier: 15 / H, rot: 0, len: 40, livery: 2, seed: 4242 }); // hanging from a crane
   const field = buildContainerField(list, { renderer: ctx.renderer });
   const root = new THREE.Group();
   root.add(field.root);
@@ -1257,7 +1258,6 @@ export async function _atlas(which = 'side', ctx = {}) {
   try { await Promise.all([document.fonts.load('400 64px Anton'), document.fonts.load('700 64px Oswald'), document.fonts.load('500 64px Oswald')]); } catch (e) { /* */ }
   initContainerMaterials(ctx.renderer);
   const t = which === 'door' ? M.door : M.atlas;
-  if (which !== 'door') { const x = M.canvases.ac.getContext('2d'); x.fillStyle = '#0f0'; for (let i = 0; i < 8; i++) for (const v of [BAND[0], BAND[1], 1.70]) x.fillRect(0, i * RH + (1 - v / H) * RH, AW, 1); t.needsUpdate = true; }
   const m = new THREE.Mesh(new THREE.PlaneGeometry(which === 'door' ? 3.2 : 2.4, which === 'door' ? 1.6 : 2.4), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, fog: false }));
   return { root: m };
 }
