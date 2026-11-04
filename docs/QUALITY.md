@@ -9,7 +9,7 @@ Read this before building or polishing a level. It collects what four levels of 
 
 ## The review loop (Kenny's rule)
 1. Take **screenshots, not videos** (`tools/shot.cjs`). Use fixed camera positions so before and after line up: player height, the angles a player actually sees, and the heaviest spectacle moment.
-2. Give a **fresh** reviewer agent only the images and this bar, never your own conclusions. Ask for scores, the top problems by impact with concrete fixes, and anything that got worse.
+2. Give a **fresh** reviewer agent only the images and this bar, never your own conclusions. Include a few frames from an already-finished level for calibration and ask for scores on the same scale: Level 4 scored 8.0 in isolation and 4.5 next to Levels 2 and 3. Ask for scores, the top problems by impact with concrete fixes, and anything that got worse.
 3. Fix what it says, re-shoot the same angles, and review again until it's close to 10 or genuinely plateaued.
 4. Record the score history and the open issues in the level's `HANDOFF.md` section.
 
