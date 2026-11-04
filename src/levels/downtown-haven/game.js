@@ -474,10 +474,12 @@ export class DowntownGame {
 
   // ---------------------------------------------------------------- ambience: smoke columns from the earlier chaos, manhole steam
   _ambient(dt) {
+    // big sprites are budgeted (fill rate is the Quest bottleneck): few, huge, slow puffs; they stop for the finale
     this._colT = (this._colT || 0) - dt;
-    if (this._colT <= 0) {
-      this._colT = 0.3;
-      for (const [x, z, s] of SMOKE_COLUMNS) this.fx.main.spawn({ x: x + range(-5, 5), y: 10, z: z + range(-5, 5), vx: range(-0.6, 0.6) + 2.2, vy: range(5, 7) * s, vz: range(-0.6, 0.6) + 1.2, drag: 0.12, frameKind: 2, frame: rand() * 40, frames: 14, s0: 14 * s, s1: range(40, 60) * s, ease: 0.6, life: range(16, 22), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.14, g: 0.115, b: 0.1, a: 0.85, fadeIn: 0.06, fadeOut: 0.5 });
+    if (this._colT <= 0 && !this.finale) {
+      const cols = this.fx.main.bigBudget >= 140 ? SMOKE_COLUMNS : SMOKE_COLUMNS.slice(0, 3);
+      this._colT = 1.5;
+      for (const [x, z, s] of cols) this.fx.main.spawn({ x: x + range(-5, 5), y: 12, z: z + range(-5, 5), vx: range(-0.6, 0.6) + 2.2, vy: range(5, 7) * s, vz: range(-0.6, 0.6) + 1.2, drag: 0.1, frameKind: 2, frame: rand() * 40, frames: 14, s0: 20 * s, s1: range(60, 85) * s, ease: 0.6, life: range(15, 18), rot: rand() * 6, vrot: range(-0.04, 0.04), r: 0.14, g: 0.115, b: 0.1, a: 0.9, fadeIn: 0.06, fadeOut: 0.5 });
     }
     const head = this.headPos;
     for (const m of this.world.manholes) {

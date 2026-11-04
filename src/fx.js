@@ -88,7 +88,7 @@ export class FX {
     this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * ss, s1: 11 * ss, life: 0.2, r: 3.0, g: 2.1, b: 1.2, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
     this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * ss, s1: 16 * ss, life: 0.14, r: 2.8, g: 2.0, b: 1.1, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
     // main fireballs, staggered
-    const n = Math.round(7 * cs + 2);
+    const n = Math.round(5 * cs + 2);
     for (let i = 0; i < n; i++) {
       const d = i < 3 ? 0 : range(0, 0.25);
       const fn = () => {
@@ -96,7 +96,7 @@ export class FX {
         this.main.spawn({
           x: P.x + range(-0.8, 0.8) * s, y: P.y + range(0.2, 1.4) * s, z: P.z + range(-0.8, 0.8) * s,
           vx: Math.cos(a) * Math.cos(el) * sp + (carVel ? carVel.x * 0.5 : 0), vy: Math.sin(el) * sp + range(1, 4), vz: Math.sin(a) * Math.cos(el) * sp + (carVel ? carVel.z * 0.5 : 0),
-          drag: 2.6, grav: 2.2, frameKind: 1, s0: range(2.4, 3.6) * ss, s1: range(6.5, 10) * ss, ease: 0.55, life: range(1.1, 1.9), rot: rand() * 6.28, vrot: range(-0.8, 0.8),
+          drag: 2.6, grav: 2.2, frameKind: 1, s0: range(3.6, 5.0) * ss, s1: range(9.5, 14) * ss, ease: 0.55, life: range(1.1, 1.9), rot: rand() * 6.28, vrot: range(-0.8, 0.8),
           r: 2.3, g: 1.9, b: 1.6, a: 1, fadeIn: 0.02, fadeOut: 0.85,
         });
       };
@@ -104,13 +104,13 @@ export class FX {
     }
     // rising mushroom core
     for (let i = 0; i < 3; i++) this.later(0.1 + i * 0.08, () => {
-      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 4 * ss, s1: 11 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1, g: 1.8, b: 1.5, fadeOut: 0.8 });
+      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 5.5 * ss, s1: 15 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1, g: 1.8, b: 1.5, fadeOut: 0.8 });
     });
     // dark smoke column
     for (let i = 0; i < Math.round(6 * cs + 2); i++) this.later(range(0.25, 0.9), () => {
-      const sh = range(0.16, 0.32);
+      const sh = range(0.08, 0.17);
       this.main.spawn({ x: P.x + range(-1.5, 1.5) * s, y: P.y + range(1, 3) * s, z: P.z + range(-1.5, 1.5) * s, vx: range(-1.5, 1.5), vy: range(2.5, 5.5), vz: range(-1.5, 1.5), drag: 0.6, grav: 0.4,
-        frameKind: 2, frame: rand() * 40, frames: 20, s0: 5 * ss, s1: Math.min(22, range(12, 17) * ss), ease: 0.6, life: range(4, 7), rot: rand() * 6.28, vrot: range(-0.2, 0.2),
+        frameKind: 2, frame: rand() * 40, frames: 24, s0: 6 * ss, s1: Math.min(26, range(15, 21) * ss), ease: 0.6, life: range(7, 11), rot: rand() * 6.28, vrot: range(-0.2, 0.2),
         r: sh * 1.35, g: sh * 1.0, b: sh * 0.72, r1: sh * 1.1, g1: sh * 0.9, b1: sh * 0.75, a: 0.88, fadeIn: 0.1, fadeOut: 0.5 });
     });
     // sparks

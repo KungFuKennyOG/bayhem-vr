@@ -333,7 +333,7 @@ export class SetPieces {
     const g = this.g, I = _v.set(...MERIDIAN.impact).add(_v2.set(0, 0, 2));
     // a burning wound in the tower: fire belching out, a black column climbing past the crown
     if (rand() < dt * 30) g.fx.main.spawn({ x: I.x + range(-6, 6), y: I.y + range(-3, 3), z: I.z + range(0, 2), vx: range(-1, 1), vy: range(3, 6), vz: range(1, 4), drag: 1.2, frameKind: 1, s0: range(2.5, 4), s1: range(6, 9), ease: 0.6, life: range(0.9, 1.5), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.8, b: 1.5, a: 1, fadeIn: 0.02, fadeOut: 0.6 });
-    if (rand() < dt * 9) g.fx.main.spawn({ x: I.x + range(-5, 5), y: I.y + 4, z: I.z + 2, vx: range(-0.5, 0.5) + 1.2, vy: range(6, 9), vz: range(0.5, 1.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 14, s0: 6, s1: range(26, 38), ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.1, 0.1), r: 0.1, g: 0.085, b: 0.075, a: 0.92, fadeIn: 0.05, fadeOut: 0.5 });
+    if (rand() < dt * 3.5) g.fx.main.spawn({ x: I.x + range(-5, 5), y: I.y + 4, z: I.z + 2, vx: range(-0.5, 0.5) + 1.2, vy: range(6, 9), vz: range(0.5, 1.5), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 14, s0: 9, s1: range(34, 48), ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.1, 0.1), r: 0.1, g: 0.085, b: 0.075, a: 0.92, fadeIn: 0.05, fadeOut: 0.5 });
     if (g.headPos.distanceTo(I) < 90) g.audio.setLoop('fire_big', { x: I.x, y: I.y, z: I.z, volume: 0.9, intensity: 0.9 });
   }
 
@@ -378,6 +378,9 @@ export class SetPieces {
     });
     g.audio.play('collapse_rumble', { volume: 1 });
     g.audio.play('metal_groan', { x: 0, y: 40, z: -165, volume: 1 });
+    // the finale owns the big-sprite budget: the distant columns stop, the dust gets the headroom
+    g.finale = true;
+    g.fx.main.bigBudget = Math.round(g.fx.main.bigBudget * 1.9);
     g.events.push({ type: 'collapseStart' });
   }
   _updCollapse(dt) {
@@ -403,7 +406,7 @@ export class SetPieces {
       C.sinkV = Math.min(11, C.sinkV + dt * 4.5);
       if (C.sink < MERIDIAN.breakY * 0.75) { C.sink += C.sinkV * dt; M.lower.position.y = -C.sink; }
       // base dust: a boiling cloud swallowing the plaza
-      const nb = Math.min(6, Math.round(dt * 48 + rand()));
+      const nb = Math.min(4, Math.round(dt * 14 + rand()));
       for (let i = 0; i < nb; i++) { const up = rand() < 0.35; g.fx.main.spawn({ x: range(-26, 26), y: up ? range(10, C.pivot.y + 10) : range(1, 10), z: range(MERIDIAN.z1 - 10, MERIDIAN.z1 + 6), vx: range(-7, 7), vy: up ? range(2, 6) : range(1, 4), vz: range(3, 11), drag: 0.45, frameKind: 2, frame: rand() * 40, frames: 16, s0: 12, s1: range(30, 52), ease: 0.55, life: range(7, 10), rot: rand() * 6, vrot: range(-0.15, 0.15), r: 0.5, g: 0.43, b: 0.35, r1: 0.4, g1: 0.35, b1: 0.29, a: 0.95, fadeIn: 0.05, fadeOut: 0.4 }); }
     }
     if (C.phase === 'fall') {
@@ -433,7 +436,7 @@ export class SetPieces {
       f.v.y -= 9.8 * dt * 0.85;
       f.o.position.addScaledVector(f.v, dt);
       _q.setFromAxisAngle(_v.copy(f.w).normalize(), f.w.length() * dt); f.o.quaternion.premultiply(_q);
-      g.fx.trailEmit(f, f.o.position, 2.2, (q) => { g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + range(-3, 5), z: q.z + range(-7, 7), vx: range(-1.5, 1.5), vy: range(0.5, 2.5), vz: range(-1, 1), drag: 0.8, frameKind: 2, frame: rand() * 40, frames: 14, s0: 8, s1: range(20, 30), life: range(5, 7), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.5, g: 0.44, b: 0.36, a: 0.85, fadeIn: 0.05, fadeOut: 0.5 }); }, 0);
+      g.fx.trailEmit(f, f.o.position, 4.5, (q) => { g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + range(-3, 5), z: q.z + range(-7, 7), vx: range(-1.5, 1.5), vy: range(0.5, 2.5), vz: range(-1, 1), drag: 0.8, frameKind: 2, frame: rand() * 40, frames: 14, s0: 10, s1: range(26, 36), life: range(4, 6), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.5, g: 0.44, b: 0.36, a: 0.85, fadeIn: 0.05, fadeOut: 0.5 }); }, 0);
       if (rand() < dt * 10) g.glass.burst(f.o.position, f.v.clone().normalize().multiplyScalar(0.3), 4, { spread: 6, speed: 3, size: 0.5, life: 10 });
       // lowest corner
       const h = f.o.userData.half; let lo = 1e9;
@@ -476,9 +479,9 @@ export class SetPieces {
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 0.8, pitch: 0.7 });
     if (chance(0.6)) g.fx.explosion(P.clone().add(_v.set(range(-6, 6), 2, range(-4, 4))), 1.6, { noRing: true });
     // a ring of dust bursting out from under the slab, glass everywhere
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 16; i++) {
       const a = rand() * 6.28, sp = range(8, 24), up = rand() < 0.3;
-      g.fx.main.spawn({ x: P.x + Math.cos(a) * 9, y: up ? range(6, 18) : range(1, 6), z: P.z + Math.sin(a) * 9, vx: Math.cos(a) * sp * (up ? 0.4 : 1), vy: up ? range(5, 11) : range(1, 5), vz: Math.sin(a) * sp * (up ? 0.4 : 1) + 4, drag: 0.85, frameKind: 2, frame: rand() * 40, frames: 16, s0: 10, s1: range(26, 46), ease: 0.55, life: range(7, 10), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.54, g: 0.47, b: 0.38, r1: 0.42, g1: 0.37, b1: 0.31, a: 0.95, fadeIn: 0.03, fadeOut: 0.4 });
+      g.fx.main.spawn({ x: P.x + Math.cos(a) * 9, y: up ? range(6, 18) : range(1, 6), z: P.z + Math.sin(a) * 9, vx: Math.cos(a) * sp * (up ? 0.4 : 1), vy: up ? range(5, 11) : range(1, 5), vz: Math.sin(a) * sp * (up ? 0.4 : 1) + 4, drag: 0.85, frameKind: 2, frame: rand() * 40, frames: 16, s0: 14, s1: range(34, 56), ease: 0.55, life: range(6, 8), rot: rand() * 6, vrot: range(-0.2, 0.2), r: 0.54, g: 0.47, b: 0.38, r1: 0.42, g1: 0.37, b1: 0.31, a: 0.95, fadeIn: 0.03, fadeOut: 0.4 });
     }
     for (let i = 0; i < 18; i++) g.fx.spawnDebris(P, range(-12, 12), range(6, 18), range(-6, 14), range(0.4, 1.2), chance(0.3));
     g.glass.burst(P.clone().setY(4), _v.set(0, 0.6, 0.5), 60, { spread: 9, speed: 9, size: 0.45, life: 12, up: 3 });
@@ -518,10 +521,10 @@ export class SetPieces {
     const zf = D.z;
     // the front: a churning wall from the asphalt to the 10th floor, filling the canyon
     const half = zf < CROSS.z1 && zf > CROSS.z0 ? 60 : AVE.half;
-    const n = Math.min(40, Math.round(dt * 160));
+    const n = Math.min(12, Math.round(dt * 34 + rand()));
     for (let i = 0; i < n; i++) {
       const x = range(-half, half), low = rand() < 0.55, y = low ? range(0, 7) : range(5, 34);
-      g.fx.main.spawn({ x, y, z: zf + range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? Math.sign(x) * range(2, 6) : 0), vy: low ? range(0.5, 2.5) : range(-0.5, 1.5), vz: D.v * range(0.55, 0.95), drag: 0.35, frameKind: 2, frame: rand() * 40, frames: 16, s0: low ? 6 : 11, s1: low ? range(14, 22) : range(22, 38), ease: 0.55, life: range(4, 6.5), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 0.56, g: 0.49, b: 0.4, r1: 0.44, g1: 0.38, b1: 0.31, a: 0.97, fadeIn: 0.04, fadeOut: 0.4 });
+      g.fx.main.spawn({ x, y, z: zf + range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? Math.sign(x) * range(2, 6) : 0), vy: low ? range(0.5, 2.5) : range(-0.5, 1.5), vz: D.v * range(0.55, 0.95), drag: 0.35, frameKind: 2, frame: rand() * 40, frames: 16, s0: low ? 9 : 14, s1: low ? range(18, 26) : range(28, 44), ease: 0.55, life: range(4, 5.5), rot: rand() * 6, vrot: range(-0.3, 0.3), r: 0.56, g: 0.49, b: 0.4, r1: 0.44, g1: 0.38, b1: 0.31, a: 0.97, fadeIn: 0.04, fadeOut: 0.4 });
     }
     // debris and paper riding the front
     if (rand() < dt * 25) g.fx.sparks.spawn({ x: range(-half, half), y: range(0.3, 8), z: zf + 1, vx: range(-2, 2), vy: range(-1, 3), vz: D.v * range(0.9, 1.3), grav: -2, drag: 0.6, frame: CELL.CHIP, s0: 1, w: range(0.05, 0.12), len: 0.15, life: 1.5, r: 0.85, g: 0.82, b: 0.75, a: 0.9, fadeOut: 0.4 });
