@@ -173,7 +173,7 @@ export class FX {
     d.alive = true; d.x = P.x; d.y = P.y + 1; d.z = P.z; d.vx = vx; d.vy = vy; d.vz = vz;
     d.sx = size * range(0.6, 1.6); d.sy = size * range(0.1, 0.4); d.sz = size * range(0.6, 1.4);
     d.rx = rand() * 6; d.ry = rand() * 6; d.rz = rand() * 6; d.wx = range(-12, 12); d.wy = range(-12, 12); d.wz = range(-12, 12);
-    d.life = range(3, 5); d.burning = burning; d.emit = 0; d.ground = false;
+    d.life = range(3, 5); d.life0 = d.life; d.burning = burning; d.emit = 0; d.ground = false; d._tl = null;
   }
 
   muzzle(pos, dir, kind = 'rifle', near = true) {
@@ -277,8 +277,8 @@ export class FX {
         // heavy wreckage: a fat black smoke trail behind a flaming chunk (Bay debris trails black, not white glitter)
         if (rand() < 0.6) { const fs = Math.min(1.3, d.sx * 0.8); this.main.spawn({ x: d.x, y: d.y, z: d.z, vx: d.vx * 0.9, vy: d.vy * 0.9 + 1, vz: d.vz * 0.9, drag: 0.6, frameKind: 1, s0: fs, s1: fs * 2, ease: 0.7, life: range(0.35, 0.55), rot: rand() * 6.28, vrot: range(-1, 1), r: 1.7, g: 0.8, b: 0.35, a: 1, fadeIn: 0.02, fadeOut: 0.6 }); }
         this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.38, (q) => this.smoke(q, Math.min(2.2, 0.8 + d.sx * 0.8), 0.055, 3.4, 0.5, 0.7), dz);
-      } else if (d.burning) {
-        // fire rides along with the chunk (no "string of pearls"); smoke is left behind as a soft ribbon
+      } else if (d.burning && d.life0 - d.life < 0.8) {
+        // fire rides along with the chunk (no "string of pearls"), only for the first ~0.8 s; smoke is left behind as a soft ribbon
         if (rand() < 0.7) this.flame(_v.set(d.x, d.y, d.z), 0.38, _u.set(d.vx, 0, d.vz));
         this.trailEmit(d, _v.set(d.x, d.y, d.z), 0.3, (q) => this.smoke(q, 0.7, 0.14, 1.6, 0.4, 0.45), dz);
       }

@@ -29,7 +29,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
   - `fx.setGround(fn)` for on-foot levels (particles, debris, casings, scorch land on decks/container tops). `spawnDebris(..., burning = 2)` = heavy wreckage trailing a fat black smoke ribbon.
   - Particles: `spawn({ force: true })` bypasses `bigBudget` (only for one-off hero effects like the Level 2 finale).
 - **`characters.js`:** `new Gunman({ outfit: 'port' })` gives the Level 2 dock-worker look (navy workwear, hi-vis carrier, reflective bands); `setGunmanLook({ lift, band })` keeps dark cloth readable at dusk (defaults 0 = Level 1 unchanged); `blobShadowMaterial/Geometry` for contact shadows.
-- **`characters.js`:** sculpted skinned `Gunman` soldiers (window, roof and **ground** poses: stand, crouch, walk/run/strafe gait with 2-bone leg IK, peek lean, low-ready run, grenade throw; aiming, fire, hit, reload; 3 headgear variants; one draw call each), the verlet `Ragdoll` (moving road, or `Ragdoll.world` = a CollisionWorld so bodies land on decks/roofs and go to sleep; Level 1 also pushes ragdolls out of car bodies via `game.collideRagdoll`), and the animated sidekick `Driver` + `DRIVER_SEAT`.
+- **`characters.js`:** sculpted skinned `Gunman` soldiers (window, roof and **ground** poses: stand, crouch, walk/run/strafe gait with 2-bone leg IK, peek lean, low-ready run, grenade throw; aiming, fire, hit, reload; 3 headgear variants; one draw call each), the verlet `Ragdoll` (moving road, or `Ragdoll.world` = a CollisionWorld so bodies land on decks/container tops/roofs and go to sleep; Level 1 also pushes ragdolls out of car bodies via `game.collideRagdoll`), and the animated sidekick `Driver` + `DRIVER_SEAT`.
 - **`weapons.js`:**
   - `buildRifle` and `buildLauncher` with gloved hands and animations (bolt, mag swap, drum, ammo counter).
   - The `Gun` state machine.
@@ -50,6 +50,13 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **Particles:** an O(1) free list plus a big-sprite budget (`bigBudget`); explosion sizes are capped for fill rate. Keep this, because overdraw is the Quest bottleneck.
 - **Collisions:** `game.separateCars()`, a solid truck-vs-wreck push, and ragdoll-vs-car.
 - **Polish rule from Kenny:** after each pass, get an independent screenshot review. If it isn't close to 10/10, polish more. Be honest if procedural art plateaus.
+- **Level 4 additions to the shared engine:**
+  - `particles.js`: the dust, wisp and dirt atlas cells now fade to zero at the cell edge (they had square borders on big sprites).
+  - `fx.js`: burning-debris trails are short and jittered, which removes the "string of pearls".
+- **Gotchas found on Level 4:**
+  - Particle and glow batches copy the fog near/far at creation, so they stay on Level 1's 25–520 m unless a level syncs `batch.material.uniforms.fogNear/fogFar` each frame. Smoke near the sun turns salmon otherwise (see the airport `index.js`).
+  - The camera far plane is 3 km; Level 4 raises it to 12 km.
+  - With near = 0.05, depth precision at 4 km is about 20 m, so far glows must be lifted off the ground.
 
 ## Level briefs
 
@@ -103,7 +110,9 @@ Original brief:
   3. Clear a lobby with collapsing glass.
   4. Finale: a skyscraper collapses down the avenue and you sprint ahead of the dust wall in slow-mo, diving into a subway entrance.
 
-### Level 4: AIRPORT NO RETURN (on foot, ending in a vehicle)
+### Level 4: AIRPORT NO RETURN (on foot, ending in a vehicle) — DONE
+Built on top of Level 2's framework (branch `level-4-airport`). Code: `src/levels/airport-no-return/` (`layout.js` positions, `world.js` airfield / lights / collision, `aircraft.js` airliner + cargo plane, `gse.js` jeep / refuelers / tugs / carts / stairs, `game.js` combat, `setpieces.js` jets / cargo plane / jeep ride / chase SUVs / leap / credits, `director.js` beats, `auto.js` demo autopilot). Beats: hangar intro → apron fight (2 waves, exploding JET A-1 refuelers) → two jets taxi up and blow on the taxiway (break into burning pieces) → FOLLOW-ME jeep pulls up → rail chase down runway 27 (SUVs, ramp crew, drum pallets) → jump onto the ramp as the plane rotates → credits behind the ramp. Test any beat with `?level=airport-no-return&beat=<name>`; see `DESIGN.md` there. Soldier AI is imported from `port-of-victory/ai.js` (should move to `src/` once Level 2 lands). Shared-file changes: `src/audio.js` (jet / cargo loops, spool-up), `src/levels/index.js` (registry), `src/particles.js` (atlas edge fade), `src/fx.js` (debris trails). It went through nine independent screenshot reviews, ending at 8.0/10; the remaining issues are listed in the PR.
+Original brief:
 - **Setting:** a sunset tarmac with hangars, jets and fuel trucks.
 - **Beats:**
   1. Fight across the apron.
