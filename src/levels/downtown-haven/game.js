@@ -480,7 +480,7 @@ export class DowntownGame {
     // sparks and smoke must sink into the dust too)
     if (F.k > 0.001 || this._fogDirty || this._bbFogK) {
       this._bbFogK = F.k > 0.001;
-      this._bbMats ||= (() => { const out = []; this.scene.traverse(o => { const u = o.material?.uniforms; if (u?.fogNear && u?.fogFar && !out.includes(o.material)) out.push(o.material); }); return out; })();
+      this._bbMats ||= (() => { const out = []; this.scene.traverse(o => { const u = o.material?.uniforms; if (u?.fogNear && u?.fogFar && !o.material.userData.noFogSync && !out.includes(o.material)) out.push(o.material); }); return out; })();
       for (const m of this._bbMats) { m.uniforms.fogNear.value = fog.near; m.uniforms.fogFar.value = fog.far; }
     }
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);

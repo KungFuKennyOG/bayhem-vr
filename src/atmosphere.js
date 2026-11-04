@@ -45,6 +45,13 @@ vec3 bayGrade(vec3 c){
 #ifdef TONE_MAPPING
   gl_FragColor.rgb = bayGrade(gl_FragColor.rgb);
 #endif`;
+  // premultiplied-alpha materials (smoke/fire particles, dust clouds, mushroom shells, car glass): the grade's
+  // black lift must scale with coverage, or every fully transparent texel adds ~0.02 of grey and each sprite
+  // shows as a faint rectangle (thousands of them stacked into hard facets in front of the Level 3 dust wall).
+  C.bay_premul_colorspace = `gl_FragColor = linearToOutputTexel( gl_FragColor );
+#ifdef TONE_MAPPING
+  gl_FragColor.rgb = max(bayGrade(gl_FragColor.rgb) - bayGrade(vec3(0.0)) * (1.0 - clamp(gl_FragColor.a, 0.0, 1.0)), 0.0);
+#endif`;
   C.fog_pars_vertex = `#ifdef USE_FOG
   varying float vFogDepth;
   varying vec3 vFogViewPos;

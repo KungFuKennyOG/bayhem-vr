@@ -137,6 +137,7 @@ export class Director {
           // 2) RUN: objective + waypoint to the subway, once it's tipping
           if (this.runT >= 0 && t >= this.runT && !this.running) {
             this.running = true;
+            if (g.world) g.world.beaconK = 1; // the subway globes blaze through the dust: the one thing to find
             hud.objective('RUN! Get underground — the subway!');
             hud.setWaypoint(V(subTop.x, 2.4, subTop.z));
             if (!A) say('It\'s coming DOWN THE AVENUE! The subway — back by the intersection! RUN!', 3.2);
@@ -155,6 +156,7 @@ export class Director {
           if (this.lookBack === 1 && px() < LOBBY.x0 - 1) { this.lookBack = 2; g.cinematicLook = V(0, 52, -165); g.cinematicW = 2.4; later(trailer ? 2.6 : 3.2, () => { g.cinematicLook = null; }); }
         }, until: () => g.rig.position.y < -1.4 && pz() > SUBWAY.zTop + 2 },
       { name: 'dive', wp: null, music: 1.0, dusk: 0.42, enter: () => {
+          if (g.world) g.world.beaconK = 0;
           g.slowmo(2.6, 0.3, true);
           audio.play('body_fall', { volume: 1 });
           g.cinematicLook = V(subTop.x, 3.5, SUBWAY.zTop - 6); g.cinematicW = 2.4;

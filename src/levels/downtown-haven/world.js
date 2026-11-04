@@ -58,6 +58,12 @@ export class DowntownWorld {
     this._collectDusk(this.group);
     this.glows = new BillboardBatch(Math.max(64, this.glowList.length + 16), E.atlas, { boost: 1, renderOrder: 19, fog: this.scene.fog });
     this.scene.add(this.glows.mesh);
+    // escape beacon: the subway's green globes + fascia, fog-free so they cut through the dust wall during
+    // the run (the dust fog swallows everything past ~25 m; this is the one thing you must find)
+    this.beacon = new BillboardBatch(8, E.atlas, { boost: 1, renderOrder: 23, fog: { color: this.scene.fog.color, near: 1e5, far: 1e5 + 1 } });
+    this.beacon.material.userData.noFogSync = true;
+    this.scene.add(this.beacon.mesh);
+    this.beaconK = 0;
     this.group.traverse(o => { if (o.isMesh && o.castShadow === undefined) o.castShadow = false; });
     return this;
   }
@@ -110,6 +116,17 @@ export class DowntownWorld {
       G.set(gi++, p.x, p.y, p.z, s, s, 0, CELL.GLOW, 0, c[0] * a, c[1] * a, c[2] * a, 0.9 * a);
     }
     G.commit(gi);
+    // escape beacon (see build): pulses while the director asks for it
+    const Bc = this.beacon, k = this.beaconK, dv = this.subway?.anchors?.dive;
+    if (k > 0.01 && dv) {
+      const pulse = 0.75 + 0.25 * Math.sin(t * 5.5), x0 = SUBWAY.x0 - 0.1, x1 = SUBWAY.x1 + 0.1, gz = SUBWAY.zTop + 0.1, gy = dv.y + 2.3;
+      // grow with distance so they keep a readable size on screen from down the avenue
+      const d = Math.hypot(head.x - dv.x, head.z - SUBWAY.zTop), gs = Math.max(2.6, d * 0.085) * pulse, fs = Math.max(7, d * 0.16) * pulse;
+      let bi = 0;
+      for (const x of [x0, x1]) Bc.set(bi++, x, gy, gz, gs, gs, 0, CELL.GLOW, 0, 0.5 * k, 3.0 * k, 1.1 * k, 0.9 * k);
+      Bc.set(bi++, dv.x, dv.y + 3.0, SUBWAY.zTop - 0.7, fs, fs * 0.65, 0, CELL.GLOW, 0, 0.25 * k, 1.1 * k, 0.5 * k, 0.6 * k);
+      Bc.commit(bi);
+    } else Bc.commit(0);
   }
 
   // ---------------------------------------------------------------- stand-ins (used until/unless the art modules exist)

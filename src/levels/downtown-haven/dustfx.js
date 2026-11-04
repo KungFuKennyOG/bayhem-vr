@@ -135,7 +135,7 @@ void main(){
   col = mix(col, mix(fogColor, fogColorSun, pow(fs, 3.0)), f);
   gl_FragColor = vec4(col * al, al);
   #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  #include <bay_premul_colorspace>
 }`;
 
 export class DustClouds {

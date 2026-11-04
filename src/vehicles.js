@@ -81,7 +81,7 @@ function glassMaterial({ color, opacity, roughness, env, emissiveMap = null, emi
     const fog = THREE.ShaderChunk.fog_fragment
       .replace(/mix\(\s*gl_FragColor\.rgb\s*,\s*fcol\s*,/, 'mix( gl_FragColor.rgb, fcol * gl_FragColor.a,')
       .replace(/mix\(\s*gl_FragColor\.rgb\s*,\s*fogColor\s*,/, 'mix( gl_FragColor.rgb, fogColor * gl_FragColor.a,');
-    s.fragmentShader = s.fragmentShader
+    s.fragmentShader = s.fragmentShader.replace('#include <colorspace_fragment>', '#include <bay_premul_colorspace>')
       .replace('#include <opaque_fragment>', 'gl_FragColor = vec4( totalDiffuse * diffuseColor.a + totalSpecular + totalEmissiveRadiance, diffuseColor.a );')
       .replace('#include <fog_fragment>', fog);
   };
