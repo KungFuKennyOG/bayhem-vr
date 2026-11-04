@@ -566,10 +566,14 @@ function facadeMaterial(T) {
         float tt = tl; vec4 reg = vec4(0.0, 0.0, 1.0, 1.0);
         if (tl > 7.5) { tt = 7.0; reg = tl < 8.5 ? vec4(0.0, 0.75, 1.0, 0.25) : vec4(0.5, 0.625, 0.5, 0.125); }
         vec2 tileO = vec2(mod(tt, 4.0), floor(tt / 4.0));
-        vec2 eps = vec2(0.6 / 256.0, 0.6 / 512.0) / reg.zw;
+        vec2 eps = (tl > 7.5 ? vec2(4.0 / 256.0, 4.0 / 512.0) : vec2(0.6 / 256.0, 0.6 / 512.0)) / reg.zw;
         vec2 lf = reg.xy + reg.zw * clamp(fract(fUv), eps, 1.0 - eps);
         vec2 aUv = (tileO + lf) * vec2(0.25, 0.5);
         vec2 gdx = dFdx(fUv) * reg.zw * vec2(0.25, 0.5), gdy = dFdy(fUv) * reg.zw * vec2(0.25, 0.5);
+        if (tl > 7.5) {   // sub-region tiles share the swatch tile: cap the mip level so neighbours (emissive swatches) never bleed in
+          float gl = max(max(length(gdx), length(gdy)), 1e-7), cap = 3.0 / 1024.0;
+          if (gl > cap) { gdx *= cap / gl; gdy *= cap / gl; }
+        }
         vec4 texelColor = textureGrad(map, aUv, gdx, gdy);
         vec4 ormT = textureGrad(roughnessMap, aUv, gdx, gdy);
         vec3 emT = textureGrad(emissiveMap, aUv, gdx, gdy).rgb;
@@ -647,7 +651,7 @@ function facadeMaterial(T) {
         }
         #endif`);
   };
-  m.customProgramCacheKey = () => 'bayhem-facade-v6';
+  m.customProgramCacheKey = () => 'bayhem-facade-v7';
   return m;
 }
 
@@ -1314,7 +1318,7 @@ export async function buildMeridian(a, b) {
   const store = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.5, metalness: 0, alphaTest: 0.5, vertexColors: true });
   store.userData.duskEmissive = 2.2;
   const trim = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0xffffff, side: THREE.DoubleSide });   // unlit: a smoky cavity, no rim sheen
-  const ember = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xffffff, emissiveIntensity: 2.6, roughness: 0.9, vertexColors: true });
+  const ember = new THREE.MeshStandardMaterial({ map: sT.map, emissiveMap: sT.em, emissive: 0xff7a26, emissiveIntensity: 6.5, roughness: 0.9, vertexColors: true });
   const root = new THREE.Group(); root.name = 'meridian';
   const pivot = new THREE.Vector3(0, M.breakY, ZF);
   const TW = TM[TILE.meridian][0];
@@ -1627,24 +1631,25 @@ export async function buildMeridian(a, b) {
     const HB = new Batch(), HM = new Batch(), HE = new Batch(), HF = new Batch();
     const hw = HW, hh = HH, D = HD, TH = TM[TILE.meridian][1];
     const charC = (k = 1) => [0.013 * k, 0.0105 * k, 0.009 * k];
-    const hot = (k = 1) => [1.0 * k, 0.42 * k, 0.12 * k];
+    const hot = (k = 1) => [1.0 * k, 0.3 * k, 0.05 * k];
     // --- punched-in cavity: dark, smoky walls (unlit), glowing deeper in
     q(HB, [-hw, -hh, -D], [2 * hw, 0, 0], [0, 2 * hh, 0], { c: charC(1.2), cTop: charC(0.5), s: 3 });
-    q(HB, [-hw, -hh, 0], [0, 0, -D], [0, 2 * hh, 0], { c: hot(0.18), cTop: charC(0.5), s: 3 });
-    q(HB, [hw, -hh, -D], [0, 0, D], [0, 2 * hh, 0], { c: hot(0.18), cTop: charC(0.5), s: 3 });
+    q(HB, [-hw, -hh, 0], [0, 0, -D], [0, 2 * hh, 0], { c: hot(0.5), cTop: charC(0.5), s: 3 });
+    q(HB, [hw, -hh, -D], [0, 0, D], [0, 2 * hh, 0], { c: hot(0.5), cTop: charC(0.5), s: 3 });
     q(HB, [-hw, hh, 0], [2 * hw, 0, 0], [0, 0, -D], { c: charC(0.4), s: 3 });
-    q(HB, [-hw, -hh, -D], [2 * hw, 0, 0], [0, 0, D], { c: hot(0.25), s: 3 });
+    q(HB, [-hw, -hh, -D], [2 * hw, 0, 0], [0, 0, D], { c: hot(0.7), s: 3 });
     // back wall on fire (lower part), embers through the gutted floors
-    lwall(HE, mkFace('+z', -D + 0.05, -hw, hw), 0, 2 * hw, -hh, -hh + 2.6, 0, { uv: srUV(SR.ember, 2), c: [0.8, 0.6, 0.45] });
+    lwall(HE, mkFace('+z', -D + 0.05, -hw, hw), 0, 2 * hw, -hh, -hh + 4.5, 0, { uv: srUV(SR.ember, 2) });
     // --- floors: broken slabs with jagged noses, sagging, rebar; undersides lit orange by the fire below
     const floors = []; for (let k = -3; k <= 3; k++) { const fy = 4.2 * Math.round(M.impact[1] / 4.2 + k) - M.impact[1]; if (fy > -hh + 0.5 && fy < hh + 0.2) floors.push(fy); }
     for (const fy of floors) {
       const back = -D, front = -3.5 - r() * 2;
       box(HB, -hw, fy - 0.4, back, hw, fy, front, { c: charC(2.2), top: { c: charC(1.5) } });
-      q(HB, [-hw, fy - 0.401, back], [2 * hw, 0, 0], [0, 0, front - back], { c: hot(0.32), cTop: charC(2) });
+      q(HB, [-hw, fy - 0.401, back], [2 * hw, 0, 0], [0, 0, front - back], { c: hot(0.9), cTop: charC(2) });
       for (let x = -hw + 0.2; x < hw - 0.4;) {
-        const w = 0.5 + r() * 1.6, reach = r() * (D * 0.5), sag = r() * 1.6, droop = r() < 0.3;
-        const z0 = front, z1 = Math.min(-0.3, front + reach);
+        const w = 0.5 + r() * 1.6, nose = Math.abs(x + w / 2) < 4.5 && Math.abs(fy) < 3.2;
+        const reach = r() * (D * 0.5), sag = nose ? r() * 0.5 : r() * 1.6, droop = !nose && r() < 0.3;
+        const z0 = front, z1 = Math.min(nose ? -1.4 : -0.3, front + reach);
         if (z1 > z0 + 0.2) {
           if (droop) beam(HB, [x + w / 2, fy - 0.2, z0], [x + w / 2 + (r() - 0.5), fy - 0.2 - sag * 1.8, z1], w, 0.35, { c: charC(2.5) });
           else box(HB, x, fy - 0.4 - sag * 0.3, z0, x + w, fy - sag * 0.15, z1, { c: charC(2.4), top: { c: charC(1.6) } });
@@ -1664,7 +1669,7 @@ export async function buildMeridian(a, b) {
     for (const x of [-hw * 0.5, hw * 0.45]) { box(HB, x - 0.5, -hh, -5.5, x + 0.5, -hh + 2 + r() * 4, -4.5, { c: charC(2.6) }); beam(HM, [x, 0.5, -5], [x + 0.6, 2.8, -3.8], 0.06, 0.06, { c: [0.3, 0.15, 0.07] }); }
     // --- jagged rim: broken curtain wall eating into the rectangular cut, rounder at the corners
     const tuv = (p) => [(p[0] + M.impact[0]) / TW, (p[1] + M.impact[1]) / TH];
-    const tri = (A, Bp, C) => HF.tri(A, Bp, C, [tuv(A), tuv(Bp), tuv(C)], TILE.meridian, WHITE, [0, 0, 1]);
+    const tri = (A, Bp, C) => HF.tri(A, Bp, C, [tuv(A), tuv(Bp), tuv(C)], TILE.meridian, [0.28, 0.24, 0.21], [0, 0, 1]);
     const rect = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
     for (let e = 0; e < 4; e++) {
       const P0 = rect[e], P1 = rect[(e + 1) % 4], L = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]);
@@ -1702,18 +1707,46 @@ export async function buildMeridian(a, b) {
     for (const wfx of [-1.9, 1.9, 5.7, 9.5]) {                      // the tower's own fins, torn at the hole
       const lx = wfx - M.impact[0];
       if (lx < -hw || lx > hw) continue;
-      chain([lx, hh - 0.2, 0.4], 2 + Math.floor(r() * 2), SW.gold, 0.3, 0.7);
+      chain([lx, hh - 0.2, 0.4], Math.abs(lx) < 4 ? 1 : 2 + Math.floor(r() * 2), SW.gold, 0.3, 0.7);
       if (r() < 0.7) chain([lx, -hh + 0.3, 0.4], 1 + Math.floor(r() * 2), SW.gold, 0.3, 0.7);
     }
     for (let k = 0; k < 16; k++) {                                   // mullions
-      const top = r() < 0.65, x = -hw + 0.8 + r() * (2 * hw - 1.6);
+      const top = r() < 0.65; let x = -hw + 0.8 + r() * (2 * hw - 1.6);
+      if (Math.abs(x) < 4) x = Math.sign(x || 1) * (4 + r() * (hw - 4.8));   // clear of the wreck's nose
       chain([x, top ? hh - 0.3 - r() * 1.5 : -hh + 0.3, 0.15], 1 + Math.floor(r() * 3), SW.darkAlu, 0.09, 0.14);
     }
     // panels dangling from the upper lip
     for (let k = 0; k < 9; k++) {
-      const x = -hw + 1 + r() * (2 * hw - 2), w = 1.2 + r() * 0.9, h = 1.6 + r() * 2.4, y = hh - 0.4 - r() * 2;
+      let x = -hw + 1 + r() * (2 * hw - 2); const w = 1.2 + r() * 0.9, h = 1.6 + r() * 2.4, y = hh - 0.4 - r() * 2;
+      if (Math.abs(x) < 4.5) x = Math.sign(x || 1) * (4.5 + r() * (hw - 5.5));
       const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - h / 2, 0.7 + r() * 0.8), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3 + r() * 0.7, (r() - 0.5) * 0.9, (r() - 0.5) * 0.9)), new THREE.Vector3(w, h, 0.06));
       HF.geo(UNIT_BOX, m, { sw: k % 3 ? SW.blackGlass : SW.darkAlu });
+    }
+    // soot: plumes licking 2-3 floors up the facade from the upper lip + a charred halo around the rim
+    // (RGBA vertex colours: alpha fades up and to the sides; one transparent draw while the hole shows)
+    {
+      const P = [], C = [], I = [];
+      const v = (x, y, z, a) => { P.push(x, y, z); C.push(1, 1, 1, a); return P.length / 3 - 1; };
+      const grid = (pt, nu, nv) => { const base = P.length / 3; for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) { const [x, y, a] = pt(i / nu, j / nv); v(x, y, 0.92, a); }
+        for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const a = base + j * (nu + 1) + i, b = a + 1, c = a + nu + 1, d = c + 1; I.push(a, b, d, a, d, c); } };
+      const nP = 9;
+      for (let k = 0; k < nP; k++) {
+        const bx = -hw * 0.95 + (k + 0.2 + r() * 0.6) * (2 * hw * 0.95) / nP, w0 = 2 + r() * 3, w1 = w0 * (1.5 + r()), H = 6 + r() * 7, drift = (r() - 0.4) * 3, a0 = 0.7 + r() * 0.25;
+        grid((u, t) => { const wd = w0 + (w1 - w0) * t, x = bx + drift * t * t + (u - 0.5) * wd, side = 1 - Math.pow(Math.abs(u - 0.5) * 2, 1.5); return [x, hh - 0.6 + t * H, a0 * Math.pow(1 - t, 1.4) * side]; }, 4, 4);
+      }
+      // halo around the rim: alpha 0.9 at the cut, fading 2.5-3.5 m out (stronger above the hole)
+      const rect = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
+      for (let e = 0; e < 4; e++) {
+        const A = rect[e], Bq = rect[(e + 1) % 4], out = e === 2 ? 3.6 : e === 0 ? 1.8 : 2.6, dx = Bq[0] - A[0], dy = Bq[1] - A[1], L = Math.hypot(dx, dy), nx = dy / L, ny = -dx / L;
+        grid((u, t) => [A[0] + dx * u + nx * out * t + (e === 1 || e === 3 ? 0 : 0), A[1] + dy * u + ny * out * t, 0.92 * Math.pow(1 - t, 1.6)], 6, 2);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(C, 4));
+      g.setIndex(I);
+      const soot = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x1e1712, vertexColors: true, transparent: true, depthWrite: false }));
+      soot.name = 'meridian-hole-soot'; soot.renderOrder = 2; soot.castShadow = false;
+      hole.add(soot); tris += I.length / 3;
     }
     hole.add(HB.mesh(trim, { cast: false }), HM.mesh(trim, { cast: false }), HE.mesh(ember, { cast: false }), HF.mesh(facade, { cast: false }));
     tris += HB.tris + HM.tris + HE.tris + HF.tris;

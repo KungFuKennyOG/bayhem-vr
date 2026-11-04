@@ -108,7 +108,7 @@ varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying f
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 t = texture2D(tex, vUv);
-  float al = t.a * (0.5 + 0.5 * smoothstep(0.0, 0.7, t.r)) * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY); // thin, see-through fringes
+  float al = t.a * (0.72 + 0.28 * smoothstep(0.0, 0.6, t.r)) * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY); // thin, see-through fringes
   if (al < 0.003) discard;
   vec2 n2 = t.gb * 2.0 - 1.0; n2.x *= vFlip;
   vec2 nr = vec2(vCS.x * n2.x - vCS.y * n2.y, vCS.y * n2.x + vCS.x * n2.y);

@@ -664,8 +664,8 @@ export class SetPieces {
       D.wallT += (quest ? 0.075 : 0.045) * (half > AVE.half ? 0.7 : 1);
       const row = rand(), y = row < 0.45 ? range(2, 9) : row < 0.8 ? range(9, 22) : range(22, 40);
       const top = y > 20, s0 = top ? range(16, 22) : range(12, 18);
-      const shade = clamp(y / 40, 0, 1);
-      this.clouds.spawn({ x: range(-half - 4, half + 4), y, z: zf, ride: D, oz: range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? range(-4, 4) : 0), vy: top ? range(1.5, 4) : range(0.3, 2), vz: -range(2, 6), drag: 0.15, buoy: top ? 0.6 : 0.1, s0, s1: s0 * range(1.8, 2.4), life: range(2.6, 3.4), a: 0.98, fadeIn: 0.08, fadeOut: 0.35, vrot: range(-0.35, 0.35), r: lerp(0.3, 0.52, shade), g: lerp(0.26, 0.45, shade), b: lerp(0.21, 0.36, shade), r1: lerp(0.34, 0.5, shade), g1: lerp(0.29, 0.43, shade), b1: lerp(0.23, 0.35, shade) });
+      const shade = clamp(y / 40, 0, 1), k = range(0.94, 1.06);
+      this.clouds.spawn({ x: range(-half - 4, half + 4), y, z: zf, ride: D, oz: range(-3, 2), vx: range(-1.5, 1.5) + (half > AVE.half ? range(-4, 4) : 0), vy: top ? range(1.5, 4) : range(0.3, 2), vz: -range(2, 6), drag: 0.15, buoy: top ? 0.6 : 0.1, s0, s1: s0 * range(1.8, 2.4), life: range(2.6, 3.4), a: 0.98, fadeIn: 0.08, fadeOut: 0.35, vrot: range(-0.35, 0.35), r: lerp(0.36, 0.44, shade) * k, g: lerp(0.31, 0.38, shade) * k, b: lerp(0.25, 0.3, shade) * k });
     }
     // the crest curls over you: the top of the wall outruns its foot and rolls overhead, then pours
     // down into the subway mouth behind you
