@@ -241,7 +241,11 @@ export function finalize(bk, field, split = null) {
   for (let i = 0; i < n; i++) {
     let gx = bk.E[i * 3], gy = bk.E[i * 3 + 1], gz = bk.E[i * 3 + 2];
     const k = bk.R[i * 3 + 2];
-    if (k > 0 && field) { field.at(P[i * 3], P[i * 3 + 1], P[i * 3 + 2], N[i * 3], N[i * 3 + 1], N[i * 3 + 2], o); gx += o[0] * k; gy += o[1] * k; gz += o[2] * k; }
+    if (k > 0 && field) {
+      field.at(P[i * 3], P[i * 3 + 1], P[i * 3 + 2], N[i * 3], N[i * 3 + 1], N[i * 3 + 2], o);
+      const mx = Math.max(o[0], o[1], o[2]), cap = mx > 1.5 ? 1.5 / mx : 1;   // soft cap: stacked lamps stay warm, never white
+      gx += o[0] * k * cap; gy += o[1] * k * cap; gz += o[2] * k * cap;
+    }
     G[i * 3] = gx; G[i * 3 + 1] = gy; G[i * 3 + 2] = gz;
   }
   const parts = new Map();
@@ -283,9 +287,13 @@ export function bakedMat(params = {}, { leaves = false } = {}) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRM = rm; vGlow = glow;');
     s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vRM;\nvarying vec3 vGlow;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor * vRM.x, 0.03, 1.0);')
-      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = max(vRM.y, 0.0);')
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nif (vRM.y < 0.0) { reflectedLight.indirectSpecular *= 1.0 + vRM.y; reflectedLight.directSpecular *= 1.0 + vRM.y; reflectedLight.indirectDiffuse *= 1.0 + vRM.y * 0.5; }')
       .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * vGlow * diffuseColor.rgb;');
-    if (leaves) s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''));
+    if (leaves) {
+      s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''))
+        .replace('#include <lights_fragment_end>', THREE.ShaderChunk.lights_fragment_end.replace('reflectedLight.directSpecular += rimColor * fr', 'reflectedLight.directSpecular += 0.0 * rimColor * fr'));
+    }
   };
   m.customProgramCacheKey = () => 'ilBaked' + (leaves ? 'L' : '');
   m.userData.duskEmissive = 1;
@@ -334,9 +342,9 @@ function stoneTex(aniso) {
     let t = Math.max(0, Math.min(1, e / ch)); t = t * t * (3 - 2 * t);
     let h = t * (0.8 + 0.2 * mid) + (fine - 0.5) * 0.12;
     const hue = row.hue[k];
-    const base = hue < 0.55 ? [1.0, 0.93, 0.8] : hue < 0.8 ? [0.95, 0.92, 0.86] : [1.02, 0.9, 0.74];
-    let b = 0.64 + row.tone[k] + (big - 0.5) * 0.16 + (mid - 0.5) * 0.12 + (fine - 0.5) * 0.08;
-    const crust = row.crust[k] > 0.7 ? sstep01((fbm(n1, u * 3 + 5, v * 3, 3, 3) - 0.45) * 4) * 0.35 : 0;
+    const base = hue < 0.55 ? [1.0, 0.96, 0.89] : hue < 0.8 ? [0.94, 0.93, 0.9] : [1.0, 0.94, 0.84];
+    let b = 0.64 + row.tone[k] + (big - 0.5) * 0.08 + (mid - 0.5) * 0.1 + (fine - 0.5) * 0.08;
+    const crust = row.crust[k] > 0.8 ? sstep01((fbm(n3, u * 2 + 5, v * 2, 3, 3) - 0.5) * 4) * 0.2 : 0;
     b *= 1 - crust;
     if (e < ch) b *= 0.45 + 0.55 * Math.max(0, e) / ch;
     if (e < 2) b = 0.08 + fine * 0.04;
@@ -369,7 +377,7 @@ function cobbleTex(aniso) {
     const cx = (lx / L - 0.5) * 2, cy = (ly / rh - 0.5) * 2;
     const h = (1 - (1 - t) * (1 - t)) * (0.5 + 0.5 * dome * (1 - 0.4 * (cx * cx + cy * cy))) + (fine - 0.5) * 0.14;
     const hue = row.hue[k];
-    const base = hue < 0.5 ? [0.46, 0.45, 0.44] : hue < 0.75 ? [0.5, 0.45, 0.39] : hue < 0.9 ? [0.37, 0.38, 0.41] : [0.56, 0.5, 0.43];
+    const base = hue < 0.5 ? [0.44, 0.44, 0.44] : hue < 0.75 ? [0.47, 0.45, 0.42] : hue < 0.9 ? [0.36, 0.37, 0.39] : [0.5, 0.47, 0.43];
     const speck = n2(u * 256 + 31, v * 256 + 11) > 0.78 ? 0.12 : 0;
     const k2 = (1 + row.tone[k] + (fine - 0.5) * 0.2 + speck) * (0.7 + 0.3 * t) * (0.88 + (big - 0.5) * 0.3);
     const pol = t * dome;
@@ -405,10 +413,10 @@ function gravelTex(aniso) {
   }
   g.putImageData(img, 0, 0); hg.fillStyle = '#404040'; hg.fillRect(0, 0, S, S);
   for (let k = 0; k < 7000; k++) {
-    const x = r() * S, y = r() * S, rr = 1.6 + r() * 3.2, a = r() * 3, t = 0.62 + r() * 0.5;
+    const x = r() * S, y = r() * S, rr = 1.4 + r() * 2.6, a = r() * 3, t = 0.72 + r() * 0.32;
     for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) {
       if (x + dx < -8 || x + dx > S + 8 || y + dy < -8 || y + dy > S + 8) continue;
-      g.fillStyle = `rgba(30,26,20,0.35)`; g.beginPath(); g.ellipse(x + dx + 0.8, y + dy + 1.2, rr, rr * 0.7, a, 0, 7); g.fill();
+      g.fillStyle = `rgba(30,26,20,0.2)`; g.beginPath(); g.ellipse(x + dx + 0.8, y + dy + 1.2, rr, rr * 0.7, a, 0, 7); g.fill();
       const tint = r() < 0.15 ? [200, 175, 150] : r() < 0.3 ? [170, 168, 160] : [222, 208, 182];
       g.fillStyle = `rgb(${tint[0] * t | 0},${tint[1] * t | 0},${tint[2] * t | 0})`; g.beginPath(); g.ellipse(x + dx, y + dy, rr, rr * 0.7, a, 0, 7); g.fill();
       const hgr = hg.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rr); hgr.addColorStop(0, '#fff'); hgr.addColorStop(1, '#505050');
@@ -562,7 +570,7 @@ function propsAtlas() {
 export const D = {
   line: [0, 0, 512, 64], line2: [512, 0, 512, 64], puddle: [0, 64, 256, 256], puddle2: [256, 64, 256, 256], leaves: [512, 64, 256, 256], leaves2: [768, 64, 256, 256],
   ao: [0, 320, 256, 256], oil: [256, 320, 256, 256], streak: [512, 320, 128, 512], streak2: [640, 320, 128, 512], manhole: [768, 320, 256, 256], grate: [768, 576, 256, 256],
-  drain: [0, 576, 256, 128], graffiti: [0, 704, 512, 192], moss: [256, 576, 256, 128], crack: [512, 832, 256, 192], aoRect: [768, 832, 256, 192],
+  drain: [0, 576, 256, 128], graffiti: [0, 704, 512, 192], moss: [256, 576, 256, 128], crack: [512, 832, 256, 192], aoRect: [768, 832, 256, 192], rut: [0, 896, 512, 128],
 };
 function decalAtlas() {
   const S = DA, c = makeCanvas(S, S), g = c.getContext('2d'), r = makeRng(1301), n = makeNoise(1302, 32);
@@ -572,6 +580,7 @@ function decalAtlas() {
   for (const [rect, sd] of [[D.puddle, 0], [D.puddle2, 5.3]]) alphaFill(rect, (u, v) => { const dx = (u - 0.5) * 2, dy = (v - 0.5) * 2, d = Math.hypot(dx, dy); const e = d + (fbm(n, u + sd, v + sd, 3, 4) - 0.5) * 1.1; const a = Math.min(1, Math.max(0, (0.72 - e) * 5)) * 0.95 + Math.min(1, Math.max(0, (0.95 - e) * 2.5)) * 0.05; return [255, 255, 255, a]; });
   alphaFill(D.ao, (u, v) => { const dx = (u - 0.5) * 2, dy = (v - 0.5) * 2, d = Math.hypot(dx, dy); return [0, 0, 0, Math.pow(Math.max(0, 1 - d), 1.6) * 0.85]; });
   alphaFill(D.aoRect, (u, v) => { const dx = Math.max(0, Math.abs(u - 0.5) * 2 - 0.55) / 0.45, dy = Math.max(0, Math.abs(v - 0.5) * 2 - 0.45) / 0.55, d = Math.min(1, Math.hypot(dx, dy)); return [0, 0, 0, Math.pow(1 - d, 1.5) * 0.8]; });
+  alphaFill(D.rut, (u, v) => { let a = 0; for (const l of [0.2, 0.8]) a = Math.max(a, Math.exp(-Math.pow((u - l) / 0.09, 2))); a *= 0.55 + 0.45 * fbm(n, u * 3 + 7, v * 6, 3, 4); a *= Math.min(1, Math.min(v, 1 - v) * 3); return [22, 18, 14, a * 0.75]; });
   alphaFill(D.oil, (u, v) => { const dx = (u - 0.5) * 2, dy = (v - 0.5) * 2, d = Math.hypot(dx, dy); const f = fbm(n, u * 2 + 9, v * 2 + 1, 3, 4); return [10, 9, 8, Math.max(0, Math.min(1, (f - d * 0.6 - 0.05) * 3)) * 0.75]; });
   alphaFill(D.moss, (u, v) => { const f = fbm(n, u * 3 + 2, v + 4, 4, 4); return [30, 42, 22, Math.max(0, Math.min(1, (f - 0.45) * 3)) * (1 - v) * 0.8]; });
   for (const [rect, tint] of [[D.streak, [14, 12, 10]], [D.streak2, [16, 24, 14]]]) alphaFill(rect, (u, v) => { const col = fbm(n, u * 6 + tint[1], 0.3, 4, 3), band = Math.max(0, col - 0.42) * 3; const fade = Math.pow(1 - v, 1.4) * Math.sin(Math.min(1, u * 1.0) * Math.PI); return [tint[0], tint[1], tint[2], Math.min(1, band * fade * (0.6 + 0.4 * fbm(n, u * 20, v * 3, 3, 2))) * 0.8]; });
@@ -603,12 +612,12 @@ export function materials(renderer) {
     stone: bakedMat({ map: T.stone.map, normalMap: T.stone.normal, normalScale: V(0.9), roughnessMap: T.stone.rough, envMapIntensity: 0.7 }),
     cobble: bakedMat({ map: T.cobble.map, normalMap: T.cobble.normal, normalScale: V(1.0), roughnessMap: T.cobble.rough, envMapIntensity: 1.15 }),
     asph: bakedMat({ map: T.asph.map, normalMap: T.asph.normal, normalScale: V(0.6), roughnessMap: T.asph.rough, envMapIntensity: 1.15 }),
-    gravel: bakedMat({ map: T.gravel.map, normalMap: T.gravel.normal, normalScale: V(0.8), envMapIntensity: 0.6 }),
+    gravel: bakedMat({ map: T.gravel.map, normalMap: T.gravel.normal, normalScale: V(0.4), roughness: 0.95, envMapIntensity: 0.45 }),
     green: bakedMat({ map: T.green.map, normalMap: T.green.normal, normalScale: V(1.0), envMapIntensity: 0.25 }),
     props: bakedMat({ map: T.atlas, envMapIntensity: 1.0 }),
-    leaves: bakedMat({ map: T.leaf, alphaTest: 0.5, side: THREE.DoubleSide, envMapIntensity: 0.2 }, { leaves: true }),
+    leaves: bakedMat({ map: T.leaf, alphaTest: 0.5, side: THREE.DoubleSide, envMapIntensity: 0.0 }, { leaves: true }),
     decal: bakedMat({ map: T.decal, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, envMapIntensity: 0.6 }),
-    puddle: bakedMat({ map: T.decal, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, envMapIntensity: 0.7 }),
+    puddle: bakedMat({ map: T.decal, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, envMapIntensity: 0.85 }),
   };
   return MAT;
 }
