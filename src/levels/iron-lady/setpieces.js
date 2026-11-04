@@ -29,7 +29,7 @@ function towerFloor(x, z) {
 class Girders {
   constructor(g, max = 160) {
     this.g = g; this.max = max;
-    const mat = new THREE.MeshStandardMaterial({ color: 0x3b2c22, roughness: 0.55, metalness: 0.6, emissive: new THREE.Color(1, 0.45, 0.15), emissiveIntensity: 0.35 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3b2c22, roughness: 0.55, metalness: 0.6, emissive: new THREE.Color(1, 0.45, 0.15), emissiveIntensity: 0.08 });
     this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat, max);
     this.mesh.count = 0; this.mesh.frustumCulled = false; this.mesh.castShadow = false;
     g.scene.add(this.mesh);
@@ -71,7 +71,7 @@ class Girders {
     }
     m.count = k; m.instanceMatrix.needsUpdate = true;
     // they glow hot for a few seconds after they tear off
-    m.material.emissiveIntensity = 0.35;
+    m.material.emissiveIntensity = 0.08;
   }
 }
 
@@ -196,7 +196,9 @@ export class SetPieces {
     g.fx.later(0.25, () => g.boom(P.clone().add(_v.set(range(-3, 3), 1, 0)).applyAxisAngle(UP, 0), 1.6, { radius: 10, dmg: 20, player: false }));
     for (let k = 0; k < 7; k++) g.fx.later(0.3 + k * 0.18, () => { const p = _v.set(range(-2.5, 2.5), range(2, 4), range(-16, 14)).applyMatrix4(B.root.matrixWorld); g.fx.explosion(p.clone(), range(1.1, 1.6), { noRing: true }); g.smokeAfter(p, 1.2); });
     for (const s of B.gunmen) if (s.alive) { _v.set(range(-0.4, 0.4), 0.9, range(-0.4, 0.4)).normalize(); g.killSoldier(s, _v.clone(), 3.2, false, null); }
-    for (let i = 0; i < 10; i++) g.fx.spawnDebris(P, range(-9, 9), range(9, 18), range(-9, 9), range(0.3, 0.7), chance(0.6));
+    for (let i = 0; i < 16; i++) g.fx.spawnDebris(_v.set(range(-3, 3), range(2.5, 4), range(-14, 18)).applyMatrix4(B.root.matrixWorld).clone(), range(-9, 9), range(9, 20), range(-9, 9), range(0.35, 0.9), chance(0.7));
+    // the saloon roof goes: glass + panels blown up along the whole cabin
+    for (let k = 0; k < 6; k++) g.fx.later(0.1 + k * 0.08, () => { const p = _v.set(range(-2, 2), 3.6, -16 + k * 6).applyMatrix4(B.root.matrixWorld); g.fx.explosion(p.clone(), range(1.2, 1.7), { noRing: true }); });
     this.splash(P, 1.8);
     B.m.setBurnt?.();
     g.boatsSunk++;
@@ -222,6 +224,8 @@ export class SetPieces {
       // a burning hulk: fire along the cabin, a black column climbing over the river
       if (g.headPos.distanceToSquared(B.root.position) < 220 * 220) {
         if (rand() < dt * 24) g.fx.flame(_v.set(range(-2.5, 2.5), range(2, 3.5), range(-17, 15)).applyMatrix4(B.root.matrixWorld), range(1.0, 1.6));
+        // burning fuel slick spreading on the river around the hull
+        if (B.burnT < 40 && rand() < dt * 16) { const r = Math.min(14, 4 + B.burnT * 0.6), a = rand() * 6.28; g.fx.main.spawn({ x: B.x + Math.cos(a) * r * range(0.4, 1.3), y: WATER_Y + 0.3, z: B.z + Math.sin(a) * r * 0.5, vx: range(-0.4, 0.4), vy: range(1.5, 3), vz: range(-0.4, 0.4), drag: 1.4, frameKind: 1, s0: range(1.2, 2), s1: range(3, 5), ease: 0.6, life: range(0.8, 1.4), rot: rand() * 6, vrot: range(-1, 1), r: 2.2, g: 1.4, b: 0.9, a: 1, fadeIn: 0.05, fadeOut: 0.6 }); }
         if (rand() < dt * 1.4) this.clouds.spawn({ x: B.x + range(-8, 8), y: WATER_Y + 5, z: B.z + range(-2, 2), vx: range(-0.4, 0.4) + 1.2, vy: range(4, 6), vz: range(-0.3, 0.3), drag: 0.12, buoy: 0.3, s0: 4, s1: range(24, 34), life: range(10, 13), a: 0.9, fadeIn: 0.08, fadeOut: 0.5, vrot: range(-0.1, 0.1), r: 0.06, g: 0.055, b: 0.05, r1: 0.14, g1: 0.13, b1: 0.12, glow: 1.2, glowFade: 4 });
         g.audio.setLoop('fire_big', { x: B.x, y: WATER_Y + 3, z: B.z, volume: 0.6, intensity: 0.7 });
       }
@@ -238,7 +242,16 @@ export class SetPieces {
   // ================================================================== GUNSHIP
   spawnHeli() {
     const g = this.g, m = buildHeli();
-    m.root.scale.setScalar(1.45);
+    m.root.scale.setScalar(1.6);
+    // under the tower's floods the belly picks up gold: a warm lift so it never reads as a black toy
+    m.root.traverse(o => { if (o.isMesh && o.material && !o.material.isShaderMaterial) { o.material = [].concat(o.material).map(mm => { if (!mm.isMeshStandardMaterial) return mm; const c = mm.clone(); c.emissive = new THREE.Color(0x3a2410); c.emissiveIntensity = 1; return c; }); if (o.material.length === 1) o.material = o.material[0]; } });
+    // a visible searchlight cone sweeping the gravel
+    { const L = 70, cg = new THREE.ConeGeometry(9, L, 18, 1, true); cg.translate(0, -L / 2, 0);
+      const cm = new THREE.ShaderMaterial({ vertexShader: `varying float vY; varying vec3 vN; varying vec3 vV; void main(){ vY = -position.y / ${L.toFixed(1)}; vec4 wp = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }`,
+        fragmentShader: `varying float vY; varying vec3 vN; varying vec3 vV; void main(){ float a = pow(abs(dot(vN, vV)), 1.5) * pow(1.0 - vY, 1.8) * 0.16; gl_FragColor = vec4(vec3(0.9, 0.92, 1.0) * a, a); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+      const cone = new THREE.Mesh(cg, cm); cone.frustumCulled = false; cone.renderOrder = 18;
+      this.spot = cone; g.scene.add(cone); }
     g.scene.add(m.root);
     const mk = (x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); m.tilt.add(o); return o; };
     const hit = [[mk(0, 0.2, -0.8), 1.9], [mk(0, 0.4, -3.4), 1.3], [mk(0, 0.4, 3.0), 1.1], [mk(0, 0.5, 6.5), 0.8]];
@@ -374,6 +387,11 @@ export class SetPieces {
         g.fx.main.spawn({ x: H.pos.x + Math.cos(ang) * r, y: gy + 0.4, z: H.pos.z + Math.sin(ang) * r, vx: Math.cos(ang) * range(6, 11), vz: Math.sin(ang) * range(6, 11), vy: range(0.3, 1.2), drag: 1.1, frame: water ? CELL.WISP : CELL.DUST, s0: 2, s1: 7, life: 1.6, rot: rand() * 6, r: water ? 0.7 : 0.6, g: water ? 0.75 : 0.56, b: water ? 0.8 : 0.5, a: 0.4 * a, fadeOut: 0.35 });
       }
     }
+    // searchlight cone: from the nose, aimed where the gun is looking (or down-ahead)
+    if (this.spot) {
+      this.spot.visible = H.phase !== 'dying' && H.alive;
+      if (this.spot.visible) { m.lightPt.getWorldPosition(_v); this.spot.position.copy(_v); const tg = _v2.copy(H.aimAt || g.headPos); tg.y = Math.min(tg.y, _v.y - 4); _v3.subVectors(tg, _v).normalize(); this.spot.quaternion.setFromUnitVectors(_v.set(0, -1, 0), _v3); }
+    }
     // nav lights + searchlight glow
     const G = this.glowB, blink = Math.sin(g.time * 6) > 0.3;
     let gi = 0;
@@ -480,7 +498,7 @@ export class SetPieces {
   _heliCrash() {
     const g = this.g, H = this.heli, m = H.m;
     H.phase = 'gone'; H.alive = false;
-    g.audio.stopLoop('heli'); this.glowB.commit(0);
+    g.audio.stopLoop('heli'); this.glowB.commit(0); if (this.spot) this.spot.visible = false;
     const I = H.crash.clone();
     // wedged in the lattice, nose first, burning
     m.root.position.copy(I).add(_v.set(-3, -1, 3)); m.root.rotation.set(0.5, Math.PI * 0.75, 0.9);
@@ -607,11 +625,16 @@ export class SetPieces {
       F.slide = Math.min(16, F.slide + dt * F.th * 3);
       // power dies floor by floor from the feet up; flicker everywhere
       // she stays lit all the way down (the money shot); only the torn feet go dark, then everything dies on impact
-      F.powerLo = Math.min(400, F.powerLo + dt * (F.bridgeHit ? 160 : 9));
+      F.powerLo = Math.min(400, F.powerLo + dt * (F.bridgeHit ? 160 : 3.5));
       R.u.uPowerLo.value = F.powerLo; R.u.uFlicker.value = F.bridgeHit ? 0.7 : 0.2;
       T.state.light = F.bridgeHit ? Math.max(0, T.state.light - dt * 0.45) : 1;
       if (F.th > 0.5) T.state.beacon = Math.max(0, T.state.beacon - dt * 0.15);
       if (F.th > 1.0) T.state.sparkle = Math.max(0, T.state.sparkle - dt * 0.4);
+      // the bend: rivets let go in showers at the first platform and the second
+      if (F.th > 0.12) for (const hy of [TOWER.p1.y, TOWER.p2.y]) if (rand() < dt * 30) {
+        const sx = rand() < 0.5 ? -1 : 1, P = R.deform(_v.set(sx * W(hy) * range(0.3, 1), hy, range(-1, 1) * W(hy)), _v).add(T.root.position);
+        for (let k = 0; k < 6; k++) g.fx.sparks.spawn({ x: P.x, y: P.y, z: P.z, vx: range(-3, 3) + F.vel.x, vy: range(-2, 3), vz: range(-3, 3) + F.vel.z, grav: -9.8, drag: 0.25, frame: CELL.SPARK, s0: 1, w: 0.06, len: 0.16, life: range(1.5, 3), r: 2.8, g: 1.7, b: 0.6, a: 1, fadeOut: 0.5, ground: true });
+      }
       // girders shed from the joints that bend most
       F.tearT -= dt;
       if (F.tearT <= 0) { F.tearT = range(0.15, 0.3); this.tear(F.th > 0.4 ? 40 : 10, F.th > 0.4 ? 230 : 80, F.th > 0.6 ? 4 : 2, -1, 6); }
@@ -650,7 +673,7 @@ export class SetPieces {
       const hk = clamp((h - 90) / 210, 0, 1);
       const lag = F.phase === 'fall' ? -F.om * 0.22 * hk : 0;
       // the base turns less than the shaft (the legs take it), and she buckles at the first platform
-      const kink = F.phase !== 'wounded' ? clamp((h - TOWER.p1.y) / 40, 0, 1) * 0.16 * clamp(F.th / 0.8, 0, 1) : 0;
+      const kink = F.phase !== 'wounded' ? clamp((h - TOWER.p1.y) / 30, 0, 1) * 0.24 * clamp(F.th / 0.7, 0, 1) - clamp((h - 190) / 60, 0, 1) * 0.1 * clamp(F.th / 1.2, 0, 1) : 0;
       const phi = F.th * (0.72 + 0.28 * clamp(h / HA, 0, 1)) + kink + lag;
       _q.setFromAxisAngle(axis, phi);
       _q2.setFromAxisAngle(UP, F.twist * clamp((h - 50) / 250, 0, 1));

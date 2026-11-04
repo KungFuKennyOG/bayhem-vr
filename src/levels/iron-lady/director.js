@@ -48,7 +48,7 @@ export class Director {
           for (const s of this.introSnipers) s.holdFire = true;
           later(0.8, () => say('Paris. Nine o\'clock — she does the sparkle on the hour. Pretty, right?', 3.4));
           later(4.4, () => say('Our guy is in the tower. His friends are on the quay. Go say bonsoir.', 3.2));
-          A?.go([go(166, 45.5, { slow: 0.6 })]);
+          A?.go([go(167, 42.8, { slow: 0.6 })]);
           if (A) { g.cinematicLook = V(40, 70, -100); g.cinematicW = 1.6; } // desktop / trailer: frame the tower (VR starts facing it)
           if (g.player) g.player.autoState.holdFire = true;
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
@@ -84,7 +84,7 @@ export class Director {
         until: (t) => (t > 6 && quayTargets() === 0 && setp.boat && setp.boat.state !== 'cruise') || t > 110 * T },
       // 3 ---- up the ramp, across the bridge (tower snipers on the first platform)
       { name: 'bridge', wp: V(0, 2.5, -46), hunt: true, music: 0.8, dusk: 0.35, enter: () => {
-          hud.objective('Cross the bridge to the tower');
+          later(1.6, () => hud.objective('Cross the bridge to the tower'));
           later(0.6, () => say('Up the ramp and across the bridge. She\'s waiting.', 2.8));
           S({ x: 26, z: 63, delay: 0.5 }); S({ x: 8, z: 46, delay: 1.2 });
           S({ x: -3, z: 24, delay: 2.0 }); S({ x: 7, z: 14, delay: 2.6, flanker: true }); S({ x: -7, z: 2, delay: 3.4 });
@@ -116,15 +116,17 @@ export class Director {
           }
         }, until: (t) => (setp.heli && !setp.heli.alive && t > 3 && !g.cinematicLook) || t > 160 },
       // 5 ---- get out from under it: she's listing, girders are falling
-      { name: 'evac', wp: V(RAMP_S.xHigh + 4, 2.6, -49), music: 0.9, dusk: 0.55, enter: () => {
+      { name: 'evac', wp: V(RAMP_S.xHigh + 4, 2.6, -49), evacT: 0, music: 0.9, dusk: 0.55, enter: () => {
           // nothing on screen but the tower for a beat, then the objective (spectacle first)
           later(1.2, () => hud.objective('GET OUT FROM UNDER HER — the river, EAST!'));
           say('She\'s groaning — she\'s LEANING! Get out from under her! Down to the river, east!', 3.4);
           for (const s of g.soldiers) if (s.alive) s.delay = 999;
-          A?.go([go(30, -96, { sprint: true }), go(64, -66, { sprint: true }), go(RAMP_S.xHigh - 2, -49, { sprint: true }), { p: V(RAMP_S.xLow + 2, 0, -49), nav: null, sprint: true }, go(RAMP_S.xLow + 14, -45, { sprint: true })]);
+          A?.go([go(30, -96, { sprint: true }), go(64, -66, { sprint: true }), go(RAMP_S.xHigh - 2, -49, { sprint: true }), { p: V(RAMP_S.xLow + 2, 0, -49), nav: null, sprint: true }, go(122, -42.5, { sprint: true })]);
         }, update: (t) => {
           if (t > 4 && t % 3 < g.fx.dt0) setp.tear(10, 120, 3, -1, 4);
-        }, until: (t) => (px() > RAMP_S.xLow - 4 && g.rig.position.y < LOW_Y + 1.5) || t > 45 },
+          // once down the ramp: the waypoint moves to the water's edge (clear view of her, no trees, no wall)
+          if (px() > RAMP_S.xLow - 8 && g.rig.position.y < LOW_Y + 1.5 && first('edge')) hud.setWaypoint(V(122, LOW_Y + 2, -42.5));
+        }, until: (t) => (px() > RAMP_S.xLow + 6 && g.rig.position.y < LOW_Y + 1 && pz() > -45.5) || (px() > 130 && g.rig.position.y < LOW_Y + 1) || t > 45 },
       // 6 ---- the fall: wait for the look, then she goes over across the river
       { name: 'collapse', wp: towerC, music: 1.0, dusk: 0.62, enter: () => {
           this.lookT = 0; this.fell = false; this._pt = 0;
@@ -149,7 +151,7 @@ export class Director {
           g.cinematicLook = null;
           setp.startWall(); setp.callBoat();
           later(0.2, () => say('Here comes the spray — RUN! I\'m bringing the boat to the pontoon!', 3.2));
-          later(1.4, () => hud.objective('RUN! The boat — down the quay!'));
+          later(2.6, () => hud.objective('RUN! The boat — down the quay!'));
           A?.go([go(BOAT_DOCK.x - 26, -46, { sprint: true }), go(PONTOON.x0 + 5, -42, { sprint: true }), { p: V(BOAT_DOCK.x, 0, PONTOON.z1 - 0.6), nav: null, sprint: true, tol: 0.8 }]);
         }, update: (t) => {
           const E = setp.escape;
@@ -183,7 +185,7 @@ export class Director {
     ];
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
-    const START_P = { quay: [166, LOW_Y, 45.5], bridge: [76, LOW_Y, 45], gunship: [2, 0, -60], evac: [-4, 0, -112], collapse: [RAMP_S.xLow + 10, LOW_Y, -45], run: [RAMP_S.xLow + 14, LOW_Y, -45], escape: [BOAT_DOCK.x, LOW_Y, PONTOON.z1 - 0.6], outro: [BOAT_DOCK.x, LOW_Y, PONTOON.z1 - 0.6] };
+    const START_P = { quay: [166, LOW_Y, 45.5], bridge: [76, LOW_Y, 45], gunship: [2, 0, -60], evac: [-4, 0, -112], collapse: [122, LOW_Y, -42.5], run: [RAMP_S.xLow + 14, LOW_Y, -45], escape: [BOAT_DOCK.x, LOW_Y, PONTOON.z1 - 0.6], outro: [BOAT_DOCK.x, LOW_Y, PONTOON.z1 - 0.6] };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
     if (ji > 0) {
       for (let i = 0; i < ji; i++) { const st = this.steps[i]; if (st.dusk !== undefined) this.duskTarget = game.dusk = st.dusk; }

@@ -29,6 +29,10 @@ export async function create(E) {
   // goons in dark kit against wet dark stone: lift them a little and light their reflective bands
   setGunmanLook({ lift: 0.22, band: 0.55 });
   fx.fireHue = 1; // orange core, deep-red edges, dark smoke shroud (no white blow-outs at night)
+  fx.heat = Math.min(fx.heat ?? 1, 0.85);
+  // fire sprites: push toward orange and cool into near-black soot (the grade's teal shadows put cyan / olive rims on
+  // pale fire edges against the night sky) — level-local patch, fx.js untouched
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; if ((o.life ?? 1) > 0.9 && o.r1 === undefined) { o.r1 = 0.09; o.g1 = 0.07; o.b1 = 0.06; } } return spawn(o); }; }
   const world = await new IronWorld(E).build();
   const game = new IronGame(E, world);
   game.dusk = night0;

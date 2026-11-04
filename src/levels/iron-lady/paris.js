@@ -217,10 +217,12 @@ function building(B, f, s0, s1, opts, rng, out) {
   // ---- facade bays (painted atlas)
   for (let b = 0; b < nb; b++) {
     const v = (rng() * 8) | 0, a0 = s0 + b * bw, a1 = a0 + bw;
-    const u0 = v / 8, u1 = (v + 1) / 8;
+    // mirror half the bays (doubles the variety); a touch of per-bay tint so neighbours never match exactly
+    const flip = rng() < 0.5, u0 = (v + (flip ? 1 : 0)) / 8, u1 = (v + (flip ? 0 : 1)) / 8;
+    const bt = 0.95 + rng() * 0.1;
     // two slices: ground (darker, wet) and the rest
-    B.fac.quad(P(a0, 0, 0), P(a1, 0, 0), P(a1, 0, 3), P(a0, 0, 3), N, [u0, 0, u1, 3 / 22.2], shade(0), shade(3));
-    B.fac.quad(P(a0, 0, 3), P(a1, 0, 3), P(a1, 0, yC), P(a0, 0, yC), N, [u0, 3 / 22.2, u1, vtop], shade(3), shade(yC));
+    B.fac.quad(P(a0, 0, 0), P(a1, 0, 0), P(a1, 0, 3), P(a0, 0, 3), N, [u0, 0, u1, 3 / 22.2], mul(shade(0), bt), mul(shade(3), bt));
+    B.fac.quad(P(a0, 0, 3), P(a1, 0, 3), P(a1, 0, yC), P(a0, 0, yC), N, [u0, 3 / 22.2, u1, vtop], mul(shade(3), bt), mul(shade(yC), bt));
     // dormer in the mansard (front face uses the 5th-floor window of the same variant)
     if (b % (low ? 2 : 1) === 0) {
       const dc = (a0 + a1) / 2, dw = 0.75, y0 = yC + 0.9, y1 = yC + 2.9, dd = 1.5;

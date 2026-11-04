@@ -1107,7 +1107,7 @@ function buildSpeedboat(opts) {
   tube(body, [0, sheer(ZS - 0.15), ZS - 0.15], [0, sheer(ZS) + 0.95, ZS + 0.15], 0.018, CHROME, RM.chrome, 6);
   for (let k = 0; k < 3; k++) body.add(BOX(0.012, 0.3, 0.16), M(0, sheer(ZS) + 0.76, ZS + 0.22 + k * 0.16), [col(0x1f3c8c), col(0xe8e4da), col(0xb01c22)][k], RM.cloth);
   body.add(new THREE.SphereGeometry(0.03, 8, 6), M(0, sheer(ZS) + 0.97, ZS + 0.16), [1, 1, 0.95], E(3, 0.1));
-  glows.push({ p: [0, sheer(ZS) + 0.98, ZS + 0.16], color: [2.2, 2.1, 1.9], size: 0.3 });
+  glows.push({ p: [0, sheer(ZS) + 0.98, ZS + 0.16], color: [1.0, 0.95, 0.85], size: 0.16 });
   // a chrome exhaust pair + the rudder / prop just under the transom
   for (const s of [-1, 1]) body.add(CYL(0.05, 0.05, 0.12, 10), M(s * 0.55, 0.2, ZS + 0.02, Math.PI / 2, 0, 0), CHROME, RM.chrome);
   body.add(BOX(0.03, 0.45, 0.3), M(0, -0.35, ZS - 0.15), col(0x8a7a5a), RM.metal);

@@ -157,7 +157,7 @@ export class IronWorld {
       if (L.dead) continue;
       const c = L.color || [3, 1.6, 0.6], s = L.size || 1;
       if (L.far !== true && p.distanceToSquared(head) > 320 * 320) continue;
-      G.set(gi++, p.x, p.y, p.z, s, s, 0, CELL.GLOW, 0, c[0], c[1], c[2], 0.9);
+      G.set(gi++, p.x, p.y, p.z, s, s, 0, CELL.GLOW, 0, c[0] * 0.72, c[1] * 0.72, c[2] * 0.72, 0.85);
     }
     G.commit(gi);
     // the tower's reflection follows the tower (and goes out with its lights)

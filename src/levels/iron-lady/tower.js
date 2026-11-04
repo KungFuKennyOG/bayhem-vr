@@ -191,8 +191,8 @@ function latticeTexture() {
   g.clearRect(0, 0, S, S);
   const bar = (x0, y0, x1, y1, w) => { g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
   g.strokeStyle = 'rgba(255,255,255,1)'; g.lineCap = 'butt';
-  const n = 4; // diamonds across
-  for (let i = -n; i <= n * 2; i++) { bar(i * S / n, 0, i * S / n + S, S, 7); bar(i * S / n, 0, i * S / n - S, S, 7); }
+  const n = 3; // diamonds across
+  for (let i = -n; i <= n * 2; i++) { bar(i * S / n, 0, i * S / n + S, S, 10); bar(i * S / n, 0, i * S / n - S, S, 10); }
   // horizontal stiffeners
   for (const y of [0, S / 2, S]) bar(0, y, S, y, 10);
   // frame at the panel edge
@@ -203,6 +203,17 @@ function latticeTexture() {
   const t = canvasTex(c, { repeat: true });
   t.anisotropy = 4;
   return t;
+}
+function deckGridTexture() {
+  // the underside of the platforms: a dark grid of riveted cross girders with grime between
+  const S = 256, c = makeCanvas(S, S), g = c.getContext('2d');
+  g.fillStyle = '#3a342e'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(${10 + (i % 20)},${8 + (i % 15)},6,0.25)`; g.fillRect((i * 37) % S, (i * 91) % S, 6 + (i % 9) * 3, 2 + (i % 5)); }
+  g.fillStyle = '#16120f';
+  for (let k = 0; k <= 4; k++) { g.fillRect(k * S / 4 - 6, 0, 12, S); g.fillRect(0, k * S / 4 - 4, S, 8); }
+  g.fillStyle = 'rgba(120,96,70,0.6)';
+  for (let k = 0; k <= 4; k++) for (let j = 0; j < 16; j++) { g.fillRect(k * S / 4 - 4, j * 16 + 6, 2, 2); g.fillRect(k * S / 4 + 2, j * 16 + 6, 2, 2); }
+  return canvasTex(c, { repeat: true });
 }
 function friezeTexture() {
   // the first-platform frieze: an arcade of small arches (cut-out) with a solid band above and below
@@ -375,8 +386,8 @@ export async function buildTower(ctx = {}) {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setAttribute('aEmi', new THREE.Float32BufferAttribute(emi, 1));
-    const m = rigMaterial(new THREE.MeshStandardMaterial({ color: IRON, roughness: 0.6, metalness: 0.5, emissive: GOLD, emissiveIntensity: 0.5, alphaMap: latticeTexture(), alphaTest: 0.5, side: THREE.DoubleSide }), rig);
-    m.alphaToCoverage = true; m.userData.duskEmissive = 0.5;
+    const m = rigMaterial(new THREE.MeshStandardMaterial({ color: IRON, roughness: 0.6, metalness: 0.5, emissive: GOLD, emissiveIntensity: 0.4, alphaMap: latticeTexture(), alphaTest: 0.5, side: THREE.DoubleSide }), rig);
+    m.alphaToCoverage = true; m.userData.duskEmissive = 0.4;
     const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.name = 'skin';
     root.add(mesh);
   }
@@ -395,8 +406,8 @@ export async function buildTower(ctx = {}) {
     addBox(0, y + th / 2, (half + inner) / 2, half * 2, th, half - inner, emi); addBox(0, y + th / 2, -(half + inner) / 2, half * 2, th, half - inner, emi);
     addBox((half + inner) / 2, y + th / 2, 0, half - inner, th, inner * 2, emi); addBox(-(half + inner) / 2, y + th / 2, 0, half - inner, th, inner * 2, emi);
   };
-  deckRing(TOWER.p1.y, TOWER.p1.half, TOWER.p1.half - 13, 0.6, 0.15);
-  deckRing(TOWER.p2.y, TOWER.p2.half, TOWER.p2.half - 7, 0.5, 0.15);
+  deckRing(TOWER.p1.y, TOWER.p1.half, TOWER.p1.half - 13, 0.6, 0.03);
+  deckRing(TOWER.p2.y, TOWER.p2.half, TOWER.p2.half - 7, 0.5, 0.03);
   // first-platform pavilions (glass restaurant boxes on the deck, warm lit) — they make the platform read as a place
   for (const [x, z, sx, sz] of [[0, TOWER.p1.half - 6.5, 30, 8], [0, -TOWER.p1.half + 6.5, 30, 8], [TOWER.p1.half - 6.5, 0, 8, 22], [-TOWER.p1.half + 6.5, 0, 8, 22]]) addBox(x, TOWER.p1.y + 3.2, z, sx, 5.2, sz, 0.75, [0.55, 0.5, 0.45]);
   addBox(0, TOWER.p2.y + 2.6, 0, TOWER.p2.half * 1.2, 4.6, TOWER.p2.half * 1.2, 0.6, [0.5, 0.46, 0.42]);
@@ -412,7 +423,7 @@ export async function buildTower(ctx = {}) {
   solidGeo.setAttribute('uv', new THREE.Float32BufferAttribute(solid.uv, 2));
   solidGeo.setAttribute('aEmi', new THREE.Float32BufferAttribute(solid.emi, 1));
   solidGeo.setAttribute('color', new THREE.Float32BufferAttribute(solid.col, 3));
-  const deckMat = rigMaterial(new THREE.MeshStandardMaterial({ color: 0x2c221b, roughness: 0.85, metalness: 0.15, emissive: new THREE.Color(1.0, 0.62, 0.3), emissiveIntensity: 1, vertexColors: true }), rig);
+  const deckMat = rigMaterial(new THREE.MeshStandardMaterial({ map: deckGridTexture(), color: 0x6a5a4a, roughness: 0.85, metalness: 0.15, emissive: new THREE.Color(1.0, 0.62, 0.3), emissiveIntensity: 1, vertexColors: true }), rig);
   deckMat.userData.duskEmissive = 1;
   const decks = new THREE.Mesh(solidGeo, deckMat); decks.frustumCulled = false; decks.name = 'decks';
   root.add(decks);
