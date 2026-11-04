@@ -41,6 +41,7 @@ window.__api = {
         const gm = new Gunman({ pose: s === 'roof' ? 'roof' : 'window', side: s === 'L' ? -1 : s === 'R' ? 1 : 0, seed: G++ });
         gm.root.position.set(...L); m.root.add(gm.root);
       }
+      if (opts.flip) { m.root.rotation.z = Math.PI; m.root.position.y = (m.half ? m.half.y * 2 : 2) + 0.02; }
       if (opts.cracked) m.mesh.material[1] = MAT.glassCracked;
       if (opts.charred) { const c = m.mesh.material; c[0] = c[1] = c[2] = MAT.charred; c[4] = c[5] = MAT.plastic; if (m.decal) m.decal.visible = false; }
       objs.push(m);

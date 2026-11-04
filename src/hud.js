@@ -338,7 +338,7 @@ export class HUD {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(16, 100, 300, 16);
     const hpc = hp > 50 ? '#f4e3c4' : hp > 25 ? '#ffae3a' : '#ff3a1a';
     ctx.fillStyle = hpc; ctx.fillRect(18, 102, 296 * Math.max(0, hp) / 100, 12);
-    ctx.fillStyle = '#fff1dc'; ctx.font = '700 40px Oswald, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff1dc'; ctx.font = '700 46px Oswald, sans-serif'; ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 6;
     ctx.fillText(ammo, 14, 146);
     this.scoreTex.needsUpdate = true;

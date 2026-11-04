@@ -22,19 +22,49 @@ const easeIn = (t) => { t = clamp01(t); return t * t; };
 const win = (p, a, b) => clamp01((p - a) / (b - a));
 
 // ------------------------------------------------------------------ material palette
+// Two-tone language: matte black POLYmer (no coat) vs dark blued/anodized METAL under a glossy
+// clearcoat that catches the sunset. Worn edges = bright bare metal (coat gone, low roughness).
 const C = { ANO: 0, POLY: 1, STEEL: 2, PARK: 3, BRASS: 4, COPPER: 5, FABRIC: 6, RUBBER: 7, SYNTH: 8, GLOSS: 9, PAINT: 10 };
-//            [metalness, roughness] at "base" (v = 0.5)
-const PAL = [[0.85, 0.3], [0.0, 0.58], [0.95, 0.2], [0.72, 0.4], [1.0, 0.24], [1.0, 0.3], [0.0, 0.86], [0.0, 0.7], [0.05, 0.6], [0.35, 0.06], [0.25, 0.5]];
+//            [metalness, roughness, clearcoat] at "base" (v = 0.5)
+const PAL = [[0.7, 0.34, 1.0], [0.0, 0.82, 0.0], [0.95, 0.22, 0.4], [0.9, 0.3, 1.0], [1.0, 0.24, 0.5], [1.0, 0.3, 0.4], [0.0, 0.9, 0.0], [0.0, 0.62, 0.12], [0.0, 0.8, 0.0], [0.3, 0.06, 1.0], [0.1, 0.5, 0.45]];
+const METALLIC = new Set([C.ANO, C.STEEL, C.PARK, C.BRASS, C.COPPER]);
 const PW = 16, PH = 16;
-// linear albedo
+// linear albedo (for metals = F0 tint)
 const COL = {
-  ano: [0.135, 0.136, 0.145], poly: [0.05, 0.049, 0.047], fde: [0.135, 0.108, 0.074], steel: [0.5, 0.5, 0.52],
-  park: [0.12, 0.118, 0.112], pin: [0.2, 0.2, 0.2], brass: [0.78, 0.52, 0.2], copper: [0.72, 0.34, 0.18],
-  od: [0.07, 0.075, 0.038], yellow: [0.5, 0.36, 0.05], glove: [0.08, 0.064, 0.046], gloveDk: [0.036, 0.034, 0.032],
-  palm: [0.12, 0.098, 0.07], sleeve: [0.048, 0.052, 0.056], rubber: [0.04, 0.039, 0.038], screen: [0.01, 0.011, 0.013], white: [0.55, 0.53, 0.48],
+  ano: [0.052, 0.054, 0.062], poly: [0.019, 0.019, 0.019], fde: [0.105, 0.09, 0.068], steel: [0.42, 0.42, 0.44],
+  park: [0.07, 0.08, 0.105], pin: [0.13, 0.135, 0.15], brass: [0.78, 0.52, 0.2], copper: [0.72, 0.34, 0.18],
+  od: [0.06, 0.066, 0.034], yellow: [0.5, 0.36, 0.05], glove: [0.062, 0.054, 0.042], gloveSeam: [0.045, 0.04, 0.032], gloveDk: [0.022, 0.021, 0.02],
+  palm: [0.1, 0.085, 0.064], sleeve: [0.036, 0.04, 0.044], rubber: [0.02, 0.02, 0.019], screen: [0.008, 0.009, 0.01], white: [0.55, 0.53, 0.48],
 };
-const DUST = [0.3, 0.255, 0.2];
+const DUST = [0.2, 0.18, 0.15];
+// detail-normal tiling (metres per repeat) per class; 0 = smooth (flat normal)
+const DETAIL = { [C.POLY]: 0.014, [C.FABRIC]: 0.011, [C.SYNTH]: 0.016, [C.RUBBER]: 0.022, [C.PAINT]: 0.06 };
 
+function detailNormalTex() {
+  const N = 128, h = new Float32Array(N * N);
+  const hh = (x, y, s) => hash3(((x % s) + s) % s, ((y % s) + s) % s, s * 7);
+  const vn = (x, y, s) => { // tileable value noise, period s cells over the texture
+    const fx = x / N * s, fy = y / N * s, xi = Math.floor(fx), yi = Math.floor(fy); let tx = fx - xi, ty = fy - yi;
+    tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+    return mix(mix(hh(xi, yi, s), hh(xi + 1, yi, s), tx), mix(hh(xi, yi + 1, s), hh(xi + 1, yi + 1, s), tx), ty);
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const st = vn(x, y, 32), st2 = vn(x, y, 64), lo = vn(x, y, 8);
+    h[y * N + x] = 0.55 * Math.pow(st, 1.6) + 0.3 * st2 + 0.15 * lo; // stipple / grain
+  }
+  const d = new Uint8Array(N * N * 4), k = 5.0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = (h[y * N + ((x + 1) % N)] - h[y * N + ((x + N - 1) % N)]) * k, dy = (h[((y + 1) % N) * N + x] - h[((y + N - 1) % N) * N + x]) * k;
+    const l = Math.hypot(dx, dy, 1), i = (y * N + x) * 4;
+    d[i] = Math.round((-dx / l * 0.5 + 0.5) * 255); d[i + 1] = Math.round((-dy / l * 0.5 + 0.5) * 255); d[i + 2] = Math.round((1 / l * 0.5 + 0.5) * 255); d[i + 3] = 255;
+  }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true; t.anisotropy = 4; t.channel = 1; t.needsUpdate = true;
+  return t;
+}
+
+const EDGE = { value: 1 };
 let MATS = null;
 function mats() {
   if (MATS) return MATS;
@@ -42,22 +72,45 @@ function mats() {
   for (let j = 0; j < PH; j++) {
     const s = (j + 0.5) / PH;
     for (let i = 0; i < PW; i++) {
-      const [m0, r0] = PAL[i] || [0, 0.6];
-      let m = m0, r = r0;
-      if (s < 0.5) { const t = (0.5 - s) * 2; m = m0 * (1 - 0.8 * t); r = r0 + (0.95 - r0) * 0.8 * t; } // dusty
-      else { const t = (s - 0.5) * 2; if (m0 > 0.5) { m = m0 + (1 - m0) * t; r = Math.max(0.14, r0 - 0.12 * t); } else r = Math.max(0.2, r0 - 0.2 * t); } // worn
+      const [m0, r0, c0] = PAL[i] || [0, 0.6, 0];
+      let m = m0, r = r0, cc = c0;
+      if (s < 0.5) { const t = (0.5 - s) * 2; m = m0 * (1 - 0.8 * t); r = r0 + (0.95 - r0) * 0.8 * t; cc = c0 * (1 - 0.85 * t); } // dusty
+      else {
+        const t = (s - 0.5) * 2; // worn
+        if (METALLIC.has(i)) { m = m0 + (1 - m0) * Math.min(1, t * 1.6); r = mix(r0, 0.24, t); cc = c0 * (1 - t); }
+        else { r = Math.max(0.3, r0 - 0.3 * t); cc = c0 * (1 - t); }
+      }
       const k = (j * PW + i) * 4;
-      data[k] = 255; data[k + 1] = Math.round(r * 255); data[k + 2] = Math.round(m * 255); data[k + 3] = 255;
+      data[k] = Math.round(cc * 255); data[k + 1] = Math.round(r * 255); data[k + 2] = Math.round(m * 255); data[k + 3] = 255;
     }
   }
   const pal = new THREE.DataTexture(data, PW, PH, THREE.RGBAFormat);
   pal.magFilter = pal.minFilter = THREE.NearestFilter; pal.generateMipmaps = false; pal.needsUpdate = true;
   MATS = {
-    body: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, metalness: 1, roughness: 1, metalnessMap: pal, roughnessMap: pal, envMapIntensity: 1.35 }),
+    // R = clearcoat, G = roughness, B = metalness (palette), detail normal on uv1
+    body: new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, vertexColors: true, metalness: 1, roughness: 1, metalnessMap: pal, roughnessMap: pal,
+      clearcoat: 1, clearcoatMap: pal, clearcoatRoughness: 0.08, envMapIntensity: 1.7,
+      normalMap: detailNormalTex(), normalScale: new THREE.Vector2(0.22, 0.22),
+    }),
     // coated optic glass: tinted env reflection (catches the sunset), mostly see-through
     glass: new THREE.MeshStandardMaterial({ color: new THREE.Color(0.5, 0.75, 0.9), metalness: 1, roughness: 0.03, transparent: true, opacity: 0.3, envMapIntensity: 3.2, depthWrite: false }),
   };
   MATS.body.name = 'weaponBody'; MATS.glass.name = 'weaponGlass';
+  // Screen-space curvature edge wear: bevels (normal changing fast across a pixel) read as bare,
+  // polished metal / scuffed polymer at any viewing distance; the vertex-baked wear covers close-ups.
+  MATS.body.onBeforeCompile = (sh) => {
+    sh.uniforms.edgeWear = EDGE;
+    sh.fragmentShader = 'uniform float edgeWear;\n' + sh.fragmentShader.replace('#include <lights_physical_fragment>', `
+      vec3 nC = normalize(vNormal);
+      float wEdge = smoothstep(0.22, 0.75, length(fwidth(nC))) * edgeWear;
+      float isMetal = step(0.45, metalnessFactor);
+      diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb * 2.6 + 0.025, vec3(0.58, 0.58, 0.6), isMetal), wEdge * mix(0.55, 0.9, isMetal));
+      metalnessFactor = mix(metalnessFactor, 1.0, wEdge * isMetal);
+      roughnessFactor = mix(roughnessFactor, mix(roughnessFactor * 0.75, 0.24, isMetal), wEdge);
+      #include <lights_physical_fragment>
+      material.clearcoat *= 1.0 - wEdge * isMetal;`);
+  };
   return MATS;
 }
 
@@ -180,13 +233,14 @@ function cbox(w, h, d, c = Math.min(w, h) * 0.22) {
   return ext(rp([[-w / 2, -h / 2, c], [w / 2, -h / 2, c], [w / 2, h / 2, c], [-w / 2, h / 2, c]], 0, 1), d, { bev: Math.min(c, d * 0.3), seg: 1 });
 }
 // swept tube through points (gun space) with per-point radii, domed tip (and base)
-function tube(pts, radii, radial = 8, baseDome = true) {
+function tube(pts, radii, radial = 8, baseDome = true, sec = null) {
   const n = pts.length, tang = [];
   for (let i = 0; i < n; i++) tang.push(pts[Math.min(n - 1, i + 1)].clone().sub(pts[Math.max(0, i - 1)]).normalize());
-  let nrm = Math.abs(tang[0].y) < 0.9 ? new V3(0, 1, 0) : new V3(1, 0, 0);
+  let nrm = sec?.up ? sec.up.clone() : Math.abs(tang[0].y) < 0.9 ? new V3(0, 1, 0) : new V3(1, 0, 0);
+  const su = sec?.su ?? 1, sv = sec?.sv ?? 1; // elliptical section: su along `up`, sv across
   nrm.addScaledVector(tang[0], -nrm.dot(tang[0])).normalize();
   const rings = [];
-  const ringAt = (c, t, nr, r) => { const bn = new V3().crossVectors(t, nr), out = []; for (let k = 0; k < radial; k++) { const a = k / radial * PI * 2; out.push(c.clone().addScaledVector(nr, Math.cos(a) * r).addScaledVector(bn, Math.sin(a) * r)); } return out; };
+  const ringAt = (c, t, nr, r) => { const bn = new V3().crossVectors(t, nr), out = []; for (let k = 0; k < radial; k++) { const a = k / radial * PI * 2; out.push(c.clone().addScaledVector(nr, Math.cos(a) * r * su).addScaledVector(bn, Math.sin(a) * r * sv)); } return out; };
   const frames = [];
   for (let i = 0; i < n; i++) { if (i > 0) nrm.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(tang[i - 1], tang[i])).normalize(); frames.push(nrm.clone()); }
   const t0 = tang[0], tn = tang[n - 1], r0 = radii[0], rn = radii[n - 1];
@@ -227,7 +281,8 @@ class Kit {
 }
 function autoWear(P) {
   const c = P.col;
-  if (P.cls === C.ANO || P.cls === C.PARK || P.cls === C.STEEL) return [0.62, 0.61, 0.6];
+  if (P.cls === C.ANO) return [0.6, 0.6, 0.61];
+  if (P.cls === C.PARK || P.cls === C.STEEL) return [0.52, 0.53, 0.55];
   if (P.cls === C.POLY || P.cls === C.RUBBER) return [c[0] * 2.3 + 0.02, c[1] * 2.3 + 0.02, c[2] * 2.3 + 0.02];
   if (P.cls === C.FABRIC || P.cls === C.SYNTH) return [c[0] * 1.8, c[1] * 1.8, c[2] * 1.8];
   if (P.cls === C.PAINT) return [0.3, 0.3, 0.3];
@@ -258,6 +313,7 @@ function bakePart(P, occ) {
   const pos = g.attributes.position.array, nv = pos.length / 3, nt = nv / 3;
   const sg = g.attributes.sg ? g.attributes.sg.array : null;
   const bv = g.attributes.bv ? g.attributes.bv.array : null;
+  const occList = occ.filter((o) => o.tag !== P.tag && (!o.only || o.only.some((t) => P.tag === t || P.tag.startsWith(t + 'f'))));
   const fn = new Float32Array(nt * 3), fa = new Float32Array(nt);
   for (let t = 0; t < nt; t++) {
     const i = t * 9;
@@ -275,7 +331,7 @@ function bakePart(P, occ) {
     keys[v] = key; let a = map.get(key); if (!a) { a = []; map.set(key, a); } a.push((v / 3) | 0);
   }
   const cosC = Math.cos(P.crease * D);
-  const nor = new Float32Array(nv * 3), col = new Float32Array(nv * 3), uv = new Float32Array(nv * 2);
+  const nor = new Float32Array(nv * 3), col = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), uv1 = new Float32Array(nv * 2);
   const si = new Uint16Array(nv * 4), sw = new Float32Array(nv * 4);
   const wc = P.wearCol || autoWear(P);
   const cu = (P.cls + 0.5) / PW;
@@ -298,15 +354,16 @@ function bakePart(P, occ) {
     // ---- albedo bake
     let wear = 0;
     if (P.wear > 0) {
-      let e = bv ? Math.max(bv[v] * 0.55, sstep(0.12, 0.3, conv)) : P.convWear ? sstep(0.12, 0.3, conv) : 0;
+      let e = bv ? Math.max(bv[v] * 0.9, sstep(0.1, 0.28, conv)) : P.convWear ? sstep(0.1, 0.28, conv) : 0;
       if (P.chamfer && Math.max(Math.abs(fx), Math.abs(fy), Math.abs(fz)) < 0.97) e = Math.max(e, 0.75);
       if (P.lw && Math.abs(fz) > 0.25 && Math.abs(fz) < 0.95) e = Math.max(e, 0.7);
       e = Math.max(e, P.wearBase || 0);
-      wear = clamp01(e * P.wear * (0.3 + 1.15 * fbm(px * 75 + 1, py * 75, pz * 75)));
+      if (P.wearFn) e = Math.max(e, P.wearFn(px, py, pz, nx, ny, nz));
+      wear = clamp01(e * P.wear * (0.2 + 1.5 * fbm(px * 75 + 1, py * 75, pz * 75)));
     }
-    const cav = sstep(0.04, 0.22, -conv);
-    let ao = (0.64 + 0.36 * (0.5 + 0.5 * ny)) * (1 - 0.42 * cav);
-    for (const o of occ) { if (o.tag === P.tag || (o.only && !o.only.includes(P.tag))) continue; ao *= 1 - occlusion(o, px, py, pz, nx, ny, nz); }
+    const cav = sstep(0.03, 0.2, -conv);
+    let ao = (0.56 + 0.44 * (0.5 + 0.5 * ny)) * (1 - 0.6 * cav);
+    for (const o of occList) ao *= 1 - occlusion(o, px, py, pz, nx, ny, nz);
     if (P.tint) ao *= P.tint(px, py, pz, nx, ny, nz);
     const mott = 0.82 + 0.34 * fbm(px * 40 + 3, py * 40, pz * 40);
     let base = P.col, ucls = cu;
@@ -314,17 +371,21 @@ function bakePart(P, occ) {
     const dust = P.dust * sstep(0.12, 0.9, ny) * sstep(0.3, 0.72, fbm(px * 24 + 11, py * 24, pz * 24 + 4));
     for (let c = 0; c < 3; c++) {
       let a = mix(base[c] * mott, wc[c], wear) * ao;
-      a = mix(a, DUST[c] * (0.55 + 0.45 * ao), dust * 0.42);
+      a = mix(a, DUST[c] * (0.55 + 0.45 * ao), dust * 0.2);
       col[v * 3 + c] = a;
     }
     uv[v * 2] = ucls; uv[v * 2 + 1] = Math.min(0.98, Math.max(0.02, 0.5 + 0.48 * wear - 0.45 * dust));
     si[v * 4] = P.bone; sw[v * 4] = 1;
+    // detail-normal uv: box projection on the dominant face axis (constant = smooth for metals)
+    const ds = DETAIL[P.cls];
+    if (ds) { const ax = Math.abs(fx), ay = Math.abs(fy), az = Math.abs(fz); const [u1, v1] = ax > ay && ax > az ? [pz, py] : ay > az ? [px, pz] : [px, py]; uv1[v * 2] = u1 / ds; uv1[v * 2 + 1] = v1 / ds; }
   }
   const ng = new THREE.BufferGeometry();
   ng.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
   ng.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   ng.setAttribute('color', new THREE.BufferAttribute(col, 3));
   ng.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  ng.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
   ng.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
   ng.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
   return ng;
@@ -395,41 +456,53 @@ function addHand(k, frame, o) {
   const wf = o.wrap ?? 1;
   const ell = (phi, off, y) => [(o.ax + off) * Math.cos(phi * wf * D), y, (o.az + off) * Math.sin(phi * wf * D)];
   const dorsalOf = (p) => new V3(p[0] / (o.ax + 0.01), 0, p[2] / (o.az + 0.01)).normalize();
-  // one finger = jointed swept tube (split at PIP when the distal part is on its own bone)
+  // one finger = 3 capsule phalanges (MCP→PIP→DIP→tip) with knuckle bevels; distal pair rides the
+  // finger bone when `split` (trigger finger). Each phalanx gets its own AO tag so joints & neighbours crease.
+  let fid = 0;
+  const AX = new V3(0, 1, 0).transformDirection(frame);
   const finger = (pts, radii, split) => {
+    const f = fid++;
     const G = pts.map(T);
-    if (split) {
-      const [p1, r1] = jointed(G.slice(0, 2), radii.slice(0, 2));
-      add(tube(p1, r1, 8, true)); 
-      const [p2, r2] = jointed(G.slice(1), radii.slice(1));
-      add(tube(p2, r2, 8, true), { bone: o.fingerBone });
-    } else { const [pp, rr] = jointed(G, radii); add(tube(pp, rr, 8, true)); }
-    for (let i = 0; i < G.length - 1; i++) k.cap(G[i], G[i + 1], radii[i], 0.5, 0.011, tag);
-    // glove knuckle pads on proximal + middle phalanx (dorsal side)
-    for (let s = 0; s < 1; s++) {
-      const a = new V3(...pts[s]), b = new V3(...pts[s + 1]);
-      const mid = a.clone().lerp(b, 0.5), dir = b.clone().sub(a).normalize();
-      const dors = (s === 0 ? dorsalOf([mid.x, mid.y, mid.z]) : dorsalOf([mid.x, mid.y, mid.z]));
-      dors.addScaledVector(dir, -dors.dot(dir)).normalize();
-      const len = a.distanceTo(b) * (s ? 0.42 : 0.5);
-      const c = mid.addScaledVector(dors, radii[s] * 0.92);
-      const m = new THREE.Matrix4().makeBasis(dir, dors, new V3().crossVectors(dir, dors)).setPosition(c).premultiply(frame);
-      const g = new THREE.SphereGeometry(1, 6, 4); g.scale(len * 0.6, 0.003, radii[s] * 0.72);
-      add(apply(g, m), { cls: C.RUBBER, col: COL.gloveDk, crease: 70, bone: s && split ? o.fingerBone : bone });
+    const tip = G[3].clone().addScaledVector(G[3].clone().sub(G[2]).normalize(), -radii[2] * 0.9);
+    const seg = [[G[0], G[1], radii[0], radii[1] * 1.02], [G[1], G[2], radii[1], radii[2] * 1.02], [G[2], tip, radii[2], radii[2] * 0.82]];
+    seg.forEach(([a, b, ra, rb], s) => {
+      const st = `${tag}f${f}s${s}`, sb = split && s > 0 ? o.fingerBone : bone;
+      add(tube([a, b], [ra, rb], 10, true, { up: AX, su: s ? 1.3 : 1.15, sv: 0.8 }), { tag: st, bone: sb });
+      k.cap(a, b, (ra + rb) / 2, 0.55, 0.0048, st, [tag]);       // creases between fingers / at joints
+      k.cap(a, b, (ra + rb) / 2, 0.5, 0.01, st, ['grip', 'gun', 'mag']); // contact shadow on the gun
+    });
+    // knuckle bevels: a soft fabric ridge over the PIP and DIP joints (dorsal side)
+    for (let j = 1; j <= 2; j++) {
+      const P = new V3(...pts[j]), d0 = new V3(...pts[j]).sub(new V3(...pts[j - 1])).normalize(), d1 = new V3(...pts[j + 1]).sub(P).normalize();
+      const along = d0.clone().add(d1).normalize();
+      const dors = dorsalOf([P.x, P.y, P.z]); dors.addScaledVector(along, -dors.dot(along)).normalize();
+      const r = radii[j];
+      const m = new THREE.Matrix4().makeBasis(along, dors, new V3().crossVectors(along, dors)).setPosition(P.clone().addScaledVector(dors, r * 0.52)).premultiply(frame);
+      const g = new THREE.SphereGeometry(1, 7, 5); g.scale(r * 0.62, r * 0.55, r * 0.78);
+      add(apply(g, m), { tag: `${tag}f${f}k${j}`, bone: split ? o.fingerBone : bone, col: COL.gloveSeam });
+    }
+    // moulded rubber pad on the proximal phalanx
+    {
+      const a = new V3(...pts[0]), b = new V3(...pts[1]);
+      const mid = a.clone().lerp(b, 0.55), dir = b.clone().sub(a).normalize();
+      const dors = dorsalOf([mid.x, mid.y, mid.z]); dors.addScaledVector(dir, -dors.dot(dir)).normalize();
+      const len = a.distanceTo(b);
+      const m = new THREE.Matrix4().makeBasis(dir, dors, new V3().crossVectors(dir, dors)).setPosition(mid.addScaledVector(dors, radii[0] * 0.9)).premultiply(frame);
+      add(apply(rbox(len * 0.62, 0.0042, radii[0] * 1.45, 0.0018, 1), m), { tag: `${tag}f${f}p`, cls: C.RUBBER, col: COL.gloveDk, crease: 55, wearBase: 0.1 });
     }
   };
-  const FR = [0.0098, 0.0095, 0.0085, 0.0097];
+  const FR = [0.0104, 0.01, 0.0092, 0.01]; // middle, ring, pinky, (support) index
   const mcps = [];
-  if (o.index) { finger(o.index, [0.0097, 0.0092, 0.0086, 0.0082], true); mcps.push(o.index[0]); }
+  if (o.index) { finger(o.index, [0.0099, 0.0094, 0.0088], true); mcps.push(o.index[0]); }
   else {
-    const y = o.fingers[0] + 0.021, r = FR[3];
-    const pts = [ell(8, 0.02, y), ell(-62, r, y + 0.001), ell(-128, r, y + 0.001), ell(-168, r * 0.92, y)];
-    finger(pts, [r, r * 0.96, r * 0.92, r * 0.86]); mcps.push(pts[0]);
+    const y = o.fingers[0] + 0.0208, r = FR[3];
+    const pts = [ell(8, 0.02, y), ell(-62, r, y + 0.001), ell(-126, r * 0.96, y + 0.001), ell(-180, r * 0.85, y)];
+    finger(pts, [r, r * 0.96, r * 0.9]); mcps.push(pts[0]);
   }
   o.fingers.forEach((y, i) => {
     const r = FR[i], pk = i === 2;
-    const pts = [ell(8, 0.02, y), ell(pk ? -58 : -62, r, y - 0.002), ell(pk ? -118 : -128, r, y - 0.004), ell(pk ? -158 : -172, r * 0.92, y - 0.005)];
-    finger(pts, [r, r * 0.96, r * 0.92, r * 0.86]); mcps.push(pts[0]);
+    const pts = [ell(8, 0.02, y), ell(pk ? -60 : -64, r * 0.92, y - 0.001), ell(pk ? -122 : -128, r * 0.86, y - 0.002), ell(pk ? -196 : -210, r * 0.74, y - 0.003)];
+    finger(pts, [r, r * 0.98, r * 0.95]); mcps.push(pts[0]);
   });
   // palm, heel, thenar
   const pf = new THREE.Matrix4().makeRotationY(-11.5 * D).setPosition(0.0265, -0.004, 0.041).premultiply(frame);
@@ -442,12 +515,30 @@ function addHand(k, frame, o) {
   const kc = top.clone().lerp(bot, 0.5); const dors = dorsalOf([kc.x, 0, kc.z]);
   add(basisBox(0.0045, top.distanceTo(bot) + 0.02, 0.02, 0.002, kc.clone().addScaledVector(dors, 0.0095), dors, top.clone().sub(bot), frame), { cls: C.RUBBER, col: COL.gloveDk, crease: 50, wearBase: 0.08 });
   for (const m of mcps) { const c = new V3(...m); add(ellipsoid(c.addScaledVector(dorsalOf(m), 0.0118), 0.0042, 0.0078, 0.0082, frame, 6, 4), { cls: C.RUBBER, col: COL.gloveDk, crease: 70, wearBase: 0.15 }); }
-  // padded back-of-hand panel (glove seam detail)
+  // moulded TPR back-of-hand plate with two flex grooves + stitched seam ridge
+  {
+    const bx = v3(Math.cos(-11.5 * D), 0, -Math.sin(-11.5 * D)), bz = v3(Math.sin(-11.5 * D), 0, Math.cos(-11.5 * D));
+    const c = v3(0.0265, -0.004, 0.041).addScaledVector(bx, 0.0128).addScaledVector(bz, -0.004);
+    add(basisBox(0.0045, 0.052, 0.04, 0.002, c, bx, v3(0, 1, 0), frame), { tag: tag + 'bp', cls: C.RUBBER, col: COL.gloveDk, crease: 50, wearBase: 0.06 });
+    for (const dz of [-0.008, 0.007]) add(basisBox(0.0042, 0.054, 0.0022, 0.0009, c.clone().addScaledVector(bx, 0.0012).addScaledVector(bz, dz), bx, v3(0, 1, 0), frame), { tag: tag + 'bg', cls: C.FABRIC, col: COL.gloveSeam });
+    k.box(c, v3(0.004, 0.026, 0.02), 0.0, 0.001, tag + 'bp');
+  }
   // thumb (single tube)
   const th = o.thumb === 'forward'
     ? [[0.017, 0.008, 0.05], [0.004, 0.03, 0.046], [-0.004, 0.055, 0.04], [-0.006, 0.076, 0.036]]
     : [[0.017, 0.012, 0.05], [0.004, 0.03, 0.05], [-0.016, 0.032, 0.034], [-0.027, 0.031, 0.012]];
-  { const G = th.map(T); const [pp, rr] = jointed(G, [0.0128, 0.0118, 0.0106, 0.0096]); add(tube(pp, rr, 8, true)); for (let i = 0; i < 3; i++) k.cap(G[i], G[i + 1], 0.011, 0.45, 0.011, tag); }
+  {
+    const G = th.map(T), R = [0.0132, 0.0121, 0.0108, 0.0098];
+    add(tube([G[0], G[1]], [R[0], R[1]], 10, true), { tag: tag + 'f9s0' });
+    const tip = G[3].clone().addScaledVector(G[3].clone().sub(G[2]).normalize(), -R[3] * 0.8);
+    add(tube([G[1], G[2]], [R[1], R[2]], 10, true), { tag: tag + 'f9s1' });
+    add(tube([G[2], tip], [R[2], R[3]], 10, true), { tag: tag + 'f9s2' });
+    for (let i = 0; i < 3; i++) { k.cap(G[i], G[i + 1], R[i + 1], 0.55, 0.005, tag + 'f9s' + i, [tag]); k.cap(G[i], G[i + 1], R[i + 1], 0.5, 0.01, tag + 'f9s' + i, ['grip', 'gun']); }
+    // knuckle pad on the thumb's proximal joint
+    const P = new V3(...th[1]), dd = new V3(...th[2]).sub(new V3(...th[0])).normalize(), up = new V3(0.35, 0, 1).normalize(); up.addScaledVector(dd, -up.dot(dd)).normalize();
+    const m = new THREE.Matrix4().makeBasis(dd, up, new V3().crossVectors(dd, up)).setPosition(P.clone().addScaledVector(up, R[1] * 0.85)).premultiply(frame);
+    add(apply(rbox(0.012, 0.004, 0.013, 0.0018, 1), m), { tag: tag + 'f9p', cls: C.RUBBER, col: COL.gloveDk, crease: 55, wearBase: 0.1 });
+  }
   // wrist, cuff, velcro strap, sleeve
   const W = new V3(0.018, -0.01, 0.08);
   add(ellipsoid(W, 0.019, 0.027, 0.02, frame, 8, 6), { col: COL.glove });
@@ -461,7 +552,6 @@ function addHand(k, frame, o) {
   // long forearm sleeve (desktop) on its own bone so VR can collapse it
   const sb = o.sleeveBone ?? bone;
   add(cylAB(Lp(0.118), Lp(0.42), 0.036, 0.058, 12), { col: COL.sleeve, crease: 50, bone: sb, dust: 0.2 });
-  for (const [d, r] of [[0.17, 0.0425], [0.235, 0.048], [0.31, 0.0535]]) add(cylAB(Lp(d), Lp(d + 0.03), r, r + 0.0015, 12), { col: COL.sleeve, crease: 70, bone: sb, dust: 0.2 });
   return { sleevePivot: Lp(0.118) };
 }
 
@@ -502,7 +592,7 @@ function makeHud() {
   mat.name = 'weaponHud';
   const SEG = { 0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg', '-': 'g' };
   const seg7 = (x, y, w, h, s, ch, on, off) => {
-    const t = 5, segs = SEG[ch] || '';
+    const t = 6.5, segs = SEG[ch] || '';
     const R = { a: [x + t, y, w - 2 * t, t], b: [x + w - t, y + t, t, h / 2 - t * 1.5], c: [x + w - t, y + h / 2 + t * 0.5, t, h / 2 - t * 1.5], d: [x + t, y + h - t, w - 2 * t, t], e: [x, y + h / 2 + t * 0.5, t, h / 2 - t * 1.5], f: [x, y + t, t, h / 2 - t * 1.5], g: [x + t, y + h / 2 - t / 2, w - 2 * t, t] };
     for (const key of 'abcdefg') { const r = R[key]; s.fillStyle = segs.includes(key) ? on : off; s.save(); s.translate(r[0] + r[2] / 2, r[1] + r[3] / 2); s.transform(1, 0, -0.12, 1, 0, 0); s.fillRect(-r[2] / 2, -r[3] / 2, r[2], r[3]); s.restore(); }
   };
@@ -515,13 +605,13 @@ function makeHud() {
     const on = low ? '#ff3218' : '#ffa424', off = 'rgba(255,140,40,0.08)';
     ctx.shadowColor = on; ctx.shadowBlur = 6;
     const s = reloading ? '--' : String(Math.max(0, Math.min(99, n))).padStart(2, '0');
-    seg7(146, 6, 30, 40, ctx, s[0] === '-' ? '-' : +s[0], on, off);
-    seg7(184, 6, 30, 40, ctx, s[1] === '-' ? '-' : +s[1], on, off);
+    seg7(150, 3, 34, 46, ctx, s[0] === '-' ? '-' : +s[0], on, off);
+    seg7(192, 3, 34, 46, ctx, s[1] === '-' ? '-' : +s[1], on, off);
     ctx.shadowBlur = 0;
     // round-count bar
     const f = reloading ? 0 : n / max;
-    for (let i = 0; i < 15; i++) { ctx.fillStyle = i / 15 < f ? on : off; ctx.fillRect(140 + i * 7, 52, 5, 7); }
-    ctx.fillStyle = on; ctx.fillRect(222, 10, 4, 4); ctx.fillRect(222, 30, 4, 4); // tiny status pips
+    for (let i = 0; i < 15; i++) { ctx.fillStyle = i / 15 < f ? on : off; ctx.fillRect(136 + i * 7.6, 53, 5.5, 8); }
+    ctx.fillStyle = on; ctx.fillRect(134, 8, 9, 3); ctx.fillRect(134, 16, 6, 3); ctx.fillRect(134, 24, 9, 3); // status ticks
     tex.needsUpdate = true;
   };
   return { tex, mat, draw };
@@ -557,8 +647,8 @@ export function buildRifle(opts = {}) {
   // ---------------- upper receiver (two halves so the ejection port is a real recess)
   const upperOut = rp([[-0.075, 0.056, 0.0015], [-0.075, 0.094, 0.003], [-0.068, 0.0972, 0.002], [0.19, 0.0972, 0.002], [0.192, 0.093, 0.002], [0.192, 0.056, 0.0015]]);
   const portHole = rp([[0.035, 0.0645], [0.1, 0.0645], [0.1, 0.0862], [0.035, 0.0862]], 0.003);
-  k.add(side(ext(upperOut, 0.0175, { bev: 0.0016 }), -0.00475), { ...ANO, tint: (x, y, z, nx) => (nx > 0.7 && x > 0.003 ? 0.22 : 1) });
-  k.add(side(ext(upperOut, 0.013, { bev: 0.0016, holes: [portHole] }), 0.0065), { ...ANO, tint: (x, y, z, nx, ny, nz) => (x < 0.012 && x > 0.004 && y > 0.063 && y < 0.088 && -z > 0.033 && -z < 0.102 ? 0.55 : 1) });
+  k.add(side(ext(upperOut, 0.0175, { bev: 0.0022 }), -0.00475), { ...ANO, tint: (x, y, z, nx) => (nx > 0.7 && x > 0.003 ? 0.22 : 1) });
+  k.add(side(ext(upperOut, 0.013, { bev: 0.0022, holes: [portHole] }), 0.0065), { ...ANO, tint: (x, y, z, nx, ny, nz) => (x < 0.012 && x > 0.004 && y > 0.063 && y < 0.088 && -z > 0.033 && -z < 0.102 ? 0.55 : 1) });
   // brass deflector + forward assist
   k.add(at(rbox(0.007, 0.014, 0.014, 0.0028), 0.0145, 0.0885, -0.026, 0, 0.35, 0), ANO);
   k.add(cylAB(v3(0.011, 0.0835, -0.004), v3(0.0185, 0.0835, 0.036), 0.0066, 0.0062, 14), ANO);
@@ -580,7 +670,7 @@ export function buildRifle(opts = {}) {
   // ---------------- lower receiver
   const lowerOut = rp([[-0.075, 0.0575, 0], [0.186, 0.0575, 0], [0.186, 0.046, 0.004], [0.174, 0.038, 0.003], [0.177, 0.003, 0.002], [0.094, 0.003, 0.002], [0.094, 0.034, 0.004],
     [0.026, 0.035, 0.004], [-0.034, 0.035, 0.006], [-0.06, 0.04, 0.008], [-0.075, 0.05, 0.004]]);
-  k.add(side(ext(lowerOut, 0.024, { bev: 0.0015 })), { ...ANO, tint: (x, y, z, nx, ny) => (ny < -0.8 && y < 0.006 && -z > 0.096 && -z < 0.175 ? 0.12 : 1) });
+  k.add(side(ext(lowerOut, 0.024, { bev: 0.0021 })), { ...ANO, tint: (x, y, z, nx, ny) => (ny < -0.8 && y < 0.006 && -z > 0.096 && -z < 0.175 ? 0.12 : 1) });
   k.add(plan(ext(rp([[-0.0148, 0.089, 0.005], [0.0148, 0.089, 0.005], [0.0148, 0.182, 0.004], [-0.0148, 0.182, 0.004]]), 0.007, { bev: 0.0014, holes: [rp([[-0.0123, 0.097], [0.0123, 0.097], [0.0123, 0.174], [-0.0123, 0.174]], 0.002)] }), 0.0055), { ...ANO, wear: 1.1 });
   k.add(at(new THREE.BoxGeometry(0.005, 0.0012, 0.05), 0, 0.0346, -0.058), { cls: C.POLY, col: [0.006, 0.006, 0.006], wear: 0, dust: 0 });
   // pins, bolt catch, selector, mag release
@@ -620,7 +710,7 @@ export function buildRifle(opts = {}) {
     const g = ext([[HG0, 0], [HG1, 0], [HG1, L], [HG0, L]], HT, { bev: holes.length ? 0 : 0.0006, seg: 1, holes });
     g.translate(0, 0, HT / 2);
     const m = new THREE.Matrix4().set(0, ux, uy, A[0], 0, uy, -ux, A[1], -1, 0, 0, 0, 0, 0, 0, 1);
-    k.add(apply(g, m), { ...ANO, tint: hgTint });
+    k.add(apply(g, m), { ...ANO, tint: hgTint, wearFn: (x, y) => { let d = 1; for (const c of OCT) d = Math.min(d, Math.hypot(x - c[0], y - c[1])); return sstep(0.0042, 0.0012, d); } });
   }
   const octIn = OCT.map(([x, y]) => [x * 0.985, 0.072 + (y - 0.072) * 0.985]);
   k.add(rear(ext(octIn, 0.004, { bev: 0.0009, holes: [circle(0, 0.072, 0.0108, 14)] }), -HG1 - 0.001), { ...ANO, wear: 1.2 });
@@ -644,7 +734,7 @@ export function buildRifle(opts = {}) {
   // ---------------- top rail, sights
   const RAIL_Y = 0.0972;
   const holoU0 = -0.026, holoU1 = 0.07;
-  addRail(k, RAIL_Y, -0.072, 0.19, (u) => (u > holoU0 - 0.002 && u < holoU1 + 0.002) || (u > -0.071 && u < -0.044));
+  addRail(k, RAIL_Y, -0.072, 0.19, (u) => u > -0.073 && u < holoU1 + 0.002);
   addRail(k, RAIL_Y, 0.192, 0.461, (u) => u > 0.43 && u < 0.459);
   const RT = RAIL_Y + RAIL_H; // rail top
   const clampP = rp([[-0.0126, RAIL_Y + 0.0012, 0.001], [0.0126, RAIL_Y + 0.0012, 0.001], [0.0126, RT + 0.003, 0.002], [0.009, RT + 0.0055, 0.002], [-0.009, RT + 0.0055, 0.002], [-0.0126, RT + 0.003, 0.002]]);
@@ -653,10 +743,10 @@ export function buildRifle(opts = {}) {
   k.add(rear(ext(rp([[-0.009, RT + 0.004, 0], [0.009, RT + 0.004, 0], [0.0092, RT + 0.031, 0.003], [0.0056, RT + 0.032, 0.0015], [0.0046, RT + 0.022, 0.002], [-0.0046, RT + 0.022, 0.002], [-0.0056, RT + 0.032, 0.0015], [-0.0092, RT + 0.031, 0.003]]), 0.0072, { bev: 0.0009 }), -0.447), { ...ANO, wear: 1.2 });
   k.add(at(new THREE.BoxGeometry(0.0022, 0.012, 0.0022), 0, RT + 0.024, -0.447), { cls: C.PARK, col: COL.pin });
   k.add(cylAB(v3(-0.0105, RT + 0.006, -0.4405), v3(0.0105, RT + 0.006, -0.4405), 0.0022, 0.0022, 8), { cls: C.PARK, col: COL.pin, wear: 1.4 });
-  // rear flip sight (deployed)
-  k.add(rear(ext(clampP, 0.024, { bev: 0.001 }), 0.0575), ANO);
-  k.add(rear(ext(rp([[-0.0098, RT + 0.004, 0], [0.0098, RT + 0.004, 0], [0.0098, RT + 0.027, 0.003], [0.0062, RT + 0.029, 0.0015], [0.005, RT + 0.023, 0.002], [-0.005, RT + 0.023, 0.002], [-0.0062, RT + 0.029, 0.0015], [-0.0098, RT + 0.027, 0.003]]), 0.0052, { bev: 0.0008, holes: [circle(0, RT + 0.0165, 0.0026, 10)] }), 0.054), { ...ANO, wear: 1.2 });
-  k.add(cylAB(v3(0.0098, RT + 0.012, 0.054), v3(0.0135, RT + 0.012, 0.054), 0.0034, 0.0034, 10), { cls: C.PARK, col: COL.pin, wear: 1.5 });
+  // rear flip sight (folded flat behind the ammo-counter module)
+  k.add(rear(ext(clampP, 0.022, { bev: 0.001 }), 0.0625), ANO);
+  k.add(side(ext(rp([[-0.054, RT + 0.0045, 0.0015], [-0.072, RT + 0.0045, 0.002], [-0.072, RT + 0.009, 0.002], [-0.058, RT + 0.0095, 0.002]]), 0.0186, { bev: 0.0009 })), { ...ANO, wear: 1.3 });
+  k.add(cylAB(v3(0.0094, RT + 0.0058, 0.055), v3(0.0128, RT + 0.0058, 0.055), 0.0028, 0.0028, 10), { cls: C.PARK, col: COL.pin, wear: 1.5 });
 
   // ---------------- holographic sight
   const HB = RT; // body sits on rail top
@@ -674,12 +764,16 @@ export function buildRifle(opts = {}) {
   k.add(cylAB(v3(0.0165, HB + 0.006, -0.005), v3(0.0205, HB + 0.006, -0.005), 0.0042, 0.0042, 12), { cls: C.ANO, col: COL.ano, wear: 1.4 });
   k.add(cylAB(v3(-0.002, HB + 0.0165, 0.006), v3(-0.002, HB + 0.0195, 0.006), 0.0048, 0.0048, 12), { cls: C.ANO, col: COL.ano, wear: 1.4 });
 
-  // ---------------- ammo counter pod (left side of the upper)
-  const tilt = -0.42; // face tilts up toward the shooter's eye
-  const podN = new V3(-Math.cos(tilt), -Math.sin(tilt), 0), podC = new V3(-0.0168, 0.0772, -0.145);
-  k.add(at(rbox(0.0068, 0.022, 0.042, 0.0022), podC.x, podC.y, podC.z, 0, 0, tilt), { ...ANO, wear: 1.0 });
-  k.add(at(rbox(0.0014, 0.0158, 0.034, 0.0006), podC.x + podN.x * 0.0034, podC.y + podN.y * 0.0034, podC.z, 0, 0, tilt), { cls: C.GLOSS, col: COL.screen, wear: 0, dust: 0.2 });
-  k.add(at(rbox(0.003, 0.012, 0.03, 0.001), -0.0135, 0.072, -0.145), ANO);
+  // ---------------- ammo counter module: rail-mounted behind the optic, screen raked back/up at the eye
+  const SA = [-0.0515, RT + 0.004], SB = [-0.036, RT + 0.018];
+  const sd = [SB[0] - SA[0], SB[1] - SA[1]], sl = Math.hypot(sd[0], sd[1]);
+  // (u,v) slope → outward normal faces back (+z) and up toward the eye
+  const scrN = new V3(0, sd[0] / sl, sd[1] / sl), scrC = new V3(0, (SA[1] + SB[1]) / 2, -(SA[0] + SB[0]) / 2);
+  const scrTilt = Math.atan2(scrN.y, scrN.z);
+  k.add(rear(ext(clampP, 0.025, { bev: 0.001 }), 0.04), ANO);
+  k.add(side(ext(rp([[-0.0278, RAIL_Y + 0.004, 0.001], [-0.0278, SB[1] + 0.0012, 0.0018], [SB[0] + 0.001, SB[1] + 0.0022, 0.002], [SA[0] - 0.0006, SA[1] + 0.0006, 0.002], [SA[0] - 0.0006, RAIL_Y + 0.004, 0.001]]), 0.0355, { bev: 0.0016 })), { ...ANO, tag: 'ctr', wear: 1.2 });
+  k.add(apply(rbox(0.031, sl * 0.86, 0.0012, 0.0005), new THREE.Matrix4().makeRotationX(-scrTilt).setPosition(scrC.clone().addScaledVector(scrN, 0.0003))), { cls: C.GLOSS, col: COL.screen, wear: 0, dust: 0.15, tag: 'ctr' });
+  for (const sx of [-1, 1]) k.add(cylAB(v3(sx * 0.0178, RT + 0.009, 0.034), v3(sx * 0.0186, RT + 0.009, 0.034), 0.0022, 0.0022, 8), { cls: C.PARK, col: COL.pin, wear: 1.5 });
 
   // ---------------- magazine (bone): curved polymer mag with ribs, floorplate, top round
   const MAGT = 0.047, MAGB = -0.192, Rb = 0.55, Rf = 0.483, uc = 0.101 + Rb;
@@ -688,7 +782,7 @@ export function buildRifle(opts = {}) {
   const back = [], frontE = [];
   for (let i = 0; i <= NM; i++) { back.push([...pb(ab * i / NM), i === NM ? 0.004 : 0]); frontE.push([...pf(af * i / NM), i === NM ? 0.004 : 0]); }
   const magOut = rp([...back, ...frontE.reverse()], 0, 2);
-  const MAG = { cls: C.POLY, col: COL.fde, bone: RB.mag, tag: 'mag', wear: 0.8 };
+  const MAG = { cls: C.POLY, col: COL.poly, bone: RB.mag, tag: 'mag', wear: 0.9 };
   k.add(side(ext(magOut, 0.0245, { bev: 0.0018, seg: 1 })), { ...MAG, crease: 50 });
   // ribs (horizontal, lower third) and a long arc rib
   for (const s of [-1, 1]) {
@@ -705,7 +799,7 @@ export function buildRifle(opts = {}) {
   {
     const a = ab, Bb = pb(a), Fb = pf(af), td = [Math.sin(a), -Math.cos(a)], out = [-Math.cos(a), -Math.sin(a)];
     const P = (p, d, o) => [p[0] + td[0] * d + out[0] * o, p[1] + td[1] * d + out[1] * o];
-    k.add(side(ext(rp([[...P(Bb, -0.012, 0.0028), 0.002], [...P(Bb, 0.0055, 0.0028), 0.003], [...P(Fb, 0.0055, -0.0045), 0.003], [...P(Fb, -0.004, -0.0045), 0.002], [...P(Fb, -0.012, -0.0005), 0.001]]), 0.029, { bev: 0.0022, seg: 2 })), { ...MAG, col: [0.17, 0.14, 0.095] });
+    k.add(side(ext(rp([[...P(Bb, -0.012, 0.0028), 0.002], [...P(Bb, 0.0055, 0.0028), 0.003], [...P(Fb, 0.0055, -0.0045), 0.003], [...P(Fb, -0.004, -0.0045), 0.002], [...P(Fb, -0.012, -0.0005), 0.001]]), 0.029, { bev: 0.0022, seg: 2 })), { ...MAG, col: COL.fde });
   }
   k.add(cylAB(v3(0, MAGT + 0.0045, -0.11), v3(0, MAGT + 0.0045, -0.148), 0.0048, 0.0048, 10), { cls: C.BRASS, col: COL.brass, bone: RB.mag, tag: 'mag', dust: 0 });
   k.add(lathe([[0.0046, 0.148], [0.0044, 0.156], [0.0032, 0.166], [0.0012, 0.171], [0, 0.1715]], 10, MAGT + 0.0045), { cls: C.COPPER, col: COL.copper, bone: RB.mag, tag: 'mag', dust: 0 });
@@ -736,7 +830,7 @@ export function buildRifle(opts = {}) {
   let hudMesh = null;
   if (hud) {
     const ret = quad(0.026, 0.026, 0, 0, 0.5, 1); ret.translate(0, winC.y, -0.0605);
-    const cnt = quad(0.03, 0.015, 0.5, 0.5, 1, 1); cnt.rotateY(-PI / 2); cnt.rotateZ(tilt); cnt.translate(podC.x + podN.x * 0.0043, podC.y + podN.y * 0.0043, podC.z);
+    const cnt = quad(0.03, 0.015, 0.5, 0.5, 1, 1); cnt.rotateX(-scrTilt); cnt.translate(scrC.x + scrN.x * 0.0011, scrC.y + scrN.y * 0.0011, scrC.z + scrN.z * 0.0011);
     hudMesh = new THREE.Mesh(mergeGeometries([ret, cnt]), hud.mat); hudMesh.renderOrder = 3; group.add(hudMesh);
     hud.draw(45, 45, false);
   }
@@ -823,7 +917,7 @@ export function buildLauncher(opts = {}) {
   const chAng = (j) => PI / 2 + j * PI / 3;
   for (let j = 0; j < 6; j++) boneDefs.push({ name: 'nose' + j, pos: [Math.cos(chAng(j)) * RC, DY + Math.sin(chAng(j)) * RC, -(DU1 - 0.002)], parent: 1 });
   const ANO = { cls: C.ANO, col: COL.ano };
-  const FDE = { cls: C.POLY, col: COL.fde, wear: 0.7 };
+  const FDE = { cls: C.POLY, col: COL.poly, wear: 0.7 };
 
   // ---------------- rear frame (grip housing + recoil shield)
   k.add(side(ext(rp([[-0.07, 0.062, 0.006], [-0.07, 0.15, 0.006], [-0.058, 0.163, 0.008], [DU0 - 0.002, 0.163, 0.004], [DU0 - 0.002, 0.002, 0.006], [0.1, -0.008, 0.006], [0.09, 0.0, 0.004], [0.09, 0.035, 0.004],
@@ -833,7 +927,7 @@ export function buildLauncher(opts = {}) {
   addGrip(k, false);
   addTriggerGuard(k, LB.trigger);
   // ---------------- drum (bone) — 6 chambers, banded, front plate with grenade noses
-  const DB = { cls: C.ANO, col: [0.12, 0.121, 0.13], bone: LB.drum, tag: 'drum' };
+  const DB = { cls: C.PARK, col: COL.park, bone: LB.drum, tag: 'drum' };
   k.add(rear(ext(circle(0, DY, 0.0725, 30), 0.008, { bev: 0.0014, seg: 1 }), -(DU0 + 0.004)), { ...DB, wear: 1.1 });
   const holes6 = []; for (let j = 0; j < 6; j++) holes6.push(circle(Math.cos(chAng(j)) * RC, DY + Math.sin(chAng(j)) * RC, 0.0208, 12));
   k.add(rear(ext(circle(0, DY, 0.0725, 28), 0.009, { bev: 0, holes: holes6 }), -(DU1 - 0.0045)), { ...DB, wear: 0.5, wearBase: 0.0, lw: true });
@@ -875,8 +969,8 @@ export function buildLauncher(opts = {}) {
     const fr = [];
     for (let y = 0.08; y >= 0.0; y -= 0.004) fr.push([0.398 + (0.08 - y) * 0.12 + 0.0018 * Math.cos(2 * PI * (y - 0.06) / 0.022) * sstep(0.075, 0.065, y) * sstep(0.0, 0.012, y), y, 0]);
     const out = rp([[0.364, 0.086, 0], ...fr, [0.41, -0.012, 0.006], [0.375, -0.014, 0.006], [0.362, 0.0, 0.006], [0.358, 0.05, 0.01]], 0, 2);
-    k.add(side(ext(out, 0.03, { bev: 0.0065, seg: 2 })), { ...FDE, tag: 'fgrip' });
-    k.add(side(ext(rp([[0.373, -0.009, 0.004], [0.413, -0.007, 0.004], [0.412, -0.019, 0.004], [0.373, -0.02, 0.004]]), 0.032, { bev: 0.0035, seg: 2 })), { cls: C.POLY, col: COL.poly, tag: 'fgrip' });
+    k.add(side(ext(out, 0.03, { bev: 0.0065, seg: 2 })), { cls: C.POLY, col: COL.poly, wear: 0.7, tag: 'fgrip' });
+    k.add(side(ext(rp([[0.373, -0.009, 0.004], [0.413, -0.007, 0.004], [0.412, -0.019, 0.004], [0.373, -0.02, 0.004]]), 0.032, { bev: 0.0035, seg: 2 })), { cls: C.POLY, col: COL.fde, tag: 'fgrip' });
   }
   // ---------------- folding skeleton stock
   k.add(cylAB(v3(0, 0.088, 0.075), v3(0, 0.145, 0.075), 0.0095, 0.0095, 14), { ...ANO, wear: 1.3 });

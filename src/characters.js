@@ -24,7 +24,7 @@ const PARENT = [-1, 0, 1, 2, 3, 2, 5, 6, 7, 2, 9, 10, 11, 0, 13, 14, 0, 16, 17, 
 const UA = 0.3, FA = 0.265, TH = 0.42, SH = 0.415;
 const SHX = 0.19, ELX = SHX + UA, WRX = ELX + FA, HIPX = 0.095;
 const GUN0 = new THREE.Vector3(0.34, 1.12, -0.55); // bind placement of the rifle (irrelevant after skinning)
-const MAG_OFF = new THREE.Vector3(0, -0.02, -0.36); // mag well in rifle space
+const MAG_OFF = new THREE.Vector3(0, -0.02, -0.36).multiplyScalar(1.18); // mag well in rifle space (rifle scale RS)
 const HEADS = [
   [0, 0.97, 0], [0, 1.075, 0], [0, 1.22, 0], [0, 1.49, -0.005], [0, 1.585, -0.008],
   [-0.035, 1.45, 0], [-SHX, 1.44, 0], [-ELX, 1.44, 0], [-WRX, 1.44, 0],
@@ -38,24 +38,25 @@ const HEAD_C = new THREE.Vector3(0, 1.672, -0.012); // head centre (bind)
 const HEAD_C_LOCAL = HEAD_C.clone().sub(HEADS[B.head]);
 
 // rifle-space constants (origin = butt pad, barrel along -z)
-const MUZZLE = new THREE.Vector3(0, 0.036, -0.8);
-const POCKET = new THREE.Vector3(0.12, 0.245, -0.145); // chest-space shoulder pocket
-const GRIP_R = new THREE.Vector3(0.026, -0.066, -0.245); // right palm centre on the pistol grip
-const GRIP_L = new THREE.Vector3(-0.012, -0.022, -0.47); // left palm centre under the handguard
-const MAG_GRIP = new THREE.Vector3(-0.036, -0.095, -0.37); // left palm on the magazine
+const RS = 1.18; // rifle scale (reads better at range)
+const MUZZLE = new THREE.Vector3(0, 0.036, -0.8).multiplyScalar(RS);
+const POCKET = new THREE.Vector3(0.13, 0.272, -0.155); // chest-space shoulder pocket
+const GRIP_R = new THREE.Vector3(0.026, -0.066, -0.245).multiplyScalar(RS); // right palm centre on the pistol grip
+const GRIP_L = new THREE.Vector3(-0.012, -0.022, -0.47).multiplyScalar(RS); // left palm centre under the handguard
+const MAG_GRIP = new THREE.Vector3(-0.036, -0.095, -0.37).multiplyScalar(RS); // left palm on the magazine
 const PALM_R = new THREE.Vector3(0.05, -0.014, 0); // palm centre relative to wrist, bind hand space
 const PALM_L = new THREE.Vector3(-0.05, -0.014, 0);
 
 // ---------------- colour slots / surface ----------------
 const S = {
   FAT: 0, FAT2: 1, VEST: 2, VEST2: 3, GLOVE: 4, BOOT: 5, SOLE: 6, SKIN: 7, SKIN2: 8, MASK: 9, HAT: 10, LENS: 11, STRAP: 12, POLY: 13, GMET: 14, FURN: 15,
-  MAGC: 16, HW: 17, BELT: 18, HAIR: 19, KNEE: 20, BEARD: 21, LIP: 22, EYE: 23, IRIS: 24, TEE: 25, JEANS: 26, JACKET: 27, RIB: 28, WATCH: 29, BROW: 30, GOLD: 31, ALENS: 32,
-  REFLF: 33, REFLV: 34, // reflective bands on cloth / on the vest (same colour as the cloth/vest unless an outfit paints them)
+  MAGC: 16, HW: 17, BELT: 18, HAIR: 19, KNEE: 20, BEARD: 21, LIP: 22, EYE: 23, IRIS: 24, TEE: 25, JEANS: 26, JACKET: 27, RIB: 28, WATCH: 29, BROW: 30, GOLD: 31, ALENS: 32, CAMO: 33,
+  REFLF: 34, REFLV: 35, // reflective bands on cloth / on the vest (same colour as the cloth/vest unless an outfit paints them)
 };
-const NS = 35;
+const NS = 36;
 // [roughness, metalness]
 const SURF = [[0.9, 0], [0.92, 0], [0.82, 0], [0.85, 0], [0.6, 0], [0.55, 0], [0.9, 0], [0.5, 0], [0.6, 0], [0.95, 0], [0.78, 0], [0.06, 0.9], [0.72, 0], [0.5, 0.08], [0.36, 0.75], [0.58, 0.02],
-  [0.45, 0.3], [0.32, 0.85], [0.78, 0], [0.8, 0], [0.45, 0], [0.82, 0], [0.42, 0], [0.18, 0], [0.12, 0], [0.88, 0], [0.86, 0], [0.62, 0], [0.95, 0], [0.24, 0.9], [0.85, 0], [0.22, 0.95], [0.04, 0.55], [0.9, 0], [0.82, 0]];
+  [0.45, 0.3], [0.32, 0.85], [0.78, 0], [0.8, 0], [0.45, 0], [0.82, 0], [0.42, 0], [0.18, 0], [0.12, 0], [0.88, 0], [0.86, 0], [0.74, 0], [0.95, 0], [0.24, 0.9], [0.85, 0], [0.22, 0.95], [0.04, 0.55], [0.9, 0], [0.9, 0], [0.82, 0]];
 // per-slot emissive mask (scaled at runtime by setGunmanLook().band; 0 by default so nothing glows)
 const EMIT = new Float32Array(NS); EMIT[S.REFLF] = 1; EMIT[S.REFLV] = 1; EMIT[S.VEST] = 0.3;
 
@@ -69,6 +70,29 @@ const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _be = new THREE.E
 const YAX = new THREE.Vector3(0, 1, 0);
 function hash3(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); }
 
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf), h = (a, b, c) => hash3(xi + a, yi + b, zi + c);
+  return lerp(lerp(lerp(h(0, 0, 0), h(1, 0, 0), u), lerp(h(0, 1, 0), h(1, 1, 0), u), v), lerp(lerp(h(0, 0, 1), h(1, 0, 1), u), lerp(h(0, 1, 1), h(1, 1, 1), u), v), w);
+}
+const fbm = (x, y, z) => vnoise(x, y, z) * 0.6 + vnoise(x * 2.3 + 5.1, y * 2.3, z * 2.3 + 1.7) * 0.28 + vnoise(x * 5.3, y * 5.3 + 3.1, z * 5.3) * 0.12;
+// fatigue camo: blotches of a second tone + a darker third tone (pattern colours come from the palette)
+function camoPaint(P, N, out, mir) {
+  const ox = mir ? 3.7 : 0;
+  const m = sst(0.49, 0.56, fbm(P.x * 5.2 + ox, P.y * 5.2, P.z * 5.2));
+  if (m > out.m) { out.s2 = S.CAMO; out.m = m; }
+  out.k *= 1 - 0.24 * sst(0.55, 0.62, fbm(P.x * 8 + 11 + ox, P.y * 8, P.z * 8 + 4));
+}
+const FABRIC = new Set([S.FAT, S.FAT2, S.VEST, S.VEST2, S.BELT, S.MASK, S.JEANS, S.TEE, S.KNEE]);
+// cheap analytic occlusion for crevices the bind-pose AO bake cannot see (armpits, crotch, under the vest)
+function bodyAO(kind, P, N) {
+  const ax = Math.abs(P.x);
+  if (kind === 'torso') return (1 - 0.58 * sst(0.11, 0.165, ax) * gs((P.y - 1.34) / 0.07)) * (1 - 0.6 * sst(0.95, 0.86, P.y)) * (1 - 0.45 * gs((P.y - 1.13) / 0.035));
+  if (kind === 'arm') return (1 - 0.6 * sst(0.36, 0.2, P.x) * Math.max(0, -N.y)) * (1 - 0.35 * gs((P.x - 0.49) / 0.035) * Math.max(0, -N.z));
+  if (kind === 'leg') return (1 - 0.65 * sst(0.7, 0.93, P.y) * sst(0.1, -0.8, N.x)) * (1 - 0.4 * gs((P.y - 0.5) / 0.04) * Math.max(0, N.z)) * (1 - 0.4 * sst(0.9, 0.98, P.y));
+  if (kind === 'neck') return 0.82 - 0.2 * sst(1.56, 1.6, P.y) * sst(0.0, -0.04, P.z);
+  return 1;
+}
 // ---------------- geometry helpers (build-time only) ----------------
 function place(g, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
   _bm.compose(_bt.set(x, y, z), _bq.setFromEuler(_be.set(rx, ry, rz)), _bs.set(sx, sy, sz));
@@ -245,14 +269,24 @@ function faceFeatures(p, o) {
   const ax = Math.abs(x), sx = x < 0 ? -1 : 1;
   const fr = sst(-0.02, -0.07, z); // frontness
   // lower face forward (maxilla / chin), jaw angle flare
-  z -= 0.006 * gs(x / 0.04) * gs((y + 0.06) / 0.03) * fr;
+  z -= 0.004 * gs(x / 0.04) * gs((y + 0.06) / 0.03) * fr;
   // chin
   z -= 0.008 * gs(x / 0.022) * gs((y + 0.09) / 0.014) * fr;
-  x += sx * 0.006 * gs((y + 0.068) / 0.02) * gs((z - 0.01) / 0.03);
-  // lips (upper / lower) and the mouth line
-  z -= 0.0045 * gs(x / 0.021) * gs((y + 0.046) / 0.0055) * fr;
-  z -= 0.004 * gs(x / 0.019) * gs((y + 0.061) / 0.006) * fr;
-  z += 0.0025 * gs(x / 0.024) * gs((y + 0.0535) / 0.0028) * fr;
+  x += sx * 0.008 * gs((y + 0.066) / 0.022) * gs((z - 0.008) / 0.032);
+  z -= 0.003 * gs((ax - 0.045) / 0.012) * gs((y + 0.075) / 0.012) * fr; // jawline edge
+  // lips (upper with a cupid's bow / lower), mouth line, corners tucked in, philtrum
+  z -= 0.003 * gs(x / 0.02) * gs((y + 0.0475 + 0.0015 * gs(x / 0.006)) / 0.005) * fr;
+  z -= 0.003 * gs(x / 0.018) * gs((y + 0.0605) / 0.0055) * fr;
+  z += 0.0018 * gs(x / 0.022) * gs((y + 0.0538) / 0.0022) * fr;
+  z += 0.0025 * gs((ax - 0.024) / 0.005) * gs((y + 0.054) / 0.006) * fr;
+  z += 0.0014 * gs(x / 0.0035) * gs((y + 0.039) / 0.005) * fr;
+  z += 0.0015 * gs(x / 0.016) * gs((y + 0.071) / 0.004) * fr; // mentolabial groove
+  // nasolabial folds: crease from the nose wing to the mouth corner, cheek fullness outside it
+  {
+    const ux = 0.012, uy = -0.032, ab = Math.hypot(ux, uy), t = sat(((ax - 0.017) * ux + (y + 0.026) * uy) / (ab * ab));
+    const d = Math.hypot(ax - 0.017 - ux * t, y + 0.026 - uy * t), sd = (ax - 0.017 - ux * t) * 0.94 - (y + 0.026 - uy * t) * 0.35;
+    z += 0.0022 * gs(d / 0.0035) * fr; z -= 0.0022 * gs((d - 0.009) / 0.006) * (sd > 0 ? 1 : 0) * fr;
+  }
   // nose: bridge -> tip -> base
   if (y > -0.04 && y < 0.02) {
     const t = sat((0.014 - y) / 0.044);
@@ -260,15 +294,18 @@ function faceFeatures(p, o) {
     if (t > 0.8) h *= 1 - Math.pow((t - 0.8) / 0.2, 2) * 0.85;
     const w = 0.0075 + 0.0085 * t;
     z -= h * gs(x / w) * fr;
-    // nostril wings
+    // defined tip, nostril wings, recessed base
+    z -= 0.004 * gs(x / 0.008) * gs((y + 0.023) / 0.006) * fr;
+    z += 0.003 * gs(x / 0.007) * gs((y + 0.034) / 0.0035) * fr;
     z -= 0.005 * gs((ax - 0.013) / 0.006) * gs((y + 0.027) / 0.006) * fr;
     x += sx * 0.003 * gs((ax - 0.013) / 0.007) * gs((y + 0.027) / 0.006) * fr;
   }
   // brow ridge + eye sockets + cheekbones + temples
-  z -= 0.0065 * gs((y - 0.024) / 0.01) * sst(0.07, 0.03, ax) * fr;
+  z -= 0.008 * gs((y - 0.024) / 0.009) * sst(0.07, 0.03, ax) * fr;
+  z += 0.003 * gs(x / 0.006) * gs((y - 0.016) / 0.006) * fr; // nose root notch between the brows
   z += 0.011 * gs((ax - 0.031) / 0.015) * gs((y - 0.006) / 0.011) * fr;
-  z -= 0.005 * gs((ax - 0.05) / 0.013) * gs((y + 0.012) / 0.011) * fr;
-  x += sx * 0.003 * gs((ax - 0.058) / 0.012) * gs((y + 0.012) / 0.014) * fr;
+  z -= 0.006 * gs((ax - 0.05) / 0.013) * gs((y + 0.012) / 0.011) * fr;
+  x += sx * 0.004 * gs((ax - 0.058) / 0.012) * gs((y + 0.012) / 0.014) * fr;
   x -= sx * 0.004 * gs((ax - 0.058) / 0.014) * gs((y + 0.045) / 0.015) * fr; // cheek hollow
   x -= sx * 0.003 * gs((y - 0.03) / 0.02) * gs((z + 0.045) / 0.03);
   // occiput
@@ -280,8 +317,11 @@ function faceFeatures(p, o) {
   }
   return [x, y, z];
 }
+// denser rings through the eyes, nose and mouth for the hero face
+const HEAD_YS_HI = [-0.108, -0.1, -0.092, -0.085, -0.079, -0.074, -0.07, -0.066, -0.0625, -0.059, -0.056, -0.0538, -0.0515, -0.049, -0.046, -0.0425, -0.039, -0.035, -0.031, -0.027,
+  -0.023, -0.019, -0.014, -0.009, -0.004, 0.001, 0.006, 0.011, 0.016, 0.021, 0.026, 0.031, 0.038, 0.047, 0.058, 0.07, 0.083, 0.095, 0.106, 0.115];
 function headGeo(o) {
-  const rings = HEAD_YS.map((y) => {
+  const rings = (o.ys || HEAD_YS).map((y) => {
     const p = prof(HEAD_KEYS, y);
     return seRing([0, y, p[3]], [1, 0, 0], [0, 0, 1], p[0], p[1], p[2], [p[4], p[5]], o.M || 22, (q) => faceFeatures(q, o), headWarp);
   });
@@ -298,20 +338,30 @@ function paintHead(P, N, out, o) {
   const x = P.x, y = P.y, z = P.z, ax = Math.abs(x), fr = sst(-0.02, -0.07, z);
   const socket = gs((ax - 0.031) / 0.016) * gs((y - 0.005) / 0.012) * fr;
   out.k *= 1 - 0.28 * socket;
+  if (o.brim) out.k *= 1 - 0.32 * sst(-0.06, 0.0, y) * sst(-0.01, -0.05, z);
   if (o.face === 'mask') { out.s1 = S.MASK; return; }
   if (o.face === 'eyes') {
     const open = sst(0.012, 0.004, Math.abs(y - 0.005) - 0.008 * gs(x / 0.05)) * sst(0.068, 0.058, ax) * sst(-0.03, -0.05, z);
     out.s1 = S.MASK; out.s2 = S.SKIN; out.m = open; out.k *= 1 - 0.25 * socket; return;
   }
   out.s1 = S.SKIN;
+  if (o.vary) { // under-eye shadow, crease shading, jaw shadow, subtle mottling
+    out.k *= 1 - 0.14 * gs((ax - 0.03) / 0.015) * gs((y + 0.012) / 0.007) * fr;
+    const ux = 0.012, uy = -0.032, ab = Math.hypot(ux, uy), t = sat(((ax - 0.017) * ux + (y + 0.026) * uy) / (ab * ab));
+    out.k *= 1 - 0.12 * gs(Math.hypot(ax - 0.017 - ux * t, y + 0.026 - uy * t) / 0.004) * fr;
+    out.k *= 1 - 0.12 * gs(x / 0.006) * gs((y + 0.035) / 0.0035) * fr; // under the nose
+    out.k *= 1 - 0.3 * sst(-0.075, -0.1, y) * Math.max(0, -N.y); // under the jaw
+    out.k *= 1 - 0.1 * gs(x / 0.014) * gs((y + 0.071) / 0.004) * fr;
+    out.k *= 0.97 + 0.05 * fbm(x * 40, y * 40, z * 40);
+  }
   // lips
-  const lip = gs(x / 0.019) * (gs((y + 0.047) / 0.005) * 0.45 + gs((y + 0.061) / 0.006) * 0.7) * fr;
-  out.k *= 1 - 0.3 * gs(x / 0.02) * gs((y + 0.0535) / 0.0035) * fr;
+  const lip = gs(x / 0.019) * (gs((y + 0.0475) / 0.0045) * 0.55 + gs((y + 0.0605) / 0.0055) * 0.75) * fr;
+  out.k *= 1 - 0.3 * gs(x / (o.vary ? 0.017 : 0.022)) * gs((y + 0.0538) / (o.vary ? 0.0022 : 0.0035)) * fr; // dark lip line
   // warm flush on nose, cheeks
-  const flush = (gs(x / 0.012) * gs((y + 0.02) / 0.012) * 0.5 + gs((ax - 0.045) / 0.015) * gs((y + 0.025) / 0.015) * 0.35) * fr;
+  const flush = (gs(x / 0.012) * gs((y + 0.02) / 0.012) * 0.5 + gs((ax - 0.045) / 0.016) * gs((y + 0.022) / 0.016) * (o.vary ? 0.8 : 0.35)) * fr;
   let m = 0, s2 = S.LIP;
   if (lip > 0.05) { m = Math.min(1, lip) * 0.7; }
-  else m = flush * 0.3;
+  else m = flush * (o.vary ? 0.45 : 0.3);
   // beard / stubble
   if (o.beard > 0) {
     const bl = -0.038 + 0.3 * Math.max(0, ax - 0.012) - 0.004 * gs(x / 0.01);
@@ -322,13 +372,14 @@ function paintHead(P, N, out, o) {
   }
   // eyebrows
   if (o.brows) {
-    const br = gs((y - 0.027 + 0.004 * Math.pow((ax - 0.01) / 0.05, 2)) / 0.0055) * sst(0.008, 0.014, ax) * sst(0.066, 0.05, ax) * fr;
-    if (br > 0.3 && br > m) { m = Math.min(1, br * 1.2); s2 = S.BROW; }
+    const br = gs((y - 0.027 + 0.004 * Math.pow((ax - 0.01) / 0.05, 2)) / 0.0065) * sst(0.008, 0.016, ax) * sst(0.068, 0.05, ax) * fr;
+    if (br > 0.25 && br > m) { m = Math.min(1, br * 1.3); s2 = S.BROW; }
   }
   // hair
   if (o.hair) {
     const hl = hairline(x, z);
-    const h = sst(hl - 0.009, hl + 0.011, y) * (y > -0.07 ? 1 : 0) * (1 - sst(-0.02, -0.035, z) * sst(0.045, 0.058, ax) * sst(0.035, 0.02, y));
+    const hn = (fbm(x * 90, y * 90, z * 90) - 0.5) * 0.014;
+    const h = sst(hl - 0.016, hl + 0.016, y + hn) * (y > -0.07 ? 1 : 0) * (1 - sst(-0.02, -0.035, z) * sst(0.045, 0.058, ax) * sst(0.035, 0.02, y));
     if (h > 0.02) { m = Math.max(m * (1 - h), h); s2 = S.HAIR; if (h > 0.5) out.k *= 0.92 + 0.12 * hash3(x * 300, y * 300, z * 300); }
   }
   out.s2 = s2; out.m = m;
@@ -407,7 +458,7 @@ const ARM_W = [[0.15, B.clavR], [0.17, B.clavR], [0.245, B.uarmR], [0.462, B.uar
 const armWF = (P, W) => chainW(P.x, ARM_W, W);
 // shoulder cap bridging torso and arm (half clavicle, half upper arm)
 function deltoid(sc = 1) { return ellip(1, 0.198, 1.447, 0.0, 0.072 * sc, 0.07 * sc, 0.074 * sc, 9, 7); }
-const deltWF = (P, W) => { const t = sst(0.17, 0.25, P.x) * 0.6 + 0.2; W[0] = B.clavR; W[1] = 1 - t; W[2] = B.uarmR; W[3] = t; return 2; };
+const deltWF = (P, W) => { const t = sst(0.15, 0.27, P.x) * 0.55 + 0.25; W[0] = B.clavR; W[1] = 1 - t; W[2] = B.uarmR; W[3] = t; return 2; };
 // sleeve folds: ripples around the elbow crease and above the cuff
 function sleeveFolds(amp = 1) {
   return (q, th, s, u, v) => {
@@ -499,36 +550,37 @@ function handParts(add, o) {
 function soldierParts(kind, outfit = null) {
   const port = outfit === 'port';
   const parts = [];
-  const add = (p) => { parts.push(p); return p; };
+  const add = (p) => { if (p.grad === undefined && p.bone !== B.gun && p.bone !== B.mag) p.grad = true; parts.push(p); return p; };
   const addM = (p) => { add(p); add({ ...p, mirror: true }); };
-  const simple = (g, bone, slot, soft, paint) => add({ g, bone, slot, soft, paint });
   const soft = (b, j, ax, r) => ({ b, j: v3(...j), ax: v3(...ax).normalize(), r });
 
   // ---- torso (combat shirt) + collar
   const torso = torsoGeo({ M: 20, ys: lin(0.85, 1.53, 16), post: (q, th, y) => { // shirt folds at the waist, spine groove
-    const k = 1 + 0.025 * gs((y - 1.06) / 0.03) * Math.sin(th * 6 + y * 40) - 0.02 * gs((th - Math.PI / 2) / 0.18) * sst(1.0, 1.15, y);
+    const k = 1 + 0.035 * gs((y - 1.06) / 0.035) * Math.sin(th * 6 + y * 40) - 0.02 * gs((th - Math.PI / 2) / 0.18) * sst(1.0, 1.15, y);
     return [q[0] * k, q[1], q[2] * k];
   } });
-  add({ g: torso, wf: torsoWF, slot: S.FAT });
+  add({ g: torso, wf: torsoWF, slot: S.FAT, camo: !port, bao: 'torso' });
   add({ g: ringStack([[1.472, 0.06, 0.06, 0.058, 0.004], [1.474, 0.075, 0.076, 0.072, 0.004], [1.538, 0.07, 0.071, 0.066, 0.0], [1.541, 0.059, 0.06, 0.056, 0.0]], 18), wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.54, B.neck]], W), slot: S.FAT2 });
   // ---- neck + head
-  addNeckHead(add, kind === 1 ? 'skin' : kind === 2 ? 'eyes' : 'mask', { beard: kind === 1 ? 1 : 0, hair: kind === 1, brows: kind === 1 || kind === 2, eyes: kind === 2, ears: true });
+  addNeckHead(add, kind === 1 ? 'skin' : kind === 2 ? 'eyes' : 'mask', { beard: kind === 1 ? 1 : 0, hair: kind === 1, brows: kind === 1 || kind === 2, eyes: kind === 2, ears: true, brim: kind === 1 });
   // ---- arms
   // reflective bands (slot REFLF/REFLV: same colour as the cloth unless the outfit paints them)
   const band = (v, a, b, slot) => (P, N, out) => { const t = sst(a - 0.004, a + 0.004, v(P)) * sst(b + 0.004, b - 0.004, v(P)); if (t > 0.02) { out.s2 = slot; out.m = t; } };
   const bands = (v, list, slot) => (P, N, out) => { for (const [a, b] of list) band(v, a, b, slot)(P, N, out); };
   const ARM_B = [[0.385, 0.425], [0.585, 0.625]], LEG_B = [[0.29, 0.325], [0.36, 0.395]]; // x along the arm / y up the shin
-  addM({ g: armGeo(ARM_KEYS, withStations(lin(0.12, 0.735, 12), port ? bandEdges(ARM_B) : null), 12, sleeveFolds(1)), wf: armWF, slot: S.FAT, paint: port ? bands((P) => P.x, ARM_B, S.REFLF) : undefined });
-  addM({ g: deltoid(0.9), wf: deltWF, slot: S.FAT });
-  addM({ g: place(box(0.1, 0.014, 0.074), 0.315, 1.5, 0), bone: B.uarmR, slot: S.FAT2 }); // shoulder pocket
-  addM({ g: place(box(0.062, 0.01, 0.046), 0.315, 1.508, 0), bone: B.uarmR, slot: S.VEST }); // velcro patch
+  const armK = ARM_KEYS.map(([x, a, b, c, cu, cv, n]) => { const k = x <= 0.47 ? 1.13 : x <= 0.62 ? 1.07 : 1; return [x, a * k, b * k, c * k, cu, cv, n]; });
+  addM({ g: armGeo(armK, withStations(lin(0.12, 0.735, 12), port ? bandEdges(ARM_B) : null), 12, sleeveFolds(1.3)), wf: armWF, slot: S.FAT, camo: !port, bao: 'arm', paint: port ? bands((P) => P.x, ARM_B, S.REFLF) : undefined });
+  addM({ g: deltoid(1.06), wf: deltWF, slot: S.FAT, camo: !port });
+  const patch = (w, h, d, y) => { const g = rbox(w, h, d, 0.004); const q = g.attributes.position; for (let i = 0; i < q.count; i++) q.setY(i, q.getY(i) - 9 * q.getZ(i) * q.getZ(i)); g.computeVertexNormals(); return place(g, 0.32, y, 0); };
+  addM({ g: patch(0.1, 0.01, 0.08, 1.5 + 0.004), bone: B.uarmR, slot: S.FAT2 }); // shoulder pocket, curved flush to the sleeve
+  addM({ g: patch(0.06, 0.008, 0.05, 1.511), bone: B.uarmR, slot: S.VEST }); // velcro patch
   addM({ g: cylAB(v3(WRX - 0.07, 1.44, 0), v3(WRX + 0.006, 1.44, 0), 0.039, 0.041, 12), wf: (P, W) => chainW(P.x, [[WRX - 0.03, B.farmR], [WRX, B.handR]], W), slot: S.GLOVE }); // gauntlet
   for (const m of [false, true]) {
     const hp = []; handParts((p) => hp.push(p), { W: [WRX, 1.44, 0], slot: S.GLOVE, knuckle: true });
     for (const p of hp) add(m ? { ...p, mirror: true } : p);
   }
   // ---- legs
-  addM({ g: legGeo(LEG_KEYS, 12, trouserFolds(1), 14, port ? bandEdges(LEG_B.map(([a, b]) => [1 - b, 1 - a])) : null), wf: legWF, slot: S.FAT, paint: port ? bands((P) => P.y, LEG_B, S.REFLF) : undefined });
+  addM({ g: legGeo(LEG_KEYS, 12, trouserFolds(1.4), 14, port ? bandEdges(LEG_B.map(([a, b]) => [1 - b, 1 - a])) : null), wf: legWF, slot: S.FAT, camo: !port, bao: 'leg', paint: port ? bands((P) => P.y, LEG_B, S.REFLF) : undefined });
   { const bp = []; bootParts((p) => bp.push(p)); for (const p of bp) { add(p); add({ ...p, mirror: true }); } }
   // knee pads
   addM({ g: bend(rbox(0.1, 0.125, 0.03, 0.013, 4, 3, 3), 3.2), bone: B.shinR, slot: S.KNEE, xf: [HIPX, 0.5, -0.07] });
@@ -591,15 +643,16 @@ function soldierParts(kind, outfit = null) {
 function addNeckHead(add, face, o = {}) {
   const neck = tubeLoft({ A: [0, 0, 0], D: [0, 1, 0], U: [1, 0, 0], V: [0, 0, 1], keys: [[1.45, 0.072, 0.07, 0.062, 0, 0.0, 2], [1.52, 0.066, 0.068, 0.058, 0, -0.002, 2], [1.59, 0.061, 0.064, 0.055, 0, -0.005, 2], [1.63, 0.056, 0.058, 0.048, 0, -0.006, 2]], ss: lin(1.45, 1.63, 5), M: 12 });
   const nslot = face === 'skin' ? S.SKIN : S.MASK;
-  add({ g: neck, wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.54, B.neck], [1.585, B.neck], [1.625, B.head]], W), slot: nslot,
+  add({ g: neck, bao: 'neck', wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.54, B.neck], [1.585, B.neck], [1.625, B.head]], W), slot: nslot,
     paint: (P, N, out) => { if (face === 'skin' && o.beard) { const t = sst(1.562, 1.592, P.y) * sst(0.02, -0.03, P.z); out.s2 = S.BEARD; out.m = t * o.beard * 0.8; } } });
-  const hd = headGeo({ hairVol: o.hair ? (x, y, z) => { const hl = hairline(x, z); return y > hl ? (o.hairVol ?? 0.006) * sst(hl, hl + 0.025, y) : 0; } : null });
-  hd.scale(HS, HS, HS); hd.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z);
-  const ho = { face, beard: o.beard || 0, hair: !!o.hair, brows: !!o.brows };
-  add({ g: hd, slot: S.SKIN, wf: o.wf || ((P, W) => { const t = sst(1.582, 1.547, P.y) * sst(-0.03, 0.02, P.z); W[0] = B.head; W[1] = 1 - t; W[2] = B.neck; W[3] = t; return 2; }),
-    paint: (P, N, out) => { _hp.set((P.x - HEAD_C.x) / HS, (P.y - HEAD_C.y) / HS, (P.z - HEAD_C.z) / HS); paintHead(_hp, N, out, ho); } });
+  const dy = o.dy || 0;
+  const hd = headGeo({ M: o.M, ys: o.ys, hairVol: o.hair ? (x, y, z) => { const hl = hairline(x, z); return y > hl ? (o.hairVol ?? 0.006) * sst(hl, hl + 0.025, y) : 0; } : null });
+  hd.scale(HS, HS, HS); hd.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z);
+  const ho = { face, beard: o.beard || 0, hair: !!o.hair, brows: !!o.brows, brim: !!o.brim, vary: !!o.vary };
+  add({ g: hd, slot: S.SKIN, wf: o.wf || ((P, W) => { const t = 0.55 * sst(1.582, 1.547, P.y) * sst(-0.03, 0.02, P.z); W[0] = B.head; W[1] = 1 - t; W[2] = B.neck; W[3] = t; return 2; }),
+    paint: (P, N, out) => { _hp.set((P.x - HEAD_C.x) / HS, (P.y - HEAD_C.y - dy) / HS, (P.z - HEAD_C.z) / HS); paintHead(_hp, N, out, ho); } });
   if (o.ears) for (const m of [false, true]) {
-    const e = earGeo(); e.translate(0.073, -0.004, 0.014); e.scale(HS, HS, HS); e.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z);
+    const e = earGeo(); e.translate(0.073, -0.004, 0.014); e.scale(HS, HS, HS); e.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z);
     add({ g: e, bone: B.head, slot: face === 'skin' ? S.SKIN : S.MASK, mirror: m, paint: (P, N, out) => { if (face === 'skin') { out.s2 = S.LIP; out.m = 0.25; } } });
   }
   if (o.eyes) for (const sx of [-1, 1]) {
@@ -656,8 +709,8 @@ function headgear(add, kind) {
 }
 
 function riflePart(add) {
-  const G = (g) => { g.translate(GUN0.x, GUN0.y, GUN0.z); return g; };
-  const gun = (g, slot) => add({ g: G(g), bone: B.gun, slot, ao: false });
+  const G = (g) => { g.scale(RS, RS, RS); g.translate(GUN0.x, GUN0.y, GUN0.z); return g; };
+  const gun = (g, slot) => add({ g: G(g), bone: B.gun, slot, ao: false, edge: 1 });
   gun(place(rbox(0.044, 0.125, 0.026, 0.008), 0, -0.008, -0.013), S.POLY); // butt pad
   gun(place(rbox(0.04, 0.09, 0.17, 0.014), 0, 0.0, -0.1), S.FURN); // stock
   gun(place(rbox(0.036, 0.03, 0.08, 0.01), 0, 0.058, -0.12), S.FURN); // cheek riser
@@ -683,10 +736,10 @@ function riflePart(add) {
   gun(place(box(0.006, 0.026, 0.006), 0, -0.03, -0.287, 0.3), S.GMET);
   gun(place(box(0.008, 0.012, 0.3), 0, -0.07, -0.42, 0.18), S.STRAP); // sling hanging under
   gun(place(box(0.008, 0.012, 0.17), 0, -0.07, -0.13, -0.42), S.STRAP);
-  const M = (g) => { g.translate(GUN0.x + MAG_OFF.x, GUN0.y + MAG_OFF.y, GUN0.z + MAG_OFF.z); return g; };
-  add({ g: M(place(rbox(0.031, 0.1, 0.066, 0.008), 0, -0.04, 0.0)), bone: B.mag, slot: S.MAGC, ao: false });
-  add({ g: M(place(rbox(0.031, 0.085, 0.062, 0.008), 0, -0.115, -0.022, 0.3)), bone: B.mag, slot: S.MAGC, ao: false });
-  add({ g: M(place(rbox(0.035, 0.013, 0.068, 0.004), 0, -0.16, -0.04, 0.36)), bone: B.mag, slot: S.POLY, ao: false });
+  const M = (g) => { g.scale(RS, RS, RS); g.translate(GUN0.x + MAG_OFF.x, GUN0.y + MAG_OFF.y, GUN0.z + MAG_OFF.z); return g; };
+  add({ g: M(place(rbox(0.031, 0.1, 0.066, 0.008), 0, -0.04, 0.0)), bone: B.mag, slot: S.MAGC, ao: false, edge: 1 });
+  add({ g: M(place(rbox(0.031, 0.085, 0.062, 0.008), 0, -0.115, -0.022, 0.3)), bone: B.mag, slot: S.MAGC, ao: false, edge: 1 });
+  add({ g: M(place(rbox(0.035, 0.013, 0.068, 0.004), 0, -0.16, -0.04, 0.36)), bone: B.mag, slot: S.POLY, ao: false, edge: 1 });
 }
 
 // =====================================================================================
@@ -743,16 +796,16 @@ function bakeAO(P, N, A, rec, n, R = 0.085) {
         if (d2 > R2 || d2 < 1e-7) continue;
         const d = Math.sqrt(d2), ci = (dx * nx + dy * ny + dz * nz) / d;
         if (ci < 0.12) continue;
-        occ += (ci - 0.12) * (A[j] / (A[j] + 3.14 * d2)) * (1 - d / R) * 2.6;
+        occ += (ci - 0.12) * (A[j] / (A[j] + 3.14 * d2)) * (1 - d / R) * 4.4;
       }
     }
-    ao[i] = Math.max(0.32, 1 / (1 + occ));
+    ao[i] = Math.max(0.24, 1 / (1 + occ));
   }
   return ao;
 }
 const _psq = new THREE.Quaternion(), _psv = new THREE.Vector3();
 function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S }, bounds) {
-  const geos = [], s1 = [], s2 = [], mx = [], shade = [], recAO = [], cavA = [];
+  const geos = [], s1 = [], s2 = [], mx = [], shade = [], recAO = [], aoMin = [];
   const W = [0, 0, 0, 0, 0, 0, 0, 0], PT = { s1: 0, s2: 0, m: 0, k: 1 };
   const P = new THREE.Vector3(), N = new THREE.Vector3(), MP = new THREE.Vector3(), MN = new THREE.Vector3();
   const mir = skel.mir;
@@ -795,13 +848,20 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
         _psv.copy(N).applyQuaternion(_psq); nor.setXYZ(i, _psv.x, _psv.y, _psv.z);
       }
       PT.s1 = p.slot; PT.s2 = p.slot; PT.m = 0; PT.k = 1;
-      if (p.paint) p.paint(MP, MN, PT);
+      if (p.paint) p.paint(MP, MN, PT, !!p.mirror);
+      if (p.camo) camoPaint(MP, MN, PT, !!p.mirror);
+      if (p.bao) PT.k *= bodyAO(p.bao, MP, MN);
+      if (p.grad) PT.k *= lerp(0.58, 1, sst(0.04, 1.1, MP.y));
+      if (FABRIC.has(PT.s1)) { // fabric micro-detail: weave/wear noise + per-vertex grain
+        PT.k *= 0.9 + 0.16 * fbm(MP.x * 45 + 7, MP.y * 45, MP.z * 45) + 0.05 * (hash3(MP.x * 431, MP.y * 431, MP.z * 431) - 0.5);
+        if (p.grad && MP.y < 0.5) PT.k *= 1 + 0.25 * sst(0.5, 0.12, MP.y) * sst(0.45, 0.7, fbm(MP.x * 14, MP.y * 14, MP.z * 14)); // road dust on the shins
+      }
       const a = SURF[PT.s1], b = SURF[PT.s2];
       sf[i * 3] = lerp(a[0], b[0], PT.m); sf[i * 3 + 1] = lerp(a[1], b[1], PT.m); sf[i * 3 + 2] = lerp(EMIT[PT.s1], EMIT[PT.s2], PT.m);
       // cloth/hard-surface cavity: lighter worn edges, darker creases
-      const cv = cav[i], ck = 1 + Math.min(0.28, Math.max(0, -cv - 0.12) * 0.7) - Math.min(0.45, Math.max(0, cv - 0.02) * 1.6);
+      const cv = cav[i], eg = p.edge ? 2.2 : 1, ck = 1 + Math.min(0.28 * eg, Math.max(0, -cv - 0.12) * 0.7 * eg) - Math.min(0.5, Math.max(0, cv - 0.02) * 2.2);
       const sky = 0.86 + 0.14 * (N.y * 0.5 + 0.5), noise = 0.95 + 0.1 * hash3(P.x * 61, P.y * 61, P.z * 61);
-      s1.push(PT.s1); s2.push(PT.s2); mx.push(PT.m); shade.push(PT.k * ck * sky * noise); recAO.push(p.ao === false ? 0 : 1);
+      s1.push(PT.s1); s2.push(PT.s2); mx.push(PT.m); shade.push(PT.k * ck * sky * noise); recAO.push(p.ao === false ? 0 : 1); aoMin.push(p.aoMin || 0);
     }
     if (p.postMat) g.applyMatrix4(p.postMat);
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
@@ -815,7 +875,7 @@ function buildTemplate(parts, skel = { heads: HEADS, parent: PARENT, mir: MIR_S 
   // AO bake across every part (gear casts onto the body and vice versa)
   const A = new Float32Array(count); { let o = 0; for (const g of geos) { const a = vertexArea(g); A.set(a, o); o += a.length; } }
   const ao = bakeAO(geo.attributes.position.array, geo.attributes.normal.array, A, recAO, count);
-  const shadeF = Float32Array.from(shade); for (let i = 0; i < count; i++) shadeF[i] *= ao[i];
+  const shadeF = Float32Array.from(shade); for (let i = 0; i < count; i++) shadeF[i] *= Math.max(ao[i], aoMin[i]);
   geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(count * 3).fill(0.5), 3));
   const bb = bounds || { c: [0, 1.0, -0.2], r: 1.6, min: [-1, -0.2, -1.4], max: [1, 2.0, 1] };
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(...bb.c), bb.r);
@@ -895,15 +955,16 @@ const _col = new THREE.Color();
 const hexes = (arr) => arr.map(h => new THREE.Color(h));
 // albedos kept >= ~0.06 linear so backlit silhouettes never crush to black (rim light does the rest)
 const PAL = {
-  fat: hexes(['#45474a', '#4a4d45', '#504c44', '#43474e', '#474846', '#4f4f49']),
-  vest: hexes(['#6e7552', '#94815e', '#5c654c', '#4c4e50', '#7e7860', '#545c48', '#8c7a5c']),
-  skin: hexes(['#d9a582', '#bf8660', '#9a6545', '#764c36', '#e6bc9a', '#ad7754']),
+  // fatigues as [base, camo blotch] pairs, kept >= 2 value steps darker than the vests
+  fat: [['#3d3f42', '#4b4d51'], ['#3b4134', '#55593f'], ['#433e37', '#5a5446'], ['#373c46', '#4c525e'], ['#333436', '#3d3e41'], ['#47443b', '#615c4a']].map(hexes),
+  vest: hexes(['#4e5850', '#726a60', '#5c5f5d', '#4b5448', '#776f66', '#5c6458', '#464849']),
+  skin: hexes(['#c49676', '#a87a5a', '#8a5d42', '#6a4834', '#cfa688', '#9a6e50']),
   hair: hexes(['#3a2e26', '#4a3a2c', '#5c4632', '#36322e', '#6a5440']),
-  helm: hexes(['#6e7552', '#8a7a5e', '#4c4e50', '#5c654c', '#807a62']),
+  helm: hexes(['#565e4e', '#766c5f', '#4c4e50', '#4f5646', '#6e6a60']),
   cap: hexes(['#47494c', '#5c6448', '#8f7a58', '#3e4658', '#7a6448', '#6e3a30']),
-  glove: hexes(['#3e3e40', '#6f604c', '#454545', '#525548']),
-  boot: hexes(['#433e38', '#64523c', '#4a423b', '#6e5a40']),
-  furn: hexes(['#38383b', '#38383b', '#38383b', '#7f6e52', '#5a5e4a']),
+  glove: hexes(['#262628', '#2e2924', '#2a2a2a', '#2b2c28']),
+  boot: hexes(['#272523', '#33291f', '#2b2724', '#382f25']),
+  furn: hexes(['#2b2c2f', '#303134', '#28292b', '#33342f']),
   lensG: hexes(['#d0792c', '#9aa4b0', '#c8a040', '#704028']),
   lensS: hexes(['#30343c', '#b08a3a', '#3a2a20', '#506070']),
   mask: hexes(['#3a3a3d', '#38383a', '#4a4e44', '#47433e']),
@@ -923,8 +984,8 @@ function makePalette(seed, kind, outfit) {
   const pick = (a) => a[Math.floor(r() * a.length) % a.length];
   const pal = new Float32Array(NS * 3);
   const set = (slot, c, k = 1) => { pal[slot * 3] = c.r * k; pal[slot * 3 + 1] = c.g * k; pal[slot * 3 + 2] = c.b * k; };
-  const fat = pick(PAL.fat), vest = pick(PAL.vest), skin = pick(PAL.skin), hair = pick(PAL.hair);
-  set(S.FAT, fat); set(S.FAT2, fat, 0.8);
+  const [fat, camo] = pick(PAL.fat), vest = pick(PAL.vest), skin = pick(PAL.skin), hair = pick(PAL.hair);
+  set(S.FAT, fat); set(S.FAT2, fat, 0.8); set(S.CAMO, camo);
   set(S.VEST, vest); _col.copy(vest).multiplyScalar(0.8).lerp(fat, 0.15); set(S.VEST2, _col);
   set(S.GLOVE, pick(PAL.glove)); const boot = pick(PAL.boot); set(S.BOOT, boot); set(S.SOLE, _col.setRGB(0.05, 0.047, 0.044));
   set(S.SKIN, skin); _col.copy(skin).multiplyScalar(0.45); set(S.SKIN2, _col);
@@ -933,9 +994,9 @@ function makePalette(seed, kind, outfit) {
   set(S.HAT, kind === 1 ? pick(PAL.cap) : (r() < 0.6 ? vest : pick(PAL.helm)));
   set(S.LENS, kind === 1 ? pick(PAL.lensS) : pick(PAL.lensG));
   set(S.STRAP, _col.setRGB(0.05, 0.05, 0.052));
-  set(S.POLY, _col.setRGB(0.045, 0.045, 0.048)); set(S.GMET, _col.setRGB(0.05, 0.051, 0.055));
+  set(S.POLY, _col.setRGB(0.04, 0.04, 0.043)); set(S.GMET, _col.setRGB(0.075, 0.077, 0.082));
   set(S.FURN, pick(PAL.furn));
-  set(S.MAGC, r() < 0.7 ? _col.setRGB(0.045, 0.045, 0.048) : _col.set('#7b6d58'));
+  set(S.MAGC, r() < 0.6 ? _col.setRGB(0.04, 0.04, 0.043) : _col.setRGB(0.09, 0.092, 0.097));
   set(S.HW, _col.setRGB(0.3, 0.3, 0.31)); set(S.BELT, _col.copy(vest).multiplyScalar(0.6));
   set(S.HAIR, hair); set(S.BROW, _col.copy(hair).multiplyScalar(0.8)); set(S.KNEE, r() < 0.5 ? _col.setRGB(0.06, 0.06, 0.062) : _col.copy(vest).multiplyScalar(0.85));
   const beard = r(); set(S.BEARD, _col.copy(skin).lerp(hair, beard < 0.35 ? 0.25 : beard < 0.7 ? 0.55 : 0.85));
@@ -1075,7 +1136,7 @@ export class Gunman {
     // hip placement relative to the slot pivot
     this.hip = new THREE.Vector3();
     if (opts.hipOffset) this.hip.copy(opts.hipOffset);
-    else if (this.pose === 'window') this.hip.set(-this.side * 0.16, 0.05, 0);
+    else if (this.pose === 'window') this.hip.set(-this.side * 0.26, 0.05, 0);
     else if (this.pose === 'ground') this.hip.set(0, HEADS[B.pelvis].y, 0);
     else this.hip.set(0, 0.37, 0);
     // on-foot locomotion state (pose 'ground': root sits on the floor at the feet, body faces root -z)
@@ -1096,6 +1157,17 @@ export class Gunman {
     this.aimOrigin = new THREE.Vector3().copy(this.hip).add(_v1.set(0, 0.48, 0));
     this.nL = new THREE.Vector3(0, -1, 0); this.nR = new THREE.Vector3(0, 1, 0);
     this.dead = false; this.disposed = false;
+    {
+      const r2 = makeRng((this.seed * 0x85ebca6b) >>> 0 ^ 0x51ed27);
+      const u = r2();
+      this.style = u < 0.65 ? 0 : 2; // 0 shouldered, 2 shouldered high-elbow (1 = hip fire, kept but unused: reads as a chest-held toy head-on)
+      this.pocket = POCKET.clone().add(v3((r2() - 0.5) * 0.02, (r2() - 0.5) * 0.02, (r2() - 0.5) * 0.02));
+      this.elbowR = v3(0.75, -0.62, 0.25);
+      this.cant = 0.06 + (r2() - 0.5) * 0.1;
+      if (this.style === 1) { this.pocket.set(0.16, 0.07, -0.19); this.elbowR.set(0.55, -0.8, 0.4); this.cant = 0.2 + r2() * 0.15; }
+      else if (this.style === 2) { this.elbowR.set(0.95, -0.15, 0.3); this.cant = 0.02; this.pocket.y += 0.012; }
+      this.elbowR.normalize();
+    }
     // default target: out the window / ahead
     this._idle = new THREE.Vector3(this.pose === 'window' ? this.side * 12 : 0, 1.6, this.pose === 'window' ? 3 : -12);
     this._pose(0, this._idle);
@@ -1242,7 +1314,7 @@ export class Gunman {
     let pelY, chestY = this.yaw + blade;
     if (win) {
       pelY = this.out * 0.28 + this.rel * 0.3;
-      _q1.setFromAxisAngle(Z_AX, -side * lean * 0.3);
+      _q1.setFromAxisAngle(Z_AX, -side * lean * 0.18);
       Q[B.pelvis].copy(_q1).multiply(qEuler(_qi, 0, pelY, 0));
     } else if (this.ground) {
       const crouch = this.crouch, run = this.runK;
@@ -1286,7 +1358,7 @@ export class Gunman {
     }
 
     // ---- rifle
-    const pocket = _v4.copy(POCKET).applyQuaternion(Q[B.chest]).add(P[B.chest]);
+    const pocket = _v4.copy(this.pocket).applyQuaternion(Q[B.chest]).add(P[B.chest]);
     const dir = _v5.subVectors(T, pocket).normalize();
     if (this.ready > 0.001) { // low ready: muzzle down/forward of the chest
       _v1.set(0.1, -0.5, -1).normalize().applyQuaternion(Q[B.chest]);
@@ -1305,7 +1377,7 @@ export class Gunman {
     if (reloadW > 0.001) gunPos.add(_v3.set(-0.03, -0.07, 0.02).multiplyScalar(reloadW).applyQuaternion(Q[B.chest]));
     if (this.ready > 0.001) gunPos.add(_v3.set(0.0, -0.04, 0.03).multiplyScalar(this.ready).applyQuaternion(Q[B.chest]));
     // up vector: chest up with a slight cant (big cant while reloading)
-    _v3.set(Math.sin(0.06 + reloadW * 0.75), Math.cos(0.06 + reloadW * 0.75), 0).applyQuaternion(Q[B.chest]);
+    _v3.set(Math.sin(this.cant + reloadW * 0.75), Math.cos(this.cant + reloadW * 0.75), 0).applyQuaternion(Q[B.chest]);
     lookQuat(Q[B.gun], dir, _v3);
     const gunQ = Q[B.gun];
 
@@ -1313,7 +1385,7 @@ export class Gunman {
     // right: pistol grip
     _v1.copy(WRIST_R).applyQuaternion(gunQ).add(gunPos);
     Q[B.handR].copy(gunQ).multiply(HQ_R);
-    this._arm(B.clavR, _v1, _v2.set(0.75, -0.62, 0.25).normalize().applyQuaternion(Q[B.chest]), BI_ARM_R, this.nR);
+    this._arm(B.clavR, _v1, _v2.copy(this.elbowR).applyQuaternion(Q[B.chest]), BI_ARM_R, this.nR);
     // left: handguard, or magazine change path while reloading
     let magInHand = false;
     if (this.reloadT >= 0) {
@@ -1364,8 +1436,8 @@ export class Gunman {
     _qi.copy(Q[B.chest]).invert().multiply(_q1); // relative to chest
     const ang = 2 * Math.acos(Math.min(1, Math.abs(_qi.w)));
     if (ang > 1.25) _q1.identity().slerp(_qi, 1.25 / ang), _qi.copy(_q1);
-    const weld = (1 - this.ready) * (1 - reloadW) * (this.hitT > 0 ? 0.3 : 1);
-    _qi.multiply(qEuler(_q1, -0.22 * weld - this.flinch.x * 0.06, 0.06 * weld, -0.3 * weld + this.flinch.x * 0.03));
+    const weld = (1 - this.ready) * (1 - reloadW) * (this.hitT > 0 ? 0.3 : 1) * (this.style === 1 ? 0 : 1);
+    _qi.multiply(qEuler(_q1, -0.36 * weld - this.flinch.x * 0.06, 0.1 * weld, -0.34 * weld + this.flinch.x * 0.03));
     Q[B.head].copy(Q[B.chest]).multiply(_qi);
     Q[B.neck].copy(Q[B.chest]).multiply(_q1.identity().slerp(_qi, 0.45));
 
@@ -1504,9 +1576,12 @@ const RANGES = [ // [a, b, minFrac, maxFrac] of bind distance
   [4, 2, 0.8, 1.02], [4, 5, 0.75, 1.12], [4, 6, 0.75, 1.12],
   [5, 9, 0.25, 1.0], [6, 10, 0.25, 1.0], [0, 13, 0.32, 1.0], [1, 14, 0.32, 1.0],
   [11, 2, 0.45, 1.06], [12, 2, 0.45, 1.06], [11, 12, 0.5, 3.6], [13, 14, 0.5, 6], [9, 2, 0.35, 9], [10, 2, 0.35, 9], [4, 11, 0.4, 9], [4, 12, 0.4, 9],
+  // limbs keep clear of the opposite shoulder / the head / each other (cheap self-collision)
+  [9, 6, 0.24, 9], [10, 5, 0.24, 9], [7, 6, 0.3, 9], [8, 5, 0.3, 9], [9, 4, 0.28, 9], [10, 4, 0.28, 9], [7, 4, 0.3, 9], [8, 4, 0.3, 9],
+  [9, 10, 0.12, 9], [7, 8, 0.25, 9], [13, 4, 0.2, 9], [14, 4, 0.2, 9], [11, 4, 0.25, 9], [12, 4, 0.25, 9], [9, 0, 0.15, 9], [10, 1, 0.15, 9],
 ];
 const GUN_RIGID = [[15, 16], [15, 17], [16, 17]];
-const GUN_PTS = [new THREE.Vector3(0, 0.0, -0.02), MUZZLE.clone(), new THREE.Vector3(0, -0.17, -0.41)];
+const GUN_PTS = [new THREE.Vector3(0, 0.0, -0.02).multiplyScalar(RS), MUZZLE.clone(), new THREE.Vector3(0, -0.17, -0.41).multiplyScalar(RS)];
 const ROAD_MU = 0.85, REST = 0.28;
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _n = new THREE.Vector3(), _w = new THREE.Vector3();
 const _RQ = Array.from({ length: NB }, () => new THREE.Quaternion());
@@ -1545,9 +1620,10 @@ export class Ragdoll {
       const d0 = BIND_P[i].distanceTo(BIND_P[j]), d = dist(i, j);
       ca.push(i); cb.push(j); cmin.push(Math.min(d0 * lo, d * 0.98)); cmax.push(Math.max(d0 * hi, d * 1.02));
     }
-    if (!this.keepGun) for (const [i, j] of GUN_RIGID) { const d = dist(i, j); ca.push(i); cb.push(j); cmin.push(d); cmax.push(d); }
+    for (const [i, j] of GUN_RIGID) { const d = dist(i, j); ca.push(i); cb.push(j); cmin.push(d); cmax.push(d); }
+    if (this.keepGun) for (const j of [15, 16, 17]) { const d = dist(10, j); ca.push(10); cb.push(j); cmin.push(d); cmax.push(d); } // ball joint at the wrist
     this.ca = Int16Array.from(ca); this.cb = Int16Array.from(cb); this.cmin = Float64Array.from(cmin); this.cmax = Float64Array.from(cmax);
-    this.np = this.keepGun ? NBODY : NP;
+    this.np = NP;
     // initial velocities: car velocity + the hit, biased to the upper body so they pitch out and over
     const dir = _b.copy(dirWorld || _b.set(0, 1, 0));
     if (dir.lengthSq() < 1e-8) dir.set(0, 1, 0);
@@ -1638,6 +1714,7 @@ export class Ragdoll {
         x[jj] -= dx * f * wj; x[jj + 1] -= dy * f * wj; x[jj + 2] -= dz * f * wj;
       }
       this._torsoCollide();
+      if (this.age > 0.06) this._selfCollide();
       if (it === 2) this._kneeHinge();
       this._ground(h, G);
     }
@@ -1697,6 +1774,51 @@ export class Ragdoll {
     }
   }
 
+  // limb / rifle segments vs the pelvis + chest capsules and the head sphere (segment-segment closest points)
+  _selfCollide() {
+    const x = this.x, w = this.w, C = CAPS;
+    C[0] = (x[0] + x[3]) * 0.5; C[1] = (x[1] + x[4]) * 0.5; C[2] = (x[2] + x[5]) * 0.5;
+    for (let si = 0; si < SEGS.length; si++) {
+      const sg = SEGS[si], a = sg[0], b = sg[1], ra = sg[2], tMin = sg[3], mask = sg[4];
+      const ax = x[a * 3], ay = x[a * 3 + 1], az = x[a * 3 + 2], ux = x[b * 3] - ax, uy = x[b * 3 + 1] - ay, uz = x[b * 3 + 2] - az;
+      for (let ci = 0; ci < 3; ci++) {
+        if (!(mask & (1 << ci))) continue;
+        let px, py, pz, qx, qy, qz, cr, c0, c1, half = ci === 0;
+        if (ci === 0) { px = C[0]; py = C[1]; pz = C[2]; c0 = -1; c1 = 2; cr = 0.13; }
+        else if (ci === 1) { px = x[6]; py = x[7]; pz = x[8]; c0 = 2; c1 = 3; cr = 0.15; }
+        else { px = x[12]; py = x[13]; pz = x[14]; c0 = 4; c1 = 4; cr = 0.1; }
+        if (ci === 2) { qx = px; qy = py; qz = pz; } else { qx = x[c1 * 3]; qy = x[c1 * 3 + 1]; qz = x[c1 * 3 + 2]; }
+        const vx = qx - px, vy = qy - py, vz = qz - pz;
+        // closest points between segment a + u*t and capsule axis p + v*s
+        const rx = ax - px, ry = ay - py, rz = az - pz;
+        const uu = ux * ux + uy * uy + uz * uz || 1e-9, vv = vx * vx + vy * vy + vz * vz, uv = ux * vx + uy * vy + uz * vz, ur = ux * rx + uy * ry + uz * rz, vr = vx * rx + vy * ry + vz * rz;
+        let t, sc;
+        if (vv < 1e-9) { sc = 0; t = -ur / uu; }
+        else { const den = uu * vv - uv * uv; t = den > 1e-12 ? (uv * vr - vv * ur) / den : 0; }
+        t = t < tMin ? tMin : t > 1 ? 1 : t;
+        sc = vv < 1e-9 ? 0 : (vr + uv * t) / vv; sc = sc < 0 ? 0 : sc > 1 ? 1 : sc;
+        if (vv >= 1e-9) { t = (uv * sc - ur) / uu; t = t < tMin ? tMin : t > 1 ? 1 : t; }
+        const lx = ax + ux * t, ly = ay + uy * t, lz = az + uz * t, cx = px + vx * sc, cy = py + vy * sc, cz = pz + vz * sc;
+        let dx = lx - cx, dy = ly - cy, dz = lz - cz;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz), md = cr + ra;
+        if (d >= md || d < 1e-6) continue;
+        dx /= d; dy /= d; dz /= d;
+        const wa = w[a] * (1 - t), wb = w[b] * t;
+        let wc0, wc1;
+        if (half) { wc0 = (w[0] + w[1]) * 0.25 * (1 - sc); wc1 = w[2] * sc; } else if (ci === 2) { wc0 = w[4]; wc1 = 0; } else { wc0 = w[c0] * (1 - sc); wc1 = w[c1] * sc; }
+        const den2 = wa * (1 - t) + wb * t + wc0 * (1 - sc) + wc1 * sc || 1e-9;
+        let lam = (md - d) / den2;
+        const mx = Math.max(wa, wb, wc0, wc1) * lam; if (mx > 0.006) lam *= 0.006 / mx; // resolve deep overlaps gradually (no pops)
+        const fa = lam * wa, fb = lam * wb;
+        x[a * 3] += dx * fa; x[a * 3 + 1] += dy * fa; x[a * 3 + 2] += dz * fa;
+        x[b * 3] += dx * fb; x[b * 3 + 1] += dy * fb; x[b * 3 + 2] += dz * fb;
+        if (half) { for (let h = 0; h < 2; h++) { const f0 = lam * w[h] * (1 - sc) * 0.5; x[h * 3] -= dx * f0; x[h * 3 + 1] -= dy * f0; x[h * 3 + 2] -= dz * f0; } }
+        else { const f0 = lam * wc0; x[c0 * 3] -= dx * f0; x[c0 * 3 + 1] -= dy * f0; x[c0 * 3 + 2] -= dz * f0; }
+        if (ci !== 2) { const f1 = lam * wc1; x[c1 * 3] -= dx * f1; x[c1 * 3 + 1] -= dy * f1; x[c1 * 3 + 2] -= dz * f1; }
+      }
+    }
+  }
+
   _kneeHinge() {
     const x = this.x;
     _n.set(x[3] - x[0], x[4] - x[1], x[5] - x[2]); // pelvis right
@@ -1734,6 +1856,11 @@ export class Ragdoll {
     // head / neck
     p(4, _c).sub(p(3, _w));
     frameQuat(Q[B.head], _c, _a, BI_TORSO);
+    { // keep the head within a believable range of the chest (avoids skin tearing at the neck)
+      _q1.copy(Q[B.chest]).invert().multiply(Q[B.head]);
+      const ang = 2 * Math.acos(Math.min(1, Math.abs(_q1.w)));
+      if (ang > 1.0) { _q2.identity().slerp(_q1, 1.0 / ang); Q[B.head].copy(Q[B.chest]).multiply(_q2); }
+    }
     Q[B.neck].copy(Q[B.chest]).slerp(Q[B.head], 0.5);
     // clavicles
     p(3, _w); _c.set(0, 1, 0).applyQuaternion(Q[B.chest]);
@@ -1763,19 +1890,17 @@ export class Ragdoll {
     // pelvis bone position (hip midpoint sits 5 cm below the pelvis head)
     _P[B.pelvis].set(0, 0.05, 0).applyQuaternion(Q[B.pelvis]).add(this._pos);
     // rifle
+    p(15, _a); p(16, _b); p(17, _c);
+    _w.subVectors(_a, _b); // muzzle -> butt = +z
+    _n.subVectors(_a, _c); // roughly up
+    frameQuat(Q[B.gun], _w, _n, BI_GUN_UP);
     if (this.keepGun) {
-      // FK to the right hand
+      // the rifle swings on a ball joint at the wrist; the hand keeps its grip, so orient the hand from the rifle
+      Q[B.handR].copy(Q[B.gun]).multiply(HQ_R);
       const P = _P;
       for (const b of RARM_CHAIN) P[b].copy(OFF[b]).applyQuaternion(Q[PARENT[b]]).add(P[PARENT[b]]);
-      Q[B.gun].copy(Q[B.handR]).multiply(GUNQ_FROM_HAND);
       _P[B.gun].copy(GUNP_IN_HAND).applyQuaternion(Q[B.handR]).add(P[B.handR]);
-    } else {
-      p(15, _a); p(16, _b); p(17, _c);
-      _w.subVectors(_a, _b); // muzzle -> butt = +z
-      _n.subVectors(_a, _c); // roughly up
-      frameQuat(Q[B.gun], _w, _n, BI_GUN_UP);
-      _P[B.gun].copy(GUN_PTS[0]).negate().applyQuaternion(Q[B.gun]).add(_a);
-    }
+    } else _P[B.gun].copy(GUN_PTS[0]).negate().applyQuaternion(Q[B.gun]).add(_a);
     Q[B.mag].copy(Q[B.gun]);
     _P[B.mag].copy(MAG_OFF).applyQuaternion(Q[B.gun]).add(_P[B.gun]);
     // write locals
@@ -1796,6 +1921,12 @@ export class Ragdoll {
     this.gm.disposed = true;
   }
 }
+// [a, b, radius, tMin (skip the part rooted on the torso), capsule mask: 1 pelvis, 2 chest, 4 head]
+const SEGS = [
+  [5, 7, 0.055, 0.4, 3], [6, 8, 0.055, 0.4, 3], [7, 9, 0.045, 0, 7], [8, 10, 0.045, 0, 7],
+  [0, 11, 0.07, 0.45, 2], [1, 12, 0.07, 0.45, 2], [11, 13, 0.055, 0, 7], [12, 14, 0.055, 0, 7],
+  [15, 16, 0.03, 0, 7], [16, 17, 0.03, 0, 7],
+];
 const CAPS = new Float64Array(9), FLAIL = [9, 10, 13, 14, 7, 8], RARM_CHAIN = [B.spine, B.chest, B.clavR, B.uarmR, B.farmR, B.handR];
 // particles tested against [pelvis capsule, chest capsule]
 const COLL = [[4, 7, 8, 9, 10, 13, 14], [7, 8, 9, 10, 11, 12, 13, 14]];
@@ -1822,8 +1953,9 @@ export function warmupGunmen() {
 // measured from vehicles.js pickupGeometry(): bench top y 0.96 (cushion z -0.5..0, back rest
 // leaning back from z -0.14 @ y 0.95 to z -0.04 @ y 1.44); steering(): torus centre
 // (-0.45, 1.27, -0.75), radius 0.185, rotated about x by +0.42 rad.
-export const DRIVER_SEAT = { position: [-0.45, 0.92, -0.25], wheel: [-0.45, 1.27, -0.75], wheelTilt: 0.42, wheelRadius: 0.185 };
+export const DRIVER_SEAT = { position: [-0.45, 0.87, -0.25], wheel: [-0.45, 1.27, -0.75], wheelTilt: 0.42, wheelRadius: 0.185 };
 const D_OFF = new THREE.Vector3(0, -0.87, 0); // mesh offset inside the root (pelvis 0.10 above the seat point)
+const D_HDY = -0.016; // the hero's head sits lower on his neck (shorter visible neck)
 const DPARENT = PARENT.slice(); DPARENT[19] = B.head; DPARENT[20] = B.handR;
 const MIR_D = MIR_S.slice(); MIR_D[20] = B.handL;
 // bind: arms straight toward the wheel, legs seated (in soldier/mesh coordinates)
@@ -1851,7 +1983,7 @@ const DHEADS = HEADS.map(h => h.clone());
     DHEADS[t + 1].copy(DHEADS[t]).addScaledVector(dth, TH);
     DHEADS[t + 2].copy(DHEADS[t + 1]).addScaledVector(dsh, SH);
   }
-  DHEADS[19].set(0, HEAD_C.y - 0.032, HEAD_C.z + 0.022); // jaw hinge
+  DHEADS[19].set(0, HEAD_C.y + D_HDY - 0.032, HEAD_C.z + 0.022); // jaw hinge
   DHEADS[20].set(WRX + 0.083, 1.44, 0).sub(DHEADS[B.uarmR]).applyQuaternion(Q_ARM_R).add(DHEADS[B.uarmR]); // right knuckles
 }
 const DOFF = DHEADS.map((h, i) => (DPARENT[i] < 0 ? h.clone() : h.clone().sub(DHEADS[DPARENT[i]])));
@@ -1860,7 +1992,7 @@ const pivotMat = (q, p) => new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).mu
 function driverParts() {
   const parts = [], add = (p) => { parts.push(p); return p; };
   // ---- leather bomber over a tee: torso with the zip open at the front, seated bunching, rib hem
-  const openW = (y) => lerp(0.05, 0.034, sst(1.1, 1.47, y));
+  const openW = (y) => 0.042 * sst(1.42, 1.5, y);
   const torso = torsoGeo({ M: 26, bulk: 0.012, ys: lin(0.85, 1.53, 22), post: (q, th, y) => {
     let [x, yy, z] = q;
     const back = Math.max(0, Math.sin(th)), front = Math.max(0, -Math.sin(th));
@@ -1870,28 +2002,39 @@ function driverParts() {
       + 0.03 * gs((y - 0.975) / 0.02); // rib hem rolls out a little
     x *= k; z = z * k;
     // open front: the tee sits ~1.5 cm behind the jacket fronts
-    if (front > 0.3 && y > 0.99 && y < 1.5) { const t = sst(openW(y) + 0.006, openW(y) - 0.006, Math.abs(x)) * sst(0.99, 1.02, y); z += 0.016 * t; }
+    if (front > 0.3 && y > 1.42 && y < 1.5) { const t = sst(openW(y) + 0.008, openW(y) - 0.004, Math.abs(x)); z += 0.014 * t; }
     return [x, yy, z];
   } });
   add({ g: torso, wf: torsoWF, slot: S.JACKET, paint: (P, N, out) => {
     if (P.y < 0.955) { out.s1 = S.JEANS; return; }
     if (P.y < 0.998) { out.s1 = S.KNEE; out.k *= 0.85 + 0.15 * Math.abs(Math.sin(Math.atan2(P.x, P.z) * 40)); return; }
-    if (P.z < 0 && P.y < 1.5) { const t = sst(openW(P.y) + 0.004, openW(P.y) - 0.004, Math.abs(P.x)); if (t > 0) { out.s2 = S.TEE; out.m = t; } }
+    if (P.z < 0 && P.y < 1.5) {
+      const t = P.y > 1.42 ? sst(openW(P.y) + 0.006, openW(P.y) - 0.004, Math.abs(P.x)) : 0;
+      if (t > 0) { out.s2 = S.TEE; out.m = t; } else if (Math.abs(P.x) < 0.012) out.k *= 0.75; // zip line
+    }
+    out.k *= 0.92 + 0.12 * fbm(P.x * 18, P.y * 18, P.z * 18); // worn leather
   } });
   // shearling collar + crew neck
-  add({ g: ringStack([[1.455, 0.07, 0.078, 0.064, 0.012], [1.458, 0.096, 0.104, 0.084, 0.014], [1.5, 0.094, 0.104, 0.074, 0.016], [1.54, 0.08, 0.09, 0.064, 0.018], [1.546, 0.066, 0.074, 0.056, 0.014]], 20,
-    (p, th, i) => { const b = Math.max(0, Math.sin(th)); p[1] += (i > 1 ? 0.04 : 0.012) * b * b - (i > 1 ? 0.012 : 0) * Math.max(0, -Math.sin(th)); return p; }),
-    wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.545, B.neck]], W), slot: S.RIB, paint: (P, N, out) => { out.k *= 0.9 + 0.2 * hash3(P.x * 400, P.y * 400, P.z * 400); } });
+  add({ g: ringStack([[1.452, 0.068, 0.076, 0.062, 0.012], [1.456, 0.1, 0.108, 0.088, 0.014], [1.49, 0.108, 0.114, 0.086, 0.016], [1.528, 0.1, 0.104, 0.074, 0.018], [1.55, 0.086, 0.09, 0.062, 0.018], [1.552, 0.07, 0.076, 0.056, 0.014], [1.5, 0.064, 0.072, 0.054, 0.012], [1.452, 0.068, 0.076, 0.062, 0.012]], 22,
+    (p, th, i) => { const b = Math.max(0, Math.sin(th)), f = Math.max(0, -Math.sin(th)); const up = [0, 0.01, 0.025, 0.04, 0.045, 0.042, 0.02, 0][i]; p[1] += up * b * b - (i > 2 && i < 6 ? 0.018 : 0) * f; return p; }),
+    wf: (P, W) => chainW(P.y, [[1.5, B.chest], [1.58, B.neck]], W), slot: S.RIB, aoMin: 0.62, paint: (P, N, out) => {
+      out.k *= 0.9 + 0.14 * fbm(P.x * 50, P.y * 50, P.z * 50);
+      const vf = sst(-0.02, -0.05, P.z - 0.012) * sst(0.08, 0.045, Math.abs(P.x)); // the shearling stops at the lapel edges: tee crew neck in front
+      if (vf > 0) { out.s2 = S.TEE; out.m = vf; }
+      const inward = -(N.x * P.x + N.z * (P.z - 0.012)) / (Math.hypot(P.x, P.z - 0.012) || 1);
+      if (inward > 0.2) out.k *= 1.12; else if (N.y < -0.3) out.k *= 0.8; // light fleece lining facing the neck
+    } });
   add({ g: ringStack([[1.47, 0.058, 0.058, 0.056, 0.0], [1.472, 0.066, 0.066, 0.064, 0.0], [1.5, 0.062, 0.062, 0.06, -0.002]], 16), wf: (P, W) => chainW(P.y, [[1.49, B.chest], [1.52, B.neck]], W), slot: S.TEE });
   // ---- neck + head (stubble, short hair) + aviators
   const jawWF = (P, W) => {
-    const y = P.y - HEAD_C.y, z = P.z - HEAD_C.z;
-    const nk = sst(1.582, 1.547, P.y) * sst(-0.03, 0.02, z);
+    const y = P.y - HEAD_C.y - D_HDY, z = P.z - HEAD_C.z;
+    const nk = 0.55 * sst(1.582 + D_HDY, 1.547 + D_HDY, P.y) * sst(-0.03, 0.02, z);
     const jw = sst(-0.046, -0.062, y) * sst(0.03, -0.012, z) * (1 - nk);
     W[0] = B.head; W[1] = 1 - jw - nk; W[2] = 19; W[3] = jw; W[4] = B.neck; W[5] = nk; return 3;
   };
-  addNeckHead(add, 'skin', { beard: 0.8, hair: true, hairVol: 0.007, brows: true, ears: true, wf: jawWF });
-  aviators(add);
+  addNeckHead(add, 'skin', { beard: 0.85, hair: true, hairVol: 0.006, brows: true, ears: true, wf: jawWF, dy: D_HDY, M: 30, ys: HEAD_YS_HI, vary: true });
+  aviators(add, D_HDY);
+  truckerCap(add, D_HDY);
   // ---- arms: leather sleeves with folds, rib cuffs, bare wrists, watch on the left
   const ak = [[0.15, 0.048, 0.056, 0.056, -0.012, 0, 2], [0.19, 0.056, 0.066, 0.066, -0.008, 0, 2.1], [0.25, 0.058, 0.064, 0.065, -0.004, 0, 2.1]]
     .concat(ARM_KEYS.filter(k => k[0] > 0.3 && k[0] < 0.64).map(([s, a, b, c, cu, cv, n]) => [s, a * 1.1, b * 1.1, c * 1.1, cu, cv, n]));
@@ -1927,8 +2070,24 @@ function driverParts() {
   }
   return parts;
 }
-function aviators(add) {
-  const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y, HEAD_C.z); return g; };
+function truckerCap(add, dy) {
+  const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z); return g; };
+  const ring = (t, rr) => { const pts = []; for (let j = 0; j < 20; j++) { const a = (j / 20) * Math.PI * 2 - Math.PI; const th = Math.PI * (0.48 - 0.07 * Math.cos(a)) * t; const sx = Math.sin(a), sz = -Math.cos(a); pts.push([0.086 * rr * Math.sin(th) * sx, 0.02 + 0.118 * rr * Math.cos(th) + 0.008 * Math.max(0, -sz) * t, 0.008 + (sz < 0 ? 0.097 : 0.121) * rr * Math.sin(th) * sz]); } return pts; };
+  const rs = [0.08, 0.3, 0.52, 0.72, 0.88, 1.0].map(t => ring(t, 1.045)); rs.push(ring(1.0, 0.99));
+  // foam front panel + mesh back (lighter, dotted)
+  add({ g: H(loftGeo(rs, true, false)), bone: B.head, slot: S.HAT, paint: (P, N, out) => {
+    const z = P.z - HEAD_C.z;
+    out.s2 = S.FAT2; out.m = sst(-0.015, -0.04, z); // white foam front panel, red mesh sides/back
+    if (z > -0.02) out.k *= 0.86 + 0.06 * fbm(P.x * 40, P.y * 40, P.z * 40);
+    if (Math.abs(P.x) < 0.006 && z > 0) out.k *= 0.75; // back seam
+    if (P.y - HEAD_C.y - dy < 0.045) out.k *= 0.85;
+  } });
+  add({ g: H(place(bend(rbox(0.15, 0.011, 0.08, 0.005, 6, 3, 4), 0, -1.8), 0, 0.05, -0.128, -0.06)), bone: B.head, slot: S.HAT, paint: (P, N, out) => { if (N.y < -0.3) out.k *= 0.55; } });
+  add({ g: H(ellip(0.009, 0, 0.133, 0.012, 1, 0.5, 1, 8, 4)), bone: B.head, slot: S.HAT });
+  add({ g: H(place(bend(rbox(0.05, 0.012, 0.006, 0.002, 5, 3, 3), -6), 0, 0.034, 0.112, -0.35)), bone: B.head, slot: S.STRAP }); // snapback strap
+}
+function aviators(add, dy = 0) {
+  const H = (g) => { g.scale(HS, HS, HS); g.translate(HEAD_C.x, HEAD_C.y + dy, HEAD_C.z); return g; };
   const outline = (sx, sc, z, M = 18) => {
     const pts = [];
     for (let j = 0; j < M; j++) {
@@ -1963,10 +2122,10 @@ function driverPalette(seed) {
   const r = makeRng((seed * 2246822519) >>> 0 ^ 0x27d4eb2d);
   const pal = new Float32Array(NS * 3);
   const set = (slot, c, k = 1) => { pal[slot * 3] = c.r * k; pal[slot * 3 + 1] = c.g * k; pal[slot * 3 + 2] = c.b * k; };
-  const skin = new THREE.Color('#c48a62').multiplyScalar(0.94 + 0.12 * r()), hair = new THREE.Color('#4a3524');
-  set(S.SKIN, skin); set(S.SKIN2, skin, 0.5); set(S.LIP, _col.copy(skin).multiply(new THREE.Color(0.86, 0.6, 0.56)));
-  set(S.BEARD, _col.copy(skin).lerp(new THREE.Color('#3a3a40'), 0.6)); set(S.HAIR, hair); set(S.BROW, hair, 0.85);
-  set(S.JACKET, new THREE.Color('#5a3c2b')); set(S.RIB, new THREE.Color('#c2b090')); set(S.TEE, new THREE.Color('#74726d')); set(S.KNEE, new THREE.Color('#34302d'));
+  const skin = new THREE.Color('#c39c82').multiplyScalar(0.96 + 0.08 * r()), hair = new THREE.Color('#4a3828');
+  set(S.SKIN, skin); set(S.SKIN2, skin, 0.5); set(S.LIP, _col.copy(skin).multiply(new THREE.Color(0.9, 0.62, 0.6)));
+  set(S.BEARD, _col.copy(skin).lerp(new THREE.Color('#3a3a40'), 0.55)); set(S.HAIR, hair); set(S.BROW, hair, 0.7);
+  set(S.JACKET, new THREE.Color('#5a3c2b')); set(S.RIB, new THREE.Color('#d6c7a8')); set(S.HAT, new THREE.Color('#8a2f27')); set(S.FAT2, new THREE.Color('#cfc8b6')); set(S.TEE, new THREE.Color('#57565a')); set(S.KNEE, new THREE.Color('#34302d'));
   set(S.JEANS, new THREE.Color('#3b4762')); set(S.BOOT, new THREE.Color('#7a5638')); set(S.SOLE, new THREE.Color('#3a3430'));
   set(S.WATCH, new THREE.Color('#b8b8b4')); set(S.GOLD, new THREE.Color('#d8b060')); set(S.ALENS, new THREE.Color('#3a2a18')); set(S.LENS, new THREE.Color('#a8763c'));
   set(S.EYE, _col.setRGB(0.55, 0.5, 0.46)); set(S.IRIS, _col.setRGB(0.04, 0.03, 0.025)); set(S.STRAP, _col.setRGB(0.05, 0.05, 0.05));
@@ -1976,8 +2135,8 @@ function driverPalette(seed) {
 const _dq = Array.from({ length: NB }, () => new THREE.Quaternion());
 const _dp = Array.from({ length: NB }, () => new THREE.Vector3());
 const _gw = new THREE.Vector3(), _gq = new THREE.Quaternion(), _hq = new THREE.Quaternion(), _tg = new THREE.Vector3(), _hn = new THREE.Vector3();
-const D_LOOK = { // look targets in mesh space
-  mirror: v3(0.45, 1.74, -0.47), side: v3(-0.56, 1.22, -0.76), back: v3(0.45, 2.05, 1.7),
+const D_LOOK_T = { // look targets in truck space: rear-view mirror, left door mirror, the player in the bed
+  mirror: v3(0, 1.8, -0.72), side: v3(-1.0, 1.29, -1.0), back: v3(0, 2.15, 1.45),
 };
 function damp1(a, b, k, dt) { return a + (b - a) * (1 - Math.exp(-k * dt)); }
 
@@ -1993,7 +2152,7 @@ export class Driver {
     this.mesh.position.copy(D_OFF);
     this.bones = this.mesh.skeleton.bones;
     this.root = new THREE.Group(); this.root.name = 'driver'; this.root.add(this.mesh);
-    this.headCenter = new THREE.Object3D(); this.headCenter.position.copy(HEAD_C).sub(DHEADS[B.head]); this.bones[B.head].add(this.headCenter);
+    this.headCenter = new THREE.Object3D(); this.headCenter.position.copy(HEAD_C).sub(DHEADS[B.head]); this.headCenter.position.y += D_HDY; this.bones[B.head].add(this.headCenter);
     const seat = opts.seat || DRIVER_SEAT, ta = seat.wheelTilt ?? 0.42;
     this.wc = v3(...seat.wheel).sub(v3(...seat.position)).sub(D_OFF);
     this.wr = seat.wheelRadius ?? 0.185;
@@ -2005,6 +2164,11 @@ export class Driver {
     this.look = 'road'; this.lookT = 0; this.lookDur = 0; this.nextLook = 2 + this.rng() * 3;
     this.talkW = 0; this.wasTalking = false; this.jaw = 0;
     this.gest = null; this.gestW = 0; this.finger = 0;
+    this.relax = 0; this.relaxWant = this.rng() < 0.6; this.relaxT = 2 + this.rng() * 4;
+    // left elbow on the door sill (truck space -> mesh space)
+    const sp = v3(...seat.position).add(D_OFF);
+    this.sillE = v3(-0.86, 1.315, -0.33).sub(sp); this.sillW = v3(-0.83, 1.36, -0.58).sub(sp);
+    this.lookPts = {}; for (const k in D_LOOK_T) this.lookPts[k] = D_LOOK_T[k].clone().sub(sp);
     this.nL = new THREE.Vector3(); this.nR = new THREE.Vector3();
     this.disposed = false;
     this.update(0, { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 });
@@ -2048,6 +2212,12 @@ export class Driver {
     // ---- where to look
     const lb = st.lookBack || 0;
     this.lookT += dt;
+    // relaxed driving (left elbow on the sill, right hand at the top of the wheel) whenever things are calm
+    const calm = Math.abs(this.steer) < 0.22 && Math.abs(this.lat) < 0.5 && this.duckS.x < 0.1 && this.duckHold <= 0 && Math.abs(this.bumpS.x) < 0.06 && lb < 0.3 && !this.gest;
+    this.relaxT -= dt;
+    if (this.relaxT <= 0) { this.relaxWant = !this.relaxWant; this.relaxT = this.relaxWant ? 5 + r() * 7 : 3 + r() * 4; }
+    const rg = calm && this.relaxWant ? 1 : 0;
+    this.relax = dt > 0 ? damp1(this.relax, rg, rg > this.relax ? 2.2 : 6, dt) : rg;
     if (lb > 0.45 && this.duckHold <= 0) { if (this.look !== 'back') this._setLook('back', 0.8); else this.lookDur = Math.max(this.lookDur, this.lookT + 0.3); }
     if (this.look !== 'road' && this.lookT > this.lookDur) { this.look = 'road'; this.lookT = 0; this.nextLook = 2.5 + r() * 4.5; }
     if (this.look === 'road' && this.lookT > this.nextLook) {
@@ -2064,19 +2234,19 @@ export class Driver {
     P[B.pelvis].copy(DHEADS[B.pelvis]);
     P[B.pelvis].y += 0.0025 * Math.sin(t * 23.1) + 0.0015 * Math.sin(t * 37.7) - 0.03 * bmp;
     const roll = clamp(0.045 * this.steer + 0.05 * this.lat, -0.12, 0.12);
-    qEuler(Q[B.pelvis], 0.1 + 0.03 * bmp, 0, roll * 0.4);
+    qEuler(Q[B.pelvis], 0.2 + 0.03 * bmp, 0, roll * 0.4);
     // ---- look: target angles relative to the chest
     const back = this.look === 'back';
     let tgt;
     if (this.look === 'road') tgt = _tg.set(this.steer * 4 + Math.sin(t * 0.37) * 1.6 + Math.sin(t * 1.13) * 0.4, 1.5 + Math.sin(t * 0.51) * 0.25, -30);
-    else tgt = _tg.copy(D_LOOK[this.look]);
-    const twistG = back ? -0.38 : 0;
+    else tgt = _tg.copy(this.lookPts[this.look]);
+    const twistG = back ? -0.3 : 0;
     this.twist = dt > 0 ? damp1(this.twist, twistG, back ? 5 : 3.5, dt) : twistG;
     // spine / chest
-    const hunch = -0.07 - 0.32 * duck + 0.06 * bmp + 0.012 * Math.sin(t * 1.6);
-    qEuler(_q1, -0.03 - 0.14 * duck, this.twist * 0.45, roll * 0.5 + (back ? -0.04 : 0));
+    const hunch = -0.04 - 0.32 * duck + 0.06 * bmp + 0.012 * Math.sin(t * 1.6) + 0.03 * this.relax;
+    qEuler(_q1, -0.02 - 0.14 * duck, this.twist * 0.5, roll * 0.5 + (back ? -0.04 : 0) - 0.05 * this.relax);
     Q[B.spine].copy(Q[B.pelvis]).multiply(_q1);
-    qEuler(_q1, hunch, this.twist * 0.55, roll * 0.6 + (back ? -0.05 : 0));
+    qEuler(_q1, hunch, this.twist * 0.5, roll * 0.6 + (back ? -0.05 : 0));
     Q[B.chest].copy(Q[B.spine]).multiply(_q1);
     P[B.spine].copy(DOFF[B.spine]).applyQuaternion(Q[B.pelvis]).add(P[B.pelvis]);
     P[B.chest].copy(DOFF[B.chest]).applyQuaternion(Q[B.spine]).add(P[B.spine]);
@@ -2113,7 +2283,7 @@ export class Driver {
     // ---- hands on the wheel (rim points rotate with the wheel angle; clockwise = steering right)
     const wa = this.wheelAngle;
     for (const s of [1, -1]) {
-      const phi = (s > 0 ? 0.32 : Math.PI - 0.32) - wa;
+      const phi = (s > 0 ? lerp(0.32, 1.22, this.relax) : Math.PI - 0.32) - wa;
       const R = _v3.copy(this.wX).multiplyScalar(Math.cos(phi)).addScaledVector(this.wY, Math.sin(phi));
       const Tg = _v4.copy(this.wX).multiplyScalar(-Math.sin(phi)).addScaledVector(this.wY, Math.cos(phi));
       const palmN = _v5.copy(R).multiplyScalar(-0.75).addScaledVector(this.wN, -0.66).normalize();
@@ -2152,7 +2322,17 @@ export class Driver {
     }
     this.finger = dt > 0 ? damp1(this.finger, fingerOpen, 10, dt) : fingerOpen;
     driverArm(B.clavR, wristR, _v2.set(0.75, -0.6, 0.25).normalize().applyQuaternion(Q[B.chest]), BI_DARM_R, this.nR);
-    driverArm(B.clavL, this._wL, _v2.set(-0.75, -0.6, 0.25).normalize().applyQuaternion(Q[B.chest]), BI_DARM_L, this.nL);
+    let wristL = this._wL;
+    _v2.set(-0.75, -0.6, 0.25).normalize().applyQuaternion(Q[B.chest]);
+    if (this.relax > 0.001) {
+      const w = sst(0, 1, this.relax);
+      _v4.set(0.12, -0.32, -0.94).normalize(); _v5.set(0.35, -0.93, 0.05).normalize(); // fingers forward, palm down on the door top
+      frameQuat(_q3, _v4, _v5, BI_DHAND_L);
+      wristL = _tg.copy(this._wL).lerp(this.sillW, w).addScaledVector(Y_AX, 0.06 * Math.sin(Math.PI * w));
+      Q[B.handL].slerp(_q3, w);
+      _v3.copy(this.sillE).sub(P[B.uarmL]).normalize(); _v2.lerp(_v3, w).normalize();
+    }
+    driverArm(B.clavL, wristL, _v2, BI_DARM_L, this.nL);
     Q[20].copy(Q[B.handR]).multiply(_q1.setFromAxisAngle(D_KNUCKLE_AX, 1.05 * this.finger));
     // ---- legs stay planted in the cab frame
     for (const b of [B.thighL, B.shinL, B.footL, B.thighR, B.shinR, B.footR]) Q[b].identity();

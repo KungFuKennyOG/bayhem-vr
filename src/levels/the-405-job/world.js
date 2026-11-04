@@ -30,7 +30,7 @@ class Scroller {
     this.span = count * spacing;
     const m = new THREE.Matrix4();
     for (let i = 0; i < count; i++) {
-      const it = { z: Z_NEAR - this.span + i * spacing + phase, n: i * 7919 + 13, data: {} };
+      const it = { z: Z_NEAR - this.span + i * spacing + phase, n: i * 7919 + 13, data: {}, i };
       reroll(it, true);
       this.items.push(it);
     }
@@ -83,20 +83,30 @@ export class World {
     const aniso = renderer.capabilities.getMaxAnisotropy();
     // ---------------- ground ----------------
     const groundTex = T.groundTexture();
-    groundTex.repeat.set(1600 / 14, SPAN / 14);
+    groundTex.repeat.set(1600 / 16, SPAN / 16);
     groundTex.anisotropy = aniso;
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, SPAN), new THREE.MeshLambertMaterial({ map: groundTex, color: 0xc9b7a0 }));
+    const groundMat = new THREE.MeshLambertMaterial({ map: groundTex, color: 0xf4efe8, emissive: 0x5c4a30, emissiveMap: groundTex });
+    // macro variation (watered / burnt / bare patches every ~160 m) multiplied over the 16 m detail tile
+    const macro = T.groundMacroTexture();
+    groundMat.onBeforeCompile = (sh) => {
+      sh.uniforms.macroMap = { value: macro };
+      sh.fragmentShader = 'uniform sampler2D macroMap;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= texture2D( macroMap, vMapUv * 0.1 ).rgb * 2.0;');
+    };
+    groundMat.customProgramCacheKey = () => 'bayGroundMacro';
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, SPAN), groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.set(0, -0.06, (Z_NEAR + Z_FAR) / 2);
     ground.receiveShadow = true;
     this.group.add(ground);
-    this._scrollTex(groundTex, 14);
+    this._scrollTex(groundTex, 16);
 
     // ---------------- road ----------------
-    const { map, normalMap } = T.roadTextures();
-    map.anisotropy = aniso; normalMap.anisotropy = aniso;
+    const { map, normalMap, roughnessMap } = T.roadTextures();
+    map.anisotropy = aniso; normalMap.anisotropy = aniso; roughnessMap.anisotropy = aniso;
     const reps = SPAN / T.ROAD.tileLen;
-    map.repeat.set(1, reps); normalMap.repeat.set(1, reps);
-    const roadMat = new THREE.MeshStandardMaterial({ map, normalMap, normalScale: new THREE.Vector2(0.22, 0.22), roughness: 0.7, metalness: 0.0, envMapIntensity: 0.65, color: 0xd2c8bc });
+    map.repeat.set(1, reps); normalMap.repeat.set(1, reps); roughnessMap.repeat.set(1, reps);
+    // warm grey aged asphalt; polished wheel tracks / oil / tar seams are smoother (roughness map) so they glint toward the sun
+    const roadMat = new THREE.MeshStandardMaterial({ map, normalMap, roughnessMap, normalScale: new THREE.Vector2(0.35, 0.35), roughness: 1.0, metalness: 0.0, envMapIntensity: 0.28, color: 0xfff3e6, emissive: 0x6e5838, emissiveMap: map, emissiveIntensity: 1.0 });
+    // emissive = warm bounce from the sunset haze: the grazing sun + blue hemisphere alone leave flat ground navy
     const road = new THREE.Mesh(new THREE.PlaneGeometry(T.ROAD.width, SPAN), roadMat);
     road.rotation.x = -Math.PI / 2; road.position.set(ROAD_L + T.ROAD.width / 2, 0, (Z_NEAR + Z_FAR) / 2);
     road.receiveShadow = true;
@@ -104,12 +114,13 @@ export class World {
     // oncoming side (mirrored)
     const map2 = map.clone(); map2.repeat.set(-1, reps); map2.needsUpdate = true;
     const n2 = normalMap.clone(); n2.repeat.set(-1, reps); n2.needsUpdate = true;
+    const rm2 = roughnessMap.clone(); rm2.repeat.set(-1, reps); rm2.needsUpdate = true;
     const road2 = new THREE.Mesh(new THREE.PlaneGeometry(T.ROAD.width, SPAN), roadMat.clone());
-    road2.material.map = map2; road2.material.normalMap = n2;
+    road2.material.map = map2; road2.material.emissiveMap = map2; road2.material.normalMap = n2; road2.material.roughnessMap = rm2;
     road2.rotation.x = -Math.PI / 2; road2.position.set(-9.8 - T.ROAD.width / 2, 0, (Z_NEAR + Z_FAR) / 2);
     road2.receiveShadow = true;
     this.group.add(road2);
-    for (const t of [map, normalMap, map2, n2]) this._scrollTex(t, T.ROAD.tileLen);
+    for (const t of [map, normalMap, roughnessMap, map2, n2, rm2]) this._scrollTex(t, T.ROAD.tileLen);
     this.roadMat = roadMat;
 
     // ---------------- barriers (continuous, scrolling texture) ----------------
@@ -244,53 +255,37 @@ export class World {
       });
     }
 
-    // ---------------- buildings (both sides) ----------------
+    // ---------------- buildings (both sides): one atlas material, one draw call per variant ----------------
     {
-      const variants = [];
-      for (let v = 0; v < 8; v++) {
-        const r = makeRng(500 + v * 17);
-        const floors = 3 + Math.floor(r() * (v < 4 ? 5 : 12));
-        const fh = 3.4;
-        const w = 16 + r() * 26, d = 14 + r() * 18, h = floors * fh;
-        const bays = Math.max(3, Math.round(w / 3.6));
-        const { map, emissiveMap } = T.facadeTextures2(700 + v * 13, floors, bays);
-        map.anisotropy = 4;
-        const mat = new THREE.MeshLambertMaterial({ map, emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.75 });
-        const side = T.facadeTextures2(900 + v * 13, floors, Math.max(3, Math.round(d / 3.6)));
-        const matSide = new THREE.MeshLambertMaterial({ map: side.map, emissiveMap: side.emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.75 });
-        const roofMat = new THREE.MeshLambertMaterial({ color: 0x5a524c });
-        const trimMat = new THREE.MeshLambertMaterial({ color: 0x3c3632 });
-        // box with per-face materials: +x,-x side; +z,-z front; y roof
-        const g = box(w, h, d); g.translate(0, h / 2, 0);
-        g.clearGroups();
-        // BoxGeometry index order: px, nx, py, ny, pz, nz (6 indices*... each face 6 indices)
-        g.addGroup(0, 12, 2); g.addGroup(12, 12, 0); g.addGroup(24, 12, 1);
-        const parts = [];
-        const extra = [];
-        extra.push([at(box(w + 0.5, 0.7, d + 0.5), 0, h + 0.35, 0), 3]);
-        extra.push([at(box(w * 0.28, 2.2, d * 0.3), (r() - 0.5) * w * 0.4, h + 1.1, (r() - 0.5) * d * 0.4), 2]);
-        if (r() < 0.7) { extra.push([at(cyl(1.2, 1.2, 2.4, 10), w * 0.3, h + 2.6, -d * 0.2), 3]); extra.push([at(box(0.14, 1.4, 0.14), w * 0.3 + 0.8, h + 0.7, -d * 0.2 + 0.8), 3]); extra.push([at(box(0.14, 1.4, 0.14), w * 0.3 - 0.8, h + 0.7, -d * 0.2 - 0.8), 3]); }
-        if (r() < 0.5) for (let k = 0; k < 4; k++) extra.push([at(box(1.6, 1.0, 1.2), (r() - 0.5) * w * 0.7, h + 0.5, (r() - 0.5) * d * 0.7), 3]);
-        if (h > 30 && r() < 0.6) extra.push([at(box(0.2, 8, 0.2), 0, h + 4, 0), 3]);
-        // ledges every few floors
-        for (let f = 1; f < floors; f += 3) extra.push([at(box(w + 0.3, 0.25, d + 0.3), 0, f * fh, 0), 3]);
-        const { geometry: eg } = mergeGrouped(extra, 4);
-        const geom = merge2(g, eg);
-        variants.push({ geometry: geom, mats: [roofMat, mat, matSide, trimMat], w, d, h });
-      }
-      variants.forEach((v, vi) => {
-        const n = 12;
-        const mesh = new THREE.InstancedMesh(v.geometry, v.mats, n);
+      const A = T.buildingAtlas();
+      const mat = new THREE.MeshLambertMaterial({ map: A.map, emissiveMap: A.emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.85 });
+      patchAtlasMaterial(mat);
+      this.buildingMat = mat;
+      const PAL = ['#f2e6d0', '#e8c9a8', '#dca488', '#e9bcb2', '#cfe0cf', '#efe0a6', '#d9d7d1', '#c8d3de', '#f2d6b8', '#bba892', '#e3c2ca', '#f6f1e6'].map(h => new THREE.Color(h));
+      const tmpC = new THREE.Color();
+      for (let v = 0; v < 10; v++) {
+        const V = buildingVariant(v, A.R);
+        const n = 9;
+        const mesh = new THREE.InstancedMesh(V.geometry, mat, n);
+        for (let i = 0; i < n; i++) mesh.setColorAt(i, PAL[0]);
         mesh.castShadow = false; mesh.receiveShadow = false; mesh.frustumCulled = false;
         this.group.add(mesh);
-        this.scrollers.push(new Scroller(mesh, n, SPAN / n, vi * 9, (it) => {
-          const r = makeRng(it.n * 3 + vi);
-          const side = r() < 0.55 ? 1 : -1;
-          it.data.x = side > 0 ? 30 + v.w / 2 + r() * 80 : -44 - v.w / 2 - r() * 90;
-          it.data.ry = (side > 0 ? -Math.PI / 2 : Math.PI / 2) + (r() < 0.3 ? Math.PI / 2 : 0);
-          it.data.dz = (r() - 0.5) * 20;
+        // phases spread evenly (a building every SPAN/n/10 m); side + depth row are fixed per slot so
+        // neighbours on the same side never share a row (no interpenetrating footprints)
+        this.scrollers.push(new Scroller(mesh, n, SPAN / n, v * SPAN / n / 10 + 3, (it) => {
+          const r = makeRng(it.n * 3 + v);
+          const g = it.i * 10 + v; // z-order slot around the whole loop (90 slots: divisible by 6)
+          const side = g % 2 ? 1 : -1;
+          const row = Math.floor(g / 2) % 3;
+          const turned = r() < 0.25;
+          const hx = (turned ? V.w : V.d) / 2;
+          it.data.x = side > 0 ? 33 + hx + row * 30 + r() * 4 : -46 - hx - row * 30 - r() * 4;
+          it.data.ry = (side > 0 ? -Math.PI / 2 : Math.PI / 2) + (turned ? Math.PI / 2 : 0);
+          it.data.dz = (r() - 0.5) * 6;
+          tmpC.copy(PAL[Math.floor(r() * PAL.length)]).multiplyScalar(0.86 + r() * 0.2);
+          mesh.setColorAt(it.i, tmpC); mesh.instanceColor.needsUpdate = true;
         }));
-      });
+      }
     }
 
     // ---------------- sound walls (LA freeway canyon) ----------------
@@ -384,6 +379,7 @@ export class World {
       parts.push([at(box(110, 1.1, 0.35, 4), 0, deckY + 1.85, deckD / 2 - 0.17), 0]);
       parts.push([at(box(110, 1.1, 0.35, 4), 0, deckY + 1.85, -deckD / 2 + 0.17), 0]);
       for (let gx = -4; gx <= 4; gx++) parts.push([at(box(110, 1.0, 0.5, 4), 0, deckY - 0.45, gx * 1.4), 1]);
+      parts.push([at(box(110, 0.04, deckD - 0.4), 0, deckY - 0.97, 0), 3]); // dark sooty soffit (no light gets under the deck)
       for (const px of [-9.4, 12.2, -31.5]) {
         parts.push([at(box(1.2, 0.9, deckD - 1, 4), px, deckY - 1.2, 0), 1]);
         for (const pz of [-4, 0, 4]) parts.push([at(cyl(0.6, 0.7, deckY - 1.4, 12), px, (deckY - 1.4) / 2, pz), 0]);
@@ -394,8 +390,9 @@ export class World {
       parts.push([at(box(9, 2.4, 0.2), 1.5, deckY + 3.4, deckD / 2 + 0.2), 2]);
       parts.push([at(box(0.2, 1.4, 0.2), -2, deckY + 2.2, deckD / 2 + 0.2), 1]);
       parts.push([at(box(0.2, 1.4, 0.2), 5, deckY + 2.2, deckD / 2 + 0.2), 1]);
-      const { geometry } = mergeGrouped(parts, 3);
-      const mesh = new THREE.InstancedMesh(geometry, [m0, m1, m2], 3);
+      const { geometry } = mergeGrouped(parts, 4);
+      const soffit = new THREE.MeshBasicMaterial({ color: 0x1d1a17 });
+      const mesh = new THREE.InstancedMesh(geometry, [m0, m1, m2, soffit], 3);
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
       this.group.add(mesh);
       const sc = new Scroller(mesh, 3, SPAN / 3, 120, () => {});
@@ -414,13 +411,18 @@ export class World {
 
     // ---------------- sign gantries ----------------
     {
-      const steel = new THREE.MeshStandardMaterial({ color: 0x9a9da2, metalness: 0.75, roughness: 0.45 });
+      // galvanised (not mirror) steel: the backs face the low sun and used to blow out to white
+      const steel = new THREE.MeshStandardMaterial({ color: 0x8a8d92, metalness: 0.5, roughness: 0.52, envMapIntensity: 0.8 });
+      const backMat = new THREE.MeshStandardMaterial({ map: T.signBackTexture(), color: 0xa4a7ab, metalness: 0.35, roughness: 0.62, envMapIntensity: 0.6 });
       const parts = [
+        [at(box(20.8, 0.05, 0.9), 1.35, 4.6, 1.45), 0], [at(box(20.8, 0.05, 0.05), 1.35, 5.62, 1.88), 0], [at(box(20.8, 0.05, 0.05), 1.35, 5.1, 1.88), 0],
         [at(box(0.35, 7.6, 0.35), 11.6, 3.8, 0), 0], [at(box(0.35, 7.6, 0.35), -8.9, 3.8, 0), 0],
         [at(box(20.8, 0.3, 0.3), 1.35, 7.1, 0.5), 0], [at(box(20.8, 0.3, 0.3), 1.35, 7.1, -0.5), 0],
         [at(box(20.8, 0.3, 0.3), 1.35, 5.4, 0.5), 0], [at(box(20.8, 0.3, 0.3), 1.35, 5.4, -0.5), 0],
       ];
       for (let k = 0; k < 10; k++) parts.push([at(box(0.08, 1.9, 0.08), -8.5 + k * 2.1, 6.25, 0.5, 0, 0, 0.6), 0]);
+      for (let k = 0; k < 10; k++) parts.push([at(box(0.08, 1.9, 0.08), -8.5 + k * 2.1, 6.25, -0.5, 0, 0, -0.6), 0]);
+      for (let k = 0; k < 11; k++) { parts.push([at(box(0.05, 1.05, 0.05), -9.0 + k * 2.08, 5.12, 1.88), 0]); parts.push([at(box(0.06, 0.06, 0.95), -9.0 + k * 2.08, 4.6, 1.45), 0]); }
       const { geometry } = mergeGrouped(parts, 1);
       const mesh = new THREE.InstancedMesh(geometry, [steel], 4);
       mesh.castShadow = true; mesh.frustumCulled = false;
@@ -434,10 +436,14 @@ export class World {
       ];
       signs.forEach((t, k) => {
         const m = new THREE.MeshLambertMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.12 });
-        const g = merge([at(box(6.2, 3.1, 0.12), 0, 0, 0)]);
-        const face = at(new THREE.PlaneGeometry(6.2, 3.1), 0, 0, 0.07);
-        const { geometry: gg } = mergeGrouped([[g, 0], [face, 1]], 2);
-        const im = new THREE.InstancedMesh(gg, [steel, m], 4);
+        // sign panel + back structure: perimeter frame, vertical Z-stiffeners, two mounting rails onto the truss chords
+        const sp = [[at(box(6.2, 3.1, 0.12), 0, 0, 0), 0], [at(new THREE.PlaneGeometry(6.2, 3.1), 0, 0, 0.07), 1]];
+        for (const y of [-1.53, 1.53]) sp.push([at(box(6.3, 0.09, 0.1), 0, y, -0.1), 0]);
+        for (const x of [-3.1, 3.1]) sp.push([at(box(0.09, 3.15, 0.1), x, 0, -0.1), 0]);
+        for (let s2 = 0; s2 < 6; s2++) { const x = -2.5 + s2; sp.push([at(box(0.07, 3.0, 0.07), x, 0, -0.1), 0], [at(box(0.16, 3.0, 0.02), x, 0, -0.14), 0]); }
+        for (const y of [0.8, -0.9]) sp.push([at(box(6.6, 0.12, 0.12), 0, y, -0.25), 0]);
+        const { geometry: gg } = mergeGrouped(sp, 2);
+        const im = new THREE.InstancedMesh(gg, [backMat, m], 4);
         im.castShadow = true; im.frustumCulled = false;
         this.group.add(im);
         const off = [-5.4, 1.15, 7.7][k];
@@ -569,3 +575,188 @@ export class World {
     this.glows.commit(i);
   }
 }
+
+// =====================================================================================
+// Buildings: atlas-mapped geometry. Each vertex carries `arect` (atlas rect; negative w/h = may be
+// shifted per instance by a quarter tile so window patterns differ between copies) and a tiling uv.
+// =====================================================================================
+function patchAtlasMaterial(mat) {
+  mat.onBeforeCompile = (s) => {
+    s.vertexShader = 'attribute vec4 arect;\nvarying vec4 vRect;\nvarying vec2 vTUv;\n' + s.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
+  vRect = arect; vTUv = uv;
+  #ifdef USE_INSTANCING
+  {
+    float h1 = fract(sin(float(gl_InstanceID) * 12.9898 + 78.233) * 43758.5453);
+    float h2 = fract(sin(float(gl_InstanceID) * 39.3468 + 11.135) * 24634.6345);
+    vTUv += floor(vec2(h1, h2) * 4.0) / 4.0 * vec2(arect.z < 0.0 ? 1.0 : 0.0, arect.w < 0.0 ? 1.0 : 0.0);
+  }
+  #endif`);
+    s.fragmentShader = 'varying vec4 vRect;\nvarying vec2 vTUv;\n' + s.fragmentShader
+      .replace('#include <map_fragment>', `
+  vec2 tsz = abs(vRect.zw);
+  vec2 auv = vRect.xy + fract(vTUv) * tsz;
+  vec2 gx = dFdx(vTUv) * tsz, gy = dFdy(vTUv) * tsz;
+  float gm = max(length(gx), length(gy)), glim = 10.0 / 2048.0;
+  if (gm > glim) { gx *= glim / gm; gy *= glim / gm; }
+  auv = clamp(auv, vRect.xy + 0.6 / 2048.0, vRect.xy + tsz - 0.6 / 2048.0);
+  vec4 sampledDiffuseColor = textureGrad(map, auv, gx, gy);
+  diffuseColor.rgb *= sampledDiffuseColor.rgb;`)
+      .replace('#include <color_fragment>', `#if defined( USE_COLOR )
+  diffuseColor.rgb *= mix(vec3(1.0), vColor, clamp((1.0 - sampledDiffuseColor.a) * 2.0, 0.0, 1.0));
+#endif`)
+      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance *= textureGrad(emissiveMap, auv, gx, gy).rgb;');
+  };
+  mat.customProgramCacheKey = () => 'bayBuildingAtlas';
+}
+class BGeo {
+  constructor() { this.p = []; this.n = []; this.u = []; this.a = []; }
+  // quad o, o+ex, o+ex+ey, o+ey (CCW seen from the front), uv0 at o, uv1 at the far corner
+  quad(o, ex, ey, n, uv0, uv1, rect) {
+    const P = [o, [o[0] + ex[0], o[1] + ex[1], o[2] + ex[2]], [o[0] + ex[0] + ey[0], o[1] + ex[1] + ey[1], o[2] + ex[2] + ey[2]], [o[0] + ey[0], o[1] + ey[1], o[2] + ey[2]]];
+    const U = [[uv0[0], uv0[1]], [uv1[0], uv0[1]], [uv1[0], uv1[1]], [uv0[0], uv1[1]]];
+    for (const k of [0, 1, 2, 0, 2, 3]) { this.p.push(...P[k]); this.n.push(...n); this.u.push(...U[k]); this.a.push(...rect); }
+  }
+  // axis-aligned box; spec.side/top = { reg, vBase, shift, tile } ; faces: string of faces to emit (default 'xXzZt')
+  box(x0, x1, y0, y1, z0, z1, side, top = side, faces = 'xXzZt') {
+    const S = (sp, len, ya, yb, offU = 0) => {
+      const [tw, th] = sp.tile || sp.reg.t, vb = sp.vBase ?? ya;
+      return { uv0: [offU / tw, (ya - vb) / th], uv1: [(offU + len) / tw, (yb - vb) / th], rect: rectOf(sp) };
+    };
+    const h = y1 - y0, W = x1 - x0, D = z1 - z0;
+    const F = (o, ex, n, len) => { const q = S(side, len, y0, y1); this.quad(o, ex, [0, h, 0], n, q.uv0, q.uv1, q.rect); };
+    if (faces.includes('Z')) F([x0, y0, z1], [W, 0, 0], [0, 0, 1], W);
+    if (faces.includes('z')) F([x1, y0, z0], [-W, 0, 0], [0, 0, -1], W);
+    if (faces.includes('X')) F([x1, y0, z1], [0, 0, -D], [1, 0, 0], D);
+    if (faces.includes('x')) F([x0, y0, z0], [0, 0, D], [-1, 0, 0], D);
+    if (faces.includes('t') && top) { const [tw, th] = top.tile || top.reg.t; this.quad([x0, y1, z1], [W, 0, 0], [0, 0, -D], [0, 1, 0], [x0 / tw, z1 / th], [x1 / tw, z0 / th], rectOf(top)); }
+  }
+  cyl(cx, cz, y0, y1, rad, seg, side, capReg, capH = 0.4) {
+    const [tw, th] = side.tile || side.reg.t, R = rectOf(side), RC = rectOf(capReg);
+    for (let k = 0; k < seg; k++) {
+      const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2, am = (a0 + a1) / 2;
+      const p0 = [cx + Math.sin(a0) * rad, y0, cz + Math.cos(a0) * rad], p1 = [cx + Math.sin(a1) * rad, y0, cz + Math.cos(a1) * rad];
+      const len = 2 * rad * Math.sin(Math.PI / seg);
+      this.quad(p0, [p1[0] - p0[0], 0, p1[2] - p0[2]], [0, y1 - y0, 0], [Math.sin(am), 0, Math.cos(am)], [k * len / tw, 0], [(k + 1) * len / tw, (y1 - y0) / th], R);
+      const t0 = [p0[0], y1, p0[2]], t1 = [p1[0], y1, p1[2]], ap = [cx, y1 + capH, cz];
+      const nn = [Math.sin(am) * capH, rad, Math.cos(am) * capH], l = Math.hypot(...nn);
+      for (const P of [t0, t1, ap]) { this.p.push(...P); this.n.push(nn[0] / l, nn[1] / l, nn[2] / l); this.u.push(P[0] / 2, P[2] / 2); this.a.push(...RC); }
+    }
+  }
+  geometry() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(this.u, 2));
+    g.setAttribute('arect', new THREE.Float32BufferAttribute(this.a, 4));
+    g.computeBoundingSphere();
+    return g;
+  }
+}
+function rectOf(sp) { const r = sp.reg.r; return [r[0], r[1], sp.shiftU ? -r[2] : r[2], sp.shiftV ? -r[3] : r[3]]; }
+
+function buildingVariant(v, R) {
+  const r = makeRng(900 + v * 37);
+  const G = new BGeo();
+  const style = ['F0', 'F1', 'F0', 'F2', 'F0', 'F1', 'F0', 'F2', 'F1', 'F0'][v];
+  const bayW = style === 'F0' ? 3.4 : 1.5, floorH = style === 'F0' ? 3.3 : 3.8;
+  const tall = v >= 6;
+  const floors = tall ? 9 + Math.floor(r() * 9) : 2 + Math.floor(r() * 5);
+  const nW = style === 'F0' ? 5 + Math.floor(r() * 6) : 12 + 4 * Math.floor(r() * 3), nD = style === 'F0' ? 4 + Math.floor(r() * 4) : 12 + 4 * Math.floor(r() * 2);
+  const w = nW * bayW, d = nD * bayW;
+  const PB = 0.15, PH = 5.0, PT = PB + PH;
+  const TRIM = { reg: R.TRIM }, ROOF = { reg: R.ROOF }, WALK = { reg: R.WALK }, METAL = { reg: R.METAL }, DARK = { reg: R.DARK };
+  const FAC = { reg: R[style], vBase: PT, shiftU: true, shiftV: true };
+  const SF = { reg: r() < 0.5 ? R.SF0 : R.SF1, vBase: PB, shiftU: true };
+  const x0 = -w / 2, x1 = w / 2, z0 = -d / 2, z1 = d / 2;
+  // sidewalk slab + curb
+  const sw = 3.2;
+  G.box(x0 - sw, x1 + sw, -0.06, PB, z0 - sw, z1 + sw, TRIM, WALK);
+  // podium: storefronts on all four sides, corner piers, sign cornice
+  G.box(x0, x1, PB, PT, z0, z1, SF, null, 'xXzZ');
+  for (const [px, pz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) G.box(px - 0.35, px + 0.35, PB, PT + 0.2, pz - 0.35, pz + 0.35, TRIM, TRIM);
+  G.box(x0 - 0.25, x1 + 0.25, PT - 0.05, PT + 0.45, z0 - 0.25, z1 + 0.25, TRIM, ROOF);
+  // awnings over some shop bays on the road face (+z) and the back
+  for (const face of [1, -1]) {
+    const segs = 1 + Math.floor(r() * 3);
+    for (let k = 0; k < segs; k++) {
+      if (r() < 0.25) continue;
+      const nb = 1 + Math.floor(r() * 2), b0 = Math.floor(r() * Math.max(1, Math.floor(w / 4.5) - nb));
+      const ax0 = x0 + b0 * 4.5 + 0.3, ax1 = Math.min(x1 - 0.4, ax0 + nb * 4.5 - 0.6);
+      if (ax1 - ax0 < 1.5) continue;
+      const aw = { reg: r() < 0.5 ? R.AWNS : R.AWNG, tile: [2, 1] };
+      const zw = face > 0 ? z1 : z0, out = 1.5, yT = 3.75, yB = 3.05;
+      const rc = rectOf(aw), nS = [0, out, (yT - yB) * face], l = Math.hypot(...nS);
+      if (face > 0) {
+        G.quad([ax0, yB, zw + out], [ax1 - ax0, 0, 0], [0, yT - yB, -out], [nS[0] / l, nS[1] / l, nS[2] / l], [ax0 / 2, 0], [ax1 / 2, 1], rc);
+        G.quad([ax0, yB - 0.3, zw + out], [ax1 - ax0, 0, 0], [0, 0.3, 0], [0, 0, 1], [ax0 / 2, 0], [ax1 / 2, 0.3], rc);
+        G.quad([ax1, yB, zw + out], [ax0 - ax1, 0, 0], [0, yT - yB, -out], [0, -1, 0], [ax0 / 2, 0], [ax1 / 2, 1], rectOf(DARK));
+      } else {
+        G.quad([ax1, yB, zw - out], [ax0 - ax1, 0, 0], [0, yT - yB, out], [nS[0] / l, nS[1] / l, nS[2] / l], [ax0 / 2, 0], [ax1 / 2, 1], rc);
+        G.quad([ax1, yB - 0.3, zw - out], [ax0 - ax1, 0, 0], [0, 0.3, 0], [0, 0, -1], [ax0 / 2, 0], [ax1 / 2, 0.3], rc);
+      }
+    }
+  }
+  // tower + setback tiers
+  const tiers = [{ x0, x1, z0, z1, f: floors }];
+  if (floors >= 5 && r() < 0.65) {
+    const cutW = (1 + Math.floor(r() * 2)) * bayW * (style === 'F0' ? 1 : 2), cutD = (1 + Math.floor(r() * 2)) * bayW * (style === 'F0' ? 1 : 2);
+    tiers.push({ x0: x0 + cutW, x1: x1 - cutW, z0: z0 + cutD, z1: z1 - (r() < 0.5 ? cutD : 0), f: 2 + Math.floor(r() * (tall ? 5 : 2)) });
+    if (tall && r() < 0.5) { const t = tiers[1]; const c2 = bayW * (style === 'F0' ? 1 : 2); tiers.push({ x0: t.x0 + c2, x1: t.x1 - c2, z0: t.z0 + c2, z1: t.z1 - c2, f: 2 + Math.floor(r() * 3) }); }
+  }
+  let y = PT;
+  const roofs = [];
+  tiers.forEach((t, i) => {
+    if (t.x1 - t.x0 < 4 || t.z1 - t.z0 < 4) return;
+    const yTop = y + t.f * floorH;
+    G.box(t.x0, t.x1, y, yTop, t.z0, t.z1, FAC, null, 'xXzZ');
+    const glass = style === 'F2';
+    const ov = glass ? 0.06 : 0.3, ch = glass ? 0.35 : 0.6;
+    G.box(t.x0 - ov, t.x1 + ov, yTop, yTop + ch, t.z0 - ov, t.z1 + ov, glass ? DARK : TRIM, ROOF);
+    const ry = yTop + ch;
+    // parapet ring
+    const pt = 0.25, ph = glass ? 0.9 : 0.75;
+    const P = glass ? METAL : TRIM;
+    G.box(t.x0 - ov, t.x1 + ov, ry, ry + ph, t.z1 + ov - pt, t.z1 + ov, P, P, 'xXzZt');
+    G.box(t.x0 - ov, t.x1 + ov, ry, ry + ph, t.z0 - ov, t.z0 - ov + pt, P, P, 'xXzZt');
+    G.box(t.x0 - ov, t.x0 - ov + pt, ry, ry + ph, t.z0 - ov + pt, t.z1 + ov - pt, P, P, 'xXt');
+    G.box(t.x1 + ov - pt, t.x1 + ov, ry, ry + ph, t.z0 - ov + pt, t.z1 + ov - pt, P, P, 'xXt');
+    roofs.push({ x0: t.x0 + 0.8, x1: t.x1 - 0.8, z0: t.z0 + 0.8, z1: t.z1 - 0.8, y: ry, top: i === tiers.length - 1 });
+    y = yTop;
+  });
+  // rooftop clutter
+  const top = roofs[roofs.length - 1];
+  const at = (rf, sx, sz) => [lerp(rf.x0 + sx / 2, rf.x1 - sx / 2, r()), lerp(rf.z0 + sz / 2, rf.z1 - sz / 2, r())];
+  for (const rf of roofs) {
+    if (rf.x1 - rf.x0 < 3 || rf.z1 - rf.z0 < 3) continue;
+    const nAC = (rf.top ? 2 : 1) + Math.floor(r() * (rf.top ? 4 : 2));
+    for (let k = 0; k < nAC; k++) {
+      const sx = 1.3 + r() * 1.2, sz = 1.0 + r() * 0.8, sh = 0.9 + r() * 0.5, [cx, cz] = at(rf, sx, sz);
+      G.box(cx - sx / 2, cx + sx / 2, rf.y, rf.y + sh, cz - sz / 2, cz + sz / 2, METAL, DARK);
+      if (r() < 0.5) G.box(cx - 0.12, cx + 0.12, rf.y + sh, rf.y + sh + 0.5, cz - 0.12, cz + 0.12, METAL, DARK); // vent stack
+    }
+  }
+  if (top && top.x1 - top.x0 > 5 && top.z1 - top.z0 > 5) {
+    // stair / elevator bulkhead
+    { const sx = 3 + r() * 2.5, sz = 2.8 + r() * 1.5, [cx, cz] = at(top, sx, sz); const tr = style === 'F2' ? METAL : TRIM; G.box(cx - sx / 2, cx + sx / 2, top.y, top.y + 2.8, cz - sz / 2, cz + sz / 2, tr, ROOF); G.box(cx + sx / 2 - 1.2, cx + sx / 2 - 0.2, top.y, top.y + 2.1, cz + sz / 2, cz + sz / 2 + 0.03, DARK, null, 'Z'); }
+    if (style !== 'F2' && r() < 0.5) { // water tank on legs
+      const rad = 1.1 + r() * 0.6, [cx, cz] = at(top, rad * 2.4, rad * 2.4), lh = 1.6;
+      for (const [lx, lz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) G.box(cx + lx * rad * 0.6 - 0.08, cx + lx * rad * 0.6 + 0.08, top.y, top.y + lh, cz + lz * rad * 0.6 - 0.08, cz + lz * rad * 0.6 + 0.08, METAL, METAL, 'xXzZ');
+      G.box(cx - rad * 0.8, cx + rad * 0.8, top.y + lh - 0.15, top.y + lh, cz - rad * 0.8, cz + rad * 0.8, DARK, DARK);
+      G.cyl(cx, cz, top.y + lh, top.y + lh + 2.4 + r(), rad, 10, METAL, DARK, 0.5);
+    }
+    if (r() < 0.55) { // antenna mast
+      const [cx, cz] = at(top, 1, 1), mh = 5 + r() * (tall ? 9 : 4);
+      G.box(cx - 0.09, cx + 0.09, top.y, top.y + mh, cz - 0.09, cz + 0.09, METAL, METAL, 'xXzZ');
+      for (const f of [0.6, 0.85]) G.box(cx - 0.9, cx + 0.9, top.y + mh * f, top.y + mh * f + 0.08, cz - 0.04, cz + 0.04, METAL, METAL);
+    }
+    if (!tall && r() < 0.5) { // small rooftop billboard facing the road (+z)
+      const bw = Math.min(top.x1 - top.x0 - 1, 7 + r() * 3), cx = lerp(top.x0 + bw / 2, top.x1 - bw / 2, r()), cz = top.z1 - 1.2, yb = top.y + 2.0, bh = bw * 0.4;
+      for (const lx of [-0.35, 0.35]) G.box(cx + lx * bw - 0.1, cx + lx * bw + 0.1, top.y, yb, cz - 0.3, cz - 0.1, METAL, METAL, 'xXzZ');
+      G.box(cx - bw / 2, cx + bw / 2, yb, yb + bh, cz - 0.12, cz, METAL, METAL, 'xXzt');
+      G.quad([cx - bw / 2, yb, cz + 0.005], [bw, 0, 0], [0, bh, 0], [0, 0, 1], [0, 0], [1, 1], rectOf({ reg: R.AD }));
+      G.box(cx - bw / 2, cx + bw / 2, yb - 0.1, yb, cz - 0.1, cz + 0.6, METAL, METAL); // catwalk
+    }
+  }
+  return { geometry: G.geometry(), w: w + 2 * sw, d: d + 2 * sw, h: y };
+}
+const lerp = (a, b, t) => a + (b - a) * t;

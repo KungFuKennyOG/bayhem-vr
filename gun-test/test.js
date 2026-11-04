@@ -18,11 +18,11 @@ scene.environment = createEnvironment(renderer); scene.environmentIntensity = 0.
 scene.add(createSky());
 const { sun } = createLights(scene, 512); sun.castShadow = false; updateSun(sun, new THREE.Vector3());
 // a ground plane + a truck-bed-ish floor so there's some context
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x3a3532, roughness: 0.95 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.9 }));
 ground.rotation.x = -Math.PI / 2; scene.add(ground);
 
 const t0 = performance.now();
-const rifle = new Gun(buildRifle({ supportHand: P.get('support') !== '0' }), { rpm: 690, mag: 45, reload: 1.5, auto: true });
+const rifle = new Gun(buildRifle({ supportHand: P.get('support') === '1' }), { rpm: 690, mag: 45, reload: 1.5, auto: true });
 const launcher = new Gun(buildLauncher(), { rpm: 110, mag: 6, reload: 2.4, auto: false });
 const buildMs = performance.now() - t0;
 const yaw = (+(P.get('yaw') ?? 166)) * Math.PI / 180, pitch = (+(P.get('pitch') ?? -4)) * Math.PI / 180;
@@ -40,11 +40,12 @@ else { sim(rifle, 0, 0.1); sim(launcher, 0, 0.1); }
 camera.position.set(0, 1.65, 0);
 if (view === 'desktop') {
   camera.rotation.set(pitch, yaw, 0, 'YXZ');
-  rifle.holder.position.set(0.17, -0.225, -0.5); launcher.holder.position.set(-0.27, -0.3, -0.56);
+  const rp = (P.get('rp') || '0.19,-0.255,-0.53').split(',').map(Number), lp = (P.get('lp') || '-0.3,-0.335,-0.6').split(',').map(Number);
+  rifle.holder.position.fromArray(rp); launcher.holder.position.fromArray(lp);
   camera.add(rifle.holder, launcher.holder);
   camera.updateMatrixWorld(true);
   const tgt = new THREE.Vector3(0, 0, -30).applyMatrix4(camera.matrixWorld);
-  for (const g of [rifle, launcher]) { g.holder.lookAt(tgt); if (P.get('fix') === '1') g.holder.rotateY(Math.PI); }
+  for (const g of [rifle, launcher]) { g.holder.lookAt(tgt); g.holder.rotateY(Math.PI); }
 } else if (view === 'orbit') {
   const gun = P.get('gun') === 'launcher' ? launcher : rifle;
   scene.add(gun.holder); gun.holder.position.set(0, 1.4, 0);
