@@ -165,7 +165,7 @@ export class GlassSystem {
     // pale, half-clear slivers that flash white when they catch the sky (not blue confetti)
     const m = new THREE.MeshStandardMaterial({ color: 0xe2ebee, metalness: 0.55, roughness: 0.06, envMapIntensity: 1.7, side: THREE.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false, emissive: 0x2a3034, emissiveIntensity: 1 });
     // two-tone: sky-tinted face-on, a hot white edge glint at grazing angles (glass catching the sun as it tumbles)
-    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float shFr = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 3.0);\noutgoingLight += vec3(1.6, 1.5, 1.3) * shFr;\ndiffuseColor.a = mix(diffuseColor.a, 1.0, shFr);\n#include <opaque_fragment>'); };
+    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float shFr = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 3.0);\noutgoingLight += vec3(1.1, 1.05, 0.95) * shFr;\ndiffuseColor.a = mix(diffuseColor.a, 0.9, shFr * 0.7);\n#include <opaque_fragment>'); };
     this.shardMesh = new THREE.InstancedMesh(g, m, MAX_SHARDS);
     this.shardMesh.frustumCulled = false; this.shardMesh.count = 0; this.shardMesh.castShadow = false;
     this.scene.add(this.shardMesh);
@@ -203,7 +203,8 @@ export class GlassSystem {
             if (s.bounce === 1 && rand() < 0.04 && this.g.headPos.distanceToSquared(s.p) < 400) this.audio.play('impact_glass', { x: s.p.x, y: s.p.y, z: s.p.z, volume: 0.25, pitch: range(1.2, 1.8) });
           } else {
             // settle flat on the ground at a random spin
-            s.rest = true; s.vel.set(0, 0, 0);
+            // it breaks again on the floor: settled glass is crumbs and slivers, not plates
+            s.rest = true; s.vel.set(0, 0, 0); s.sx *= range(0.3, 0.5); s.sy *= range(0.3, 0.5);
             _e.set(-Math.PI / 2 + range(-0.08, 0.08), 0, rand() * 6.28); s.q.setFromEuler(_e);
           }
         }
