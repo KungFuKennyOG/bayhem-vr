@@ -480,7 +480,7 @@ export class SetPieces {
     // kill anyone left on the deck
     for (const s of g.soldiers) if (s.alive && s.floorY > 5) g.killSoldier(s, new THREE.Vector3(range(-0.5, 0.5), 1, 0.6).normalize(), 3.5, false);
     // the hull tears open on the quay side: fire jets punch out of the breaches toward the quay
-    this.breaches = [-21, -9, -15, -29].map((x, i) => ({ p: new THREE.Vector3(x, range(3.5, 6.5), QUAY_Z - 2.3), t0: 0.35 + i * 0.28, dur: range(1.4, 2.0), s: range(1.3, 1.8) }));
+    this.breaches = [[-24.5, 3.7], [-6.4, 6.3], [-15, 4.7], [-31, 5.5]].map(([x, y], i) => ({ p: new THREE.Vector3(x, y, QUAY_Z - 2.3), t0: 0.35 + i * 0.28, dur: range(1.4, 2.0), s: range(1.3, 1.8) }));
     this.breaches.forEach(B => g.fx.later(B.t0, () => {
       const f = g.fx.main; f.spawn({ x: B.p.x, y: B.p.y, z: B.p.z + 1, frame: CELL.FLASH, s0: 4, s1: 9, life: 0.1, r: 2.4, g: 1.5, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.2, force: true });
       for (let i = 0; i < 5; i++) f.spawn({ x: B.p.x + range(-1, 1), y: B.p.y + range(-0.8, 0.8), z: B.p.z + 1, vx: range(-3, 3), vy: range(1, 4), vz: range(7, 13), drag: 2.2, frameKind: 1, s0: range(3, 4), s1: range(7, 10), ease: 0.55, life: range(1.0, 1.5), rot: rand() * 6, vrot: range(-0.6, 0.6), r: 1.6, g: 0.75, b: 0.32, a: 1, fadeIn: 0.02, fadeOut: 0.8, force: true });
@@ -586,7 +586,7 @@ export class SetPieces {
         if (rand() < dt * 2.2) g.fx.smoke(_v.set(B.p.x + range(-0.5, 0.5), B.p.y + 1.6, B.p.z + 0.9), 1.8, 0.05, 7, 2.6, 0.8);
       }
       // the quay-side hull is lit by its own fires (the blast light sits behind the hull)
-      if (mt < 40 && (this._hlT = (this._hlT || 0) - dt) <= 0) { this._hlT = 0.5; g.fx.light(_v.set(-17, 5, QUAY_Z + 3.5), (mt < 3 ? 2600 : 900) * range(0.85, 1.15), 0.6, 0xff6a24, true, 46); }
+      if (mt < 40 && (this._hlT = (this._hlT || 0) - dt) <= 0) { this._hlT = 0.5; g.fx.light(_v.set(-17, 5, QUAY_Z + 3.5), (mt < 3 ? 1700 : 560) * range(0.85, 1.15), 0.6, 0xff6a24, true, 46); }
     }
     // burning ship after the blast
     if (this.burnK !== undefined && this.burnK < 1) { this.burnK = Math.min(1, this.burnK + dt * 0.6); this.w.ship.setBurnt?.(this.burnK); }

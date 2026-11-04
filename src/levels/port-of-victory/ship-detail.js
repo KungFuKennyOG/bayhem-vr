@@ -269,9 +269,9 @@ float bFbm(vec2 p) { return bNoise(p) * 0.55 + bNoise(p * 2.13 + 7.1) * 0.3 + bN
 function glslBreaches() {
   let s = '';
   BREACHES.forEach((b, i) => {
-    const c = Math.cos(b.rot).toFixed(4), sn = Math.sin(b.rot).toFixed(4), rm = ((b.rx + b.ry) / 2).toFixed(2), f = (n) => n.toFixed(2);
+    const c = Math.cos(b.rot).toFixed(4), sn = Math.sin(b.rot).toFixed(4), nsn = (-Math.sin(b.rot)).toFixed(4), rm = ((b.rx + b.ry) / 2).toFixed(2), f = (n) => n.toFixed(2);
     s += `{ vec2 dp = vBW.xy - vec2(${f(b.x)}, ${f(b.y)});
-      vec2 q = vec2(${c} * dp.x + ${sn} * dp.y, -${sn} * dp.x + ${c} * dp.y) / vec2(${f(b.rx)}, ${f(b.ry)});
+      vec2 q = vec2(${c} * dp.x + (${sn}) * dp.y, (${nsn}) * dp.x + ${c} * dp.y) / vec2(${f(b.rx)}, ${f(b.ry)});
       float th = atan(q.y, q.x) * 0.15915494 + 0.5;
       float Rr = texture2D(tBreach, vec2(th, ${((i + 0.5) / BREACHES.length).toFixed(4)})).r * 2.0 * bOpen;
       Rr *= 1.0 + (bNoise(vBW.xy * 9.0) - 0.5) * 0.07;
@@ -283,8 +283,8 @@ function glslBreaches() {
       bHalo = max(bHalo, 1.0 - smoothstep(0.0, ${rm} * 2.3, dm + (bN - 0.5) * ${rm}));
       bWarm += exp(-max(dm, 0.0) / (0.6 + ${rm} * 0.9));
       float up = vBW.y - ${f(b.y)};
-      float w = ${rm} * (0.5 + max(up, 0.0) * 0.22);
-      bSoot = max(bSoot, exp(-pow(dp.x / w, 2.0)) * smoothstep(${f(b.ry * 0.2)}, ${f(b.ry * 1.1)}, up) * (1.0 - smoothstep(${f(9.0 - b.y - 2.5)}, ${f(9.4 - b.y)}, up) * 0.5) * smoothstep(0.2, 0.7, bFbm(vec2(vBW.x * 1.5, vBW.y * 0.25))));
+      float w = ${rm} * (0.7 + max(up, 0.0) * 0.3);
+      bSoot = max(bSoot, exp(-pow(dp.x / w, 2.0)) * smoothstep(${f(b.ry * 0.2)}, ${f(b.ry * 1.1)}, up) * (1.0 - smoothstep(${f(9.0 - b.y - 2.5)}, ${f(9.4 - b.y)}, up) * 0.5) * smoothstep(0.12, 0.55, bFbm(vec2(vBW.x * 1.5, vBW.y * 0.25))));
     }\n`;
   });
   return s;
@@ -323,7 +323,7 @@ export function makeBurn() {
           // hull: smoke-darkened but legible (plates + lettering still read), heavy char in a soft halo around each tear
           diffuseColor.rgb *= mix(1.0, 0.42, bScorch);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.085, 0.05) * (0.6 + 0.6 * bN), bScorch * (1.0 - bScorch) * 1.2);
-          diffuseColor.rgb *= mix(1.0, 0.13, pow(bHalo, 1.3) * (0.75 + 0.5 * bN));
+          diffuseColor.rgb *= mix(1.0, 0.07, bHalo * (0.8 + 0.4 * bN));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.01, 0.009, 0.008), bSoot * 0.9);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.012, 0.01, 0.009), bEdge);` : `
           float fringe = bScorch * (1.0 - bScorch) * 4.0;
@@ -340,7 +340,7 @@ export function makeBurn() {
             float cr = pow(1.0 - abs(bNoise(vBW.xy * vec2(6.3, 7.1)) * 2.0 - 1.0), 14.0) * 0.7 + smoothstep(0.8, 0.95, bNoise(vBW.xy * 11.0 + 3.0)) * smoothstep(0.3, 0.8, bNoise(vBW.xy * 1.7));
             vec3 hot = vec3(3.0, 0.95, 0.2) * bRim * (0.55 + 0.9 * bNoise(vBW.xy * 3.3 + uBurnT * 0.7)) + vec3(1.9, 0.45, 0.07) * cr * smoothstep(0.2, 0.95, bEdge) * fl + vec3(0.16, 0.035, 0.005) * bEdge * bEdge + vec3(0.11, 0.024, 0.003) * bGlow;
             // fire under-glow: the burning holes and the deck fires light the hull plating (no real lights)
-            float under = bWarm * 0.55 + bScorch * 0.18 * (1.0 - smoothstep(1.0, 8.0, vBW.y));
+            float under = (bWarm * 0.55 + bScorch * 0.18 * (1.0 - smoothstep(1.0, 8.0, vBW.y))) * (1.0 - 0.6 * bHalo) * (1.0 - 0.8 * bSoot);
             hot += diffuseColor.rgb * vec3(2.6, 1.05, 0.38) * under * (0.8 + 0.2 * fl);
             totalEmissiveRadiance += hot * fl * uBurnGlow;
           }` : `totalEmissiveRadiance *= min(1.0, bScorch * 1.4);`}`);
