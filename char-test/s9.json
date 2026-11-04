@@ -1,0 +1,19 @@
+[
+ "A.setup({cars:[[0,0,5]]})",
+ "A.target([3.4,2.3,-0.5])",
+ "A.live(90)",
+ "A.cars[0].gms[1].reload()",
+ "A.cam([2.6,1.9,-1.6],[1.0,1.5,0.95],28)",
+ "A.live(8)", {"shot":"rl_1"},
+ "A.live(20)", {"shot":"rl_2"},
+ "A.live(20)", {"shot":"rl_3"},
+ "A.live(25)", {"shot":"rl_4"},
+ "A.live(20)", {"shot":"rl_5"},
+ "A.live(30)", {"shot":"rl_6"},
+ "A.hit(0,1,[-1,0,0.3])",
+ "A.live(5)", {"shot":"hit_1"},
+ "A.live(10)", {"shot":"hit_2"},
+ "A.live(30)",
+ "A.cars[0].gms[1].fire()",
+ "A.live(2)", {"shot":"fire_1"}
+]

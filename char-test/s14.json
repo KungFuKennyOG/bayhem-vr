@@ -1,0 +1,10 @@
+[
+ "A.setup({cars:[[3.7,-6,41]]})",
+ "A.target([0,2.45,1.5])",
+ "(() => { const c = A.cars[0]; let t = 0; for (let i = 0; i < 400; i++) { t += 1/72; c.m.root.position.x = 3.7 + Math.sin(t*0.8)*1.2; c.m.root.rotation.set(Math.sin(t*3)*0.01, Math.sin(t*0.8)*0.06, Math.cos(t*0.8)*0.02, 'YXZ'); c.m.root.updateMatrixWorld(); for (const g of c.gms) { g.update(1/72, new A.THREE.Vector3(0,2.45,1.5)); if (g.canFire && i % 9 === 0) g.fire(); } } return c.gms.map(g => ({ ammo: g.ammo, rl: g.reloading, cf: g.canFire, acc: g.acc.toArray().map(v=>+v.toFixed(2)), mz: g.muzzle.getWorldPosition(new A.THREE.Vector3()).toArray().map(v=>+v.toFixed(2)) })); })()",
+ "A.kill(0,0,[0,0.2,1])", "A.kill(0,1,[0,0.2,1])", "A.kill(0,2,[0,1,0],2)",
+ "(() => { let nan = false; for (let i = 0; i < 300; i++) for (const r of A.ragdolls) { r.update(1/72, 31); for (const b of r.bones) if (!Number.isFinite(b.quaternion.x) || !Number.isFinite(b.position.x)) nan = true; } return { nan, pos: A.ragdolls.map(r => r.position.toArray().map(v=>+v.toFixed(1))) }; })()",
+ "(() => { for (const r of A.ragdolls) r.dispose(); for (const g of A.cars[0].gms) g.dispose(); return 'disposed'; })()",
+ "A.setup({cars:[[0,0,99]]})", "A.live(5)",
+ "A.render()"
+]

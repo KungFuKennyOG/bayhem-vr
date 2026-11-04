@@ -1,0 +1,3 @@
+[
+ "import('/src/characters.js').then(m => [0,1,2].map(k => { const s = m.__partStats(k); const by = {}; let tot = 0; for (const [i,b,sl,n,t] of s) { by[t] = (by[t]||0)+n; tot += n; } return [k, tot, s.length, by]; }))"
+]

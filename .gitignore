@@ -1,0 +1,6 @@
+node_modules/
+dist-capture/
+dist-single/
+*.wav
+char-test/shots/
+gun-test/out/

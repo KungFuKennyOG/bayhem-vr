@@ -1,0 +1,24 @@
+{
+  "name": "bayhem",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fontsource/anton": "^5.1.0",
+    "@fontsource/oswald": "^5.1.0",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11",
+    "vite-plugin-singlefile": "^2.0.3"
+  },
+  "type": "commonjs"
+}

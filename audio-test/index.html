@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Audio test</title></head><body>
+<button id="live">Live test</button><pre id="log"></pre>
+<script type="module">
+import { AudioSystem, renderOffline, audioBufferToWav } from '/src/audio.js';
+import { scenario } from './scenario.js';
+const log = (s) => (document.getElementById('log').textContent += s + '\n');
+function b64(ab) { const u = new Uint8Array(ab); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+window.timeInit = async () => { const t0 = performance.now(); const s = new AudioSystem(); await s.init(new OfflineAudioContext(2, 48000, 48000)); return performance.now() - t0; };
+window.CATALOG = ['rifle','enemy_gun','impact_metal','impact_glass','impact_flesh','whiz','casing','reload','explosion_big','explosion_small','rocket_launch','metal_crash','tire_screech','slowmo_in','slowmo_out','hit_marker','kill_confirm','player_hurt','ear_ring','heli_flyby','ui_select'];
+window.runOffline = async (which = '40', solo = null) => {
+  let ev, dur;
+  if (which === 'catalog') { ev = window.CATALOG.map((n, k) => ({ t: 0.5 + k * 3, type: 'play', name: n, opts: {} })); dur = 0.5 + window.CATALOG.length * 3;
+    const t0 = performance.now(); const buf = await renderOffline(ev, dur, 48000); return { ms: performance.now() - t0, events: ev.length, wav: b64(audioBufferToWav(buf)) }; }
+  if (which === '120') { ev = [...scenario(0, { noMusicStop: true }), ...scenario(40, { noMusicStart: true, noMusicStop: true }), ...scenario(80, { noMusicStart: true })]; dur = 120; }
+  else { ev = scenario(0); dur = 40; }
+  if (solo === 'music') ev = ev.filter((e) => e.type.startsWith('music') || e.type === 'stinger');
+  const amb = (e) => e.type === 'loop' && (e.name === 'wind' || e.name === 'truck');
+  if (solo === 'amb') ev = ev.filter((e) => amb(e) || e.type === 'listener');
+  if (solo === 'wind') ev = ev.filter((e) => (amb(e) && e.name === 'wind') || e.type === 'listener');
+  if (solo === 'sfx') ev = ev.filter((e) => !amb(e) && !(e.type.startsWith('music') || e.type === 'stinger'));
+  if (solo === 'nomusic') ev = ev.filter((e) => !(e.type.startsWith('music') || e.type === 'stinger'));
+  const t0 = performance.now();
+  const buf = await renderOffline(ev, dur, 48000);
+  const ms = performance.now() - t0;
+  return { ms, events: ev.length, wav: b64(audioBufferToWav(buf)) };
+};
+window.runLive = async (secs = 4) => {
+  const errs = [];
+  const sys = new AudioSystem();
+  const t0 = performance.now();
+  await sys.init();
+  const initMs = performance.now() - t0;
+  sys.startMusic(); sys.setMusicIntensity(0.2);
+  const start = performance.now(); let frame = 0, cost = 0, worst = 0, worstFrame = -1;
+  await new Promise((res) => {
+    const tick = () => {
+      const f0 = performance.now();
+      try {
+        const t = (performance.now() - start) / 1000; frame++;
+        sys.setListener(0, 1.65, 0, 0, 0, -1, 0, 1, 0);
+        sys.setLoop('wind', { volume: 0.8, intensity: 1 }); sys.setLoop('truck', { volume: 0.7, intensity: 0.6 });
+        sys.setLoop('heli', { x: 30 * Math.sin(t), y: 12, z: -20 + 20 * Math.cos(t), volume: 1 });
+        if (t < 2) sys.setLoop('rocket:1', { x: 2, y: 1, z: -20 + t * 9, volume: 0.6 });
+        if (frame % 5 === 0) sys.play('rifle', {});
+        if (frame % 9 === 0) sys.play('enemy_gun', { x: 6, y: 1.5, z: -30, volume: 0.8 });
+        if (frame % 7 === 0) sys.play('casing', { x: 0.3, y: 0.95, z: 1.5, volume: 0.35 });
+        if (frame === 40) { sys.play('explosion_big', { x: 5, y: 1, z: -20 }); sys.play('ear_ring', { volume: 0.5 }); sys.musicStinger('boss'); sys.setMusicIntensity(1); }
+        if (frame === 60) sys.play('slowmo_in', {});
+        sys.setTimeScale(t > 1.5 && t < 2.5 ? 0.3 : 1);
+        if (frame === 150) sys.stopLoop('heli');
+        if (frame === 180) sys.musicStinger('victory');
+        Object.keys({ impact_metal: 1, impact_glass: 1, impact_flesh: 1, whiz: 1, reload: 1, explosion_small: 1, rocket_launch: 1, metal_crash: 1, tire_screech: 1, slowmo_out: 1, hit_marker: 1, kill_confirm: 1, player_hurt: 1, heli_flyby: 1, ui_select: 1 }).forEach((n, i) => { if (frame === 70 + i * 4) sys.play(n, { x: 3, y: 1, z: -10 }); });
+        sys.play('nope', {}); sys.setLoop('nope:3', { x: 0, z: 0 });
+        sys.update(1 / 60);
+      } catch (e) { errs.push(String(e && e.stack || e)); }
+      const fd = performance.now() - f0; cost += fd; if (fd > worst) { worst = fd; worstFrame = frame; }
+      if (performance.now() - start < secs * 1000) setTimeout(tick, 16); else res();
+    };
+    tick();
+  });
+  sys.stopMusic(0.5);
+  return { avgFrameMs: +(cost / frame).toFixed(3), worstFrameMs: +worst.toFixed(2), worstFrame, initMs, state: sys.ctx.state, ready: sys.ready, frames: frame, errs, voices: sys.voices.length, loops: [...sys.loops.keys()], time: sys.ctx.currentTime };
+};
+document.getElementById('live').onclick = () => window.runLive(6).then((r) => log(JSON.stringify(r)));
+window.__loaded = true;
+</script></body></html>

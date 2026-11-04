@@ -1,0 +1,7 @@
+[
+ "A.setup({cars:[[0,0,1]]})",
+ "A.target([4.5,2.4,5.0])",
+ "A.live(60)",
+ "A.kill(0,0,[0.6,0.2,-1],1)",
+ "(() => { const r = A.ragdolls[0]; const out = []; for (let s = 0; s < 40; s++) { r.update(1/60, 31); let ke = 0, mx = 0, mi = -1; for (let i = 0; i < r.np; i++) { const vx = r.v[i*3], vy = r.v[i*3+1], vz = r.v[i*3+2]-0; const sp = Math.hypot(vx,vy,vz); ke += sp*sp/r.w[i]*0.5; if (sp > mx) { mx = sp; mi = i; } } out.push([s, Math.round(ke), +mx.toFixed(1), mi]); } return out; })()"
+]

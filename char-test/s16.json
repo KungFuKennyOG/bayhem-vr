@@ -1,0 +1,6 @@
+[
+ "A.setup({cars:[]})",
+ "A.solo([[1,0,-1,0],[2,1,0,0],[3,2,1,0]])",
+ "A.cars[0].gms.map(g => ({ kind: g.kind, verts: g.mesh.geometry.attributes.position.count, tris: g.mesh.geometry.index.count/3, bones: g.bones.length }))",
+ "(() => { A.cam([0,1.5,-4],[0,1.2,0]); A.render(); const r = A.scene.children; return 'calls ' + window.__api.render(); })()"
+]
