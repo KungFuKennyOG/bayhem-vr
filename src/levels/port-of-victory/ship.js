@@ -27,7 +27,7 @@ function secF(y) {
 }
 function hbAt(x, y) {
   const xf = stemX(y), xa = sternX(y);
-  if (x <= xf || x >= xa) return 0.12;
+  if (x <= xf || x > xa + 1e-4) return 0.12;
   const d = x - xf, L = lerp(34, 22, clamp01((y + 10) / 22)), t = clamp01(d / L);
   const p = 1.6 + 1.3 * clamp01((y + 3) / 12);
   let fb = 1 - Math.pow(1 - t, p);
