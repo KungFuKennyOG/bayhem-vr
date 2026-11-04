@@ -158,7 +158,7 @@ export class Traffic {
           if (big && rand() < dt * 14) fx.sparks.spawn({ x: p.x + range(-0.8, 0.8), y: p.y + c.half.y * 2, z: p.z + range(-0.8, 0.8), vx: range(-0.6, 0.6) + 0.5, vy: range(2.5, 5), vz: range(-0.6, 0.6) + 0.3, grav: 0.6, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.035, len: 0.06, life: range(1.2, 2.4), r: 2.4, g: 1.1, b: 0.35, a: 1, fadeOut: 0.5 });
           if (rand() < dt * 3) fx.smoke(this.worldCenter(c, _v).setY(c.root.position.y + c.half.y * 2), 1.2, 0.1, 6, 2.6, 0.75);
           // the column: black oil smoke lit orange underneath, climbing out of the canyon
-          if (rand() < dt * (big ? 1.1 : 0.5)) { const s0 = range(2.5, 3.5); g.clouds.spawn({ x: p.x + range(-0.6, 0.6), y: c.root.position.y + c.half.y * 2 + 1.5, z: p.z + range(-0.6, 0.6), vx: range(-0.3, 0.3) + 0.6, vy: range(3.5, 5), vz: range(-0.3, 0.3) + 0.4, drag: 0.12, buoy: 0.25, s0, s1: s0 * range(6, 8), life: range(9, 12), a: 0.9, fadeIn: 0.06, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.05, g: 0.045, b: 0.042, r1: 0.16, g1: 0.145, b1: 0.13, glow: 0.8, glowFade: 5 }); }
+          if (rand() < dt * (big ? 1.1 : 0.5)) { const s0 = range(2.5, 3.5); g.clouds.spawn({ x: p.x + range(-0.6, 0.6), y: c.root.position.y + c.half.y * 2 + 1.5, z: p.z + range(-0.6, 0.6), vx: range(-0.3, 0.3) + 0.6, vy: range(3.5, 5), vz: range(-0.3, 0.3) + 0.4, drag: 0.12, buoy: 0.25, s0, s1: s0 * range(6, 8), life: range(9, 12), a: 0.78, fadeIn: 0.12, fadeOut: 0.5, vrot: range(-0.15, 0.15), r: 0.085, g: 0.077, b: 0.07, r1: 0.16, g1: 0.145, b1: 0.13, glow: 0.8, glowFade: 5 }); }
           if (head.distanceToSquared(c.root.position) < 26 * 26) g.audio.setLoop('fire:' + c.i, { x: p.x, y: p.y, z: p.z, volume: c.burn > 900 ? 0.4 : 0.55, intensity: 0.6 });
         }
       }
