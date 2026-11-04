@@ -19,12 +19,12 @@ export async function create(E) {
 
   // warm-up set: every material/program the level will need before the first explosion (no hitch on Quest)
   const warm = new THREE.Group();
-  for (const v of [buildSUV(), buildSedan(MAT.civ[0]), buildTanker()]) warm.add(v.root);
+  for (const v of [buildSUV(), buildSedan(MAT.civ[0]), buildSedan(MAT.civ[1]), buildSedan(MAT.civ[2]), buildTanker()]) warm.add(v.root);
   warm.add(buildHeli().root, warmupGunmen());
   const box = new THREE.BoxGeometry(0.1, 0.1, 0.1);
   for (const m of Object.values(MAT)) for (const mm of [].concat(m)) warm.add(new THREE.Mesh(box, mm));
 
-  const ctx = { bedFloor: 0.91, bedX: 0, bedHalfW: 0.9, bedZ0: 0.25, bedZ1: 2.6, onCasing: (c) => audio.play('casing', { x: c.x, y: c.y, z: c.z, volume: 0.35 }) };
+  const ctx = { bedFloor: 0.91, bedX: 0, bedHalfW: 0.78, bedZ0: 0.25, bedZ1: 2.6, onCasing: (c) => audio.play('casing', { x: c.x, y: c.y, z: c.z, volume: 0.35 }) };
   let director = null;
   return {
     game, player, warm,

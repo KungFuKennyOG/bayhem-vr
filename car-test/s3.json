@@ -1,0 +1,8 @@
+["A.stats()",
+ "A.setup([['pickup',0,0],['suv',-3.7,0.6,0,{gunmen:true}]])",
+ "A.cam([0,2.56,1.4],[-3.7,1.0,0.3],70)", {"shot":"c_side_backlit"},
+ "A.setup([['suv',0,0,Math.PI*0.8]])",
+ "A.cam([-4.2,1.9,-7.2],[0,0.9,-0.4],34)", {"shot":"c_rear34"},
+ "A.setup([['pickup',0,0]])",
+ "A.cam([0,2.56,1.4],[0,0.9,5],80)", {"shot":"c_pov_back"}
+]

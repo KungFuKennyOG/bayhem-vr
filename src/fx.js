@@ -10,7 +10,7 @@ export class FX {
     this.scene = scene;
     this.q = quality;
     const big = quality === 'high';
-    this.main = new ParticleSystem(big ? 4200 : 1600, atlas, { boost: 1, renderOrder: 20, fog });
+    this.main = new ParticleSystem(big ? 4200 : 1600, atlas, { boost: 1, renderOrder: 20, fog, bigBudget: big ? 140 : 70 });
     this.sparks = new ParticleSystem(big ? 1400 : 800, atlas, { stretch: true, boost: 3.0, renderOrder: 21, fog });
     // near particles that live in the truck frame (muzzle flashes)
     this.near = new ParticleSystem(200, atlas, { boost: 2.6, renderOrder: 22, fog });
@@ -80,13 +80,15 @@ export class FX {
   explosion(pos, s = 1, { carVel = null, noRing = false } = {}) {
     const P = pos;
     const gy = this.groundAt ? this.groundAt(P.x, P.z) : 0, hy = P.y - gy;
+    // sizes grow with s but are capped (fill rate); counts grow with sqrt(s)
+    const ss = Math.min(s, 1.8), cs = Math.sqrt(s);
     this.onSound('explosion_big', P);
     this.light(_v.copy(P).setY(P.y + 1.5), 260 * s, 1.1, 0xff9040, true, 60 * s);
     // flash
-    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * s, s1: 11 * s, life: 0.2, r: 3.0, g: 2.1, b: 1.2, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
-    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * s, s1: 16 * s, life: 0.14, r: 2.8, g: 2.0, b: 1.1, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
+    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.FLASH, s0: 5 * ss, s1: 11 * ss, life: 0.2, r: 3.0, g: 2.1, b: 1.2, a: 1, fadeIn: 0.0, fadeOut: 0.2, ease: 0.4 });
+    this.main.spawn({ x: P.x, y: P.y + 0.6, z: P.z, frame: CELL.STAR, s0: 8 * ss, s1: 16 * ss, life: 0.14, r: 2.8, g: 2.0, b: 1.1, a: 1, fadeIn: 0, fadeOut: 0.1, rot: rand() * 6 });
     // main fireballs, staggered
-    const n = Math.round(7 * s + 2);
+    const n = Math.round(7 * cs + 2);
     for (let i = 0; i < n; i++) {
       const d = i < 3 ? 0 : range(0, 0.25);
       const fn = () => {
@@ -94,7 +96,7 @@ export class FX {
         this.main.spawn({
           x: P.x + range(-0.8, 0.8) * s, y: P.y + range(0.2, 1.4) * s, z: P.z + range(-0.8, 0.8) * s,
           vx: Math.cos(a) * Math.cos(el) * sp + (carVel ? carVel.x * 0.5 : 0), vy: Math.sin(el) * sp + range(1, 4), vz: Math.sin(a) * Math.cos(el) * sp + (carVel ? carVel.z * 0.5 : 0),
-          drag: 2.6, grav: 2.2, frameKind: 1, s0: range(2.4, 3.6) * s, s1: range(6.5, 10) * s, ease: 0.55, life: range(1.1, 1.9), rot: rand() * 6.28, vrot: range(-0.8, 0.8),
+          drag: 2.6, grav: 2.2, frameKind: 1, s0: range(2.4, 3.6) * ss, s1: range(6.5, 10) * ss, ease: 0.55, life: range(1.1, 1.9), rot: rand() * 6.28, vrot: range(-0.8, 0.8),
           r: 2.3, g: 1.9, b: 1.6, a: 1, fadeIn: 0.02, fadeOut: 0.85,
         });
       };
@@ -102,33 +104,33 @@ export class FX {
     }
     // rising mushroom core
     for (let i = 0; i < 3; i++) this.later(0.1 + i * 0.08, () => {
-      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 4 * s, s1: 11 * s, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1, g: 1.8, b: 1.5, fadeOut: 0.8 });
+      this.main.spawn({ x: P.x, y: P.y + 2 * s, z: P.z, vy: range(6, 9) * s, vx: range(-1, 1), vz: range(-1, 1), drag: 1.1, frameKind: 1, s0: 4 * ss, s1: 11 * ss, ease: 0.6, life: range(1.6, 2.2), rot: rand() * 6, vrot: 0.3, r: 2.1, g: 1.8, b: 1.5, fadeOut: 0.8 });
     });
     // dark smoke column
-    for (let i = 0; i < Math.round(8 * s + 2); i++) this.later(range(0.25, 0.9), () => {
+    for (let i = 0; i < Math.round(6 * cs + 2); i++) this.later(range(0.25, 0.9), () => {
       const sh = range(0.16, 0.32);
       this.main.spawn({ x: P.x + range(-1.5, 1.5) * s, y: P.y + range(1, 3) * s, z: P.z + range(-1.5, 1.5) * s, vx: range(-1.5, 1.5), vy: range(2.5, 5.5), vz: range(-1.5, 1.5), drag: 0.6, grav: 0.4,
-        frameKind: 2, frame: rand() * 40, frames: 20, s0: 5 * s, s1: range(13, 19) * s, ease: 0.6, life: range(4, 7), rot: rand() * 6.28, vrot: range(-0.2, 0.2),
+        frameKind: 2, frame: rand() * 40, frames: 20, s0: 5 * ss, s1: Math.min(22, range(12, 17) * ss), ease: 0.6, life: range(4, 7), rot: rand() * 6.28, vrot: range(-0.2, 0.2),
         r: sh * 1.35, g: sh * 1.0, b: sh * 0.72, r1: sh * 1.1, g1: sh * 0.9, b1: sh * 0.75, a: 0.88, fadeIn: 0.1, fadeOut: 0.5 });
     });
     // sparks
-    for (let i = 0; i < Math.round(70 * s); i++) {
+    for (let i = 0; i < Math.round(60 * cs); i++) {
       const a = rand() * Math.PI * 2, el = range(-0.1, 1.3), sp = range(14, 38) * Math.sqrt(s);
       this.sparks.spawn({ x: P.x, y: P.y + 0.8, z: P.z, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp, vz: Math.sin(a) * Math.cos(el) * sp, grav: -14, drag: 0.8,
         frame: CELL.SPARK, s0: 1, w: range(0.06, 0.12), life: range(0.5, 1.4), r: 1.6, g: range(0.7, 1.0), b: 0.35, a: 1, fadeOut: 0.6, ground: true });
     }
     // embers
-    for (let i = 0; i < Math.round(30 * s); i++) this.main.spawn({ x: P.x + range(-2, 2) * s, y: P.y + range(0.5, 3) * s, z: P.z + range(-2, 2) * s, vx: range(-4, 4), vy: range(2, 9), vz: range(-4, 4), drag: 1.2, grav: -1.5,
+    for (let i = 0; i < Math.round(24 * cs); i++) this.main.spawn({ x: P.x + range(-2, 2) * ss, y: P.y + range(0.5, 3) * s, z: P.z + range(-2, 2) * s, vx: range(-4, 4), vy: range(2, 9), vz: range(-4, 4), drag: 1.2, grav: -1.5,
       frame: CELL.SPARK, s0: range(0.12, 0.25), life: range(1.5, 3.2), r: 4.0, g: 1.8, b: 0.6, a: 1, fadeOut: 0.5 });
     // dust ring on ground
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      this.main.spawn({ x: P.x, y: gy + 0.6, z: P.z, vx: Math.cos(a) * 14 * s, vz: Math.sin(a) * 14 * s, vy: 0.5, drag: 3, frame: CELL.DUST, s0: 2 * s, s1: 6 * s, life: 1.6, rot: rand() * 6, r: 0.9, g: 0.78, b: 0.62, a: 0.55, fadeIn: 0.05, fadeOut: 0.3 });
+      this.main.spawn({ x: P.x, y: gy + 0.6, z: P.z, vx: Math.cos(a) * 14 * ss, vz: Math.sin(a) * 14 * ss, vy: 0.5, drag: 3, frame: CELL.DUST, s0: 2 * ss, s1: 6 * ss, life: 1.6, rot: rand() * 6, r: 0.9, g: 0.78, b: 0.62, a: 0.55, fadeIn: 0.05, fadeOut: 0.3 });
     }
     if (!noRing && hy < 4) this.ring(P, 22 * s, 0.45, gy);
     if (hy < 3) this.scorchAt(P.x, P.z, 7 * s, gy);
     // debris
-    for (let i = 0; i < Math.round(9 * s + 3); i++) {
+    for (let i = 0; i < Math.round(8 * cs + 3); i++) {
       const a = rand() * Math.PI * 2, sp = range(6, 18);
       this.spawnDebris(P, Math.cos(a) * sp * 0.6 + (carVel ? carVel.x : 0), range(6, 16), Math.sin(a) * sp * 0.6 + (carVel ? carVel.z : 0), range(0.12, 0.42) * Math.sqrt(s), rand() < 0.22);
     }
@@ -214,7 +216,7 @@ export class FX {
     if (!owner._tl) { owner._tl = pos.clone(); fn(pos); return; }
     owner._tl.z += dz;
     const d = owner._tl.distanceTo(pos);
-    const n = Math.min(10, Math.floor(d / spacing));
+    const n = Math.min(16, Math.floor(d / spacing));
     if (n <= 0) return;
     for (let k = 0; k < n; k++) { _u.lerpVectors(owner._tl, pos, (k + rand()) / n); fn(_u); }
     owner._tl.copy(pos);

@@ -1,0 +1,8 @@
+["(()=>{ return import('/src/vehicles.js?t=9').then(m=>{ m.initMaterials(); const r={}; for (const [k,f] of [['suv',()=>m.buildSUV()],['civ0',()=>m.buildCivilian(m.MAT.civ[0],0)],['civ1',()=>m.buildCivilian(m.MAT.civ[1],1)],['civ2',()=>m.buildCivilian(m.MAT.civ[2],2)],['tanker',()=>m.buildTanker()],['pickup',()=>m.buildPickup()]]) { let t=performance.now(); f(); r[k]=(performance.now()-t).toFixed(0)+'ms first'; t=performance.now(); f(); r[k]+=' / '+(performance.now()-t).toFixed(1)+'ms inst'; } return r; }); })()",
+ "A.setup([['pickup',0,0],['suv',-3.7,0.6,0,{gunmen:true}]])",
+ "A.cam([0,2.56,1.4],[-3.7,1.0,0.3],70)", {"shot":"final_side_backlit"},
+ "A.setup([['pickup',0,0],['suv',3.4,-0.4,0,{gunmen:true}]])",
+ "A.cam([0.3,2.56,1.4],[3.4,1.0,-0.6],70)", {"shot":"final_side_frontlit"},
+ "A.setup([['civ0',-3,0,0],['civ1',0,0,0],['civ2',3,0,0]])",
+ "A.cam([-7.5,2.2,-6.5],[0.3,0.75,0.2],42)", {"shot":"final_civs"}
+]

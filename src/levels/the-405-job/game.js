@@ -93,6 +93,7 @@ class Car {
     this.root.updateMatrixWorld();
     _m.makeTranslation(this.hitboxCenter.x, this.hitboxCenter.y, this.hitboxCenter.z);
     this.matWorld.multiplyMatrices(this.root.matrixWorld, _m);
+    (this.invWorld ??= new THREE.Matrix4()).copy(this.matWorld).invert();
   }
   center(out) { return out.copy(this.hitboxCenter).applyMatrix4(this.root.matrixWorld); }
 }
@@ -326,7 +327,7 @@ export class Game {
     this.addScore(head ? 150 : 100, head ? 'HEADSHOT' : null, _v.clone().setY(_v.y + 1.2), 'small');
     // eject as an articulated ragdoll
     const rd = gm.g.die(car.vel, dir, this.scene, power ?? (head ? 1.2 : 1));
-    this.ragdolls.push({ rd, thud: 0 });
+    this.ragdolls.push({ rd, thud: 0, src: car });
   }
 
   destroyCar(c, cause) {
@@ -335,7 +336,7 @@ export class Game {
     c.center(_v);
     const P = _v.clone();
     const s = c.isTanker ? 2.6 : c.type === 'suv' ? 1.25 : 1.0;
-    this.fx.explosion(P, s, { carVel: c.vel });
+    if (!c.isHeliWreck) this.fx.explosion(P, s, { carVel: c.vel });
     this.recentExplosions.push(this.time);
     this.lastExplosionT = this.time;
     if (c.isTanker) {
@@ -349,6 +350,7 @@ export class Game {
     if (c.model.decal) c.model.decal.visible = false;
     c.mats[0] = MAT.charred; c.mats[1] = MAT.charred; c.mats[2] = MAT.charred; c.mats[4] = MAT.plastic; c.mats[5] = MAT.plastic;
     if (c.isTanker) c.mats[7] = MAT.charred;
+    else { c.mats[7] = MAT.charred; c.mats[8] = MAT.charred; }
     // rigid body
     const h = c.hitboxHalf;
     const rb = new RigidBox(h.x, h.y, h.z, c.isTanker ? 6 : 1.5);
@@ -447,6 +449,16 @@ export class Game {
     if (h.phase === 'dying') return;
     h.phase = 'dying'; h.t = 0;
     h.spin = 0.5;
+    const tail = h.m.breakTail ? h.m.breakTail() : null;
+    if (tail) {
+      const rb = new RigidBox(0.5, 0.9, 2.0, 0.6);
+      tail.object.getWorldPosition(rb.pos); tail.object.getWorldQuaternion(rb.quat);
+      rb.vel.copy(tail.velocityHint).add(h.vel); rb.ang.copy(tail.spinHint);
+      rb.restitution = 0.3; rb.friction = 0.5;
+      // keep the object's local offset: drive it from the body center
+      this.props.push({ obj: tail.object, rb, life: 12, burn: true });
+      this.fx.smallExplosion(rb.pos.clone(), 0.6);
+    }
     this.fx.explosion(h.pos.clone(), 1.4, { noRing: true });
     this.slowmo(2.6, 0.22, true);
     this.addScore(5000, 'BIRD DOWN!', h.pos.clone().setY(h.pos.y + 4), 'huge');
@@ -482,6 +494,7 @@ export class Game {
     this.updateTruck(dt);
     this.updateTraffic(dt, dz);
     for (const c of this.cars) this.updateCar(c, dt, dz);
+    this.separateCars();
     this.cars = this.cars.filter(c => {
       if (c.state === 'gone' || c.pos.z > 470 || c.pos.z < -700) { this.scene.remove(c.root); for (const gm of c.gunmen) if (gm.alive) gm.g.dispose(); return false; }
       return true;
@@ -623,7 +636,7 @@ export class Game {
         c.root.position.y = Math.sin(c.age * 9 + c.pos.x) * 0.01;
         c.root.rotation.set(c.pitch, c.yaw, c.roll, 'YXZ');
         c.wheelSpin += c.groundSpeed / 0.43 * dt;
-        c.model.wheels.forEach((w, i) => { w.rotation.x = (w.position.x < 0 ? 1 : -1) * c.wheelSpin; if (i < 2) w.rotation.y = (w.position.x < 0 ? Math.PI : 0) + c.vel.x * 0.04; });
+        c.model.wheels.forEach((w, i) => { w.rotation.x = -c.wheelSpin; if (i < 2) w.rotation.y = (w.position.x < 0 ? Math.PI : 0) + c.vel.x * 0.04; });
         if (c.smoking) { c.smokeT = (c.smokeT || 0) - dt; if (c.smokeT <= 0) { c.smokeT = 0.08; _v.set(0, c.hitboxHalf.y * 1.6, -c.hitboxHalf.z * 0.75).applyMatrix4(c.root.matrixWorld); this.fx.smoke(_v, 0.7, 0.3, 1.8, 1.0, 0.5); } }
       }
       this.updateGunmen(c, dt);
@@ -647,11 +660,13 @@ export class Game {
         c.burn -= dt;
         c.fireT = (c.fireT || 0) - dt;
         if (c.fireT <= 0) {
-          c.fireT = c.isTanker ? 0.02 : 0.035;
+          c.fireT = c.isTanker ? 0.03 : c.isHeliWreck ? 0.045 : 0.05;
           c.center(_v);
+          if (_v.distanceTo(this.headPos) < 9) { c.fireT = 0.15; } else {
           _v.y += 0.4;
           this.fx.flame(_v, c.isTanker ? 2.4 : 1.3, _v2.set(rb.vel.x, 0, rb.vel.z));
           if (rand() < 0.6) this.fx.smoke(_v.setY(_v.y + 1), c.isTanker ? 3 : 1.6, 0.12, 3.5, 2.5, 0.8);
+          }
         }
       }
       // chain reaction: tumbling wreck hits a driving car
@@ -662,13 +677,24 @@ export class Game {
           else { o.hp -= 60 * dt * 10; if (o.hp <= 0) this.destroyCar(o, 'chain'); }
         }
       }
-      // threat to the truck: wreck sliding into us
-      if (Math.abs(c.pos.x - this.truckX) < 2.2 && Math.abs(c.pos.z) < 4 && rb.pos.y < 2.5 && !c.hitTruck) {
-        c.hitTruck = true;
-        this.truckBump = 1;
-        this.hurt(12, c.pos);
-        this.audio.play('metal_crash', { x: c.pos.x, y: 1, z: c.pos.z });
-        rb.vel.x += Math.sign(c.pos.x - this.truckX || 1) * 8; rb.vel.y += 4;
+      // solid collision with the player's truck (truck footprint: x ±1.05, z -3.1..2.8, height ~2.1)
+      {
+        const reach = Math.max(c.hitboxHalf.x, c.hitboxHalf.z) * 0.75;
+        const dx = rb.pos.x - this.truckX, dzc = rb.pos.z + 0.15;
+        const ox = 1.05 + reach - Math.abs(dx), oz = 2.95 + reach - Math.abs(dzc);
+        if (ox > 0 && oz > 0 && rb.pos.y < 2.1 + c.hitboxHalf.y) {
+          if (ox < oz) { rb.pos.x += Math.sign(dx || 1) * ox; if (Math.sign(rb.vel.x) !== Math.sign(dx || 1)) rb.vel.x = -rb.vel.x * 0.3 + Math.sign(dx || 1) * 3; }
+          else { rb.pos.z += Math.sign(dzc || 1) * oz; rb.vel.z = Math.sign(dzc || 1) * Math.max(Math.abs(rb.vel.z) * 0.4, 6); }
+          rb.ang.y += (rand() - 0.5) * 2;
+          if ((c.lastTruckHit ?? -9) < this.time - 0.5) {
+            c.lastTruckHit = this.time;
+            this.truckBump = 1;
+            if (!c.hitTruck) { c.hitTruck = true; this.hurt(10, c.pos); }
+            this.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z });
+            this.haptic(1, 160);
+            for (let i = 0; i < 16; i++) this.fx.sparks.spawn({ x: this.truckX + Math.sign(dx || 1) * 1.05, y: range(0.6, 1.4), z: rb.pos.z * 0.5, vx: Math.sign(dx || 1) * range(2, 8), vy: range(1, 5), vz: range(4, 14), grav: -12, frame: CELL.SPARK, s0: 1, w: 0.05, life: range(0.3, 0.7), r: 1.7, g: 1.0, b: 0.5, fadeOut: 0.5 });
+          }
+        }
       }
     }
     c.updateMatrix();
@@ -749,6 +775,60 @@ export class Game {
     }
   }
 
+  // driving cars never interpenetrate: push apart along the axis of least overlap
+  separateCars() {
+    const L = this.cars;
+    for (let i = 0; i < L.length; i++) {
+      const a = L[i]; if (a.state !== 'drive' || a.isHeliWreck) continue;
+      for (let j = i + 1; j < L.length; j++) {
+        const b = L[j]; if (b.state !== 'drive' || b.isHeliWreck) continue;
+        const dx = b.pos.x - a.pos.x, dzz = (b.pos.z + b.hitboxCenter.z) - (a.pos.z + a.hitboxCenter.z);
+        const ox = a.hitboxHalf.x + b.hitboxHalf.x + 0.05 - Math.abs(dx);
+        const oz = a.hitboxHalf.z + b.hitboxHalf.z + 0.1 - Math.abs(dzz);
+        if (ox <= 0 || oz <= 0) continue;
+        const wa = a.team === 'enemy' ? 0.6 : a.isTanker ? 0.1 : 0.5, wb = 1 - wa;
+        if (ox < oz) {
+          const sx = Math.sign(dx || 1);
+          a.pos.x -= sx * ox * wa; b.pos.x += sx * ox * wb;
+          const rv = b.vel.x - a.vel.x; if (rv * sx < 0) { a.vel.x += rv * 0.5; b.vel.x -= rv * 0.5; }
+          if (Math.abs(rv) > 2 && (a.lastScrape ?? -9) < this.time - 0.4) { a.lastScrape = this.time; this.audio.play('metal_crash', { x: (a.pos.x + b.pos.x) / 2, y: 0.8, z: a.pos.z, volume: 0.5 }); }
+        } else {
+          const sz = Math.sign(dzz || 1);
+          a.pos.z -= sz * oz * wa; b.pos.z += sz * oz * wb;
+          const rv = b.vel.z - a.vel.z; if (rv * sz < 0) { a.vel.z += rv * 0.5; b.vel.z -= rv * 0.5; }
+        }
+      }
+    }
+  }
+
+  // keep ragdoll bodies out of car bodies (doors, roofs, hoods)
+  collideRagdoll(r) {
+    const rd = r.rd, x = rd.x, v = rd.v, np = rd.np;
+    if (!x || rd.age < 0.12) return;
+    const p = rd.position;
+    for (const c of this.cars) {
+      if (c.state === 'gone' || c.isHeliWreck || !c.invWorld) continue;
+      if (c === r.src && rd.age < 0.45) continue;
+      if (Math.abs(c.pos.x - p.x) > 5 || Math.abs(c.pos.z - p.z) > c.hitboxHalf.z + 4) continue;
+      const h = c.hitboxHalf, M = c.invWorld.elements, W = c.matWorld.elements;
+      for (let i = 0; i < np; i++) {
+        const wx = x[i * 3], wy = x[i * 3 + 1], wz = x[i * 3 + 2];
+        const lx = M[0] * wx + M[4] * wy + M[8] * wz + M[12], ly = M[1] * wx + M[5] * wy + M[9] * wz + M[13], lz = M[2] * wx + M[6] * wy + M[10] * wz + M[14];
+        const px = h.x + 0.06 - Math.abs(lx), py = h.y + 0.06 - ly, pz = h.z + 0.06 - Math.abs(lz);
+        if (px <= 0 || pz <= 0 || py <= 0 || ly < -h.y) continue;
+        let nx = 0, ny = 0, nz = 0, d;
+        if (py < px && py < pz) { ny = 1; d = py; } else if (px < pz) { nx = Math.sign(lx || 1); d = px; } else { nz = Math.sign(lz || 1); d = pz; }
+        // local push -> world
+        const wnx = W[0] * nx + W[4] * ny + W[8] * nz, wny = W[1] * nx + W[5] * ny + W[9] * nz, wnz = W[2] * nx + W[6] * ny + W[10] * nz;
+        x[i * 3] += wnx * d; x[i * 3 + 1] += wny * d; x[i * 3 + 2] += wnz * d;
+        // velocity: take on the car's motion along the normal, keep some tangential slide
+        const vn = (v[i * 3] - c.vel.x) * wnx + (v[i * 3 + 1] - c.vel.y) * wny + (v[i * 3 + 2] - c.vel.z) * wnz;
+        if (vn < 0) { v[i * 3] -= vn * wnx * 1.2; v[i * 3 + 1] -= vn * wny * 1.2; v[i * 3 + 2] -= vn * wnz * 1.2; }
+        if (rd.x0) { rd.x0[i * 3] = x[i * 3] - v[i * 3] * 1e-3; rd.x0[i * 3 + 1] = x[i * 3 + 1] - v[i * 3 + 1] * 1e-3; rd.x0[i * 3 + 2] = x[i * 3 + 2] - v[i * 3 + 2] * 1e-3; }
+      }
+    }
+  }
+
   // ---------------- helicopter ----------------
   updateHeli(dt, dz) {
     const h = this.heli;
@@ -802,7 +882,10 @@ export class Game {
         this.fx.tracer(mz, end, { speed: 300, color: [1.9, 0.6, 0.25], width: 0.08, len: 5 });
         this.fx.later(mz.distanceTo(end) / 300, () => { this.fx.impact(end, _v2.set(0, 1, 0), 'ground'); if (Math.abs(end.x - this.truckX) < 1.3 && Math.abs(end.z) < 2.5) this.hurt(4, end); });
       }
-      if (hpFrac < 0.5) this.fx.trailEmit(h, m.smokePt.getWorldPosition(new THREE.Vector3()), 0.8, (q) => this.fx.smoke(q, 1.1, 0.15, 2.5, 0.5, 0.65), dz);
+      if (hpFrac < 0.5) this.fx.trailEmit(h, m.smokePt.getWorldPosition(new THREE.Vector3()), 0.5, (q) => this.fx.smoke(q, 1.6, 0.15, 2.2, 0.5, 0.6), dz);
+      if (m.aimGun) m.aimGun(this.headPos, dt, h.burst > 0);
+      if (m.setDamage && m.setDamage(1 - hpFrac)) { this.fx.explosion(m.sparkPt.getWorldPosition(new THREE.Vector3()), 0.45, { noRing: true }); this.audio.play('explosion_small', { x: h.pos.x, y: h.pos.y, z: h.pos.z }); }
+      if (hpFrac < 0.5 && m.sparkPt) { h.sparkT = (h.sparkT || 0) - dt; if (h.sparkT <= 0) { h.sparkT = range(0.05, 0.2); m.sparkPt.getWorldPosition(_v3); for (let i = 0; i < 3; i++) this.fx.sparks.spawn({ x: _v3.x, y: _v3.y, z: _v3.z, vx: range(-3, 3), vy: range(-1, 3), vz: range(2, 8), grav: -10, frame: CELL.SPARK, s0: 1, w: 0.05, life: range(0.3, 0.6), r: 1.8, g: 1.0, b: 0.45, fadeOut: 0.5 }); if (hpFrac < 0.3) this.fx.flame(_v3, 0.7); } }
     }
     if (h.phase === 'dying') {
       h.spin = Math.min(7, h.spin + dt * 3);
@@ -826,13 +909,13 @@ export class Game {
       h.pos.addScaledVector(h.vel, -dt); // the generic integrator below re-applies vel*dt
       target.copy(h.pos);
       h.smokeT -= dt;
-      this.fx.trailEmit(h, m.smokePt.getWorldPosition(new THREE.Vector3()), 0.7, (q) => { this.fx.flame(q, 1.2); this.fx.smoke(q, 1.5, 0.12, 3, 1, 0.85); }, dz);
+      this.fx.trailEmit(h, m.smokePt.getWorldPosition(new THREE.Vector3()), 0.45, (q) => { if (rand() < 0.45) this.fx.flame(q, 1.0); this.fx.smoke(q, 2.0, 0.12, 2.4, 0.8, 0.75); }, dz);
       if (h.pos.y < 1.6) {
         // crash
         h.phase = 'gone'; h.alive = false;
         const P = h.pos.clone().setY(1);
         this.fx.explosion(P, 3.0);
-        for (let k = 1; k <= 4; k++) this.fx.later(0.15 * k, () => this.fx.explosion(P.clone().add(_v2.set(range(-5, 5), range(0, 3), range(-6, 6))), 1.5, { noRing: true }));
+        for (let k = 1; k <= 3; k++) this.fx.later(0.18 * k, () => this.fx.explosion(P.clone().add(_v2.set(range(-5, 5), range(0, 3), range(-6, 6))), 1.3, { noRing: true }));
         this.blast(P, 18, 100, null);
         this.slowmo(2.4, 0.25, true);
         this.haptic(1, 400);
@@ -845,6 +928,7 @@ export class Game {
         this.scene.remove(m.root);
         wreck.root.add(m.root); m.root.position.set(0, 0.6, 0); m.root.rotation.set(0.2, h.yaw, 0.5);
         m.body.material = [MAT.charred, MAT.charred, MAT.charred];
+        (m.burnables || []).forEach(b => { b.material = MAT.charred; });
         m.rotor.rotation.z = 0.4;
         wreck.state = 'drive'; wreck.hp = 1;
         this.cars.push(wreck);
@@ -993,6 +1077,7 @@ export class Game {
   updateBodies(dt, dz) {
     for (const r of this.ragdolls) {
       r.rd.update(dt, V);
+      this.collideRagdoll(r);
       const imp = Math.max(r.rd.impact || 0, r.rd.gunImpact || 0);
       if (imp > 3 && this.time - r.thud > 0.25) {
         r.thud = this.time;
@@ -1007,6 +1092,7 @@ export class Game {
       p.life -= dt;
       p.rb.step(dt, V);
       p.obj.position.copy(p.rb.pos); p.obj.quaternion.copy(p.rb.quat);
+      if (p.burn && p.rb.pos.distanceTo(this.headPos) > 8) this.fx.trailEmit(p, p.rb.pos, 0.45, (q) => { this.fx.smoke(q, 1.3, 0.13, 2.0, 0.8, 0.65); if (rand() < 0.35) this.fx.flame(q, 0.6); }, dz);
       if (p.rb.pos.z > 420 || p.life <= 0) { p.dead = true; this.scene.remove(p.obj); }
     }
     this.props = this.props.filter(p => !p.dead);
