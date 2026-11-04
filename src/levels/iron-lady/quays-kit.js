@@ -11,7 +11,7 @@ import { makeNoise, fbm, makeCanvas, canvasTex, heightToNormal } from '../../tex
 //  (= baked lamp light × albedo), so light pools, lit walls and warm undersides cost nothing.
 // =====================================================================================
 
-export const TS = 2.4;   // stone ashlar tile (m): 4 courses of 0.6 m, blocks 1.2 m
+export const TS = 4.8;   // stone ashlar tile (m): 8 courses of 0.6 m, blocks 0.8-1.7 m
 export const TC = 4;     // cobbles tile
 export const TA = 5;     // asphalt tile
 export const TG = 3;     // gravel tile
@@ -218,7 +218,7 @@ export class LightField {
       if (d >= L.r) return;
       const id = 1 / Math.max(d, 1e-3), w = L.wrap ?? 0.35;
       const lam = Math.max(0, Math.min(1, ((dx * nx + dy * ny + dz * nz) * id + w) / (1 + w)));
-      const t = 1 - d / L.r, att = L.k * t * t * lam;
+      const t = 1 - Math.max(d, L.min ?? 1.6) / L.r, att = t > 0 ? L.k * t * t * lam : 0;
       out[0] += L.c[0] * att; out[1] += L.c[1] * att; out[2] += L.c[2] * att;
     };
     if (a) for (const L of a) f(L);
@@ -310,32 +310,43 @@ function pack(o, S, strength, aniso) {
   normal.anisotropy = aniso;
   return { map, normal, rough };
 }
-// rusticated limestone ashlar: 4 courses / 2.4 m, V-chamfered joints, pitted rough faces
+// rusticated limestone ashlar: 8 courses / 4.8 m, blocks 0.8-1.7 m, V-chamfered dark joints, pitted faces,
+// per-block tone / hue / crust so the tile does not read as a grid
 function stoneTex(aniso) {
-  const S = 512, rows = 4, rh = S / rows, bw = S / 2, r = makeRng(34);
-  const n1 = makeNoise(31, 16), n2 = makeNoise(32, 128), n3 = makeNoise(33, 64);
-  const tone = []; for (let k = 0; k < 16; k++) tone.push((r() - 0.5) * 0.16);
-  const split = []; for (let k = 0; k < 16; k++) split.push(r() < 0.22 ? 0.3 + r() * 0.4 : -1);
+  const S = 1024, rows = 8, rh = S / rows, r = makeRng(34);
+  const n1 = makeNoise(31, 16), n2 = makeNoise(32, 256), n3 = makeNoise(33, 64);
+  const R = [];
+  for (let j = 0; j < rows; j++) {
+    const b = [0]; let x = 0;
+    for (;;) { const L = (0.8 + r() * 0.9) * S / 4.8; if (x + L > S - 150) { b.push(S); break; } x += L; b.push(x); }
+    R.push({ off: Math.floor(r() * S), b, tone: b.map(() => (r() - 0.5) * 0.2), hue: b.map(() => r()), crust: b.map(() => r()), split: b.map(() => (r() < 0.12 ? 0.5 : -1)) });
+  }
   const o = gen(S, (x, y) => {
-    const row = (y / rh) | 0, off = row % 2 ? bw / 2 : 0, xx = (x + off) % S, col = (xx / bw) | 0;
-    let lx = xx - col * bw, L = bw; const ly = y - row * rh, id = (row * 2 + col) % 16;
-    if (split[id] > 0) { const sp = split[id] * bw; if (lx < sp) L = sp; else { lx -= sp; L = bw - sp; } }
+    const j = (y / rh) | 0, row = R[j], xx = (x + row.off) % S;
+    let k = 0; while (row.b[k + 1] <= xx) k++;
+    const L = row.b[k + 1] - row.b[k], lx = xx - row.b[k];
+    let ly = y - j * rh, H = rh;
+    if (row.split[k] > 0) { if (ly < rh / 2) H = rh / 2; else { ly -= rh / 2; H = rh / 2; } }
     const u = x / S, v = y / S;
-    const wob = (n3(u * 64, v * 64) - 0.5) * 3;
-    const e = Math.min(lx, L - lx, ly, rh - ly) + wob, ch = 10;
-    const big = fbm(n1, u, v, 4, 4), fine = n2(u * 128, v * 128), mid = fbm(n3, u, v, 16, 3);
+    const wob = (n3(u * 64, v * 64) - 0.5) * 4;
+    const e = Math.min(lx, L - lx, ly, H - ly) + wob, ch = 9;
+    const big = fbm(n1, u, v, 4, 4), fine = n2(u * 256, v * 256), mid = fbm(n3, u, v, 16, 3);
     let t = Math.max(0, Math.min(1, e / ch)); t = t * t * (3 - 2 * t);
-    let h = t * (0.8 + 0.2 * mid) + (fine - 0.5) * 0.1;
-    let b = 0.66 + tone[id] + (big - 0.5) * 0.16 + (mid - 0.5) * 0.1 + (fine - 0.5) * 0.07;
-    if (e < ch) b *= 0.6 + 0.4 * Math.max(0, e) / ch;
-    if (e < 1.5) b *= 0.55;
-    const pit = n2(u * 128 + 17, v * 128 + 5);
-    if (pit > 0.82) { b *= 0.78; h -= 0.15; }
-    const w = (big - 0.5) * 0.06;
-    return [b * (1.02 + w) * 255, b * 0.95 * 255, b * 0.84 * 255, h, e < ch ? 0.92 : 0.8 + (mid - 0.5) * 0.25];
+    let h = t * (0.8 + 0.2 * mid) + (fine - 0.5) * 0.12;
+    const hue = row.hue[k];
+    const base = hue < 0.55 ? [1.0, 0.93, 0.8] : hue < 0.8 ? [0.95, 0.92, 0.86] : [1.02, 0.9, 0.74];
+    let b = 0.64 + row.tone[k] + (big - 0.5) * 0.16 + (mid - 0.5) * 0.12 + (fine - 0.5) * 0.08;
+    const crust = row.crust[k] > 0.7 ? sstep01((fbm(n1, u * 3 + 5, v * 3, 3, 3) - 0.45) * 4) * 0.35 : 0;
+    b *= 1 - crust;
+    if (e < ch) b *= 0.45 + 0.55 * Math.max(0, e) / ch;
+    if (e < 2) b = 0.08 + fine * 0.04;
+    const pit = n2(u * 256 + 17, v * 256 + 5);
+    if (pit > 0.8) { b *= 0.72; h -= 0.18; }
+    return [b * base[0] * 255, b * base[1] * 255, b * base[2] * 255, h, e < ch ? 0.95 : 0.78 + (mid - 0.5) * 0.25 - crust * 0.2];
   });
-  return pack(o, S, 3.2, aniso);
+  return pack(o, S, 2.4, aniso);
 }
+const sstep01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 // worn granite pavés: 20 rows / 4 m, random lengths, domed polished tops, wet mud joints
 function cobbleTex(aniso) {
   const S = 1024, rows = 20, rh = S / rows, r = makeRng(71), n1 = makeNoise(72, 32), n2 = makeNoise(73, 256), n3 = makeNoise(74, 64);
@@ -414,7 +425,7 @@ function greenTex(aniso) {
   const o = gen(S, (x, y) => {
     const u = x / S, v = y / S, a = fbm(n1, u, v, 4, 4), f = n2(u * 128, v * 128), q = r();
     const b = 0.5 + (a - 0.5) * 0.5 + (f - 0.5) * 0.5 + (q - 0.5) * 0.25;
-    return [b * 70, b * 96, b * 46, f * 0.7 + q * 0.3, 0.9];
+    return [b * 120, b * 138, b * 74, f * 0.7 + q * 0.3, 0.9];
   });
   return pack(o, S, 3.5, aniso);
 }
@@ -597,7 +608,7 @@ export function materials(renderer) {
     props: bakedMat({ map: T.atlas, envMapIntensity: 1.0 }),
     leaves: bakedMat({ map: T.leaf, alphaTest: 0.5, side: THREE.DoubleSide, envMapIntensity: 0.2 }, { leaves: true }),
     decal: bakedMat({ map: T.decal, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, envMapIntensity: 0.6 }),
-    puddle: bakedMat({ map: T.decal, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, envMapIntensity: 1.7 }),
+    puddle: bakedMat({ map: T.decal, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, envMapIntensity: 0.7 }),
   };
   return MAT;
 }

@@ -27,9 +27,9 @@ const STAIRS = [[400, 1], [-200, 1], [404, -1], [-196, -1]];          // scenery
 const PED = { x0: 14.3, x1: 17.7, z0: 52.3, z1: 55.7 };              // bridge-end pedestals (|x|, |z|)
 
 // x breakpoints: fine through the play area, coarser outward
-function xsRange(a, b, extra = []) {
+function xsRange(a, b, extra = [], st = 2) {
   const pts = [a, b, ...extra];
-  for (let x = Math.ceil(a / 2) * 2; x <= b; x += 2) if (x >= FINE0 && x <= FINE1) pts.push(x);
+  for (let x = Math.ceil(a / st) * st; x <= b; x += st) if (x >= FINE0 && x <= FINE1) pts.push(x);
   for (let x = Math.ceil(a / 10) * 10; x <= b; x += 10) if ((x >= FINE0 - 120 && x < FINE0) || (x > FINE1 && x <= FINE1 + 160)) pts.push(x);
   for (let x = Math.ceil(a / 40) * 40; x <= b; x += 40) pts.push(x);
   return brk(pts).filter((x) => x >= a - 1e-6 && x <= b + 1e-6);
@@ -67,7 +67,7 @@ function asphCol(p, light = false) {
 function gravelCol(p) {
   const [x, , z] = p;
   const m = 0.8 + 0.4 * wfbm(x * 0.05, z * 0.05 + 2) + 0.12 * (wn(x * 0.7, z * 0.7) - 0.5);
-  return mul([0.9, 0.84, 0.72], m * WET * 0.95);
+  return mul([1.35, 1.24, 1.04], m * 0.82);
 }
 
 // ---------------------------------------------------------------------- shared builder state
@@ -78,21 +78,20 @@ function mkState(ctx) {
 function pud(S, x, y, z, w, l, rot, rect) { decal(S.B.puddle, x, y, z, w, l, rot, rect, [0.03, 0.034, 0.04], [0.04, 0.0, 1]); }
 const RT = (n) => [n[2], 0, -n[0]];   // quad right axis for a vertical quad facing n
 const col = (S, min, max, mat = 'concrete', extra = {}) => S.colliders.push({ min, max, data: { mat, kind: 'prop', ...extra } });
-function light(S, p, r, k, c = LAMP_L) { S.field.add({ p, c, r, k }); }
+function light(S, p, r, k, c = LAMP_L) { S.field.add({ p, c, r: r * 1.15, k: k * 3.2 }); }
 function glow(S, p, size, color = LAMP_C, extra = {}) { S.glows.push({ p, color, size, dusk: true, ...extra }); }
 function refl(S, p, ground, len, width = 1.0, extra = {}) { S.reflect.push({ p, color: REFL_C, len, width, ground, ...extra }); }
 
 // ---------------------------------------------------------------------- lamps
 // a cast-iron lantern: glass centre at (x, y, z), s = scale
-function lantern(S, x, y, z, s = 1, bk = S.B.props) {
+function lantern(S, x, y, z, s = 1, bk = S.B.props, lod = 0) {
   const I = { col: COL.iron, rm: RM.iron };
-  addGeo(bk, CONE(0.05 * s, 0.16 * s, 6), M4(x, y - 0.33 * s, z, Math.PI), I);
-  addGeo(bk, CYL(0.15 * s, 0.1 * s, 0.07 * s, 6), M4(x, y - 0.24 * s, z), I);
+  if (!lod) addGeo(bk, CONE(0.05 * s, 0.16 * s, 5), M4(x, y - 0.33 * s, z, Math.PI), I);
+  addGeo(bk, CYL(0.15 * s, 0.1 * s, 0.07 * s, 6, true), M4(x, y - 0.24 * s, z), I);
   addGeo(bk, CYL(0.215 * s, 0.14 * s, 0.4 * s, 6, true), M4(x, y, z), { rect: A.lantern, col: [1, 0.86, 0.62], rm: RM.glow, e: [2.3, 2.0, 1.6] });
-  addGeo(bk, CYL(0.25 * s, 0.25 * s, 0.05 * s, 6), M4(x, y + 0.215 * s, z), I);
-  addGeo(bk, CONE(0.29 * s, 0.24 * s, 6), M4(x, y + 0.36 * s, z), I);
-  addGeo(bk, SPH(0.045 * s, 5, 3), M4(x, y + 0.52 * s, z), I);
-  for (let k = 0; k < 6; k += 2) { const a = k / 6 * Math.PI * 2 + Math.PI / 6; seg(bk, [x + Math.cos(a) * 0.15 * s, y - 0.2 * s, z + Math.sin(a) * 0.15 * s], [x + Math.cos(a) * 0.22 * s, y + 0.2 * s, z + Math.sin(a) * 0.22 * s], 0.014 * s, 0.014 * s, 3, I); }
+  addGeo(bk, CYL(0.14 * s, 0.14 * s, 0.01, 6), M4(x, y - 0.19 * s, z), { col: [1, 0.86, 0.62], rm: RM.glow, e: [3.0, 2.4, 1.7] });
+  addGeo(bk, CONE(0.29 * s, 0.26 * s, 6), M4(x, y + 0.33 * s, z), I);
+  if (!lod) addGeo(bk, CONE(0.05 * s, 0.14 * s, 4), M4(x, y + 0.52 * s, z), I);
 }
 // double-lantern quay candelabra on the tree sidewalk (crossbar along x)
 function quayLamp(S, x, z, detail = true) {
@@ -108,8 +107,9 @@ function quayLamp(S, x, z, detail = true) {
   for (const sx of [-1, 1]) {
     const lx = x + sx * 0.68;
     lantern(S, lx, 3.78, z, 1.05);
-    glow(S, [lx, 3.8, z], 1.25);
+    if (!detail) continue;
   }
+  glow(S, [x - 0.68, 3.8, z], 1.2); glow(S, [x + 0.68, 3.8, z], 1.2);
   light(S, [x, 3.9, z], 14, 2.0);
   refl(S, [x, 3.8, z], 0, 9, 1.3);
   S.lamps.push([x, 3.8, z]);
@@ -130,15 +130,15 @@ function postLamp(S, x, y0, z, { h = 3.4, glowSize = 1.15, k = 1.5, r = 12 } = {
   col(S, [x - 0.24, y0, z - 0.24], [x + 0.24, y0 + h, z + 0.24], 'metal', { thin: true });
 }
 // wall lantern on a swan-neck bracket (retaining wall face at |z| = 52, facing the river)
-function wallLantern(S, x, y, s) {
+function wallLantern(S, x, y, s, lod = 0) {
   const P = S.B.props, I = { col: COL.iron, rm: RM.iron }, zw = s * 52;
   addGeo(P, BOX(0.32, 0.5, 0.06), M4(x, y + 0.1, zw - s * 0.03), I);
   const pts = []; for (let k = 0; k <= 6; k++) { const t = k / 6, a = t * Math.PI * 0.55; pts.push([x, y + 0.25 - Math.cos(a) * 0.05 + Math.sin(t * Math.PI) * 0.18, zw - s * (0.05 + t * 0.78)]); }
-  for (let k = 0; k < pts.length - 1; k++) seg(P, pts[k], pts[k + 1], 0.035, 0.03, 5, I);
-  seg(P, [x, y - 0.12, zw - s * 0.05], [x, y + 0.18, zw - s * 0.45], 0.022, 0.022, 4, I);
+  for (let k = 0; k < pts.length - 1; k += lod ? 2 : 1) seg(P, pts[k], pts[Math.min(pts.length - 1, k + (lod ? 2 : 1))], 0.035, 0.03, 4, I);
+  if (!lod) seg(P, [x, y - 0.12, zw - s * 0.05], [x, y + 0.18, zw - s * 0.45], 0.022, 0.022, 3, I);
   const lz = zw - s * 0.86;
-  seg(P, [x, y + 0.3, lz], [x, y + 0.52, lz], 0.02, 0.02, 4, I);
-  lantern(S, x, y - 0.12, lz, 0.95);
+  seg(P, [x, y + 0.3, lz], [x, y + 0.52, lz], 0.02, 0.02, 3, I);
+  lantern(S, x, y - 0.12, lz, 0.95, P, lod);
   glow(S, [x, y - 0.1, lz], 1.05);
   light(S, [x, y, lz - s * 0.2], 11.5, 1.75);
   const g = groundY(x, lz);
@@ -159,7 +159,8 @@ function bridgeLamp(S, x, z) {
   for (const y of [1.9, 2.9, 3.55]) addGeo(P, CYL(0.13, 0.13, 0.07, 8), M4(x, y0 + y, z), I);
   beam(P, [x, y0 + 3.0, z - 0.78], [x, y0 + 3.0, z + 0.78], 0.07, 0.07, I);
   for (const sz of [-1, 1]) addGeo(P, TOR(0.24, 0.03, 3, 7, Math.PI * 0.9), M4(x, y0 + 2.78, z + sz * 0.42, 0, sz > 0 ? Math.PI / 2 : -Math.PI / 2, 0.3), I);
-  for (const sz of [-1, 1]) { lantern(S, x, y0 + 3.35, z + sz * 0.78, 0.95); glow(S, [x, y0 + 3.38, z + sz * 0.78], 1.05); }
+  for (const sz of [-1, 1]) lantern(S, x, y0 + 3.35, z + sz * 0.78, 0.95);
+  glow(S, [x, y0 + 3.38, z], 2.0, LAMP_C);
   addGeo(P, CYL(0.06, 0.1, 0.4, 8), M4(x, y0 + 3.75, z), I);
   lantern(S, x, y0 + 4.25, z, 1.15); glow(S, [x, y0 + 4.28, z], 1.4);
   light(S, [x - sx * 0.6, y0 + 3.9, z], 15, 2.3);
@@ -183,18 +184,18 @@ function lowerQuays(S) {
       if (z1 > 51.5) surf(stone, xsRange(a, b), [s * 51.1, s * 52], (x, z) => [x, LOW_Y + 0.004, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul(stoneCol(p, { base: [0.6, 0.58, 0.55] }), 0.7), rm: RM.wet });
     }
     // coping along the quay edge: flat top, bullnose, then the river wall down into the water
-    const xsE = xsRange(X0, X1, [-16, 16]);
+    const xsE = xsRange(X0, X1, [-16, 16], 4), xsEW = xsRange(X0, X1, [-16, 16], 3);
     const eCol = (p) => stoneCol(p, { base: [0.84, 0.8, 0.72], y0: LOW_Y - 0.6, top: LOW_Y, water: true, k: 1.05 });
     prof(stone, xsE, [[0.7, 0], [0.04, 0], [0, -0.06], [-0.035, -0.17], [0, -0.3], [0.03, -0.36]], (u, a, b) => [u, LOW_Y + b, s * (40 + a)], (na, nb) => [0, nb, s * na], { col: eCol, rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
-    const ys = [LOW_Y - 0.36, LOW_Y - 0.8, LOW_Y - 1.4, -6.55, WATER_Y + 0.15, WATER_Y - 0.4, WATER_Y - 3];
-    surf(stone, xsE, ys, (x, y) => [x, y, s * 40.03], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, top: LOW_Y, water: true }), rm: RM.wet });
+    const ys = [LOW_Y - 0.36, LOW_Y - 1.2, -6.55, WATER_Y + 0.15, WATER_Y - 3];
+    surf(stone, xsEW, ys, (x, y) => [x, y, s * 40.03], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, top: LOW_Y, water: true }), rm: RM.wet });
     // retaining wall at |z| = 52 up to the street, string course, parapet (with gaps)
     const xsW = [...xsRange(X0, -16), ...xsRange(16, X1)];
-    const wys = [LOW_Y, LOW_Y + 0.35, LOW_Y + 1.1, -3.4, -1.9, -0.9, -0.32];
+    const wys = [LOW_Y, LOW_Y + 0.45, LOW_Y + 1.5, -2.6, -0.32];
     const wCol = (p) => stoneCol(p, { y0: groundY(p[0], s * 51.5), top: -0.32 });
-    for (const [a, b] of [[X0, -16], [16, X1]]) surf(stone, xsRange(a, b), wys, (x, y) => [x, y, s * 52], { n: () => [0, 0, -s], ws: TS, col: wCol, rm: RM.stone });
+    for (const [a, b] of [[X0, -16], [16, X1]]) surf(stone, xsRange(a, b, [], 3), wys, (x, y) => [x, y, s * 52], { n: () => [0, 0, -s], ws: TS, col: wCol, rm: RM.stone });
     // string course (moulded band)
-    for (const [a, b] of [[X0, -16], [16, X1]]) prof(stone, xsRange(a, b), [[0, -0.34], [-0.1, -0.34], [-0.14, -0.27], [-0.24, -0.16], [-0.25, -0.04], [-0.06, 0]], (u, aa, bb) => [u, bb, s * (52 + aa)], (na, nb) => [0, nb, s * na], { col: (p) => stoneCol(p, { k: 1.08, top: 0.2 }), rm: RM.stone });
+    for (const [a, b] of [[X0, -16], [16, X1]]) prof(stone, xsRange(a, b, [], 4), [[0, -0.34], [-0.1, -0.34], [-0.14, -0.27], [-0.24, -0.16], [-0.25, -0.04], [-0.06, 0]], (u, aa, bb) => [u, bb, s * (52 + aa)], (na, nb) => [0, nb, s * na], { col: (p) => stoneCol(p, { k: 1.08, top: 0.2 }), rm: RM.stone });
     // wall-foot shadow / grime decal + moss + rain streak decals on the wall
     const rr = S.rng;
     for (let x = 18; x < 380; x += 6) decal(S.B.decal, x + 3, LOW_Y + 0.012, s * 51.25, 6.2, 1.6, 0, D.aoRect, [0.7, 0.7, 0.7]);
@@ -306,11 +307,11 @@ function parapets(S) {
     for (const [a, b] of gaps) { runs.push([x, a]); x = b; }
     runs.push([x, X1]);
     for (const [a, b] of runs) {
-      const xs = xsRange(a, b);
+      const xs = xsRange(a, b, [], 3);
       const pc = (p) => stoneCol(p, { y0: 0, top: 0.86, k: 1.02 });
-      surf(stone, xs, [0, 0.35, 0.86], (x, y) => [x, y, s * 52], { n: () => [0, 0, -s], ws: TS, col: pc, rm: RM.stone });
-      surf(stone, xs, [0, 0.3, 0.86], (x, y) => [x, y, s * 52.6], { n: () => [0, 0, s], ws: TS, col: pc, rm: RM.stone });
-      prof(stone, xs, [[-0.07, 0.86], [-0.07, 0.94], [-0.03, 1.0], [0.63, 1.0], [0.67, 0.94], [0.67, 0.86]], (u, aa, bb) => [u, bb, s * (52 + aa)], (na, nb) => [0, nb, s * na], { col: (p) => stoneCol(p, { k: 1.18, top: 3 }), rm: RM.wet });
+      surf(stone, xs, [0, 0.86], (x, y) => [x, y, s * 52], { n: () => [0, 0, -s], ws: TS, col: pc, rm: RM.stone });
+      surf(stone, xs, [0, 0.86], (x, y) => [x, y, s * 52.6], { n: () => [0, 0, s], ws: TS, col: pc, rm: RM.stone });
+      prof(stone, xsRange(a, b, [], 4), [[-0.07, 0.86], [-0.07, 0.94], [-0.03, 1.0], [0.63, 1.0], [0.67, 0.94], [0.67, 0.86]], (u, aa, bb) => [u, bb, s * (52 + aa)], (na, nb) => [0, nb, s * na], { col: (p) => stoneCol(p, { k: 1.18, top: 3 }), rm: RM.wet });
       for (const xe of [a, b]) if (xe > X0 + 1 && xe < X1 - 1) addGeo(stone, BOX(0.5, 1.12, 0.78), M4(xe + (xe === a ? 0.25 : -0.25), 0.56, s * 52.3), { ws: TS, col: (p) => stoneCol(p, { k: 1.1 }), rm: RM.stone });
       if (b - a > 0.5) col(S, [Math.max(a, -400), 0, s > 0 ? 52 : -52.6], [Math.min(b, 600), 1.0, s > 0 ? 52.6 : -52], 'concrete', { kind: 'parapet' });
     }
@@ -320,10 +321,10 @@ function parapets(S) {
 // ---------------------------------------------------------------------- upper quays: roads, sidewalks, curbs, markings
 function curbX(S, xs, z, side) {
   // granite curb band along x at |z| (side: +1 = sidewalk toward +z)
-  prof(S.B.stone, xs, [[-0.22, 0.0], [-0.2, 0.05], [-0.16, 0.065], [0.14, 0.065], [0.16, 0.05], [0.18, 0]], (u, a, b) => [u, b, z + side * a], (na, nb) => [0, nb, side * na], { col: (p) => mul([0.5, 0.49, 0.48], (0.8 + 0.3 * wn(p[0] * 0.6, 7)) * WET * 1.1), rm: RM.wet });
+  prof(S.B.stone, xs, [[-0.22, 0.0], [-0.18, 0.065], [0.14, 0.065], [0.18, 0]], (u, a, b) => [u, b, z + side * a], (na, nb) => [0, nb, side * na], { col: (p) => mul([0.5, 0.49, 0.48], (0.8 + 0.3 * wn(p[0] * 0.6, 7)) * WET * 1.1), rm: RM.wet });
 }
 function curbZ(S, zs, x, side) {
-  prof(S.B.stone, zs, [[-0.22, 0.0], [-0.2, 0.05], [-0.16, 0.065], [0.14, 0.065], [0.16, 0.05], [0.18, 0]], (u, a, b) => [x + side * a, b, u], (na, nb) => [side * na, nb, 0], { col: (p) => mul([0.5, 0.49, 0.48], (0.8 + 0.3 * wn(p[2] * 0.6, 3)) * WET * 1.1), rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
+  prof(S.B.stone, zs, [[-0.22, 0.0], [-0.18, 0.065], [0.14, 0.065], [0.18, 0]], (u, a, b) => [x + side * a, b, u], (na, nb) => [side * na, nb, 0], { col: (p) => mul([0.5, 0.49, 0.48], (0.8 + 0.3 * wn(p[2] * 0.6, 3)) * WET * 1.1), rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
 }
 function paintLine(S, x0, z0, x1, z1, w, dash = 0, gap = 0, colr = [0.9, 0.9, 0.86]) {
   const L = Math.hypot(x1 - x0, z1 - z0), dx = (x1 - x0) / L, dz = (z1 - z0) / L, rot = Math.atan2(-dx, -dz) + Math.PI;
@@ -354,8 +355,8 @@ function upperQuays(S) {
     for (const sx of [-1, 1]) surf(stone, [14, PED.x1 + 0.2].map((x) => sx * x), [52, 52.6].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], 0.9 * WET), rm: RM.wet });
     for (const sx of [-1, 1]) surf(stone, [9.5, 14].map((x) => sx * x), [52, 55, 57.8].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], (0.85 + 0.25 * wfbm(p[0] * 0.1, p[2] * 0.1)) * WET), rm: RM.wet });
     // curbs
-    curbX(S, xsRange(X0, X1), s * 58, -s);
-    curbX(S, xsRange(X0, -9.5), s * 72, s); curbX(S, xsRange(9.5, X1), s * 72, s);
+    curbX(S, xsRange(X0, X1, [], 4), s * 58, -s);
+    curbX(S, xsRange(X0, -9.5, [], 4), s * 72, s); curbX(S, xsRange(9.5, X1, [], 4), s * 72, s);
     // markings: lane dashes (worn), edge lines, crossings at the bridge head
     for (const zl of [61.5, 65, 68.5]) { paintLine(S, -300, s * zl, -24, s * zl, 0.13, 3, 6); paintLine(S, 24, s * zl, 520, s * zl, 0.13, 3, 6); }
     for (const zl of [58.55, 71.45]) { paintLine(S, -300, s * zl, -24, s * zl, 0.14); paintLine(S, 24, s * zl, 520, s * zl, 0.14); }
@@ -395,8 +396,8 @@ function planeTree(S, x, z, rng, lod = 0) {
   const barkCol = (p) => { const k = 0.72 + 0.4 * wn(p[0] * 3 + p[1] * 2, p[2] * 3); return [0.72 * k, 0.7 * k, 0.6 * k]; };
   const B = { rect: A.bark, col: barkCol, rm: RM.wood };
   const top = [x + lean[0], H, z + lean[1]];
-  addGeo(P, CYL(0.33, 0.45, 0.5, 7), M4(x, 0.25, z), B);
-  seg(P, [x, 0.3, z], top, 0.33, 0.25, 7, B);
+  if (!lod) addGeo(P, CYL(0.33, 0.45, 0.5, 6, true), M4(x, 0.25, z), B);
+  seg(P, [x, 0.0, z], top, 0.36, 0.25, lod ? 5 : 6, B);
   const nL = lod ? 3 : 3 + (rng() < 0.6 ? 1 : 0), a0 = rng() * 6.28;
   const tips = [];
   const cc = [x + lean[0] * 1.6, H + 5.8, z + lean[1] * 1.6];
@@ -404,7 +405,7 @@ function planeTree(S, x, z, rng, lod = 0) {
     const a = a0 + i / nL * 6.28 + (rng() - 0.5) * 0.7, el = 0.95 + rng() * 0.35, len = 4.6 + rng() * 2.2;
     const d = [Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el)];
     const e = [top[0] + d[0] * len, top[1] + d[1] * len, top[2] + d[2] * len];
-    seg(P, top, e, 0.2, 0.1, lod ? 5 : 6, B);
+    seg(P, top, e, 0.2, 0.1, lod ? 4 : 5, B);
     tips.push([e, 1.0]);
     if (!lod) for (let j = 0; j < 2; j++) {
       const t = 0.45 + j * 0.25, b0 = [top[0] + d[0] * len * t, top[1] + d[1] * len * t, top[2] + d[2] * len * t];
@@ -486,7 +487,7 @@ function bouquinistes(S) {
         // padlocks + hasps on the street face
         for (const off of [-L * 0.3, L * 0.3]) {
           addGeo(P, BOX(0.07, 0.09, 0.035), M4(cx + off, 1.0 + h - 0.12, zc + s * (d / 2 + 0.07)), { col: COL.brass, rm: RM.bronze });
-          addGeo(P, TOR(0.025, 0.007, 3, 6, Math.PI), M4(cx + off, 1.0 + h - 0.075, zc + s * (d / 2 + 0.07)), { col: [0.4, 0.4, 0.42], rm: RM.galv });
+          addGeo(P, BOX(0.045, 0.05, 0.012), M4(cx + off, 1.0 + h - 0.06, zc + s * (d / 2 + 0.07)), { col: [0.4, 0.4, 0.42], rm: RM.galv });
         }
       }
       col(S, [x0, 0, s > 0 ? 52 : -53.0], [x1, 1.85, s > 0 ? 53.0 : -52], 'metal', { kind: 'bouquiniste' });
@@ -561,12 +562,12 @@ function upperFurniture(S) {
     quayLamp(S, x, s * 53.15);
   }
   // simplified far lamp rows (glow + post) both ways along both quays so the river view never dead-ends
-  for (const s of [1, -1]) for (let x = -900; x < 1100; x += 36) {
+  for (const s of [1, -1]) for (let x = -900; x < 1100; x += 44) {
     if (x > -250 && x < 480) continue;
     const P = S.B.props;
-    addGeo(P, CYL(0.09, 0.15, 3.6, 5), M4(x, 1.8, s * 53.15), { col: COL.iron, rm: RM.iron });
-    addGeo(P, CYL(0.26, 0.14, 0.45, 5), M4(x, 3.85, s * 53.15), { col: [1, 0.86, 0.62], rm: RM.glow, e: [2.3, 2.0, 1.6] });
-    addGeo(P, CONE(0.3, 0.3, 5), M4(x, 4.25, s * 53.15), { col: COL.iron, rm: RM.iron });
+    addGeo(P, CYL(0.09, 0.15, 3.6, 4, true), M4(x, 1.8, s * 53.15), { col: COL.iron, rm: RM.iron });
+    addGeo(P, CYL(0.26, 0.14, 0.45, 4, true), M4(x, 3.85, s * 53.15), { col: [1, 0.86, 0.62], rm: RM.glow, e: [2.3, 2.0, 1.6] });
+    addGeo(P, CONE(0.3, 0.3, 4), M4(x, 4.25, s * 53.15), { col: COL.iron, rm: RM.iron });
     glow(S, [x, 3.9, s * 53.15], 1.5, LAMP_C, { far: true });
     if (Math.abs(x) < 700) light(S, [x, 3.9, s * 53.15], 12, 1.6);
   }
@@ -671,13 +672,13 @@ function bridge(S) {
     const lampZ = [-40, -24, -8, 8, 24, 40];
     for (const z of dados) if (!lampZ.some((lz) => Math.abs(lz - z) < 1.6)) { addGeo(stone, BOX(0.66, 1.0, 0.62), M4(xb, 0.5, z), BS); addGeo(stone, BOX(0.74, 0.08, 0.7), M4(xb, 1.07, z), BS); }
     for (const z of lampZ) { addGeo(stone, BOX(0.8, 1.2, 1.3), M4(xb, 0.6, z), BS); addGeo(stone, BOX(0.9, 0.1, 1.4), M4(xb, 1.25, z), BS); }
-    const bal = LATHE([[0.075, 0], [0.055, 0.08], [0.105, 0.28], [0.045, 0.55], [0.08, 0.66]], 6);
+    const bal = LATHE([[0.08, 0], [0.11, 0.26], [0.05, 0.55], [0.085, 0.66]], 4);
     const allPosts = [...dados.map((z) => [z, 0.34]), ...lampZ.map((z) => [z, 0.68])].sort((a, b) => a[0] - b[0]);
     for (let i = 0; i < allPosts.length - 1; i++) {
       const za = allPosts[i][0] + allPosts[i][1], zb = allPosts[i + 1][0] - allPosts[i + 1][1];
       if (zb - za < 0.4) continue;
-      const n = Math.round((zb - za) / 0.38);
-      for (let k = 0; k < n; k++) addGeo(stone, bal.clone(), M4(xb, 0.2, za + (k + 0.5) * (zb - za) / n), { ws: 0.8, col: (p) => stoneCol(p, { y0: 0, top: 1.0, k: 1.1 }), rm: RM.stone });
+      const n = Math.round((zb - za) / 0.42);
+      for (let k = 0; k < n; k++) addGeo(stone, bal.clone(), M4(xb, 0.2, za + (k + 0.5) * (zb - za) / n, 0, Math.PI / 4), { ws: 0.8, col: (p) => stoneCol(p, { y0: 0, top: 1.0, k: 1.1 }), rm: RM.stone });
     }
     bal.dispose();
     prof(stone, steps(-52, 52, 4), [[-0.33, 0.86], [-0.33, 0.95], [-0.28, 1.04], [0.28, 1.04], [0.33, 0.95], [0.33, 0.86], [-0.33, 0.86]], (u, a, b) => [xb + a, b, u], (na, nb) => [na, nb, 0], { col: (p) => stoneCol(p, { k: 1.25, top: 3 }), rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
@@ -870,11 +871,11 @@ function gangway(S, x, s) {
 }
 function bollard(S, x, z) {
   const P = S.B.props;
-  addGeo(P, LATHE([[0.2, 0], [0.18, 0.35], [0.14, 0.45], [0.24, 0.52], [0.24, 0.6], [0.0, 0.64]], 8), M4(x, LOW_Y, z), { col: (p) => mix3([0.04, 0.042, 0.045], [0.16, 0.08, 0.04], sstep(0.55, 0.8, wn(p[0] * 6, p[1] * 6))), rm: RM.iron });
+  addGeo(P, LATHE([[0.2, 0], [0.17, 0.38], [0.24, 0.5], [0.22, 0.6], [0.0, 0.64]], 7), M4(x, LOW_Y, z), { col: (p) => mix3([0.04, 0.042, 0.045], [0.16, 0.08, 0.04], sstep(0.55, 0.8, wn(p[0] * 6, p[1] * 6))), rm: RM.iron });
   S.colliders.push({ min: [x - 0.22, LOW_Y, z - 0.22], max: [x + 0.22, LOW_Y + 0.62, z + 0.22], data: { mat: 'metal', kind: 'bollard', thin: true } });
 }
 function mooringRing(S, x, s) {
-  addGeo(S.B.props, TOR(0.16, 0.03, 4, 10), M4(x, LOW_Y - 0.25, s * 39.97, 0, 0, 0), { col: [0.1, 0.06, 0.04], rm: RM.iron });
+  addGeo(S.B.props, TOR(0.17, 0.035, 3, 8), M4(x, LOW_Y - 0.28, s * 39.96, 0, 0, 0), { col: [0.1, 0.06, 0.04], rm: RM.iron });
   addGeo(S.B.props, BOX(0.12, 0.12, 0.06), M4(x, LOW_Y - 0.1, s * 39.98), { col: [0.08, 0.05, 0.04], rm: RM.iron });
   wallDecal(S.B.decal, [x, LOW_Y - 0.9, s * 39.99], [0, 0, -s], [0, 1, 0], 0.4, 1.4, D.streak, [0.8, 0.45, 0.25]);
 }
@@ -893,8 +894,8 @@ function lowerFurniture(S) {
   // wall lanterns along the retaining walls (walkable stretch dense, scenery stretch sparser)
   for (const s of [1, -1]) {
     for (let x = 22; x <= 340; x += 24) wallLantern(S, x, Math.max(LOW_Y, groundY(x, s * 51.5)) + 3.2, s);
-    for (let x = -24; x >= -420; x -= 36) wallLantern(S, x, LOW_Y + 3.2, s);
-    for (let x = 380; x <= 640; x += 40) wallLantern(S, x, LOW_Y + 3.2, s);
+    for (let x = -30; x >= -330; x -= 40) wallLantern(S, x, LOW_Y + 3.2, s, 1);
+    for (let x = 380; x <= 580; x += 50) wallLantern(S, x, LOW_Y + 3.2, s, 1);
   }
   // free-standing lamp posts on the quays
   for (const [x, z] of [[128, 51.0], [226, 51.0], [300, 51.0], [150, -51.0], [272, -51.0]]) postLamp(S, x, LOW_Y, z, { h: 3.2 });
@@ -906,7 +907,7 @@ function lowerFurniture(S) {
       if (s < 0 && x > PONTOON.x0 - 3 && x < PONTOON.x1 + 3) continue;
       if (s > 0 && gangX.some((g) => Math.abs(g - x) < 3)) continue;
       if (x > -60 && x < 360) bollard(S, x + 0.5, s * 40.95);
-      mooringRing(S, x + 8, s);
+      if (x > -120 && x < 420) mooringRing(S, x + 8, s);
     }
     for (const x of s > 0 ? [58, 132, 212, 300, -60, -180] : [128, 180, 240, 320, -70, -190]) ladder(S, x, s);
   }
@@ -1179,13 +1180,18 @@ function park(S) {
 export async function buildQuays(ctx = {}) {
   const M = materials(ctx.renderer);
   const S = mkState(ctx);
-  lowerQuays(S); ramps(S); parapets(S); upperQuays(S); bridge(S);
-  farBridge(S, -420, 61); farBridge(S, 520, 67);
-  upperFurniture(S); bouquinistes(S); trees(S); lowerFurniture(S); park(S);
+  const phase = {};
+  const cnt = () => { const o = {}; for (const k in S.B) o[k] = S.B[k].I.length / 3; return o; };
+  const run = (nm, fn) => { const a = cnt(); fn(); const b = cnt(); phase[nm] = {}; for (const k in b) if (b[k] - a[k] > 500) phase[nm][k] = b[k] - a[k]; };
+  run('lowerQuays', () => lowerQuays(S)); run('ramps', () => ramps(S)); run('parapets', () => parapets(S)); run('upper', () => upperQuays(S)); run('bridge', () => bridge(S));
+  run('far', () => { farBridge(S, -420, 61); farBridge(S, 520, 67); });
+  run('upperFurn', () => upperFurniture(S)); run('bouq', () => bouquinistes(S)); run('trees', () => trees(S)); run('lowerFurn', () => lowerFurniture(S)); run('park', () => park(S));
   const root = new THREE.Group(); root.name = 'quays';
   let tris = 0, draws = 0;
+  const per = {};
   const add = (bk, mat, { order = 0, receive = true, split = null, parent = root } = {}) => {
     for (const part of finalize(bk, S.field, split)) {
+      const nm = Object.keys(S.B).find((k) => S.B[k] === bk); per[nm] = (per[nm] || 0) + part.tris;
       const m = new THREE.Mesh(part.geometry, mat); m.receiveShadow = receive; m.castShadow = false; m.renderOrder = order; m.matrixAutoUpdate = false;
       parent.add(m); tris += part.tris; draws++;
     }
@@ -1209,7 +1215,7 @@ export async function buildQuays(ctx = {}) {
   // light the platform from the canopy bulbs (simple uniform warm emission in the glow channel)
   for (const p of spinParts) { const g = p.geometry.attributes.glow, pos = p.geometry.attributes.position; for (let i = 0; i < g.count; i++) { const y = pos.getY(i), k = 0.55 + 0.5 * sstep(0.4, 3.0, y); g.setXYZ(i, Math.max(g.getX(i), 1.0 * k), Math.max(g.getY(i), 0.68 * k), Math.max(g.getZ(i), 0.4 * k)); } g.needsUpdate = true; }
   root.updateMatrixWorld(true);
-  const info = { draws, tris: Math.round(tris), glows: S.glows.length, reflect: S.reflect.length, lamps: S.lamps.length, colliders: S.colliders.length };
+  const info = { phase, per, draws, tris: Math.round(tris), glows: S.glows.length, reflect: S.reflect.length, lamps: S.lamps.length, colliders: S.colliders.length };
   return {
     root, colliders: S.colliders, info,
     anchors: { glows: S.glows, reflect: S.reflect, lamps: S.lamps },
