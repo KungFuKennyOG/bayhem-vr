@@ -176,10 +176,7 @@ export class SetPieces {
     g.smokeCols.push({ p: C.clone().setY(1), k: 2.4, life: 400, fire: 2.2 });
     g.events.push({ type: 'jetBoom', J, P: C.clone() });
   }
-  _scorched(m, plain = false) { // darken + ember glow (shared per source material); plain drops panel-line maps
-    if (!m.userData.scorched) { const s = m.clone(); if (plain) s.map = null; s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(0.28); s.emissive = new THREE.Color(0x3a0d02); s.emissiveIntensity = 0.5; s.roughness = 0.9; s.metalness = 0.2; m.userData.scorched = s; }
-    return m.userData.scorched;
-  }
+  _scorched(m, plain = false) { return this.g.scorch(m, plain); }
   _looseEngine(J, P, vel) {
     const g = this.g;
     if (!this._engGeo) {
@@ -473,7 +470,17 @@ export class SetPieces {
       rb.floorY = 0; rb.step(dt, 0);
       J.root.position.copy(rb.pos).sub(_v.set(0, 0.9, 0).applyQuaternion(rb.quat)); J.root.quaternion.copy(rb.quat);
       if (rb.contactSpeed > 4 && (J.lastHit ?? -9) < g.time - 0.3) { J.lastHit = g.time; g.audio.play('metal_crash', { x: rb.pos.x, y: 1, z: rb.pos.z, volume: 0.9 }); }
-      if (!J.boomed && J.t > 0.9) { J.boomed = true; g.boom(rb.pos.clone().setY(1), 2.4, { radius: 8, dmg: 0, player: false }); g.fx.later(0.15, () => g.fx.explosion(rb.pos.clone().setY(2), 1.4)); J.mesh.material = J.mesh.material.map(() => MAT.charred); J.sign.visible = false; g.smokeCols.push({ p: rb.pos.clone().setY(0.5), k: 1.0, life: 200, fire: 1.3, follow: rb }); }
+      if (!J.boomed && J.t > 0.5) {
+        // the jeep goes up BIG: layered fireballs that travel with the tumbling wreck, a fuel-tank pop, a dark mushroom
+        J.boomed = true; const P0 = rb.pos.clone().setY(1.2), cv = rb.vel.clone().multiplyScalar(0.7);
+        g.boom(P0, 1.8, { radius: 8, dmg: 0, player: false });
+        g.fx.explosion(P0.clone().setY(2.2), 1.8, { carVel: cv, noRing: true });
+        g.fx.later(0.18, () => g.fx.explosion(rb.pos.clone().setY(2.8), 1.6, { carVel: rb.vel.clone().multiplyScalar(0.6), noRing: true }));
+        g.fx.later(0.45, () => { g.fx.explosion(rb.pos.clone().setY(3.5), 1.3, { carVel: rb.vel.clone().multiplyScalar(0.5), noRing: true }); for (let i = 0; i < 10; i++) g.fx.smoke(_v.copy(rb.pos).add(V3(range(-2, 2), range(2, 5), range(-2, 2))), 3.2, 0.06, 7, range(5, 8), 0.85); });
+        rb.vel.y += 9; rb.ang.multiplyScalar(1.3);
+        J.mesh.material = J.mesh.material.map((m) => g.scorch(m)); J.sign.visible = false;
+        g.smokeCols.push({ p: rb.pos.clone().setY(0.5), k: 1.5, life: 200, fire: 1.6, follow: rb });
+      }
       if (J.boomed) g.fx.trailEmit(J, rb.pos, 0.7, (q) => { g.fx.flame(q, 1.1, _fv.copy(rb.vel).multiplyScalar(0.9)); if (rand() < 0.5) g.fx.smoke(q, 1.3, 0.1, 3, 2, 0.7); }, 0);
       return this._jeepVisuals(dt, true);
     }
@@ -511,7 +518,7 @@ export class SetPieces {
       const on = Math.sin(g.time * 9) > 0;
       const bl = J.sign.localToWorld(_v.set(-0.6, 0.5, 0)), br = J.sign.localToWorld(_v2.set(0.6, 0.5, 0));
       // (folded sign = beacons sit a metre from your face; headlights point away from you once you ride)
-      if (J.sign.visible) this.w.addGlow(on ? bl : br, 1.6, 3.2, 1.6, 0.2, 1);
+      if (J.sign.visible) this.w.addGlow(on ? bl : br, 0.7, 2.6, 1.3, 0.2, 0.9);
       if (!this.riding) {
         this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headL)), 1.4, 2.6, 2.5, 2.2, 0.9);
         this.w.addGlow(J.root.localToWorld(_v.copy(J.b.anchors.headR)), 1.4, 2.6, 2.5, 2.2, 0.9);
@@ -627,7 +634,7 @@ export class SetPieces {
     rb.pos.copy(P); rb.quat.copy(car.root.quaternion);
     rb.vel.copy(car.vel).add(V3(range(-3, 3), range(7, 10), 0)); rb.ang.set(range(-2, 2), range(-1.5, 1.5), (car.side || 1) * range(5, 8)); rb.restitution = 0.25; rb.linDamp = 0.12;
     car.rb = rb; car.burnT = 0;
-    car.model.mesh.material = car.model.mesh.material.map(() => MAT.charred);
+    car.model.mesh.material = car.model.mesh.material.map((m) => g.scorch(m));
     g.audio.play('metal_crash', { x: P.x, y: P.y, z: P.z, volume: 1 });
     g.events.push({ type: 'carBoom', car });
   }
@@ -777,7 +784,7 @@ export class SetPieces {
     g.audio.play('body_fall', { volume: 1 }); g.audio.play('metal_crash', { volume: 0.7, pitch: 1.3 });
     g.player.shake = 1.2; g.haptic(1, 200);
     if (g.player.mode !== 'vr') { g.player.camDip = 0.5; g.player.camDipRate = 1.2; }
-    g.addScore(10000, 'STICK THE LANDING!', this.cargo.root.localToWorld(V3(0, CARGO.floorY + 2.5, 22)), 'huge');
+    g.addScore(10000, 'STICK THE LANDING!', this.cargo.root.localToWorld(V3(0, CARGO.floorY + 4.4, 16)), 'huge'); // high in the opening: the jeep crash plays out below it
     g.events.push({ type: 'landed' });
     // the jeep peels off into the grass and flips; the driver bails first (we hear him on the radio)
     J.state = 'crash'; J.t = 0;
@@ -830,7 +837,7 @@ export class SetPieces {
     if (this.holdNight !== undefined && this.holdNight < 1) {
       this.holdNight = Math.min(1, this.holdNight + dt / 4);
       const m = cargoHoldMaterial(), k = this.holdNight * this.holdNight * (3 - 2 * this.holdNight);
-      m.emissive.setRGB(1, 0.82, 0.63).lerp(_red.setRGB(1, 0.16, 0.09), k); m.emissiveIntensity = 0.16 + 0.3 * k;
+      m.emissive.setRGB(1, 0.82, 0.63).lerp(_red.setRGB(1, 0.1, 0.05), k); m.emissiveIntensity = 1.4 + 2.2 * k;
     }
   }
   // after the player moved (so the rig rides the jeep / the plane this frame)

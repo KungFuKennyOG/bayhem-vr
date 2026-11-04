@@ -400,17 +400,37 @@ function cargoFinTexture() {
   return T.canvasTex(c, { repeat: false });
 }
 function holdTexture() {
-  // ribs, quilted insulation blankets, a stencil here and there (u = along the hull, v = around)
-  const W = 1024, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(3121, 2);
+  // gunmetal lining panels between ribs (u = along the hull, v = around). No high-frequency quilting: it aliases into moire.
+  const W = 1024, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), n = T.makeNoise(3121, 4);
   const img = x.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
-    const q = 0.75 + 0.25 * Math.cos((xx % 32) / 32 * TAU) * Math.cos((y % 24) / 24 * TAU);
-    const v = (118 + T.fbm(n, xx / W, y / H, 2, 3) * 34) * q;
-    const i = (y * W + xx) * 4; img.data[i] = v * 0.96; img.data[i + 1] = v * 1.02; img.data[i + 2] = v * 0.86; img.data[i + 3] = 255;
+    const v = 64 + T.fbm(n, xx / W * 4, y / H, 3, 4) * 22;
+    const i = (y * W + xx) * 4; img.data[i] = v * 0.94; img.data[i + 1] = v * 1.0; img.data[i + 2] = v * 1.02; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);
-  x.fillStyle = '#2a2c2e'; for (let k = 0; k < W; k += 64) x.fillRect(k, 0, 9, H);
-  x.fillStyle = 'rgba(0,0,0,0.35)'; for (let k = 0; k < W; k += 64) x.fillRect(k + 9, 0, 3, H);
+  // panel seams around the hull, then ribs: a dark gap with a lit leading edge (reads as geometry)
+  x.fillStyle = 'rgba(0,0,0,0.35)'; for (let k = 0; k < 6; k++) x.fillRect(0, k * H / 6, W, 2);
+  for (let k = 0; k < W; k += 64) {
+    x.fillStyle = 'rgba(0,0,0,0.75)'; x.fillRect(k, 0, 10, H);
+    x.fillStyle = 'rgba(150,155,160,0.55)'; x.fillRect(k + 10, 0, 2, H);
+    x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(k + 12, 0, 6, H);
+  }
+  // stencils + tie-down rails
+  x.fillStyle = 'rgba(200,190,90,0.6)'; x.font = '600 11px Oswald, sans-serif';
+  for (let k = 0; k < W; k += 192) x.fillText('NO STEP', k + 24, H * 0.52);
+  x.fillStyle = 'rgba(20,20,22,0.9)'; for (const yy of [0.18, 0.82]) x.fillRect(0, H * yy, W, 4);
+  return T.canvasTex(c);
+}
+function holdGlowTexture() {
+  // emissive: strip lamps in every rib bay high on both sides, with a soft pool of light spilling onto the panels
+  const W = 1024, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+  for (let k = 0; k < W; k += 64) for (const yy of [0.13, 0.87]) { // v = θ/2π with θ = 0 at the crown (wraps): ±0.8 rad up the sides
+    const cx = k + 38, cy = H * yy;
+    const g = x.createRadialGradient(cx, cy, 2, cx, cy, 34); g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.4, 'rgba(255,255,255,0.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(cx - 40, cy - 40, 80, 80);
+    x.fillStyle = '#fff'; x.fillRect(cx - 16, cy - 2, 32, 4);
+  }
   return T.canvasTex(c);
 }
 function floorTexture() {
@@ -438,9 +458,9 @@ function cargoMats() {
   const body = new THREE.MeshStandardMaterial({ map: cargoLivery(), roughness: 0.62, metalness: 0.35, envMapIntensity: 0.8 });
   const fin = new THREE.MeshStandardMaterial({ map: cargoFinTexture(), roughness: 0.6, metalness: 0.35 });
   const grey = new THREE.MeshStandardMaterial({ color: 0x6a7077, map: S.panel, roughness: 0.62, metalness: 0.22 });
-  const holdTex = holdTexture();
-  // the hold is lit from inside: the blanket texture doubles as its own emissive map (warm work lights; red at night)
-  const hold = new THREE.MeshStandardMaterial({ map: holdTex, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffd2a0, emissiveMap: holdTex, emissiveIntensity: 0.16 });
+  const holdTex = holdTexture(), holdGlow = holdGlowTexture();
+  // the hold is lit from inside: strip lamps in each rib bay (warm work lights; red at night)
+  const hold = new THREE.MeshStandardMaterial({ map: holdTex, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffd2a0, emissiveMap: holdGlow, emissiveIntensity: 1.4 });
   const floorT = floorTexture(); floorT.repeat.set(1, 3);
   const floor = new THREE.MeshStandardMaterial({ map: floorT, roughness: 0.55, metalness: 0.6 });
   const yellow = new THREE.MeshStandardMaterial({ color: 0xd8a51c, roughness: 0.6, metalness: 0.2 });

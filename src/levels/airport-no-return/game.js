@@ -92,7 +92,7 @@ export class AirportGame {
     const prof = [[0, 0], [0.27, 0], [0.29, 0.02], [0.29, 0.05], [0.28, 0.07], [0.285, 0.29], [0.3, 0.3], [0.285, 0.31], [0.285, 0.57], [0.3, 0.58], [0.285, 0.59], [0.28, 0.81], [0.29, 0.83], [0.29, 0.86], [0.27, 0.88], [0.0, 0.88]].map(([r, y]) => new THREE.Vector2(r, y));
     const geo = new THREE.LatheGeometry(prof, 18);
     const mat = new THREE.MeshStandardMaterial({ map: drumTexture(), metalness: 0.45, roughness: 0.5 });
-    this.drumGeo = geo; this.drumMat = mat; this.drumBurnt = MAT.charred || mat;
+    this.drumGeo = geo; this.drumMat = mat; this.drumBurnt = this.scorch(mat);
     const list = [];
     for (const [cx, cz, n, lay] of this.world.drumSpots || []) {
       for (let i = 0; i < n; i++) {
@@ -236,7 +236,7 @@ export class AirportGame {
     // the truck jumps and flips (rigid box), charred
     for (const bx of t.boxes) this.col.remove(bx);
     t.root.children.forEach(c => { if (c !== t.mesh) c.visible = false; });
-    t.mesh.material = t.mesh.material.map(() => MAT.charred);
+    t.mesh.material = t.mesh.material.map((m) => this.scorch(m)); // burnt but the livery still ghosts through
     const rb = new RigidBox(t.b.half.x, t.b.half.y, t.b.half.z, 8);
     t.root.updateMatrixWorld(true);
     rb.pos.copy(t.root.localToWorld(t.b.com.clone())); rb.quat.copy(t.root.quaternion);
@@ -348,7 +348,15 @@ export class AirportGame {
     this.comboT = 3.5;
     const mult = Math.min(5, this.combo);
     this.score += n * mult;
-    if (label && pos) this.hud.callout(label, pos, style || 'big', mult > 1 ? `+${n * mult}  x${mult}` : `+${n}`);
+    if (label && pos) this._queueCallout(label, pos.clone(), style || 'big', mult > 1 ? `+${n * mult}  x${mult}` : `+${n}`);
+  }
+  // big callouts queue up (one every 0.9 s) instead of stacking on top of each other over the same explosion
+  _queueCallout(label, pos, style, sub) {
+    if (style === 'small') return this.hud.callout(label, pos, style, sub);
+    const t0 = Math.max(this.time, this._calloutNext || 0), delay = t0 - this.time;
+    this._calloutNext = t0 + 0.9;
+    if (delay < 0.02) this.hud.callout(label, pos, style, sub);
+    else this.fx.later(delay, () => this.hud.callout(label, pos.setY(pos.y + 1.5), style, sub));
   }
   callout(text, pos, style = 'big', sub = null) { this.hud.callout(text, pos, style, sub); }
   killSoldier(s, dir, power = 1, head = false, label = null) {
@@ -375,6 +383,10 @@ export class AirportGame {
   // ---------------------------------------------------------------- explosions
   boom(P, size = 1, { radius = 7, dmg = 60, src = null, noRing = false, shake = null, player = true, truck = null } = {}) {
     this.fx.explosion(P, size, { noRing });
+    // hotter, more saturated core low down + a fast dark top (the shared fireball alone reads as a pink cotton ball against the sunset)
+    { const k = Math.min(size, 2.2);
+      for (let i = 0; i < 4; i++) this.fx.main.spawn({ x: P.x + range(-0.6, 0.6) * k, y: P.y + range(0.2, 1.0) * k, z: P.z + range(-0.6, 0.6) * k, vx: range(-3, 3) * k, vy: range(1, 4) * k, vz: range(-3, 3) * k, drag: 3, frameKind: 1, s0: 2.4 * k, s1: 6.5 * k, ease: 0.5, life: range(0.5, 0.8), rot: rand() * 6.28, vrot: range(-1, 1), r: 3.2, g: 1.35, b: 0.4, a: 1, fadeIn: 0.0, fadeOut: 0.7 });
+      for (let i = 0; i < 5; i++) this.fx.later(range(0.15, 0.4), () => this.fx.main.spawn({ x: P.x + range(-1, 1) * k, y: P.y + range(2, 4) * k, z: P.z + range(-1, 1) * k, vx: range(-1, 1), vy: range(6, 10) * Math.sqrt(k), vz: range(-1, 1), drag: 0.9, grav: 0, frameKind: 2, frame: rand() * 40, frames: 20, s0: 4 * k, s1: 13 * k, ease: 0.6, life: range(4, 6), rot: rand() * 6.28, vrot: range(-0.2, 0.2), r: 0.07, g: 0.055, b: 0.045, a: 0.92, fadeIn: 0.05, fadeOut: 0.5 })); }
     this.recentExplosions.push(this.time);
     this.lastExplosionT = this.time; this.lastBoomP = P.clone ? P.clone() : P;
     const dp = this.headPos.distanceTo(P);
@@ -598,8 +610,24 @@ export class AirportGame {
         if (near || rand() < 0.6) this.fx.main.spawn({ x: c.p.x + range(-2, 2) * k, y: c.p.y + 2 * k, z: c.p.z + range(-2, 2) * k, vx: range(-0.5, 0.5) + 1.8, vy: range(3.5, 5.5), vz: range(-0.5, 0.5) + 0.6, drag: 0.15, frameKind: 2, frame: rand() * 40, frames: 14, s0: 4 * k, s1: range(16, 26) * k, ease: 0.6, life: range(9, 13), rot: rand() * 6, vrot: range(-0.05, 0.05), r: 0.13, g: 0.11, b: 0.1, a: 0.82, fadeIn: 0.06, fadeOut: 0.55 });
         if (c.fire && near) for (let i = 0; i < 2; i++) this.fx.flame(_v.set(c.p.x + range(-3, 3) * c.k, c.p.y, c.p.z + range(-3, 3) * c.k), range(1.2, 2.0) * c.fire);
       }
+      // from the air (credits) the burning airfield reads as fire glows under the smoke
+      if (c.fire && !near) { const d = this.headPos.distanceTo(c.p), f = 0.8 + 0.2 * Math.sin(this.time * 7 + c.p.x) * Math.sin(this.time * 3.1 + c.p.z); this.world.addGlow(_v.set(c.p.x, c.p.y + 3 * c.k, c.p.z), Math.max(7 * c.k, d * 0.012) * f, 2.6 * f, 1.0 * f, 0.3 * f, 0.9); }
       if (c.fire && near && this.headPos.distanceTo(c.p) < 70) this.audio.setLoop('fire_big:' + this.smokeCols.indexOf(c), { x: c.p.x, y: c.p.y, z: c.p.z, volume: 0.7, intensity: 0.8 });
     }
+  }
+
+  // burnt version of a material (cached per source): soot-dark, keeps its maps so liveries / text ghost through, ember glow
+  scorch(m, plain = false) {
+    const key = plain ? 'scorchedPlain' : 'scorched';
+    if (!m.userData[key]) {
+      const s = m.clone(); if (plain) s.map = null;
+      s.color = (s.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(m.map && !plain ? 0.3 : 0.22);
+      if (s.vertexColors === undefined) s.vertexColors = m.vertexColors;
+      s.emissive = new THREE.Color(0x4a1204); s.emissiveIntensity = 0.45; s.emissiveMap = null;
+      s.roughness = 0.92; s.metalness = 0.15; s.envMapIntensity = 0.3;
+      m.userData[key] = s;
+    }
+    return m.userData[key];
   }
 
   // ---------------------------------------------------------------- player hooks

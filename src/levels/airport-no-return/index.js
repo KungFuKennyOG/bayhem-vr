@@ -25,6 +25,9 @@ export async function create(E) {
   const sc = E.sun.shadow.camera; sc.left = -46; sc.right = 46; sc.top = 46; sc.bottom = -46; sc.far = 320; sc.updateProjectionMatrix();
   // tighter sun glare: the low sun sits right down the runway and the default halo washes out the plane
   { const [g2, g1, st] = E.flare.children; g1.scale.setScalar(240); g2.scale.setScalar(480); g2.material.opacity = 0.3; st.material.opacity = 0.35; }
+  // sunset grade for fire: the shared fireball emission (≈2.1/1.8/1.5) goes peach-pink against this sky, so this level's
+  // FX instance pushes fire sprites toward orange (level-local patch, fx.js untouched)
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 1 && o.b > 1.0 && o.r > 1.8) { o.r *= 1.12; o.g *= 0.8; o.b *= 0.5; } return spawn(o); }; }
   const world = await new AirportWorld(E).build();
   const game = new AirportGame(E, world);
   game.dusk = dusk0;
@@ -50,6 +53,8 @@ export async function create(E) {
   for (const mm of gseMaterials()) warm.add(new THREE.Mesh(box, mm));
   warm.add(buildSUV().root);
   for (const m of setp.warmMaterials()) warm.add(new THREE.Mesh(box, m));
+  // burnt variants (wrecks swap to these mid-fight: compile them now, no hitch on the first explosion)
+  for (const mm of [...gseMaterials(), ...[].concat(...Object.values(MAT)), ...buildSUV().root.children.flatMap(c => [].concat(c.material || []))]) if (mm && mm.isMaterial) warm.add(new THREE.Mesh(box, game.scorch(mm)));
 
   const ctx = { groundAt: () => 0, onCasing: (c) => audio.play('casing', { x: c.x, y: c.y, z: c.z, volume: 0.3 }) };
   let director = null;

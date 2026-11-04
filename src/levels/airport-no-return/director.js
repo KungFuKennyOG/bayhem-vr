@@ -64,7 +64,7 @@ export class Director {
           S({ x: 150, z: 160, delay: 2.5, flanker: true });
           later(0.6, () => say('Two jets on the taxiway — packed with his guys! They are NOT taking off!', 3.2));
           later(4.2, () => say('Shoot the engines! Grenades! Anything!', 2.4));
-          A?.go([ground(196, 222, { slow: 0.7 }), ground(166, 204, { slow: 0.6 }), ground(150, 196, { slow: 0.5 })]);
+          A?.go([ground(180, 214, { slow: 1.0 }), ground(150, 202, { slow: 0.9 })]); // get close to the taxiway: the jet kills are the level's money shot
         }, update: (t) => {
           const j0 = setp.jets[0];
           g.bossInfo = j0.state === 'taxi' || j0.state === 'hurt' ? { frac: Math.max(0, (j0.eng[0].hp + j0.eng[1].hp) / 24), name: 'SUNWEST 27  —  ENGINES' } : null;

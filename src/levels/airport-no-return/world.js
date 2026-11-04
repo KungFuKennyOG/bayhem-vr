@@ -158,6 +158,7 @@ export class AirportWorld {
     gg.computeVertexNormals();
     const grassT = grassTexture(); grassT.anisotropy = aniso; grassT.repeat.set(SZ / 9, SZ / 9);
     const grass = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: grassT, vertexColors: true, roughness: 0.95, metalness: 0, envMapIntensity: 0.4 }));
+    this.grassMat = grass.material;
     grass.receiveShadow = true; this.group.add(grass);
 
     // asphalt (runway + taxiway + connectors + roads share one material, world-space uvs)
@@ -456,13 +457,15 @@ export class AirportWorld {
     this.col.add([x - 3.6, 0, z - 3.6], [x + 3.6, 40, z + 3.6], { kind: 'wall', mat: 'concrete' });
     this.col.add([x - 8, 0, z - 1], [x + 16, 7, z + 13], { kind: 'wall', mat: 'concrete' });
     // passenger terminal across the runway (scenery): long glass box + jet bridges
-    const ft = T.facadeTextures2(77, 3, 24);
+    const ft = terminalFacade();
     const term = new THREE.Mesh(new THREE.BoxGeometry(30, 16, 520), [
-      new THREE.MeshStandardMaterial({ map: ft.map, emissiveMap: ft.emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.3 }),
+      new THREE.MeshStandardMaterial({ map: ft.map, emissiveMap: ft.emissiveMap, emissive: 0xffe2b8, emissiveIntensity: 0.9, roughness: 0.18, metalness: 0.6, envMapIntensity: 1.4 }),
       new THREE.MeshStandardMaterial({ color: 0x6a6e72, roughness: 0.7 }), new THREE.MeshStandardMaterial({ color: 0x6a6e72, roughness: 0.7 }), new THREE.MeshStandardMaterial({ color: 0x6a6e72, roughness: 0.7 }),
       new THREE.MeshStandardMaterial({ color: 0x6a6e72, roughness: 0.7 }), new THREE.MeshStandardMaterial({ color: 0x6a6e72, roughness: 0.7 }),
     ]);
-    term.material[0].map.repeat.set(4, 1); term.material[0].emissiveMap.repeat.set(4, 1);
+    term.material[0].map.repeat.set(13, 1); term.material[0].emissiveMap.repeat.set(13, 1);
+    this._w(box(36, 0.8, 528), w.steel, M4(-330 + 1.5, 16.4, -700)); // roof canopy overhang
+    for (let z = -955; z <= -445; z += 20) this._w(box(0.6, 15, 0.6), w.steel, M4(-314.2, 7.5, z)); // mullion columns
     term.position.set(-330, 8, -700); this.group.add(term);
     for (let k = 0; k < 7; k++) this._w(box(22, 3.2, 3.6), w.white, M4(-304, 4.6, -900 + k * 64));
   }
@@ -541,8 +544,8 @@ export class AirportWorld {
     const S = 1024, c = T.makeCanvas(S, S), x = c.getContext('2d'), r = makeRng(8181);
     x.fillStyle = '#000'; x.fillRect(0, 0, S, S);
     // neighbourhood density (a few bright cores, dark parks / fields between)
-    const cores = []; for (let k = 0; k < 9; k++) cores.push([r() * S, r() * S, 120 + r() * 260, 0.4 + r() * 0.6]);
-    const dens = (px, py) => { let d = 0.08; for (const [cx, cy, rr, w] of cores) for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const q = Math.hypot(px - cx - ox, py - cy - oy) / rr; if (q < 1) d += w * (1 - q * q); } return Math.min(1, d); };
+    const cores = []; for (let k = 0; k < 7; k++) cores.push([r() * S, r() * S, 150 + r() * 230, 0.7 + r() * 0.6]);
+    const dens = (px, py) => { let d = -0.12; for (const [cx, cy, rr, w] of cores) for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const q = Math.hypot(px - cx - ox, py - cy - oy) / rr; if (q < 1) d += w * (1 - q * q); } return Math.max(0, Math.min(1, d)); };
     const dot = (px, py, sz, col) => { x.fillStyle = col; x.fillRect(((px % S) + S) % S, ((py % S) + S) % S, sz, sz); };
     const SOD = ['rgba(255,150,55,', 'rgba(255,175,80,', 'rgba(255,205,140,'], WHT = 'rgba(235,240,255,';
     // street grid in rotated districts
@@ -551,7 +554,7 @@ export class AirportWorld {
       const ca = Math.cos(ang), sa = Math.sin(ang);
       for (let u = -ext; u <= ext; u += step) for (let v = -ext; v <= ext; v += 6) for (const [a1, b1] of [[u, v], [v, u]]) {
         const px = cx + a1 * ca - b1 * sa, py = cy + a1 * sa + b1 * ca, k = dens(((px % S) + S) % S, ((py % S) + S) % S) * (1 - Math.max(Math.abs(a1), Math.abs(b1)) / ext * 0.6);
-        if (r() < k * 0.85) dot(px, py, r() < 0.15 ? 3 : 2, (r() < 0.82 ? SOD[Math.floor(r() * 3)] : WHT) + (0.35 + 0.65 * k).toFixed(2) + ')');
+        if (k > 0.04 && r() < k * 0.9) dot(px, py, r() < 0.15 ? 3 : 2, (r() < 0.82 ? SOD[Math.floor(r() * 3)] : WHT) + (0.35 + 0.65 * k).toFixed(2) + ')');
       }
     }
     // arterials + a highway with headlight / taillight strings
@@ -627,6 +630,7 @@ export class AirportWorld {
     this.time += dt;
     const t = this.time, G = this.glow;
     const on = 0.55 + 0.45 * Math.min(1, dusk * 2.2); // runway lights are on at sunset, brighter at blue hour
+    if (this.grassMat) { const n = Math.min(1, Math.max(0, (dusk - 0.2) / 0.4)); this.grassMat.color.setRGB(1 - 0.62 * n, 1 - 0.6 * n, 1 - 0.5 * n); } // fields sink into blue hour
     if (this.cityMat) { const k = Math.min(1, Math.max(0, (dusk - 0.25) / 0.3)); this.cityMat.opacity = k * k * (3 - 2 * k); this.cityMat.visible = k > 0.001; }
     let gi = 0;
     for (const L of this.lights) {
@@ -700,10 +704,11 @@ function slabTexture() {
   return T.canvasTex(c);
 }
 function grassTexture() {
-  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(821, 4), r = makeRng(822);
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(821, 16), r = makeRng(822);
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
-    const m = T.fbm(n, xx / S, y / S, 4, 4), g = r();
-    const b = 0.8 + (m - 0.5) * 0.25 + (g - 0.5) * 0.3;
+    // fine clumps only: a coarse value-noise lattice repeats every tile and reads as a checker grid from the air
+    const m = T.fbm(n, xx / S, y / S, 16, 3), g = r();
+    const b = 0.8 + (m - 0.5) * 0.14 + (g - 0.5) * 0.3;
     const i = (y * S + xx) * 4; img.data[i] = 235 * b; img.data[i + 1] = 228 * b; img.data[i + 2] = 205 * b; img.data[i + 3] = 255;
   }
   x.putImageData(img, 0, 0);
@@ -723,14 +728,39 @@ function rubberTexture() {
   const t = T.canvasTex(c, { repeat: false });
   return t;
 }
+function terminalFacade() {
+  // glass curtain wall, 3 floors x 10 bays per 40 m tile: sky-tinted glass, mullions, lit interiors (emissive), gate signs
+  const W = 512, H = 256, c = T.makeCanvas(W, H), x = c.getContext('2d'), e = T.makeCanvas(W, H), ex = e.getContext('2d'), r = makeRng(7171);
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#4a5f78'); g.addColorStop(0.5, '#2c3a4c'); g.addColorStop(1, '#1d2531');
+  x.fillStyle = g; x.fillRect(0, 0, W, H); ex.fillStyle = '#000'; ex.fillRect(0, 0, W, H);
+  const fh = H / 3;
+  for (let f = 0; f < 3; f++) {
+    // interior: ceiling light strip + warm pools, a few dark bays
+    for (let b = 0; b < 10; b++) {
+      const x0 = b * W / 10, lit = r() < 0.8, k = 0.5 + r() * 0.5;
+      if (lit) { const gg = ex.createLinearGradient(0, f * fh, 0, f * fh + fh); gg.addColorStop(0, `rgba(255,236,200,${0.85 * k})`); gg.addColorStop(0.2, `rgba(255,214,160,${0.35 * k})`); gg.addColorStop(1, 'rgba(255,190,120,0.08)'); ex.fillStyle = gg; ex.fillRect(x0, f * fh + 6, W / 10, fh - 10); }
+      if (r() < 0.25) { ex.fillStyle = 'rgba(40,30,20,0.9)'; ex.fillRect(x0 + 8 + r() * 20, f * fh + fh * 0.45, 6, fh * 0.5); } // people / furniture silhouettes
+    }
+    x.fillStyle = '#8b939b'; x.fillRect(0, f * fh, W, 6); ex.fillStyle = '#000'; ex.fillRect(0, f * fh, W, 6); // slab edge
+  }
+  x.fillStyle = 'rgba(150,160,170,0.9)'; ex.fillStyle = '#000';
+  for (let b = 0; b <= 20; b++) { x.fillRect(b * W / 20 - 1, 0, b % 2 ? 2 : 4, H); ex.fillRect(b * W / 20 - 1, 0, b % 2 ? 2 : 4, H); } // mullions
+  // gate sign on the top floor
+  ex.fillStyle = '#ffd040'; ex.font = '700 22px Oswald, sans-serif'; ex.fillText('GATES 20-28', 18, 26); x.fillStyle = '#ffd040'; x.font = '700 22px Oswald, sans-serif'; x.fillText('GATES 20-28', 18, 26);
+  return { map: T.canvasTex(c), emissiveMap: T.canvasTex(e) };
+}
 function wornPaintTexture() {
-  const W = 256, H = 32, c = T.makeCanvas(W, H), x = c.getContext('2d'), img = x.createImageData(W, H), n = T.makeNoise(57, 32);
+  // crisp-edged paint, worn by subtraction: fine chips + a few scuffed patches (u = along the stripe, 6 m per repeat)
+  const W = 512, H = 64, c = T.makeCanvas(W, H), x = c.getContext('2d'), img = x.createImageData(W, H), n = T.makeNoise(57, 32), n2 = T.makeNoise(58, 64);
   for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) {
-    const a = Math.min(1, Math.max(0, (T.fbm(n, xx / W, y / H, 8, 4) - 0.12) * 4.5)) * (1 - Math.pow(Math.abs(y / H - 0.5) * 2, 8));
-    const i = (y * W + xx) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = a * 240;
+    const e = Math.min(y + 0.5, H - 0.5 - y) / 1.5;                                  // ~1.5 px anti-aliased edge
+    const chips = T.fbm(n2, xx / W, y / H, 64, 3) > 0.66 ? 0.15 : 1;                  // small chips
+    const scuff = Math.min(1, Math.max(0.25, (T.fbm(n, xx / W, y / H, 8, 4) - 0.18) * 3.5)); // larger worn patches
+    const a = Math.min(1, e) * chips * scuff;
+    const i = (y * W + xx) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = a * 235;
   }
   x.putImageData(img, 0, 0);
-  return T.canvasTex(c);
+  return T.canvasTex(c, { aniso: 16 });
 }
 function corrugatedTexture(dark = false) {
   const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), img = x.createImageData(S, S), n = T.makeNoise(dark ? 961 : 962, 4);

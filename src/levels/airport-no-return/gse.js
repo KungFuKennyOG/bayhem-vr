@@ -36,7 +36,7 @@ export function gseMaterials() {
   MATS[GM.check] = m({ map: checkTexture(), roughness: 0.4, metalness: 0.15 });
   MATS[GM.tank] = m({ map: tankTexture(), roughness: 0.32, metalness: 0.25, envMapIntensity: 1.2 });
   MATS[GM.red] = m({ color: 0x9c1a12, roughness: 0.45, metalness: 0.2 });
-  MATS[GM.curtain] = m({ color: 0x1f3c78, roughness: 0.85 });
+  MATS[GM.curtain] = m({ map: curtainTexture(), roughness: 0.85 });
   MATS[GM.alu] = m({ map: uldTexture(), color: 0xc8ccd0, roughness: 0.38, metalness: 0.75 });
   MATS[GM.amber] = m({ color: 0x402000, emissive: 0xff9a10, emissiveIntensity: 2.5, roughness: 0.3 });
   MATS[GM.olive] = m({ color: 0x5b5a3e, roughness: 0.6, metalness: 0.2 });
@@ -91,6 +91,23 @@ function tankTexture() {
     x.restore();
   }
   return T.canvasTex(c, { repeat: false });
+}
+function curtainTexture() {
+  // ULD / cart side curtains: blue tarp with vertical folds, tension straps, stencil, grime toward the bottom
+  const S = 256, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(741, 4);
+  const img = x.createImageData(S, S);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const fold = 0.82 + 0.18 * Math.sin(xx / S * Math.PI * 2 * 7 + Math.sin(y / S * 6.28) * 0.6);
+    const grime = 1 - 0.45 * Math.pow(y / S, 3);
+    const k = fold * grime * (0.9 + T.fbm(n, xx / S, y / S, 3, 4) * 0.2);
+    const i = (y * S + xx) * 4; img.data[i] = 34 * k; img.data[i + 1] = 66 * k; img.data[i + 2] = 128 * k; img.data[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  x.fillStyle = 'rgba(15,16,18,0.85)'; for (const xx of [0.22, 0.5, 0.78]) x.fillRect(xx * S - 4, 0, 8, S);
+  x.fillStyle = 'rgba(190,190,195,0.8)'; for (const xx of [0.22, 0.5, 0.78]) x.fillRect(xx * S - 5, S * 0.86, 10, 14);
+  x.fillStyle = 'rgba(235,235,240,0.85)'; x.font = '700 30px Oswald, sans-serif'; x.textAlign = 'center'; x.fillText('HAVEN', S * 0.36, S * 0.38); x.font = '600 16px Oswald, sans-serif'; x.fillText('AIR CARGO', S * 0.36, S * 0.47);
+  x.fillStyle = 'rgba(0,0,0,0.5)'; x.fillRect(0, 0, S, 5); x.fillRect(0, S - 6, S, 6);
+  return T.canvasTex(c);
 }
 function uldTexture() {
   const S = 128, c = T.makeCanvas(S, S), x = c.getContext('2d'), n = T.makeNoise(733, 3);
