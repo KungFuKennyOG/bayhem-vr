@@ -524,6 +524,14 @@ export class PortGame {
       this.scene.environmentIntensity = 0.8 - this.dusk * 0.45;
     }
     this.world.update(dt, this.headPos, this.dusk);
+    // buddy in the wrecked pickup at the gate: idle looks, lip-sync on his radio lines (skipped once he's far behind)
+    const W = this.world;
+    if (W.buddy && W.pickup.root.position.distanceToSquared(this.headPos) < 60 * 60) {
+      const st = W.buddySt;
+      st.talking = this.hud.subT > 0.25 && this.hud.subSpeaker === 'DRIVER';
+      st.time = this.time;
+      W.buddy.update(dt, st);
+    }
     // grenade warning indicator
     if (this.dangerNade) this.hud.danger(this.dangerNade.pos, this.headPos, this.camera.getWorldQuaternion(_q), 1);
     else this.hud.danger(null);
