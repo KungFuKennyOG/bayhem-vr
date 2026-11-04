@@ -75,6 +75,8 @@ function mkState(ctx) {
   const B = { stone: new Bk(), cobble: new Bk(), asph: new Bk(), gravel: new Bk(), green: new Bk(), props: new Bk(), leaves: new Bk(), decal: new Bk(), puddle: new Bk(), spin: new Bk() };
   return { ctx, B, field: new LightField(), glows: [], reflect: [], lamps: [], colliders: [], rng: makeRng(5150) };
 }
+function pud(S, x, y, z, w, l, rot, rect) { decal(S.B.puddle, x, y, z, w, l, rot, rect, [0.03, 0.034, 0.04], [0.04, 0.0, 1]); }
+const RT = (n) => [n[2], 0, -n[0]];   // quad right axis for a vertical quad facing n
 const col = (S, min, max, mat = 'concrete', extra = {}) => S.colliders.push({ min, max, data: { mat, kind: 'prop', ...extra } });
 function light(S, p, r, k, c = LAMP_L) { S.field.add({ p, c, r, k }); }
 function glow(S, p, size, color = LAMP_C, extra = {}) { S.glows.push({ p, color, size, dusk: true, ...extra }); }
@@ -181,18 +183,18 @@ function lowerQuays(S) {
       if (z1 > 51.5) surf(stone, xsRange(a, b), [s * 51.1, s * 52], (x, z) => [x, LOW_Y + 0.004, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul(stoneCol(p, { base: [0.6, 0.58, 0.55] }), 0.7), rm: RM.wet });
     }
     // coping along the quay edge: flat top, bullnose, then the river wall down into the water
-    const xsE = xsRange(X0, X1, [-16, 16]);
+    const xsE = xsRange(X0, -16), xsE2 = xsRange(16, X1);
     const eCol = (p) => stoneCol(p, { base: [0.84, 0.8, 0.72], y0: LOW_Y - 0.6, top: LOW_Y, water: true, k: 1.05 });
-    prof(stone, xsE, [[0.7, 0], [0.04, 0], [0, -0.06], [-0.035, -0.17], [0, -0.3], [0.03, -0.36]], (u, a, b) => [u, LOW_Y + b, s * (40 + a)], (na, nb) => [0, nb, s * na], { col: eCol, rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
+    for (const xsE of [xsE, xsE2]) prof(stone, xsE, [[0.7, 0], [0.04, 0], [0, -0.06], [-0.035, -0.17], [0, -0.3], [0.03, -0.36]], (u, a, b) => [u, LOW_Y + b, s * (40 + a)], (na, nb) => [0, nb, s * na], { col: eCol, rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
     const ys = [LOW_Y - 0.36, LOW_Y - 0.8, LOW_Y - 1.4, -6.55, WATER_Y + 0.15, WATER_Y - 0.4, WATER_Y - 3];
-    surf(stone, xsE.filter((x) => Math.abs(x) >= 16 || true), ys, (x, y) => [x, y, s * 40.03], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, top: LOW_Y, water: true }), rm: RM.wet });
+    for (const xsE of [xsE, xsE2]) surf(stone, xsE, ys, (x, y) => [x, y, s * 40.03], { n: () => [0, 0, -s], ws: TS, col: (p) => stoneCol(p, { y0: WATER_Y, top: LOW_Y, water: true }), rm: RM.wet });
     // retaining wall at |z| = 52 up to the street, string course, parapet (with gaps)
     const xsW = [...xsRange(X0, -16), ...xsRange(16, X1)];
     const wys = [LOW_Y, LOW_Y + 0.35, LOW_Y + 1.1, -3.4, -1.9, -0.9, -0.32];
     const wCol = (p) => stoneCol(p, { y0: groundY(p[0], s * 51.5), top: -0.32 });
     for (const [a, b] of [[X0, -16], [16, X1]]) surf(stone, xsRange(a, b), wys, (x, y) => [x, y, s * 52], { n: () => [0, 0, -s], ws: TS, col: wCol, rm: RM.stone });
     // string course (moulded band)
-    for (const [a, b] of [[X0, -14], [14, X1]]) prof(stone, xsRange(a, b), [[0, -0.34], [-0.1, -0.34], [-0.14, -0.27], [-0.24, -0.16], [-0.25, -0.04], [-0.06, 0]], (u, aa, bb) => [u, bb, s * (52 + aa)], (na, nb) => [0, nb, s * na], { col: (p) => stoneCol(p, { k: 1.08, top: 0.2 }), rm: RM.stone });
+    for (const [a, b] of [[X0, -16], [16, X1]]) prof(stone, xsRange(a, b), [[0, -0.34], [-0.1, -0.34], [-0.14, -0.27], [-0.24, -0.16], [-0.25, -0.04], [-0.06, 0]], (u, aa, bb) => [u, bb, s * (52 + aa)], (na, nb) => [0, nb, s * na], { col: (p) => stoneCol(p, { k: 1.08, top: 0.2 }), rm: RM.stone });
     // wall-foot shadow / grime decal + moss + rain streak decals on the wall
     const rr = S.rng;
     for (let x = 18; x < 380; x += 6) decal(S.B.decal, x + 3, LOW_Y + 0.012, s * 51.25, 6.2, 1.6, 0, D.aoRect, [0.7, 0.7, 0.7]);
@@ -201,7 +203,7 @@ function lowerQuays(S) {
       if (x > -18 && x < 18) continue;
       const g = groundY(x, s * 51.9), h = 1.5 + rr() * 3.2, w = 0.6 + rr() * 1.6;
       wallDecal(S.B.decal, [x, -0.34 - h / 2, s * 51.985], [0, 0, -s], [0, 1, 0], w, h, rr() < 0.5 ? D.streak : D.streak2, [1, 1, 1]);
-      if (rr() < 0.3 && g < -4) wallDecal(S.B.decal, [x + 2, g + 0.55, s * 51.985], [0, 0, -s], [0, 1, 0], 2.5 + rr() * 2, 1.1, D.moss, [1, 1, 1]);
+      if (rr() < 0.3 && g < -4) wallDecal(S.B.decal, [x + 2, g + 0.55, s * 51.985], [0, 0, -s], [0, -1, 0], 2.5 + rr() * 2, 1.1, D.moss, [1, 1, 1]);
     }
     // quay-wall waterline streaks (river face)
     for (let x = -400; x < 600; x += 5 + rr() * 7) wallDecal(S.B.decal, [x, LOW_Y - 0.4 - 0.7, s * 40.0], [0, 0, -s], [0, 1, 0], 0.8 + rr() * 1.5, 1.4, D.streak2, [1, 1, 1]);
@@ -220,11 +222,11 @@ function lowerQuays(S) {
     surf(S.B.stone, [sx * 14, sx * 16], [40, 52].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => stoneCol(p, { k: 0.9 }), rm: RM.wet });
     // blind arch niche + iron service door + plaque
     const zc = s * 46;
-    prof(S.B.stone, steps(-Math.PI / 2, Math.PI / 2, Math.PI / 10), [[0, 0], [0.18, 0], [0.18, 0.5]], (t, a, b) => [xf + sx * (a > 0.1 ? 0.18 : 0.02), -2.6 + Math.cos(t) * (2.4 + b) * 0.0 + (LOW_Y + 3.1 + Math.cos(t) * (2.5 + b) * 0.55) - (-2.6), zc + Math.sin(t) * (2.6 + b) * -s], () => [sx, 0, 0], { col: (p) => stoneCol(p, { k: 1.15 }), rm: RM.stone });
+    blindArch(S, xf, sx, s);
     addGeo(S.B.props, BOX(0.12, 2.3, 1.3), M4(xf + sx * 0.04, LOW_Y + 1.15, zc), { col: [0.05, 0.06, 0.055], rm: RM.iron });
     for (let k = 0; k < 4; k++) addGeo(S.B.props, BOX(0.03, 0.06, 1.3), M4(xf + sx * 0.11, LOW_Y + 0.35 + k * 0.6, zc), { col: [0.03, 0.035, 0.03], rm: RM.iron });
-    quadRU(S.B.props, [xf + sx * 0.02, LOW_Y + 2.75, zc - s * 1.6], [0, 0, -s * sx], [0, 1, 0], 1.6, 0.4, A.quaiSign, COL.white, RM.paint);
-    quadRU(S.B.props, [xf + sx * 0.12, LOW_Y + 2.62, zc], [0, 0, -s * sx], [0, 1, 0], 1.3, 0.32, A.plaque, COL.white, RM.paint);
+    quadRU(S.B.props, [xf + sx * 0.02, LOW_Y + 2.75, zc - s * 3.2], RT([sx, 0, 0]), [0, 1, 0], 1.6, 0.4, A.quaiSign, COL.white, RM.paint);
+    quadRU(S.B.props, [xf + sx * 0.13, LOW_Y + 2.62, zc], RT([sx, 0, 0]), [0, 1, 0], 1.3, 0.32, A.plaque, COL.white, RM.paint);
     wallDecal(S.B.decal, [xf + sx * 0.02, LOW_Y + 1.9, s * 42.5], [sx, 0, 0], [0, 1, 0], 3.2, 3.8, D.streak, [1, 1, 1]);
     decal(S.B.decal, xf + sx * 1.2, LOW_Y + 0.012, s * 46, 2.6, 12, 0, D.aoRect, [0.7, 0.7, 0.7]);
     // a lantern on the abutment so the dead end reads as a lit corner
@@ -268,8 +270,8 @@ function ramps(S) {
     col(S, [land, LOW_Y, s > 0 ? 45.55 : -52], [land + 0.45, 1.0, s > 0 ? 52 : -45.55], 'concrete', { kind: 'wall' });
     // ramp-top slot drain + puddles collecting at the low end
     decal(S.B.decal, xHigh - 1, 0.012, s * 49, 0.5, 5.4, 0, D.drain);
-    decal(S.B.puddle, xLow - 3, LOW_Y + 0.014, s * 49.5, 4.5, 2.6, 0.2, D.puddle);
-    decal(S.B.puddle, (xHigh + xLow) / 2, ry((xHigh + xLow) / 2) + 0.02, s * 51.3, 5.5, 1.2, 0, D.puddle2);
+    pud(S, xLow - 3, LOW_Y + 0.014, s * 49.5, 4.5, 2.6, 0.2, D.puddle);
+    pud(S, (xHigh + xLow) / 2, ry((xHigh + xLow) / 2) + 0.02, s * 51.3, 5.5, 1.2, 0, D.puddle2);
   }
   // scenery stairs further out (descend along +x against the retaining wall)
   for (const [xt, s] of STAIRS) {
@@ -362,9 +364,9 @@ function upperQuays(S) {
     // manholes, drains, puddles along the gutters, wet patches, leaf litter
     for (let x = -260; x < 480; x += 30 + r() * 25) decal(S.B.decal, x, 0.012, s * (60 + r() * 10), 0.9, 0.9, r() * 6, D.manhole);
     for (let x = -280; x < 480; x += 18 + r() * 8) { decal(S.B.decal, x, 0.012, s * 58.45, 0.45, 0.95, Math.PI / 2, D.drain); }
-    for (let x = -280; x < 500; x += 9 + r() * 14) decal(S.B.puddle, x, 0.014, s * (58.6 + r() * 0.6), 2.5 + r() * 4, 0.9 + r() * 0.8, Math.PI / 2 + (r() - 0.5) * 0.1, r() < 0.5 ? D.puddle : D.puddle2);
-    for (let x = -260; x < 480; x += 14 + r() * 20) decal(S.B.puddle, x, 0.014, s * (60 + r() * 11), 1.4 + r() * 2.5, 1.0 + r() * 1.6, r() * 6, r() < 0.5 ? D.puddle : D.puddle2);
-    for (let x = -260; x < 480; x += 10 + r() * 15) decal(S.B.puddle, x, 0.014, s * (53.5 + r() * 4), 1.5 + r() * 2.4, 1 + r() * 1.5, r() * 6, r() < 0.5 ? D.puddle : D.puddle2);
+    for (let x = -280; x < 500; x += 9 + r() * 14) pud(S, x, 0.014, s * (58.6 + r() * 0.6), 2.5 + r() * 4, 0.9 + r() * 0.8, Math.PI / 2 + (r() - 0.5) * 0.1, r() < 0.5 ? D.puddle : D.puddle2);
+    for (let x = -260; x < 480; x += 14 + r() * 20) pud(S, x, 0.014, s * (60 + r() * 11), 1.4 + r() * 2.5, 1.0 + r() * 1.6, r() * 6, r() < 0.5 ? D.puddle : D.puddle2);
+    for (let x = -260; x < 480; x += 10 + r() * 15) pud(S, x, 0.014, s * (53.5 + r() * 4), 1.5 + r() * 2.4, 1 + r() * 1.5, r() * 6, r() < 0.5 ? D.puddle : D.puddle2);
     for (let x = -300; x < 500; x += 4 + r() * 6) decal(S.B.decal, x, 0.013, s * (53 + r() * 5.5), 2 + r() * 2.5, 2 + r() * 2.5, r() * 6, r() < 0.5 ? D.leaves : D.leaves2, [0.85, 0.85, 0.85], [0.7, 0, 1]);
     for (let x = -300; x < 500; x += 9 + r() * 10) decal(S.B.decal, x, 0.013, s * (58.4 + r() * 0.5), 1.5 + r() * 2, 0.6, Math.PI / 2, D.leaves, [0.8, 0.8, 0.8], [0.6, 0, 1]);
     for (let x = -260; x < 480; x += 20 + r() * 30) decal(S.B.decal, x, 0.012, s * (60.5 + r() * 9), 1 + r() * 1.5, 2 + r() * 3, Math.PI / 2 + r() * 0.3, D.oil);
@@ -515,7 +517,7 @@ function scooter(S, x, z, rot, rng) {
   addGeo(P, RBOX(0.3, 0.12, 0.62, 0.05), at(0, 0.78, 0.25), { col: [0.05, 0.05, 0.05], rm: RM.rubber });
   addGeo(P, BOX(0.3, 0.06, 0.6), at(0, 0.32, -0.15), { col: [0.06, 0.06, 0.06], rm: RM.rubber });
   addGeo(P, RBOX(0.32, 0.6, 0.12, 0.05), at(0, 0.6, -0.52, 0.25), { col: paint, rm: RM.paint });
-  seg(P, [x - s * 0.62 * -1 * 0 + (-0.55) * s, 0.9, z + (-0.55) * c], [x + (-0.6) * s, 1.12, z + (-0.6) * c], 0.03, 0.03, 4, { col: COL.iron, rm: RM.iron });
+  seg(P, [x - 0.55 * s, 0.9, z - 0.55 * c], [x - 0.6 * s, 1.12, z - 0.6 * c], 0.03, 0.03, 4, { col: COL.iron, rm: RM.iron });
   addGeo(P, BOX(0.62, 0.04, 0.04), at(0, 1.13, -0.6), { col: COL.iron, rm: RM.iron });
   addGeo(P, BOX(0.06, 0.06, 0.03), at(0, 0.9, -0.66), { col: [0.9, 0.85, 0.7], rm: RM.glass });
   const ax = Math.abs(s) > 0.5;
@@ -545,7 +547,7 @@ function metroEntrance(S, x0, z0, s) {
     light(S, [g[0], g[1], g[2]], 7, 1.0, [1.0, 0.55, 0.25]);
   }
   beam(P, [x0 + 0.1, 2.85, zi0 + 0.4], [x0 + 0.1, 2.85, zi1 - 0.4], 0.05, 0.05, I);
-  quadRU(P, [x0 + 0.06, 2.55, (zi0 + zi1) / 2], [0, 0, s > 0 ? 1 : -1].map((v) => -v), [0, 1, 0], W - 0.8, 0.45, A.metro, COL.white, RM.paint, [0.25, 0.22, 0.16]);
+  quadRU(P, [x0 + 0.06, 2.55, (zi0 + zi1) / 2], RT([-1, 0, 0]), [0, 1, 0], W - 0.8, 0.45, A.metro, COL.white, RM.paint, [0.25, 0.22, 0.16]);
   col(S, [x0, -2, zi0 - 0.1], [x0 + L, 1.0, zi1 + 0.1], 'metal', { kind: 'metro' });
 }
 function upperFurniture(S) {
@@ -657,7 +659,6 @@ function bridge(S) {
     // abutment faces under the outer arches (z = ±40, between the quay walls)
     for (const s of [-1, 1]) surf(stone, [-HB, HB], [WATER_Y - 3, WATER_Y + 0.2, LOW_Y, SPRING], (x, y) => [x, y, s * 40], { n: () => [0, 0, -s], ws: TS, col: sc(0.85), rm: RM.wet });
     // spandrel over the abutments (z 40..52)
-    for (const s of [-1, 1]) surf(stone, [40, 52].map((z) => s * z), [SPRING, -2, -0.6], (z, y) => [xf, y, z], { n: () => [sx, 0, 0], ws: TS, col: sc(), rm: RM.stone });
     // deck cornice (moulded, dentils)
     prof(stone, steps(-52, 52, 2), [[0, -0.75], [0.12, -0.75], [0.14, -0.62], [0.3, -0.5], [0.36, -0.36], [0.36, -0.22], [0.42, -0.16], [0.42, 0], [0, 0]], (u, a, b) => [sx * (HB + a), b, u], (na, nb) => [sx * na, nb, 0], { col: sc(1.12), rm: RM.wet, uv: (p, n, u, av) => [u / TS, av / TS] });
     for (let z = -51.6; z < 52; z += 0.6) addGeo(stone, BOX(0.12, 0.12, 0.28), M4(sx * (HB + 0.2), -0.68, z), { ws: TS, col: sc(1.0), rm: RM.stone });
@@ -690,11 +691,11 @@ function bridge(S) {
     surf(stone, [9.5, 11.5, 13.4].map((x) => sx * x), zs, (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.66, 0.63, 0.58], (0.82 + 0.3 * wfbm(p[0] * 0.2, p[2] * 0.1)) * WET), rm: RM.wet, uv: (p) => [p[2] / TS, p[0] / TS] });
     curbZ(S, steps(-58, 58, 4), sx * 9.5, sx);
     paintLine(S, sx * 9.1, -50, sx * 9.1, 50, 0.13);
-    for (let z = -50; z < 50; z += 6 + S.rng() * 6) { decal(S.B.puddle, sx * (8.7 + S.rng() * 0.4), 0.014, z, 0.9 + S.rng() * 0.5, 2.5 + S.rng() * 3, 0, S.rng() < 0.5 ? D.puddle : D.puddle2); decal(S.B.decal, sx * 9.25, 0.012, z + 3, 0.4, 0.9, 0, D.drain); }
+    for (let z = -50; z < 50; z += 6 + S.rng() * 6) { pud(S, sx * (8.7 + S.rng() * 0.4), 0.014, z, 0.9 + S.rng() * 0.5, 2.5 + S.rng() * 3, 0, S.rng() < 0.5 ? D.puddle : D.puddle2); decal(S.B.decal, sx * 9.25, 0.012, z + 3, 0.4, 0.9, 0, D.drain); }
     for (let z = -48; z < 48; z += 5 + S.rng() * 7) decal(S.B.decal, sx * (10.5 + S.rng() * 2), 0.013, z, 1.6 + S.rng(), 1.6 + S.rng(), S.rng() * 6, S.rng() < 0.5 ? D.leaves : D.leaves2, [0.8, 0.8, 0.8], [0.7, 0, 1]);
   }
   paintLine(S, 0, -50, 0, 50, 0.14, 3, 4);
-  for (let z = -48; z < 48; z += 7 + S.rng() * 9) decal(S.B.puddle, (S.rng() - 0.5) * 12, 0.014, z, 1.5 + S.rng() * 2, 1 + S.rng() * 2, S.rng() * 6, S.rng() < 0.5 ? D.puddle : D.puddle2);
+  for (let z = -48; z < 48; z += 7 + S.rng() * 9) pud(S, (S.rng() - 0.5) * 12, 0.014, z, 1.5 + S.rng() * 2, 1 + S.rng() * 2, S.rng() * 6, S.rng() < 0.5 ? D.puddle : D.puddle2);
   for (let z = -45; z < 45; z += 10 + S.rng() * 10) decal(S.B.decal, (S.rng() - 0.5) * 10, 0.012, z, 1.2, 3, S.rng() * 0.3, D.oil);
   for (let k = 0; k < 9; k++) for (const s of [-1, 1]) decal(S.B.decal, -8.3 + k * 2.07, 0.013, s * 50.3, 1.1, 2.7, 0, D.line, [0.9, 0.9, 0.86]);
 }
@@ -796,25 +797,25 @@ function festoon(S, a, b, n, sag = 0.5) {
 }
 // closed guinguette bar kiosk; front faces -s (toward the river) if `face` = -1 along z
 function buvette(S, x, y, z, s, { w = 4.4, d = 2.5, small = false } = {}) {
-  const P = S.B.props, h = 2.7, fz = z - s * d / 2;
+  const P = S.B.props, h = 2.7, fz = z + s * d / 2;
   addGeo(P, BOX(w, h, d), M4(x, y + h / 2, z), { rect: A.wood, col: [0.34, 0.4, 0.33], rm: RM.wood });
-  addGeo(P, BOX(w + 0.7, 0.16, d + 0.8), M4(x, y + h + 0.08, z - s * 0.2), { col: [0.1, 0.12, 0.1], rm: RM.paint });
-  quadRU(P, [x, y + 1.3, fz - s * 0.012], [s, 0, 0], [0, 1, 0], w - 0.5, 1.9, A.shutter, [0.7, 0.72, 0.74], RM.galv);
-  quadRU(P, [x, y + h - 0.25, fz - s * 0.4 - 0.01 * s], [s, 0, 0], [0, 1, 0], w - 0.2, 0.42, A.buvette, COL.white, RM.paint, [0.35, 0.3, 0.2]);
-  addGeo(P, BOX(w - 0.2, 0.46, 0.04), M4(x, y + h - 0.25, fz - s * 0.38), { col: [0.1, 0.12, 0.1], rm: RM.paint });
+  addGeo(P, BOX(w + 0.7, 0.16, d + 0.8), M4(x, y + h + 0.08, z + s * 0.2), { col: [0.1, 0.12, 0.1], rm: RM.paint });
+  quadRU(P, [x, y + 1.3, fz + s * 0.012], [s, 0, 0], [0, 1, 0], w - 0.5, 1.9, A.shutter, [0.7, 0.72, 0.74], RM.galv);
+  quadRU(P, [x, y + h - 0.25, fz + s * 0.42], [s, 0, 0], [0, 1, 0], w - 0.2, 0.42, A.buvette, COL.white, RM.paint, [0.35, 0.3, 0.2]);
+  addGeo(P, BOX(w - 0.2, 0.46, 0.04), M4(x, y + h - 0.25, fz + s * 0.39), { col: [0.1, 0.12, 0.1], rm: RM.paint });
   // rolled striped awning, counter ledge, menu board, crates of empties
-  addGeo(P, CYL(0.14, 0.14, w - 0.4, 8), M4(x, y + 2.25, fz - s * 0.14, 0, 0, Math.PI / 2), { rect: A.stripes, col: [0.8, 0.8, 0.78], rm: RM.fabric });
-  addGeo(P, BOX(w - 0.3, 0.06, 0.4), M4(x, y + 1.05, fz - s * 0.2), { rect: A.wood, col: [0.5, 0.36, 0.24], rm: RM.wood });
-  quadRU(P, [x + w / 2 + 0.012, y + 1.5, z], [0, 0, -s * -1].map((v) => v * 1), [0, 1, 0], 0.9, 0.9, A.menu, COL.white, RM.paint);
+  addGeo(P, CYL(0.14, 0.14, w - 0.4, 8), M4(x, y + 2.25, fz + s * 0.14, 0, 0, Math.PI / 2), { rect: A.stripes, col: [0.8, 0.8, 0.78], rm: RM.fabric });
+  addGeo(P, BOX(w - 0.3, 0.06, 0.4), M4(x, y + 1.05, fz + s * 0.2), { rect: A.wood, col: [0.5, 0.36, 0.24], rm: RM.wood });
+  quadRU(P, [x + w / 2 + 0.012, y + 1.5, z], RT([1, 0, 0]), [0, 1, 0], 0.9, 0.9, A.menu, COL.white, RM.paint);
   // a lit side window (staff inside)
-  quadRU(P, [x - w / 2 - 0.012, y + 1.6, z], [0, 0, s], [0, 1, 0], 0.7, 0.6, A.window, COL.white, RM.glass, [1.6, 1.2, 0.8]);
+  quadRU(P, [x - w / 2 - 0.012, y + 1.6, z], RT([-1, 0, 0]), [0, 1, 0], 0.7, 0.6, A.window, COL.white, RM.glass, [1.6, 1.2, 0.8]);
   light(S, [x - w / 2 - 1.2, y + 1.6, z], 6, 0.8);
   col(S, [x - w / 2 - 0.35, y, z - d / 2 - 0.4], [x + w / 2 + 0.35, y + h + 0.2, z + d / 2 + 0.4], 'wood', { kind: 'kiosk' });
   if (!small) {
     // festoon of bulbs from the roof edge to a pole
-    const pole = [x + w / 2 + 4.5, y, z - s * 2.6];
+    const pole = [x + w / 2 + 4.5, y, z + s * 2.6];
     seg(P, pole, [pole[0], y + 3.4, pole[2]], 0.05, 0.05, 5, { col: COL.iron, rm: RM.iron });
-    festoon(S, [x - w / 2, y + h + 0.05, fz - s * 0.6], [pole[0], y + 3.3, pole[2]], 14, 0.55);
+    festoon(S, [x - w / 2, y + h + 0.05, fz + s * 0.6], [pole[0], y + 3.3, pole[2]], 14, 0.55);
     S.colliders.push({ min: [pole[0] - 0.1, y, pole[2] - 0.1], max: [pole[0] + 0.1, y + 3.4, pole[2] + 0.1], data: { mat: 'metal', thin: true } });
   }
 }
@@ -827,7 +828,7 @@ function utilityTruck(S, x, y, z, rot) {
   addGeo(P, BOX(W, 0.3, 3.3), at(0, 0.55, 0), { col: [0.08, 0.08, 0.08], rm: RM.iron });
   addGeo(P, RBOX(W, 1.25, 1.25, 0.08), at(0, 1.28, -1.0), { col: body, rm: RM.paint });
   addGeo(P, BOX(W - 0.12, 0.6, 0.04), at(0, 1.45, -1.64, -0.12), { col: [0.03, 0.04, 0.05], rm: RM.glass });
-  for (const sx of [-1, 1]) quadRU(P, [x + sx * (W / 2 + 0.01) * c + (-1.0) * s, y + 1.2, z - sx * (W / 2 + 0.01) * s + (-1.0) * c], [-s * sx, 0, -c * sx].map((v) => v * -1), [0, 1, 0], 1.1, 0.55, A.truck, COL.white, RM.paint);
+  for (const sx of [-1, 1]) { const n = [sx * c, 0, -sx * s]; quadRU(P, [x + sx * (W / 2 + 0.045) * c + (-1.0) * s, y + 1.2, z - sx * (W / 2 + 0.045) * s + (-1.0) * c], RT(n), [0, 1, 0], 1.1, 0.55, A.truck, COL.white, RM.paint); }
   // flatbed with drop sides, a load under a tarp
   addGeo(P, BOX(W, 0.06, 1.9), at(0, 0.73, 0.65), { col: [0.3, 0.3, 0.31], rm: RM.galv });
   for (const sx of [-1, 1]) addGeo(P, BOX(0.04, 0.38, 1.9), at(sx * (W / 2 - 0.02), 0.95, 0.65), { col: [0.42, 0.43, 0.44], rm: RM.galv });
@@ -843,7 +844,7 @@ function utilityTruck(S, x, y, z, rot) {
 function bike(S, x, y, z, rot, lean = 0.25) {
   const P = S.B.props, c = Math.cos(rot), s = Math.sin(rot), I = { col: [0.06, 0.065, 0.07], rm: RM.iron };
   const at = (lx, ly) => [x + lx * c + Math.sin(lean) * ly * s * 0, y + ly, z - lx * s];
-  for (const lx of [-0.52, 0.52]) addGeo(P, TOR(0.33, 0.022, 4, 12), M4(x + lx * c, y + 0.34, z - lx * s, 0, rot, 0).multiply(M4(0, 0, 0, 0, 0, 0)).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2)).multiply(new THREE.Matrix4().makeRotationX(lean)), I);
+  for (const lx of [-0.52, 0.52]) addGeo(P, TOR(0.33, 0.022, 4, 12), M4(x + lx * c, y + 0.34, z - lx * s, 0, rot, 0), I);
   const pts = { r: at(-0.52, 0.34), f: at(0.52, 0.34), b: at(-0.05, 0.34), s: at(-0.18, 0.88), h: at(0.42, 0.95) };
   for (const [a, b] of [['r', 'b'], ['b', 's'], ['s', 'r'], ['s', 'h'], ['b', 'h'], ['h', 'f']]) seg(P, pts[a], pts[b], 0.018, 0.018, 4, I);
   addGeo(P, BOX(0.06, 0.03, 0.5), M4(pts.h[0], pts.h[1] + 0.06, pts.h[2], 0, rot), I);
@@ -985,7 +986,7 @@ function hedgeBox(S, x0, z0, x1, z1, h = 0.7) {
 }
 function hoops(S, x0, z0, x1, z1) {
   const P = S.B.props, L = Math.hypot(x1 - x0, z1 - z0), n = Math.floor(L / 0.55), rot = Math.atan2(z1 - z0, x1 - x0);
-  for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; addGeo(P, TOR(0.3, 0.014, 3, 6, Math.PI), M4(lerp(x0, x1, t), 0.0, lerp(z0, z1, t), 0, -rot + Math.PI / 2 * 0 + (k % 2 ? 0.0 : 0.0), 0).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2 * 0)), { col: [0.03, 0.06, 0.04], rm: RM.iron }); }
+  for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; addGeo(P, TOR(0.3, 0.014, 3, 6, Math.PI), M4(lerp(x0, x1, t), 0.0, lerp(z0, z1, t), 0, -rot, 0), { col: [0.03, 0.06, 0.04], rm: RM.iron }); }
 }
 function lawn(S, x0, z0, x1, z1) {
   surf(S.B.green, steps(x0, x1, 4), steps(z0, z1, 4), (x, z) => [x, 0.025, z], { n: () => [0, 1, 0], ws: TL, col: (p) => mul([0.36, 0.42, 0.24], (0.6 + 0.45 * wfbm(p[0] * 0.08, p[2] * 0.08) - 0.12 * sstep(0.6, 0.8, wn(p[0] * 0.3, p[2] * 0.3))) * 0.78), rm: RM.lawn });
@@ -1015,10 +1016,10 @@ function booth(S, x, z, rot, { w = 2.6, d = 2.2, h = 2.7, sign = A.billets, wind
   addGeo(P, BOX(w + 0.4, 0.18, d + 0.4), at(0, h + 0.09, 0), { col: mul(body, 0.6), rm: RM.paint });
   addGeo(P, BOX(w + 0.06, 0.12, d + 0.06), at(0, 0.06, 0), { col: [0.06, 0.06, 0.06], rm: RM.iron });
   // front (-z local): lit window + counter + sign
-  quadRU(P, wp(0, 1.55, -d / 2 - 0.012), [c, 0, -s], [0, 1, 0], w - 0.6, 1.0, A.window, COL.white, RM.glass, window);
+  quadRU(P, wp(0, 1.55, -d / 2 - 0.012), [-c, 0, s], [0, 1, 0], w - 0.6, 1.0, A.window, COL.white, RM.glass, window);
   addGeo(P, BOX(w - 0.4, 0.06, 0.35), at(0, 1.02, -d / 2 - 0.15), { col: [0.1, 0.1, 0.1], rm: RM.iron });
-  quadRU(P, wp(0, h - 0.28, -d / 2 - 0.022), [c, 0, -s], [0, 1, 0], w - 0.2, 0.42, sign, COL.white, RM.paint, [0.3, 0.26, 0.2]);
-  quadRU(P, wp(0, 1.3, d / 2 + 0.012), [-c, 0, s], [0, 1, 0], 1.4, 1.5, A.poster2, COL.white, RM.paint);
+  quadRU(P, wp(0, h - 0.28, -d / 2 - 0.022), [-c, 0, s], [0, 1, 0], w - 0.2, 0.42, sign, COL.white, RM.paint, [0.3, 0.26, 0.2]);
+  quadRU(P, wp(0, 1.3, d / 2 + 0.012), [c, 0, -s], [0, 1, 0], 1.4, 1.5, A.poster2, COL.white, RM.paint);
   const lp = wp(0, 1.6, -d / 2 - 1.2);
   light(S, lp, 7, 1.0, [window[0] / 2, window[1] / 2, window[2] / 2]);
   const hw = Math.abs(c) * w / 2 + Math.abs(s) * d / 2, hd = Math.abs(s) * w / 2 + Math.abs(c) * d / 2;
@@ -1032,8 +1033,8 @@ function crepeCart(S, x, z, rot) {
   addGeo(P, RBOX(2.9, 1.6, 1.7, 0.1), at(0, 1.25, 0), { col: [0.55, 0.16, 0.12], rm: RM.paint });
   addGeo(P, BOX(2.9, 0.1, 1.7), at(0, 0.48, 0), { col: [0.08, 0.08, 0.08], rm: RM.iron });
   addGeo(P, RBOX(3.1, 0.16, 1.9, 0.06), at(0, 2.12, 0), { col: [0.85, 0.8, 0.7], rm: RM.paint });
-  quadRU(P, wp(0, 1.45, -0.862), [c, 0, -s], [0, 1, 0], 1.8, 0.8, A.window, COL.white, RM.glass, [1.5, 1.05, 0.62]);
-  quadRU(P, wp(0, 1.95, -0.872), [c, 0, -s], [0, 1, 0], 2.6, 0.32, A.crepes, COL.white, RM.paint, [0.4, 0.32, 0.22]);
+  quadRU(P, wp(0, 1.45, -0.862), [-c, 0, s], [0, 1, 0], 1.8, 0.8, A.window, COL.white, RM.glass, [1.5, 1.05, 0.62]);
+  quadRU(P, wp(0, 1.95, -0.872), [-c, 0, s], [0, 1, 0], 2.6, 0.32, A.crepes, COL.white, RM.paint, [0.4, 0.32, 0.22]);
   addGeo(P, BOX(2.6, 0.05, 0.5), at(0, 2.2, -1.1, -0.35), { rect: A.stripes, col: [0.85, 0.85, 0.85], rm: RM.fabric });
   beam(P, wp(1.3, 0.55, 0.85), wp(2.2, 0.4, 0.0), 0.06, 0.06, { col: COL.iron, rm: RM.iron });
   light(S, wp(0, 1.5, -1.6), 6.5, 0.9, [0.9, 0.62, 0.36]);
@@ -1072,8 +1073,8 @@ function newsKiosk(S, x, z, rot) {
   const at = (lx, ly, lz) => M4(x + lx * c + lz * s, ly, z - lx * s + lz * c, 0, rot);
   const wp = (lx, ly, lz) => [x + lx * c + lz * s, ly, z - lx * s + lz * c];
   addGeo(P, BOX(2.6, 2.3, 2.0), at(0, 1.15, 0), G);
-  for (const [lz, sgn] of [[-1.012, 1], [1.012, -1]]) quadRU(P, wp(0, 1.15, lz), [c * sgn, 0, -s * sgn], [0, 1, 0], 2.3, 1.4, A.presse, COL.white, RM.paint);
-  quadRU(P, wp(0, 2.15, -1.03), [c, 0, -s], [0, 1, 0], 2.4, 0.5, A.kiosk, COL.white, RM.paint, [0.45, 0.4, 0.28]);
+  for (const [lz, sgn] of [[-1.012, 1], [1.012, -1]]) quadRU(P, wp(0, 1.15, lz), [-c * sgn, 0, s * sgn], [0, 1, 0], 2.3, 1.4, A.presse, COL.white, RM.paint);
+  quadRU(P, wp(0, 2.15, -1.03), [-c, 0, s], [0, 1, 0], 2.4, 0.5, A.kiosk, COL.white, RM.paint, [0.45, 0.4, 0.28]);
   addGeo(P, BOX(3.0, 0.14, 2.4), at(0, 2.37, 0), G);
   addGeo(P, LATHE([[1.5, 0], [1.3, 0.25], [0.9, 0.5], [0.4, 0.72], [0.0, 0.8]], 8), at(0, 2.44, 0), G);
   addGeo(P, SPH(0.12, 6, 4), at(0, 3.3, 0), { col: COL.brass, rm: RM.gold });
@@ -1142,7 +1143,7 @@ function park(S) {
     hoops(S, sx * 67.2, -126, sx * 67.2, -112); hoops(S, sx * 67.2, -168, sx * 67.2, -132); hoops(S, sx > 0 ? 10 : -44, -215.2, sx > 0 ? 44 : -10, -215.2);
   }
   // puddles on the gravel (big, glossy), wheel ruts darkened, leaf litter
-  for (let k = 0; k < 70; k++) { const x = (r() - 0.5) * 170, z = -82 - r() * 162; if (Math.abs(x) > 64 && z < -110) continue; decal(S.B.puddle, x, 0.014, z, 1.5 + r() * 4.5, 1.2 + r() * 3, r() * 6, r() < 0.5 ? D.puddle : D.puddle2); }
+  for (let k = 0; k < 70; k++) { const x = (r() - 0.5) * 170, z = -82 - r() * 162; if (Math.abs(x) > 64 && z < -110) continue; pud(S, x, 0.014, z, 1.5 + r() * 4.5, 1.2 + r() * 3, r() * 6, r() < 0.5 ? D.puddle : D.puddle2); }
   for (let k = 0; k < 90; k++) { const x = (r() - 0.5) * 176, z = -80 - r() * 166; decal(S.B.decal, x, 0.013, z, 2 + r() * 3, 2 + r() * 3, r() * 6, r() < 0.5 ? D.leaves : D.leaves2, [0.85, 0.85, 0.85], [0.75, 0, 1]); }
   // park lamps along the paths
   for (const sx of [-1, 1]) {

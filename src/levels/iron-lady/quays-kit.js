@@ -42,7 +42,7 @@ export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / 
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 export const mix3 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
-export function steps(a, b, st) { const n = Math.max(1, Math.round(Math.abs(b - a) / st)), o = []; for (let i = 0; i <= n; i++) o.push(a + (b - a) * i / n); return o; }
+export function steps(a, b, st) { const n = Math.max(1, Math.round(Math.abs(b - a) / Math.abs(st))), o = []; for (let i = 0; i <= n; i++) o.push(a + (b - a) * i / n); return o; }
 export function brk(...lists) { const s = [...new Set(lists.flat().map((v) => Math.round(v * 1000) / 1000))]; return s.sort((a, b) => a - b); }
 // world-space value noise / fbm
 const WN = makeNoise(9001, 512), WN2 = makeNoise(9002, 512);
@@ -132,7 +132,10 @@ export function surf(bk, us, vs, f, o = {}) {
 // map(u, a, b) -> [x,y,z]; nmap(na, nb) -> [nx,ny,nz]. Normals are smoothed across joints < 40°.
 export function prof(bk, us, pts, map, nmap, o = {}) {
   const segN = [];
-  for (let k = 0; k < pts.length - 1; k++) { const da = pts[k + 1][0] - pts[k][0], db = pts[k + 1][1] - pts[k][1], l = Math.hypot(da, db) || 1; segN.push([-db / l, da / l]); }
+  // orientation from the signed area of the (closed) profile: outward normals either way round
+  let area = 0; for (let k = 0; k < pts.length; k++) { const p = pts[k], q = pts[(k + 1) % pts.length]; area += p[0] * q[1] - q[0] * p[1]; }
+  const sg = (o.flip ? -1 : 1) * (area >= 0 ? 1 : -1);
+  for (let k = 0; k < pts.length - 1; k++) { const da = pts[k + 1][0] - pts[k][0], db = pts[k + 1][1] - pts[k][1], l = Math.hypot(da, db) || 1; segN.push([sg * db / l, -sg * da / l]); }
   const vn = (k, side) => { // normal at vertex k for segment (k-1 if side 0, else k)
     const s = side ? k : k - 1, a = segN[s], b = side ? segN[k - 1] : segN[k];
     if (!b) return a;
