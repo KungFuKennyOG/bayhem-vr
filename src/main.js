@@ -8,6 +8,7 @@ import { FX } from './fx.js';
 import { HUD } from './hud.js';
 import { SoundBus } from './soundbus.js';
 import { seed } from './rng.js';
+import { settings, setSetting } from './settings.js';
 import { LEVELS, levelById, loadLevel, nextLevel } from './levels/index.js';
 
 // =====================================================================================
@@ -174,6 +175,8 @@ const MENU_CSS = `
     background:linear-gradient(#ff8a2a,#c8400e);color:#fff8ee;cursor:pointer;box-shadow:0 0 24px rgba(255,120,20,0.45);min-width:200px}
   #bay button.go:disabled{opacity:0.35;cursor:default;box-shadow:none}
   #bay button.alt{background:rgba(20,10,4,0.6)}
+  #bay button.opt{all:unset;cursor:pointer;font:700 14px Oswald,sans-serif;letter-spacing:0.18em;color:#d9b99a;padding:8px 16px;border-radius:4px;border:1px solid rgba(255,179,90,0.3);background:rgba(20,10,4,0.5)}
+  #bay button.opt.on{color:#ffd9a8;border-color:rgba(255,179,90,0.7)}
   #bay small{font:500 13px Oswald,sans-serif;color:#d9b99a;letter-spacing:0.08em;max-width:620px;line-height:1.6}`;
 
 function buildStartScreen() {
@@ -184,9 +187,14 @@ function buildStartScreen() {
     <h1>BAYHEM</h1>
     <div class="levels">${LEVELS.map(l => `<button class="lv${l.id === lv.id ? ' sel' : ''}" data-id="${l.id}"><div class="n">LEVEL ${l.num}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div></button>`).join('')}</div>
     <div class="row"><button id="vr" class="go" disabled>LOADING…</button><button id="play" class="go alt" disabled>LOADING…</button></div>
-    <small>${lv.help}<br>VR: right trigger = rifle, left trigger = grenade launcher, A/X = reload.<br>Desktop: mouse to aim, left click = rifle, right click = launcher, R = reload.</small>
+    <button id="comfort" class="opt"></button>
+    <small>${lv.help}<br>VR: right trigger = rifle, left trigger = grenade launcher, A/X = reload, click the right stick = comfort vignette on/off.<br>Desktop: mouse to aim, left click = rifle, right click = launcher, R = reload.</small>
   </div>`;
   document.body.appendChild(d);
+  const cb = d.querySelector('#comfort');
+  const drawComfort = () => { cb.textContent = `COMFORT VIGNETTE: ${settings.comfortVignette ? 'ON' : 'OFF'}`; cb.classList.toggle('on', settings.comfortVignette); };
+  drawComfort(); cb.onclick = () => { setSetting('comfortVignette', !settings.comfortVignette); drawComfort(); };
+  cb.title = 'Darkens the edges of your view while you move on foot in VR (reduces motion sickness)';
   for (const b of d.querySelectorAll('.lv')) b.onclick = () => {
     if (b.dataset.id === lv.id) return;
     safeSet('bayhem.level', b.dataset.id);

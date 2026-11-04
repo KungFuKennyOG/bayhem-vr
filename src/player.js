@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildRifle, buildLauncher, Gun, VR_HOLD } from './weapons.js';
 import { rand, range, clamp, damp } from './rng.js';
 import { rotateRigAboutHead } from './locomotion.js';
+import { settings, setSetting } from './settings.js';
 
 const _v = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion();
 
@@ -72,6 +73,14 @@ export class Player {
       } else if (c.hand === 'right') {
         if (this.snapArmed && Math.abs(ax) > 0.7) { this.snapArmed = false; rotateRigAboutHead(this.rig, this.camera, -Math.sign(ax) * Math.PI / 4); this.loco.turnFX = 1; this.g.audio.play('ui_select', { volume: 0.25, pitch: 0.6 }); }
         else if (Math.abs(ax) < 0.3) this.snapArmed = true;
+        // right stick click: comfort vignette on/off (saved for next time)
+        const click = !!gp.buttons[3]?.pressed;
+        if (click && !this.comfortClick) {
+          setSetting('comfortVignette', !settings.comfortVignette);
+          this.g.hud.subtitle('SETTINGS', `Comfort vignette ${settings.comfortVignette ? 'ON' : 'OFF'}`, 1.6);
+          this.g.audio.play('ui_select', { volume: 0.3 });
+        }
+        this.comfortClick = click;
       }
     }
     return w;
@@ -186,7 +195,7 @@ export class Player {
         this.stepDist = this.loco.dist;
         g.audio.play(this.loco.onMetal ? 'step_metal' : (sp > 4 ? 'step_run' : 'step_concrete'), { volume: 0.35 + Math.min(0.35, sp * 0.06) });
       }
-      g.hud.setComfort?.(this.mode === 'vr' ? Math.max(clamp((sp - 0.4) / 3, 0, 1) * 0.85, this.loco.turnFX) : 0);
+      g.hud.setComfort?.(this.mode === 'vr' && settings.comfortVignette ? Math.max(clamp((sp - 0.4) / 3, 0, 1) * 0.85, this.loco.turnFX) : 0);
     }
     if (this.mode === 'desktop') {
       this.shake *= Math.exp(-rdt * 6);
