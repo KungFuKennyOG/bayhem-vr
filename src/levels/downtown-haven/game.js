@@ -10,7 +10,7 @@ import { GlassSystem } from './glass.js';
 import { LaserFX } from './snipers.js';
 import { Traffic } from './traffic.js';
 import { Birds, birdSpots } from './birds.js';
-import { SMOKE_COLUMNS } from './layout.js';
+import { SMOKE_COLUMNS, LOBBY } from './layout.js';
 import { DustClouds } from './dustfx.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
@@ -435,9 +435,12 @@ export class DowntownGame {
       this._appliedDusk = this.dusk;
       setSunElevation(7 - this.dusk * 11, SUN_AZ);
       applyDusk(this.dusk, { sun: this.E.sun, hemi: this.E.hemi, fog: this.scene.fog, renderer: this.E.renderer });
-      this.scene.environmentIntensity = 0.85 - this.dusk * 0.45;
       this._fog0.color.copy(this.scene.fog.color);
     }
+    // inside the lobby the marble bounces light everywhere: more fill so figures against the curtain wall aren't silhouettes
+    const inLobby = this.headPos.x > LOBBY.x0 - 1 && this.headPos.z > LOBBY.z0 && this.headPos.z < LOBBY.z1 ? 1 : 0;
+    this._lobbyK = damp(this._lobbyK || 0, inLobby, 2, rdt);
+    this.scene.environmentIntensity = 0.85 - this.dusk * 0.45 + this._lobbyK * 0.4;
     // dust: the collapse fogs the canyon in (applied on top of the dusk fog)
     const F = this.fogMix, fog = this.scene.fog;
     if (F.k > 0.001 || this._fogDirty) {

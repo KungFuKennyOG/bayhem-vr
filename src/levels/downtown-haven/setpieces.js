@@ -171,6 +171,8 @@ export class SetPieces {
       target.copy(H.wp);
       if (H.strafeT <= 0 && H.hp > 0) { H.phase = 'strafe'; H.t = 0; H.sx = range(-3, 3); H.s0 = clamp(head.z - 75, -150, -20); H.s1 = head.z + 30; g.events.push({ type: 'strafe' }); }
       if (H.hp < H.maxHp * 0.5) g.fx.trailEmit(H, m.smokePt.getWorldPosition(_v2), 0.8, (q) => g.fx.smoke(q, 1.1, 0.13, 2.5, 0.5, 0.65), 0);
+      // a black ribbon of smoke hanging in the canyon behind it, so you can follow it against the sky
+      if (H.hp < H.maxHp * 0.6) g.fx.trailEmit(H.ribbon ||= {}, m.smokePt.getWorldPosition(_v2), 2.2, (q) => this.clouds.spawn({ x: q.x, y: q.y, z: q.z, vx: range(-0.4, 0.4), vy: range(0.3, 1), vz: range(-0.4, 0.4), drag: 0.5, buoy: 0.1, s0: 2.2, s1: range(9, 13), life: range(6, 8), a: H.hp < H.maxHp * 0.3 ? 0.92 : 0.7, fadeIn: 0.05, fadeOut: 0.55, vrot: range(-0.2, 0.2), r: 0.07, g: 0.062, b: 0.058, r1: 0.2, g1: 0.18, b1: 0.16 }), 0);
       if (H.hp < H.maxHp * 0.25 && rand() < dt * 20) g.fx.flame(m.smokePt.getWorldPosition(_v2), 0.8, H.vel);
     }
     if (H.phase === 'strafe') {
@@ -199,6 +201,7 @@ export class SetPieces {
       H.vel.lerp(_v2.multiplyScalar(sp), 1 - Math.exp(-dt * 2.5));
       if (!(H.pos.z < CROSS.z1 && H.pos.z > CROSS.z0)) this._canyon(H, dt);
       g.fx.trailEmit(H, m.smokePt.getWorldPosition(_v3), 0.7, (q) => { g.fx.flame(q, 1.2); g.fx.smoke(q, 1.6, 0.1, 3.5, 1, 0.85); }, 0);
+      g.fx.trailEmit(H.ribbon ||= {}, m.smokePt.getWorldPosition(_v3), 2.0, (q) => this.clouds.spawn({ x: q.x, y: q.y, z: q.z, vx: range(-0.5, 0.5), vy: range(0.5, 1.5), vz: range(-0.5, 0.5), drag: 0.5, buoy: 0.1, s0: 3, s1: range(12, 16), life: range(7, 9), a: 0.94, fadeIn: 0.03, fadeOut: 0.5, vrot: range(-0.2, 0.2), r: 0.06, g: 0.052, b: 0.048, r1: 0.18, g1: 0.16, b1: 0.14, glow: 1.2, glowFade: 6 }), 0);
       // the tail boom lets go and tumbles down into the street
       if (H.t > 0.8 && !H.tail && m.breakTail) {
         const tb = m.breakTail();
@@ -388,6 +391,8 @@ export class SetPieces {
       g.fx.explosion(P, range(1.1, 1.6), { noRing: true });
       g.glass.burst(P, _v2.set(range(-0.2, 0.2), 0, 1), 14, { spread: 3, speed: 7, size: 0.5, life: 12, up: 1 });
     });
+    // the facade comes down onto the plaza: concrete and twisted panels rain out of the hole
+    for (let k = 0; k < 40; k++) g.fx.later(rand() * 1.2, () => this.rubble.spawn(_v.set(I.x + range(-9, 9), I.y + range(-6, 6), MERIDIAN.z1 + range(1, 3)), _v2.set(range(-4, 4), range(-2, 4), range(3, 10)), range(0.4, 1.6)));
     this.holeFire = 1;
     g.events.push({ type: 'heliCrash', P: I.clone() });
   }
