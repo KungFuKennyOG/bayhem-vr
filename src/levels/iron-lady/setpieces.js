@@ -191,8 +191,8 @@ export class SetPieces {
     if (B.state !== 'cruise') return;
     B.state = 'burning'; B.burnT = 0;
     const P = B.fuelW.clone();
-    g.boom(P, 2.2, { radius: 14, dmg: 30 });
-    this.megaFireball(P.clone().setY(P.y + 2), 1.6);
+    g.boom(P, 2.6, { radius: 14, dmg: 30 });
+    this.megaFireball(P.clone().setY(P.y + 2), 2.0);
     g.fx.later(0.25, () => g.boom(P.clone().add(_v.set(range(-3, 3), 1, 0)).applyAxisAngle(UP, 0), 1.6, { radius: 10, dmg: 20, player: false }));
     for (let k = 0; k < 7; k++) g.fx.later(0.3 + k * 0.18, () => { const p = _v.set(range(-2.5, 2.5), range(2, 4), range(-16, 14)).applyMatrix4(B.root.matrixWorld); g.fx.explosion(p.clone(), range(1.1, 1.6), { noRing: true }); g.smokeAfter(p, 1.2); });
     for (const s of B.gunmen) if (s.alive) { _v.set(range(-0.4, 0.4), 0.9, range(-0.4, 0.4)).normalize(); g.killSoldier(s, _v.clone(), 3.2, false, null); }
@@ -205,7 +205,9 @@ export class SetPieces {
     g.slowmo(1.6, 0.3, true);
     g.addScore(2500, 'BATEAU FLAMBÉ!', P.clone().setY(P.y + 7), 'huge');
     g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
-    g.fx.light(P, 1400, 2, 0xff9040, true, 160);
+    g.fx.light(P.clone().setY(P.y + 3), 500, 2, 0xff9040, true, 55);
+    // a water column thrown up beside the hull
+    for (let k = 0; k < 14; k++) g.fx.main.spawn({ x: P.x + range(-3, 3), y: WATER_Y + 0.5, z: P.z + range(-2, 2), vx: range(-2, 2), vy: range(10, 22), vz: range(-2, 2), grav: 9.8, drag: 0.4, frame: CELL.WISP, s0: 2, s1: range(6, 10), life: range(1.6, 2.4), rot: rand() * 6, r: 0.5, g: 0.52, b: 0.55, a: 0.6, fadeIn: 0.02, fadeOut: 0.6 });
     g.events.push({ type: 'boatBoom', P });
   }
   _updBoat(dt) {
@@ -806,7 +808,7 @@ export class SetPieces {
       const crest = rand() < 0.4;
       const k = range(0.8, 1.1);
       // a low rolling front: many smaller puffs hugging the water/quay, a ragged crest, no clean cumulus
-      this.clouds.spawn({ x: Wl.x + range(-5, 2), y: crest ? y + range(6, 16) : y + range(0.5, 4), z, vx: range(8, 12), vy: crest ? range(-0.5, 1.5) : range(0.3, 2), vz: range(-1.5, 1.5), drag: 0.4, buoy: 0, s0: range(4, 7), s1: range(12, 20), life: range(3.5, 5), a: 0.85, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.4, 0.4), r: (onRiver ? 0.11 : 0.13) * k, g: (onRiver ? 0.11 : 0.11) * k, b: (onRiver ? 0.12 : 0.09) * k, r1: 0.07, g1: 0.065, b1: 0.06, glow: 0.12, glowFade: 1.5 });
+      this.clouds.spawn({ x: Wl.x + range(-5, 2), y: crest ? y + range(6, 16) : y + range(0.5, 4), z, vx: range(8, 12), vy: crest ? range(-0.5, 1.5) : range(0.3, 2), vz: range(-1.5, 1.5), drag: 0.4, buoy: 0, s0: range(4, 7), s1: range(12, 20), life: range(3.5, 5), a: 0.85, fadeIn: 0.05, fadeOut: 0.5, vrot: range(-0.4, 0.4), spray: true, r: (onRiver ? 0.11 : 0.13) * k, g: (onRiver ? 0.11 : 0.11) * k, b: (onRiver ? 0.12 : 0.09) * k, r1: 0.07, g1: 0.065, b1: 0.06, glow: 0.12, glowFade: 1.5 });
       // spray sheets and grit streaking ahead of it
       if (rand() < 0.6) g.fx.main.spawn({ x: Wl.x + range(0, 6), y: y + range(0.3, 3), z: z * 0.8, vx: range(10, 16), vy: range(0, 2), vz: range(-1, 1), drag: 0.8, frame: CELL.WISP, s0: 1.5, s1: range(5, 9), life: range(1.2, 2), rot: rand() * 6, r: 0.3, g: 0.31, b: 0.33, a: 0.45, fadeIn: 0.05, fadeOut: 0.5 });
     }

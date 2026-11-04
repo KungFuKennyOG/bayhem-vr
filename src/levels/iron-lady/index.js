@@ -36,7 +36,7 @@ export async function create(E) {
   const world = await new IronWorld(E).build();
   const game = new IronGame(E, world);
   // dark smoke puffs: keep them warm brown-black (the grade's teal split-tone turns neutral greys teal at night)
-  { const c = game.clouds, spawn = c.spawn.bind(c); c.spawn = (o) => { if ((o.r ?? 0.5) < 0.3 && Math.abs((o.r ?? 0) - (o.b ?? 0)) < 0.05) { o.r *= 1.22; o.g *= 1.02; o.b *= 0.72; if (o.r1 !== undefined) { o.r1 *= 1.18; o.b1 *= 0.75; } } return spawn(o); }; }
+  { const c = game.clouds, spawn = c.spawn.bind(c); c.spawn = (o) => { if (!o.spray && (o.r ?? 0.5) < 0.3 && Math.abs((o.r ?? 0) - (o.b ?? 0)) < 0.05) { o.r *= 1.22; o.g *= 1.02; o.b *= 0.72; if (o.r1 !== undefined) { o.r1 *= 1.18; o.b1 *= 0.75; } } return spawn(o); }; }
   game.dusk = night0;
   const setp = new SetPieces(game);
   game.setpieces = setp;
