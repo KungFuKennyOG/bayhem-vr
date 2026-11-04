@@ -20,4 +20,5 @@ WebXR VR shooter for Quest 3 (three.js r170 + Vite). Michael Bay spectacle, poli
 - `Object3D.lookAt` points +z at the target; guns/vehicles face -z → `rotateY(Math.PI)` after lookAt.
 - Fire/smoke particles are premultiplied: RGB = emission, A = smoke coverage. Use `fx.trailEmit` for moving emitters (no "string of pearls").
 - Quest budget: no screen-space post, instancing for repeated props, ≤2 draw calls per character, keep particles in the shared batches.
+- Don't symlink `node_modules` from outside the repo when running the dev server: Vite refuses those files (403), so the @fontsource fonts fall back to Arial and screenshots look wrong. Install in place, or test the built `dist/` with `vite preview`.
 - Get an independent screenshot critique before calling art "done".
