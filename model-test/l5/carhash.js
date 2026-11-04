@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import * as C from '/src/levels/downtown-haven/cars.js';
 function h32(arr, h = 2166136261) { const u = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength); for (let i = 0; i < u.length; i++) { h ^= u[i]; h = Math.imul(h, 16777619); } return h >>> 0; }
-export function carHash(ctx) {
+function hashAll() {
   const out = {};
   for (const type of ['sedan', 'taxi', 'police', 'suv', 'van', 'bus', 'wreck']) for (const seed of [7, 101, 102, 113]) for (const doorOpen of [false, true]) {
     const m = C.buildCar(type, { seed, doorOpen });
@@ -14,5 +14,12 @@ export function carHash(ctx) {
   const cv = mats.body.map.image, g = cv.getContext('2d'), d = g.getImageData(0, 0, cv.width, cv.height).data;
   out.atlas = h32(d);
   let all = 2166136261; for (const k of Object.keys(out).sort()) { const s = new TextEncoder().encode(k + out[k]); all = h32(s, all); }
-  return { root: new THREE.Group(), info: { all, atlas: out.atlas, n: Object.keys(out).length } };
+  return { all, atlas: out.atlas, n: Object.keys(out).length };
+}
+export function carHash(ctx) {
+  const before = hashAll();
+  const paris = [];
+  for (const type of ['sedan', 'taxi', 'police', 'suv', 'van', 'bus', 'wreck']) { const m = C.buildCar(type, { seed: 101, city: 'paris' }); paris.push(type + ':' + m.info.tris + ':' + (m.info.city || '-')); }
+  const after = hashAll();
+  return { root: new THREE.Group(), info: { before, after, paris } };
 }

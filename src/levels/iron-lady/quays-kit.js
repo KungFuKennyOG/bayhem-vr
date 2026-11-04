@@ -174,7 +174,27 @@ export function quadRU(bk, c, right, up, w, h, rect, col, rm, e = Z3, S = PA) {
 // ground decal: centre, size, rotation about y, rect in decal atlas
 export function decal(bk, x, y, z, w, l, rot, rect, col = COL.white, rm = [0.6, 0, 1]) {
   const c = Math.cos(rot), s = Math.sin(rot);
-  quadRU(bk, [x, y, z], [c, 0, -s], [s, 0, c], w, l, rect, col, rm, Z3, DA);
+  quadRU(bk, [x, y, z], [c, 0, -s], [-s, 0, -c], w, l, rect, col, rm, Z3, DA);
+}
+// vertical decal on a wall: centre, outward normal n (horizontal), up axis (usually [0,1,0] or [0,-1,0])
+export function wallDecal(bk, c, n, up, w, h, rect, col = COL.white, rm = [0.6, 0, 1]) {
+  const right = cross(up, n);
+  quadRU(bk, c, right, up, w, h, rect, col, rm, Z3, DA);
+}
+// cylinder between two points (r0 at a, r1 at b)
+const _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0), _d = new THREE.Vector3();
+export function seg(bk, a, b, r0, r1, sides, o, open = true) {
+  _d.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const L = _d.length(); if (L < 1e-4) return; _d.multiplyScalar(1 / L);
+  _q.setFromUnitVectors(_up, _d);
+  const m = new THREE.Matrix4().compose(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), _q, new THREE.Vector3(1, 1, 1));
+  addGeo(bk, new THREE.CylinderGeometry(r1, r0, L, sides, 1, open), m, o);
+}
+// box between two points (square section w x h, h along `upHint` side)
+export function beam(bk, a, b, w, h, o) {
+  _d.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const L = _d.length(); if (L < 1e-4) return; _d.multiplyScalar(1 / L);
+  _q.setFromUnitVectors(_up, _d);
+  const m = new THREE.Matrix4().compose(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), _q, new THREE.Vector3(1, 1, 1));
+  addGeo(bk, new THREE.BoxGeometry(w, L, h), m, o);
 }
 
 // ---------------------------------------------------------------------- light baking

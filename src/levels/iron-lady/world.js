@@ -62,7 +62,7 @@ export class IronWorld {
         try {
           const b = boatsM.buildBoat('peniche', { seed });
           b.root.position.set(x, WATER_Y, z);
-          if (z < 0) b.root.rotation.y = Math.PI;
+          b.root.rotation.y = z > 0 ? Math.PI / 2 : -Math.PI / 2; // bow -x, port side to the quay
           b.root.updateMatrixWorld(true);
           this.group.add(b.root);
           for (const c of b.colliders || []) this.col.addFromObject([c], b.root.matrixWorld, { mat: 'metal', kind: 'barge', ...(c.data || {}) });

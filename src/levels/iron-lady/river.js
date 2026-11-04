@@ -119,7 +119,7 @@ export function buildRiver(ctx = {}) {
         float calm = smoothstep(0.0, 6.0, dw);
         slope *= mix(0.45, 1.0, calm);
         // rain pocks (only near: they alias into noise far away)
-        float pk = uRain * (1.0 - smoothstep(18.0, 55.0, dist));
+        float pk = uRain * (1.0 - smoothstep(12.0, 40.0, dist));
         vec3 rp = vec3(0.0);
         if (pk > 0.001) {
           rp = pocks(p, t * 1.1, 1.6) + pocks(mat2(0.8, -0.6, 0.6, 0.8) * p + 13.7, t * 1.1 + 0.37, 2.3) * 0.8 + pocks(p * 1.31 + 41.1, t * 1.2 + 0.71, 3.1) * 0.6;
@@ -146,10 +146,11 @@ export function buildRiver(ctx = {}) {
         vec3 shore = mix(vec3(0.020, 0.018, 0.020), vec3(0.05, 0.03, 0.022), pow(sa, 4.0)) * mix(1.0, 0.7, n);
         // windows: 3.6 m bays, 3.3 m floors above the 7 m quay wall + 4 m shop level; ~40 % lit, warm
         vec2 wc = vec2(hx / 3.6, (hy - 11.0) / 3.3);
+        float wAA = 1.0 - smoothstep(0.25, 0.6, max(fwidth(wc.x), fwidth(wc.y)));
         vec2 wf = fract(wc) - 0.5;
         float lit = step(0.6, rh(floor(wc) + 3.1)) * step(0.0, hy - 11.0) * step(hy, 27.0);
         float win = lit * (1.0 - smoothstep(0.18, 0.3, abs(wf.x))) * (1.0 - smoothstep(0.2, 0.36, abs(wf.y)));
-        shore += vec3(0.4, 0.23, 0.09) * win * (0.5 + rh(floor(wc) + 9.7)) * (1.0 - smoothstep(150.0, 700.0, tz));
+        shore += vec3(0.3, 0.17, 0.07) * win * wAA * (0.5 + rh(floor(wc) + 9.7)) * (1.0 - smoothstep(120.0, 450.0, tz)) * (1.0 - smoothstep(80.0, 300.0, dist));
         // streetlamp line along the far parapet (just above the wall top) as a dim warm band
         shore += vec3(0.16, 0.09, 0.04) * exp(-pow((hy - 11.5) / 1.6, 2.0)) * (1.0 - smoothstep(200.0, 900.0, tz));
         sky = mix(shore, sky, smoothstep(skyline * 0.85, skyline * 1.15 + 0.004, tanR));

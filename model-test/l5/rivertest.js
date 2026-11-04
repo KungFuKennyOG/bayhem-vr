@@ -9,6 +9,7 @@ import { buildAtlas, BillboardBatch, CELL } from '/src/particles.js';
 import { fogShared, rimShared, applyDusk } from '/src/atmosphere.js';
 import { WATER_Y, LOW_Y, RIVER, LOWQ, BRIDGE } from '/src/levels/iron-lady/layout.js';
 import { makeRng } from '/src/rng.js';
+import { buildBoat } from '/src/levels/iron-lady/boats.js';
 
 export async function riverTest(night = 0.3, ctx) {
   if (typeof night === 'object') { ctx = night; night = 0.3; }
@@ -73,10 +74,24 @@ export async function riverTest(night = 0.3, ctx) {
   for (let k = 0; k < 36; k++) { const y = 8 + k * 7.5; G.set(gi++, (rng() - 0.5) * 40 * Math.exp(-y / 90), y, -140 + 30 * Math.exp(-y / 90), 6, 6, 0, CELL.GLOW, 0, 2.4, 1.45, 0.6, 0.8); }
   G.commit(gi);
   root.add(G.mesh);
+  // boats: &boats=bateau:x:z:yawDeg:burnt,peniche:x:z:yaw:seed,...
+  const boats = [];
+  for (const spec of (Q.get('boats') || '').split(',').filter(Boolean)) {
+    const [k, x, z, yaw, extra] = spec.split(':');
+    const b = buildBoat(k, { seed: k === 'peniche' ? +(extra || 3) : 5 });
+    if (k !== 'peniche' && extra === 'burnt') b.setBurnt();
+    b.root.position.set(+x, WATER_Y, +z); b.root.rotation.y = (+yaw || 0) * Math.PI / 180;
+    root.add(b.root); boats.push(b);
+    b.root.updateMatrixWorld(true);
+    for (const r of b.anchors.reflect || []) { const p = new THREE.Vector3(...r.p).applyMatrix4(b.root.matrixWorld); refl.add({ ...r, p: p.toArray(), ground: WATER_Y, water: true }); }
+    for (const g of b.anchors.glows || []) { if (k === 'peniche') { const p = new THREE.Vector3(...g.p).applyMatrix4(b.root.matrixWorld); G.set(gi++, p.x, p.y, p.z, g.size, g.size, 0, CELL.GLOW, 0, g.color[0], g.color[1], g.color[2], 0.9); } }
+    if (k === 'peniche') for (const g of (b.anchors.glows || []).filter((g, i) => i % 3 === 0)) { const p = new THREE.Vector3(...g.p).applyMatrix4(b.root.matrixWorld); refl.add({ p: p.toArray(), color: g.color, len: 6, width: 1, ground: WATER_Y, water: true }); }
+  }
+  G.commit(gi);
   refl.update(0);
   return {
     root,
-    update(dt, t) { river.update(dt, t + 3, 0.85 + night * 0.15); refl.update(dt); },
-    info: { refl: refl.info },
+    update(dt, t) { river.update(dt, t + 3, 0.85 + night * 0.15); refl.update(dt); for (const b of boats) b.update?.(dt, t + 3); },
+    info: { refl: refl.info, boats: boats.map(b => b.info) },
   };
 }

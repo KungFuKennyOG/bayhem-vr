@@ -230,6 +230,7 @@ export class SetPieces {
     // bow wave
     if (B.state === 'cruise' && rand() < dt * 10) { const p = _v.set(range(-3, 3), 0.3, -20.5).applyMatrix4(B.root.matrixWorld); g.fx.main.spawn({ x: p.x, y: WATER_Y + 0.2, z: p.z, vx: range(-1, 1), vy: 0.4, vz: range(-2, 2), drag: 1, frame: CELL.WISP, s0: 0.8, s1: 3, life: 1.5, rot: rand() * 6, r: 0.62, g: 0.66, b: 0.7, a: 0.35, fadeOut: 0.5 }); }
     this._placeBoat(dt);
+    if (B.state === 'cruise') B.m.update?.(dt, g.time); // searchlight sweep
     if (B.state === 'cruise') g.audio.setLoop('suv:boat', { x: B.x, y: WATER_Y + 2, z: B.z, volume: 0.8 });
     else g.audio.stopLoop('suv:boat');
   }
