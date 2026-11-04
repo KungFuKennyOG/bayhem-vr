@@ -586,7 +586,7 @@ export class PortGame {
       const d = p.distanceTo(head);
       if (d > 60) continue;
       // only what the player can actually see (checked lazily for the current target)
-      const vis = (A.target?.ref === s) ? A.targetVisible !== false : this.col.visible(head, p, b => b.data.noBullet);
+      const vis = this.col.visible(head, p, b => b.data.noBullet);
       if (!vis) continue;
       out.push({ kind: 'soldier', p, score: 60 - d * 0.7 + (A.target?.ref === s ? 25 : 0) + (s.role === 'rusher' ? 10 : 0), ref: s, heavy: d > 16 && (s.cover?.tall === false || s.role === 'perch'), minNade: 9 });
     }
@@ -607,7 +607,7 @@ export class PortGame {
     return out;
   }
   autoTargetDead(t) {
-    if (t.kind === 'soldier') return !t.ref.alive || (this.time % 0.5 < 0.04 && !this.col.visible(this.headPos, t.ref.gm.chestCenter.getWorldPosition(_v), b => b.data.noBullet));
+    if (t.kind === 'soldier') { if (!t.ref.alive) return true; if (this.col.visible(this.headPos, t.ref.gm.chestCenter.getWorldPosition(_v), b => b.data.noBullet)) { t.lost = 0; return false; } t.lost = (t.lost || 0) + 1; return t.lost > 12; }
     if (t.kind === 'drum') return t.ref.state === 'gone' || t.ref.state === 'burning';
     if (t.kind === 'target') return !t.ref.active();
     return false;
