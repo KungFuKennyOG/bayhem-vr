@@ -243,6 +243,9 @@ export class Soldier {
   _pickCover(T) {
     const g = this.g, pts = g.cover;
     if (!pts) return null;
+    // a soldier with no free cover asks again every frame (700 points x every soldier): remember a miss briefly.
+    // Same decisions, a third of a second later at most. (Biggest CPU cost of the level on Quest.)
+    if (g.time < this.noCoverUntil) return null;
     let best = null, bs = -1e9;
     const myD = Math.hypot(T.x - this.pos.x, T.z - this.pos.z);
     const fx = g.playerFwd.x, fz = g.playerFwd.z;
@@ -264,6 +267,7 @@ export class Soldier {
       for (const o of g.soldiers) if (o !== this && o.alive && o.cover && o.cover.p.distanceToSquared(c.p) < 9) s -= 6;
       if (s > bs) { bs = s; best = c; }
     }
+    if (!best) this.noCoverUntil = g.time + 0.33;
     return best;
   }
   // try small offsets around the cover point (step past the edge, stand up over low cover) for a spot with LOS

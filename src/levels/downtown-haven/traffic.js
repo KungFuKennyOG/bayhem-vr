@@ -1,3 +1,4 @@
+import { attachShadowLOD } from './shadowlod.js';
 import * as THREE from 'three';
 import { rand, range, chance, clamp, pick } from '../../rng.js';
 import { RigidBox } from '../../physics.js';
@@ -27,6 +28,8 @@ export class Traffic {
       const yaw = yawDeg * Math.PI / 180;
       m.root.position.set(x, this.g.world.fastGround(x, z), z); m.root.rotation.y = yaw;
       m.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      if (m.blob) m.blob.castShadow = false;                 // the contact-shadow decal is flat: nothing to cast
+      if (m.mesh && !game.E.params.has('noshadowlod')) attachShadowLOD(m.mesh);   // sun shadow from a decimated body
       this.scene.add(m.root);
       m.root.updateMatrixWorld(true);
       const half = new THREE.Vector3(...m.half), center = new THREE.Vector3(...(m.center || [0, m.half[1], 0]));

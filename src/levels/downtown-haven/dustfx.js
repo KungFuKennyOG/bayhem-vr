@@ -138,9 +138,13 @@ void main(){
   #include <bay_premul_colorspace>
 }`;
 
+const OCC_AZ = 144, OCC_EL = 72, OCC_BIN = (2 * Math.PI) / OCC_AZ, HALF_PI = Math.PI / 2, OCC_T = 0.04;
+
 export class DustClouds {
-  constructor(scene, fog, { max = 320 } = {}) {
+  constructor(scene, fog, { max = 320, occlusion = true, fillBudget = 0 } = {}) {
     this.max = max;
+    this.occlusion = occlusion; this.fillBudget = fillBudget;
+    this._T = new Float32Array(OCC_AZ * OCC_EL); this._keep = [];
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
     g.setIndex([0, 1, 2, 0, 2, 3]);
@@ -190,9 +194,10 @@ export class DustClouds {
     p.r1 = o.r1 ?? p.r; p.g1 = o.g1 ?? p.g; p.b1 = o.b1 ?? p.b;
     p.variant = o.variant ?? (this.vid++ % 8);
     p.ride = o.ride || null; p.oz = o.oz || 0;
+    p.bv = this.fillBudget ? 0 : 1; // with a fill budget, puffs fade in once they're granted a share of it
     return p;
   }
-  update(dt, eye, ground = -50) {
+  update(dt, eye, ground = -50, fwd = null) {
     this.material.uniforms.groundY.value = ground;
     const vis = this.order; vis.length = 0;
     for (const p of this.p) {
@@ -207,12 +212,18 @@ export class DustClouds {
       p.d2 = (p.x - eye.x) ** 2 + (p.y - eye.y) ** 2 + (p.z - eye.z) ** 2;
       vis.push(p);
     }
+    for (const p of vis) {
+      const t = p.age / p.life;
+      p.sz = p.s0 + (p.s1 - p.s0) * (1 - (1 - t) * (1 - t));
+      p.al = p.a * Math.min(1, t / Math.max(1e-3, p.fadeIn)) * Math.min(1, (1 - t) / Math.max(1e-3, p.fadeOut));
+    }
     vis.sort((a, b) => b.d2 - a.d2);
+    if (this.occlusion) this._occlude(vis, eye);
+    if (this.fillBudget && fwd) this._budget(vis, eye, fwd, dt);
     const P = this.aPos.array, Q = this.aP.array, C = this.aC.array;
     for (let i = 0; i < vis.length; i++) {
       const p = vis[i], t = p.age / p.life;
-      const sz = p.s0 + (p.s1 - p.s0) * (1 - (1 - t) * (1 - t));
-      const a = p.a * Math.min(1, t / Math.max(1e-3, p.fadeIn)) * Math.min(1, (1 - t) / Math.max(1e-3, p.fadeOut));
+      const sz = p.sz, a = p.al * p.bv;
       P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z;
       Q[i * 4] = sz; Q[i * 4 + 1] = p.rot; Q[i * 4 + 2] = a; Q[i * 4 + 3] = p.variant;
       C[i * 4] = p.r + (p.r1 - p.r) * t; C[i * 4 + 1] = p.g + (p.g1 - p.g) * t; C[i * 4 + 2] = p.b + (p.b1 - p.b) * t;
@@ -222,6 +233,67 @@ export class DustClouds {
     this.geometry.instanceCount = vis.length;
     // fog uniforms follow the (dust-mixed) scene fog
     const u = this.material.uniforms; u.fogNear.value = this.fog.near; u.fogFar.value = this.fog.far;
+  }
+  // Fill-rate cull (the Quest bottleneck: a dust wall stacks 40+ screen-sized layers). Walks the puffs near → far
+  // on a grid of directions around the eye (angles, so it holds for both VR eyes and any head turn) and drops:
+  //  - puffs the near fade has already made invisible (they still cost a screen-sized quad),
+  //  - puffs whose whole footprint sits behind thick, nearer puffs (transmittance < OCC_T in every cell).
+  // Only each puff's dense core occludes, and only cells it covers completely, so the result looks the same.
+  _occlude(vis, eye) {
+    const T = this._T, nearK = this.material.uniforms.uNearK.value, keep = this._keep, fN = this.fog.near, fF = this.fog.far;
+    T.fill(1); keep.length = 0;
+    for (let i = vis.length - 1; i >= 0; i--) {
+      const p = vis[i], d = Math.sqrt(p.d2);
+      const x = (d - 0.8) / Math.max(1e-3, p.sz * nearK), nf = x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+      const ae = p.al * nf;
+      if (ae < 0.01) continue;
+      // swallowed by the fog: even its nearest edge is fog colour, same as everything behind it (the dust fog is ~30 m deep)
+      const fd = (d - p.sz * 0.5 - fN) / Math.max(1e-3, fF - fN);
+      if (fd >= 1) continue;
+      const el = Math.asin(Math.max(-1, Math.min(1, (p.y - eye.y) / d))), az = Math.atan2(p.x - eye.x, eye.z - p.z);
+      const rOut = Math.atan(p.sz * 0.71 / d);
+      if (!this._visible(el, az, rOut)) continue;
+      keep.push(p);
+      const rIn = Math.atan(p.sz * 0.28 / d);
+      if (rIn > OCC_BIN) this._attenuate(el, az, rIn, 1 - 0.8 * ae);
+    }
+    vis.length = 0;
+    for (let i = keep.length - 1; i >= 0; i--) vis.push(keep[i]);
+  }
+  // Hard cap on what's left: the puffs in front of the eye may cover at most `fillBudget` screens' worth. Near ones have
+  // priority (they're what you see); the farthest ones over budget fade out (and back in) over ~0.2 s, so turning your head
+  // doesn't pop anything (per rendered frame, not game time: the collapse runs in slow-mo). The 70° cone is wider than the Quest's per-eye view.
+  _budget(vis, eye, fwd, dt) {
+    const k = 0.25, cosC = Math.cos(70 * Math.PI / 180);
+    let used = 0;
+    for (let i = vis.length - 1; i >= 0; i--) {
+      const p = vis[i], d = Math.max(0.5, Math.sqrt(p.d2));
+      const dx = (p.x - eye.x) / d, dy = (p.y - eye.y) / d, dz = (p.z - eye.z) / d;
+      const ang = Math.atan(p.sz * 0.5 / d);
+      const inView = Math.acos(Math.max(-1, Math.min(1, dx * fwd.x + dy * fwd.y + dz * fwd.z))) - ang < Math.acos(cosC);
+      let want = 1;
+      if (inView) { const c = Math.min(1, p.sz / (2 * d)); used += c * c; if (used > this.fillBudget) want = 0; }
+      p.bv = want ? p.bv + (1 - p.bv) * k : p.bv * 0.45; // out faster than in: a fading puff still costs its full area
+    }
+    let w = 0;
+    for (let i = 0; i < vis.length; i++) if (vis[i].bv > 0.02) vis[w++] = vis[i];
+    vis.length = w;
+  }
+  _visible(el, az, r) {
+    const T = this._T;
+    const e0 = Math.max(0, Math.floor((el - r + HALF_PI) / OCC_BIN)), e1 = Math.min(OCC_EL - 1, Math.floor((el + r + HALF_PI) / OCC_BIN));
+    const c = Math.cos(Math.min(HALF_PI, Math.abs(el) + r));
+    const h = c < 0.1 ? Math.PI : r / c;
+    const a0 = Math.floor((az - h + Math.PI) / OCC_BIN), a1 = h >= Math.PI ? a0 + OCC_AZ - 1 : Math.floor((az + h + Math.PI) / OCC_BIN);
+    for (let e = e0; e <= e1; e++) for (let a = a0; a <= a1; a++) if (T[e * OCC_AZ + ((a % OCC_AZ) + OCC_AZ) % OCC_AZ] > OCC_T) return true;
+    return false;
+  }
+  _attenuate(el, az, r, k) {
+    // only cells completely inside the core square (|Δel|, |Δaz| ≤ r: the az span is narrower than r/cos(el), so this is conservative)
+    const T = this._T;
+    const e0 = Math.ceil((el - r + HALF_PI) / OCC_BIN), e1 = Math.floor((el + r + HALF_PI) / OCC_BIN) - 1;
+    const a0 = Math.ceil((az - r + Math.PI) / OCC_BIN), a1 = Math.floor((az + r + Math.PI) / OCC_BIN) - 1;
+    for (let e = Math.max(0, e0); e <= Math.min(OCC_EL - 1, e1); e++) for (let a = a0; a <= a1; a++) T[e * OCC_AZ + ((a % OCC_AZ) + OCC_AZ) % OCC_AZ] *= k;
   }
   get alive() { return this.order.length; }
 }

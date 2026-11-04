@@ -105,6 +105,14 @@ Review status: five independent screenshot reviews went 5.5 → 5.5 → 5.5 → 
 - the desktop gun materials.
 
 Procedural art plateaued here. The next real jumps need shared-engine explosion work or authored fracture meshes.
+
+**Performance pass (branch `downtown-perf`).** Measured in the sandbox with a Quest user agent (Quest pools and shadow size), at fixed frames per beat; no headset frame times yet. Per VR frame (both eye passes + sun shadow) triangles fell 13–24% (intro 1.42M → 1.23M, avenue 1.44M → 1.19M, gunship 1.08M → 0.82M, collapse 1.02M → 0.81M); the shadow pass roughly halved everywhere; dust overdraw in front of the player during the collapse went from ~16 to ~9 screens; lobby simulation CPU ~30% lower. Screenshots before/after match.
+- `shadowlod.js`: car bodies cast the sun shadow from a vertex-clustered copy appended to their own geometry (draw range swapped in `onBeforeShadow`/`onAfterShadow`), so no extra draw calls. Cars were half the shadow pass. `?noshadowlod` turns it off.
+- `game._cullSoldiers`: gunmen ship with `frustumCulled = false`; while alive they now cull against a fixed 1.7 m sphere around the root (ragdolls keep the old behaviour) and stop casting sun shadows past 40 m. `?nosoldiercull`.
+- `dustfx.js`: puffs hidden by fog, by the near fade, or completely behind denser nearer puffs (angle grid around the eye, so it holds for both eyes) are skipped; a fill budget (`fillBudget`, Quest 6 / desktop 14, `?fill=N`) fades the farthest in-view puffs out first. `?noocc`.
+- `ai.js`: a soldier with no free cover rescanned all ~700 cover points every frame; a miss is now remembered for 0.33 s (17× fewer scans, same decisions). Port of Victory's `ai.js` (also used by the airport) has the same pattern and would take the same fix.
+- Tried and dropped: splitting the merged city/street/lobby meshes into ground cells (4% fewer triangles for ~20 more draw calls per pass).
+- Still heavy: the shared particle batch at the gunship crash and the dive (~14–25 screens of overdraw, `fx.main` pool full), and ~450–510k eye-pass triangles at the start and down the avenue (cars and soldiers ~9–11k tris each). Headset check: frame time during the collapse and the dive.
 Original brief:
 - **Setting:** a canyon of glass towers, abandoned traffic, and smoke columns from the earlier chaos.
 - **Beats:**
