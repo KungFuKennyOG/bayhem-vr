@@ -4,6 +4,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 
 ## Status
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
+- **Level 6, "Tokyo Scramble" (on foot, Shibuya/Shinjuku stand-in on a hard-sun afternoon), is built** on branch `level-6-tokyo` — see its section below and `src/levels/tokyo-scramble/DESIGN.md`.
 - **Level 5, "The Iron Lady" (on foot, Paris at blue hour, a fictional lattice tower falls across the Seine), is built** on branch `level-5-iron-lady` — see its section below and `src/levels/iron-lady/DESIGN.md`.
 - **Level 4, "Airport No Return" (on foot, ends in a jeep chase), is done** — see its section below.
 - **Level 3, "Downtown Haven City" (on foot, glass canyon at sunset), is done** — see its section below and `src/levels/downtown-haven/DESIGN.md`.
@@ -175,6 +176,18 @@ Open issues (round 5, by impact):
 - The gunship is small and lit flat by the tower (gunmetal paint + rim instead of the warm emissive lift; route it closer).
 - The bridge "jam" is a handful of cars; repeated facade grids along the river; low-poly planter shrubs; the speedboat needs a wake and bow spray.
 Headset checks needed: frame rate during the fall (2 660 instanced girders through the rig shader + rain + reflections + up to 320 cloud puffs), the look-gated collapse trigger, rain streak comfort within 1.2–13 m, callout placement with the new clamp, speedboat ride comfort (power turn), and the shared `VR_HOLD` grips.
+
+### Level 6: TOKYO SCRAMBLE (on foot, Shibuya / Shinjuku on a hard-sun afternoon) — BUILT, in review
+Code: `src/levels/tokyo-scramble/` — see its `DESIGN.md` (beats, world frame, the layered East Exit decks, rendering modules). The brief changed mid-build (Nov 5): night neon → **sunny afternoon, hard light** (overcast tested flat), and the parking deck → **the East Exit** (a bus plaza under a ring of pedestrian decks). `?night=1` still renders the night-neon version.
+Beats: intro (station skybridge over the tracks) → crossing (the scramble under the giant screens; they flip to an emergency broadcast) → avenue → eastexit (bus plaza, `perch` gunmen pacing the decks overhead) → decks (up the stairs, along the arms, the station's face stair to its roof terrace, the link) → xway (the jam) → tanker (look-gated; a span hinges down into the street) → offramp → center (Center-gai) → gas (the chain chases you down the street) → dive (slow-mo into the crossing) → outro. `?level=tokyo-scramble&beat=<name>`.
+New tech:
+- **2.5D city-wide sun shadows** (`sunshadow.js`): a building-height map rasterised from the collision boxes; every static material marches 16 steps toward the sun (`patchSun`, chains onto existing shader patches), plus an invisible caster mesh for the realtime shadow map (cars / people). Lit tops over shaded canyons out to the horizon, no extra draw calls for the art.
+- **Walkable decks over walkable ground**: collider tops + `col.walk` ramps (the engine's `groundAt` is height-aware); deck balustrades tagged `layer:'deck'` are switched off while the street nav is built; gunmen up there are `perch` soldiers.
+- **Time of day switch** (`tod.js`): how much night-built emissive art glows by day; signs render as printed albedo + a little self-illumination (`signMat`).
+Shared-engine changes: `downtown-haven/cars.js` — `city: 'tokyo'` now has its own atlas (Japanese plates, a navy JPN-taxi with the andon, a white/black patrol car, a courier box truck, a city bus); the default build is untouched. `src/levels/index.js` (registry).
+Review status (fresh reviewer each round, same calibration frames: L2 gate/crane, L3 street/dust, L5 quay):
+- Round 1 (first daylight build): 6.0. Center-gai and the gas chase ~7 (Level 5 quality); plaza / deck / expressway ~5 ("greybox"); "hard sun" read as overcast.
+- Round 2: 6.0. The tanker review frames were taken before its look gate opened (fixed: gate at 7 s, frames later); smoke columns read as boxes; factory-clean surfaces; no crowd.
 
 ## Quality bar and lessons from Level 1
 - **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).
