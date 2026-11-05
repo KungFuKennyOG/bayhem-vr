@@ -30,7 +30,7 @@ export function readFlags(params, isQuest) {
     radius: num('radius', 640, 300, 1400),             // rail loop radius
     beat: (params.get('beat') || 'cycle').toLowerCase(),
     slowmo: bool('slowmo', true),                      // world slow-mo on the hero fall (the heli keeps real time)
-    hz: num('hz', 0, 0, 120),                          // request this XR display rate (72 / 90 / 120)
+    hz: num('hz', 72, 0, 120),                         // XR display rate to request: 72 = the Level 8 target (90 / 120 to compare, 0 = browser default)
     panel: (params.get('panel') || 'cabin').toLowerCase(),
     gpu: bool('gpu', true),                            // GPU timer queries if the browser has them
     isQuest,

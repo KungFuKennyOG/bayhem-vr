@@ -71,6 +71,21 @@ export async function create(E) {
     dust.fillPeak = 0;
     setPhase('idle');
   };
+  // Resets are a test-harness thing (the real level never un-destroys a city), but done in the open they pop the whole
+  // skyline back and look exactly like the swap failing. So a reset happens behind a short fade to black
+  // (0.3 s out, 0.15 s hold, 0.4 s in: the VR-safe way to cut), and those frames aren't recorded.
+  const fade = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false, toneMapped: false }));
+  fade.renderOrder = 1000; fade.visible = false; camera.add(fade);
+  const B = { t: -1, fn: null, done: false };
+  const blink = (fn) => { if (B.t >= 0) return; B.t = 0; B.fn = fn; B.done = false; };
+  const updBlink = (rdt) => {
+    if (B.t < 0) return;
+    B.t += rdt;
+    const k = B.t < 0.3 ? B.t / 0.3 : B.t < 0.45 ? 1 : 1 - (B.t - 0.45) / 0.4;
+    if (B.t >= 0.3 && !B.done) { B.done = true; B.fn(); }
+    fade.material.opacity = Math.max(0, Math.min(1, k)); fade.visible = k > 0;
+    if (B.t > 0.85) { B.t = -1; fade.visible = false; }
+  };
   // auto timelines (&beat=): cycle (default), worst, mid, hero, idle
   const timeline = {
     cycle: [['idle', 14], ['mid', null], ['hero', null], ['settle', 26], ['reset', 0], ['idle', 6], ['worst', null], ['settle', 40], ['reset', 0]],
@@ -85,7 +100,7 @@ export async function create(E) {
     const [name, dur] = timeline[T.step % timeline.length];
     const next = () => { T.step++; const [n2] = timeline[T.step % timeline.length]; enter(n2); };
     if (name === 'idle' || name === 'settle') { if (T.t > dur) next(); }
-    else if (name === 'reset') { reset(); next(); }
+    else if (name === 'reset') { if (B.t < 0 && T.phase !== 'reset!') { T.phase = 'reset!'; blink(() => { reset(); next(); }); } }
     else if (name === 'mid') { T.midNext -= dt; if (T.midNext <= 0) { T.midNext = 4; if (!fallMid()) next(); } }
     else if (name === 'hero') { if (T.t > 4 && (!hero || hero.done() || T.t > 22)) next(); }
     else if (name === 'worst') { if (T.t > 20) next(); }
@@ -105,7 +120,7 @@ export async function create(E) {
   const DUSTS = ['off', 'low', 'mid', 'high'], PANELS = ['cabin', 'wrist', 'float', 'off'];
   const actions = {
     worst: () => { manual = true; worst(); },
-    reset: () => { manual = false; reset(); T.step = 0; if (timeline) enter(timeline[0][0]); panel.resetPhases(); },
+    reset: () => blink(() => { manual = false; reset(); T.step = 0; if (timeline) enter(timeline[0][0]); panel.resetPhases(); }),
     mid: () => { manual = true; if (fallMid()) setPhase('mid'); },
     hero: () => { manual = true; if (fallHero()) setPhase('hero'); },
     dust: () => { dust.setLevel(DUSTS[(DUSTS.indexOf(dust.level) + 1) % 4]); hud.subtitle('DEBUG', `dust ${dust.level}`, 1.5); },
@@ -125,12 +140,12 @@ export async function create(E) {
     if (panel.mode === 'wrist' && !panel.mesh.parent) panel.mount('wrist', rig, wristSpace());
     if (F.panel === 'wrist' && !T.wristDone && wristSpace()) { T.wristDone = true; panel.mount('wrist', rig, wristSpace()); }
   };
-  // display rate request (Quest browser: 72 default, 90 / 120 on request)
-  let hzDone = false;
+  // display rate request, once per XR session (Quest Browser runs WebXR at 90 Hz unless asked; Level 8 targets 72)
+  let hzSession = null;
   const tryHz = () => {
-    if (hzDone || !F.hz) return;
-    const s = renderer.xr.getSession?.(); if (!s?.updateTargetFrameRate) return;
-    hzDone = true;
+    if (!F.hz) return;
+    const s = renderer.xr.getSession?.(); if (!s?.updateTargetFrameRate || s === hzSession) return;
+    hzSession = s;
     const rates = s.supportedFrameRates ? [...s.supportedFrameRates] : [];
     if (!rates.length || rates.includes(F.hz)) s.updateTargetFrameRate(F.hz).then(() => panel.setBudget(F.hz)).catch(() => {});
   };
@@ -182,6 +197,7 @@ export async function create(E) {
       const key = started ? (renderer.xr.isPresenting ? 'vr' : 'flat') : null;
       if (key && key !== runKey) { runKey = key; restartRun(); }
       if ((rateT -= rdt) <= 0) { rateT = 1; syncRate(); }
+      updBlink(rdt);
       pollVR(); tryHz();
       dust.update(game.timeScale * rdt, head, camera);
       far.update(head, wall);
@@ -189,7 +205,7 @@ export async function create(E) {
       if (started) audio.setLoop('heli', { x: head.x, y: head.y + 2.5, z: head.z, volume: 0.55, intensity: 0.7 });
       if (wall.state) audio.setLoop('dust_roar', { x: head.x * 1.6, y: 40, z: head.z * 1.6, volume: 0.5 });
       simMs += performance.now() - t0;
-      panel.frame(simMs, !runKey || performance.now() < graceUntil ? null : manual ? T.phase + '*' : T.phase); simMs = 0;
+      panel.frame(simMs, !runKey || B.t >= 0 || performance.now() < graceUntil ? null : manual ? T.phase + '*' : T.phase); simMs = 0;
       const R = rail.st;
       camera.getWorldDirection(_fw);
       panel.draw({

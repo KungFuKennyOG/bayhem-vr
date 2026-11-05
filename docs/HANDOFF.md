@@ -21,6 +21,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **Locomotion for the on-foot levels:** smooth thumbstick movement with a comfort vignette while moving, plus 45° snap turn.
 - **Each new level gets its own chat.**
 - **Driver voice (Nov 2026):** every DRIVER line is voiced with local AI TTS (Chatterbox cloned onto a Kokoro male voice, both free to ship) and a baked radio filter. Kenny picked it over a calmer TTS after listening to samples. A real voice actor is still an option for a final pass. Any new or reworded driver line needs `tools/vo` re-run, or it plays silent (subtitle + squelch only).
+- **Level 8 (Dubai) runs at 72 Hz** (decided Nov 5, 2026, after the first prototype run on the headset). The level asks the XR session for 72; the other levels keep the browser's 90. Its finale is staggered: by the money shot most towers are already down behind the dust, and only the hero plus at most 2 mid towers fall at the same moment. See "Dubai prototype".
 - **Engine:** stay in WebXR with three.js. Keep the art pipeline: procedural geometry and canvas/shader textures, with no screen-space post-processing. Grade, rim light and glows live in material shaders or sprites so they're free on Quest.
 
 ## Reusable modules (src/)
@@ -215,6 +216,14 @@ The worst case (left grip, key 1, or `beat=worst`) drops all mid towers and the 
 - **Draw calls in the headset:** 70–76, about 2× the desktop count, as predicted (no multiview).
 - **CPU:** 3.6–4.2 ms. The GPU timer isn't exposed in Quest Browser (`gpu n/a`).
 - **Dust fill estimate:** v1 read 16–23 "screens" at a steady 90 fps, so it was wrong. It divided by depth along the view axis and blew up peripheral puffs. It's now angular area over the eye's field of view, an upper bound. **Overdraw was not the problem I expected:** full dust in view holds 90 fps.
+
+- **The far-swap pop seen on that run** was most likely the harness reset: every reset put the whole skyline back and removed the wall in one frame. Resets now happen behind a 0.85 s fade to black. If a tower is still caught switching, that's a real bug in the swap.
+
+**Decision (Nov 5): Level 8 targets 72 Hz with a staggered finale.**
+- Grey-box worst case is ~13 ms (76 fps), i.e. it would need ~15% cut to hold 90, before any art.
+- At 72 (13.9 ms) it already passes with everything falling at once, but the real art (window textures, emissive floors, more triangles) will eat that margin. Staggering the finale buys the rest.
+- A seated heli ride at 72 Hz is comfortable; it's the Quest's own default for most apps.
+- The prototype now asks for 72 by default (`hz=90` to compare).
 
 **Test plan for the Quest 3** (Quest Browser, 72 Hz, budget 13.9 ms). For each run, photograph the per-phase table on the bulkhead panel, or call `__perf()` over remote devtools.
 1. `?level=dubai-proto&beat=idle`, 30 s: the baseline (sky, ground, 6 + 1 towers, far skyline, cabin, escort). If this fails, the base scene is the problem, not the finale.
