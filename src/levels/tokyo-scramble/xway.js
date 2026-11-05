@@ -4,7 +4,7 @@ import { makeCanvas, canvasTex } from '../../textures.js';
 import { Acc, rmMat, hex } from './kit.js';
 import { JP } from './signs.js';
 import { asphaltTex } from './street.js';
-import { XWAY, XWAY_IN, SPAN, GORE, OFFRAMP, LANE, CROSS_ST, CURB, groundAt } from './layout.js';
+import { XWAY, XWAY_IN, SPAN, GORE, OFFRAMP, LANE, CROSS_ST, CURB, groundAt, XWAY_BLOCK } from './layout.js';
 
 // =====================================================================================
 //  The elevated expressway (Shuto-style): a concrete box-girder deck at y 12 on T piers every 32 m,
@@ -95,6 +95,17 @@ export function buildXway(ctx = {}) {
   // ramp edge lines
   const ramp = (x0, z0, x1, z1) => { main.paint.quad([x0, oy(x0 + 0.01) + 0.015, z1], [x1, oy(x1 - 0.01) + 0.015, z1], [x1, oy(x1 - 0.01) + 0.015, z0], [x0, oy(x0 + 0.01) + 0.015, z0]); };
   for (let x = ox0; x < ox1; x += 4) { ramp(x, oz0 + 0.5, x + 4, oz0 + 0.65); ramp(x, oz1 - 0.65, x + 4, oz1 - 0.5); }
+  // ---- sound walls on the north side: translucent grey-green acrylic panels on H-posts above the parapet
+  {
+    const SW = new Acc({ rm: true });
+    for (let x = XWAY_BLOCK - 4; x < 124; x += 2) {
+      const z = XWAY.z0 + 0.12;
+      SW.set({ col: hex(0x5e6266), rm: [0.45, 0.65, 0] }); if (Math.round(x) % 4 === 0) SW.box(x - 0.08, Y + XWAY.barrier, z - 0.08, x + 0.08, Y + XWAY.barrier + 3.2, z + 0.08, { faces: 'xXzZ' });
+      SW.set({ col: hex(0x8a9a96), rm: [0.15, 0.3, 0] }); SW.box(x + 0.04, Y + XWAY.barrier + 0.1, z - 0.02, x + 1.96, Y + XWAY.barrier + 3.1, z + 0.02, { faces: 'zZ' });
+    }
+    const swm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.2, metalness: 0.2, transparent: true, opacity: 0.72, depthWrite: false });
+    const sm = SW.mesh(swm); sm.renderOrder = 2; root.add(sm);
+  }
   // ---- sodium masts along both parapets (orange pools), one over the span
   const mast = (A, x, side, ox = 0, oyy = 0) => {
     const z = side > 0 ? XWAY_IN.z1 - 0.2 : XWAY_IN.z0 + 0.2;
@@ -135,7 +146,22 @@ export function buildXway(ctx = {}) {
   root.add(spanG);
   const pierMesh = pierS.mesh(conMat, { shadow: true }); root.add(pierMesh);
   roadMat.userData.noAO = paintMat.userData.noAO = true;
-  return { root, colliders, groundMats: [roadMat, paintMat], anchors: { glows, lights }, span: spanG, spanPier: pierMesh, spanBox, spanGlows: glows.filter(g => g.onSpan) };
+  // ---- the torn ends (hidden until the span goes): broken concrete teeth + bent rebar on the fixed deck's
+  // west face at x = SPAN.x1, and on the span's free end (rides with the span group)
+  const tear = (ox, dir, seed) => {
+    const A = new Acc({ rm: true }), r = makeRng(seed);
+    for (let z = XWAY.z0 + 0.3; z < XWAY.z1 - 0.3; z += 0.5 + r() * 0.7) {
+      const d = 0.15 + r() * 0.7, hgt = 0.2 + r() * 0.5, y0 = -0.45 - r() * 0.8;
+      A.set({ col: hex(r() < 0.5 ? 0x8a8780 : 0x6e6b65), rm: [0.9, 0, 0] });
+      A.obox(ox + dir * d / 2, y0 + hgt / 2, z, d / 2, hgt / 2, 0.2 + r() * 0.25, r() * 0.6);
+    }
+    A.set({ col: hex(0x3a2a22), rm: [0.6, 0.6, 0] });
+    for (let i = 0; i < 46; i++) { const z = XWAY.z0 + 0.4 + r() * (XWAY.z1 - XWAY.z0 - 0.8), y = -0.1 - r() * 1.4, L = 0.4 + r() * 1.4; A.tube([ox, y, z], [ox + dir * L, y - r() * 0.5 + 0.2, z + (r() - 0.5) * 0.6], 0.025, 4); }
+    const m = A.mesh(conMat, { shadow: true }); m.visible = false; return m;
+  };
+  const breakFixed = tear(SPAN.x1, -1, 71); breakFixed.position.y = Y; root.add(breakFixed);
+  const breakSpan = tear(SPAN.x1 - SPAN.x0, 1, 72); spanG.add(breakSpan);
+  return { root, colliders, groundMats: [roadMat, paintMat], anchors: { glows, lights }, span: spanG, spanPier: pierMesh, spanBox, spanGlows: glows.filter(g => g.onSpan), breakFixed, breakSpan };
 }
 function gantrySign(back = false) {
   const W = 1024, H = 384, c = makeCanvas(W, H), g = c.getContext('2d');

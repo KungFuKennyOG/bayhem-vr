@@ -141,7 +141,7 @@ export function buildCity(ctx = {}) {
       const Wl = walls[k], isFront = k === L.face, isCorner = k === L.corner;
       if (isFront || isCorner) {
         wall(Wl.O, Wl.T, Wl.N, Wl.L, GROUND_H, h, style, info, col, { floorH });
-        if (isCorner) wall(Wl.O, Wl.T, Wl.N, Wl.L, 0, GROUND_H, FCELL.pilaster, [seed, 0, 0, 3], col, { floorH: GROUND_H, bay: Wl.L });
+        if (isCorner) wall(Wl.O, Wl.T, Wl.N, Wl.L, 0, GROUND_H, DAY.on ? (seed % 3 ? FCELL.shutter : FCELL.shutterTag) : FCELL.pilaster, [seed, 0, 0, 3], col, { floorH: GROUND_H, bay: DAY.on ? 3.2 : Wl.L });
       } else wall(Wl.O, Wl.T, Wl.N, Wl.L, 0, h, side, infoS, col.map(v => v * 0.9), { floorH: 3.3, bay: 3.6 });
     }
     // roof + parapet + floor ledges on some styles

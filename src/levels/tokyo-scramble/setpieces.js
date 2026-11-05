@@ -89,10 +89,10 @@ export class SetPieces {
     g.dusk = Math.max(g.dusk, 0.35);
     for (const m of [T.m, ...this.spanCars]) { if (m.setBurnt) m.setBurnt(); else if (Array.isArray(m.mesh?.material)) m.mesh.material = m.mesh.material.map(() => MAT.charred); else if (m.mesh) m.mesh.material = MAT.charred; }
     // the big column of black smoke (fire-lit from below)
-    for (let i = 0; i < 6; i++) g.fx.later(0.2 + i * 0.25, () => { const s0 = range(5, 8); g.clouds.spawn({ x: P.x + range(-4, 4), y: P.y + range(2, 6), z: P.z + range(-3, 3), vx: range(-1, 1), vy: range(5, 8), vz: range(-1, 1), drag: 0.4, buoy: 0.4, s0, s1: s0 * range(4, 6), life: range(8, 11), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, r: 0.07, g: 0.055, b: 0.045, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.6, glowFade: 3 }); });
+    for (let i = 0; i < 6; i++) g.fx.later(1.1 + i * 0.3, () => { const s0 = range(4, 6); g.clouds.spawn({ x: P.x + range(-4, 4), y: P.y + range(3, 7), z: P.z - 5 + range(-2, 2), vx: range(-1, 1), vy: range(5, 8), vz: range(-2, -0.5), drag: 0.4, buoy: 0.4, s0, s1: s0 * range(4, 6), life: range(8, 11), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, r: 0.07, g: 0.055, b: 0.045, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.6, glowFade: 3 }); });
     // the east pier goes: concrete chunks, dust, it shears and drops
     g.fx.later(0.35, () => this._pierFails());
-    g.fx.later(0.6, () => { this.span = { phase: 'fall', th: 0, w: 0.05, t: 0, max: Math.asin(SLAB.drop / SLAB.len) }; this.audio.play('metal_groan', { x: SPAN.x1, y: 8, z: -150, volume: 1 }); this.audio.play('collapse_rumble', { x: SPAN.x1, y: 8, z: -150, volume: 1 }); });
+    g.fx.later(0.6, () => { if (this.xw?.breakFixed) this.xw.breakFixed.visible = this.xw.breakSpan.visible = true; this.span = { phase: 'fall', th: 0, w: 0.05, t: 0, max: Math.asin(SLAB.drop / SLAB.len) }; this.audio.play('metal_groan', { x: SPAN.x1, y: 8, z: -150, volume: 1 }); this.audio.play('collapse_rumble', { x: SPAN.x1, y: 8, z: -150, volume: 1 }); });
     g.events.push({ type: 'tankerBoom', P });
   }
   _pierFails() {

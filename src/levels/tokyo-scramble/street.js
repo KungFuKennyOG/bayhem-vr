@@ -396,7 +396,7 @@ export function buildStreet(ctx = {}) {
     asphalt: new THREE.MeshStandardMaterial({ map: tA, color: 0xe4dfd8, roughness: 0.7, metalness: 0.0, emissive: 0x000000 }),
     walk: new THREE.MeshStandardMaterial({ map: tW, vertexColors: true, color: 0xcfcbc4, roughness: 0.82 }),
     plaza: new THREE.MeshStandardMaterial({ map: tP, vertexColors: true, color: 0xdcd4c8, roughness: 0.6 }),
-    center: new THREE.MeshStandardMaterial({ map: tC, vertexColors: true, color: 0xd2c8be, roughness: 0.72 }),
+    center: new THREE.MeshStandardMaterial({ map: tC, vertexColors: true, color: 0xe2d2bc, roughness: 0.72 }),
   };
   const ground = [...lateGround];
   for (const k of Object.keys(surf)) { const m = surf[k].mesh(mats[k]); m.receiveShadow = true; root.add(m); ground.push(mats[k]); }
