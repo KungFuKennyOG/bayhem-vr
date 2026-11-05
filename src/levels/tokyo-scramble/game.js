@@ -127,6 +127,9 @@ export class TokyoGame {
   // ---------------------------------------------------------------- spawning
   spawnSoldier(o) {
     const s = new Soldier(this, o);
+    // the sniper scope (a plain mesh on a skinned bone) casts a long streak across the realtime shadow
+    // map from a far rooftop (the skybridge intro had a 'bar' lying across the floor): scopes don't cast
+    s.root.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh) m.castShadow = false; });
     this.soldiers.push(s);
     return s;
   }

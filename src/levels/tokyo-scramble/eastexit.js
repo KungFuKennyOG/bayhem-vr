@@ -274,7 +274,7 @@ export function buildEastExit(ctx = {}) {
       for (const t of [0, 1 / 3, 2 / 3, 1]) { const fx = X0 + (X1 - X0) * t; prop.box(fx - 0.18, ya, Z1, fx + 0.18, yb, Z1 + 0.6, { faces: 'xXZ' }); prop.box(fx - 0.18, ya, Z0 - 0.6, fx + 0.18, yb, Z0, { faces: 'xXz' }); }
       prop.set({ col: hex(0x9aa0a6), rm: [0.5, 0.6, 0] }); prop.box(X0, yb - 0.01, Z0, X1, yb + 0.6, Z1, { faces: 'xXzZY' });
     };
-    shaft(x0, z0, x1, z1, B, h1, FCELL.curtainBlue, 120);
+    shaft(x0, z0, x1, z1, B, h1, FCELL.ribbon, 120);
     shaft(x0 + s1, z0 + s1, x1 - s1, z1 - s1, h1, h2, FCELL.curtain, 130);
     shaft(x0 + s2, z0 + s2, x1 - s2, z1 - s2, h2, h, FCELL.curtainBlue, 140);
     // the lobby band
@@ -306,9 +306,9 @@ export function buildEastExit(ctx = {}) {
       prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); for (const d of [-1, 1]) { if (alongX) prop.box(x + d * 1.0 - 0.05, Y, z - 0.22, x + d * 1.0 + 0.05, Y + 0.42, z + 0.22); else prop.box(x - 0.22, Y, z + d * 1.0 - 0.05, x + 0.22, Y + 0.42, z + d * 1.0 + 0.05); }
       col(alongX ? [x - 1.2, Y, z - 0.25] : [x - 0.25, Y, z - 1.2], alongX ? [x + 1.2, Y + 0.5, z + 0.25] : [x + 0.25, Y + 0.5, z + 1.2], { kind: 'bench', mat: 'wood', ...dk }); };
     const pot = (x, z) => { prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(x - 0.9, Y, z - 0.9, x + 0.9, Y + 0.8, z + 0.9); prop.set({ col: hex(0x3c5226), rm: [0.95, 0, 0] }); prop.cyl(x, Y + 0.8, z, 0.85, 0.3, Y + 1.9, 8); col([x - 0.9, Y, z - 0.9], [x + 0.9, Y + 1.0, z + 0.9], { kind: 'planter', ...dk }); };
-    const pillar = (x, z, k) => { prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] }); prop.box(x - 0.55, Y, z - 0.55, x + 0.55, Y + 2.6, z + 0.55); for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) signQuad(sign2, [x + nx * 0.56, Y + 1.45, z + nz * 0.56], [nx, 0, nz], 0.95, 1.9, E2.poster[(k + Math.abs(nx) * 2 + (nz > 0 ? 1 : 0)) % 4].uv, 1.0); col([x - 0.55, Y, z - 0.55], [x + 0.55, Y + 2.6, z + 0.55], { kind: 'pillar', ...dk }); };
+    const pillar = (x, z, k) => { prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(x - 0.7, Y, z - 0.7, x + 0.7, Y + 0.25, z + 0.7); prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] }); prop.box(x - 0.55, Y + 0.25, z - 0.55, x + 0.55, Y + 2.6, z + 0.55); prop.box(x - 0.6, Y + 2.6, z - 0.6, x + 0.6, Y + 2.75, z + 0.6); for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) signQuad(sign2, [x + nx * 0.56, Y + 1.45, z + nz * 0.56], [nx, 0, nz], 0.95, 1.9, E2.poster[(k + Math.abs(nx) * 2 + (nz > 0 ? 1 : 0)) % 4].uv, 1.0); col([x - 0.55, Y, z - 0.55], [x + 0.55, Y + 2.6, z + 0.55], { kind: 'pillar', ...dk }); };
     bench(49, -46, false); bench(107, -48, false); bench(70, -76.4, true); pot(49, -62); pot(107, -66); pot(60, -53); pot(98, -53);
-    pillar(49, -38, 0); pillar(107, -42, 2); pillar(80, -53, 1);
+    pillar(46.9, -38, 0); pillar(109.1, -42, 2); pillar(80, -55.1, 1);
     // ticket machines + a vending pair against the station face under the canopy
     for (let i = 0; i < 4; i++) { const x = 84 + i * 1.3; prop.set({ col: hex(0xd8d8d4), rm: [0.4, 0.3, 0] }); prop.box(x - 0.6, Y, A.n[1] + 0.05, x + 0.6, Y + 1.8, A.n[1] + 0.75); prop.set({ col: hex(0x1a3a6a), rm: [0.3, 0, 0.6] }); prop.box(x - 0.45, Y + 1.0, A.n[1] + 0.76, x + 0.45, Y + 1.55, A.n[1] + 0.77, { faces: 'Z' }); }
     col([83.4, Y, A.n[1]], [89.1, Y + 1.8, A.n[1] + 0.8], { kind: 'vending', mat: 'metal', ...dk });

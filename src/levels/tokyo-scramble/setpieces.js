@@ -89,7 +89,7 @@ export class SetPieces {
     g.dusk = Math.max(g.dusk, 0.35);
     for (const m of [T.m, ...this.spanCars]) { if (m.setBurnt) m.setBurnt(); else if (Array.isArray(m.mesh?.material)) m.mesh.material = m.mesh.material.map(() => MAT.charred); else if (m.mesh) m.mesh.material = MAT.charred; }
     // the big column of black smoke (fire-lit from below)
-    for (let i = 0; i < 6; i++) g.fx.later(1.1 + i * 0.3, () => { const s0 = range(4, 6); g.clouds.spawn({ x: P.x + range(-4, 4), y: P.y + range(3, 7), z: P.z - 5 + range(-2, 2), vx: range(-1, 1), vy: range(5, 8), vz: range(-2, -0.5), drag: 0.4, buoy: 0.4, s0, s1: s0 * range(4, 6), life: range(8, 11), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, r: 0.07, g: 0.055, b: 0.045, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.6, glowFade: 3 }); });
+    for (let i = 0; i < 6; i++) g.fx.later(1.1 + i * 0.3, () => { const s0 = range(2, 3); g.clouds.spawn({ x: P.x + range(-3, 3), y: P.y + range(4, 8), z: P.z - 5 + range(-2, 2), vx: range(-1, 1), vy: range(9, 12), vz: range(-2, -0.5), drag: 0.3, buoy: 0.5, s0, s1: s0 * range(5, 7), life: range(8, 11), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, r: 0.07, g: 0.055, b: 0.045, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.6, glowFade: 3 }); });
     // the east pier goes: concrete chunks, dust, it shears and drops
     g.fx.later(0.35, () => this._pierFails());
     g.fx.later(0.6, () => { if (this.xw?.breakFixed) this.xw.breakFixed.visible = this.xw.breakSpan.visible = true; this.span = { phase: 'fall', th: 0, w: 0.05, t: 0, max: Math.asin(SLAB.drop / SLAB.len) }; this.audio.play('metal_groan', { x: SPAN.x1, y: 8, z: -150, volume: 1 }); this.audio.play('collapse_rumble', { x: SPAN.x1, y: 8, z: -150, volume: 1 }); });
@@ -126,7 +126,7 @@ export class SetPieces {
     if (this.tanker?.state === 'boom') {
       const tp = this.tanker.m.root.getWorldPosition(_v);
       if (rand() < dt * 30) g.fx.flame(_v2.copy(tp).add(_v.set(range(-5, 5), range(0.5, 2.5), range(-1.5, 1.5))), range(1.2, 2.2));
-      if (rand() < dt * 1.2) { tp.copy(this.tanker.m.root.getWorldPosition(_v)); const s0 = range(4, 6); g.clouds.spawn({ x: tp.x + range(-3, 3), y: tp.y + 3, z: tp.z + range(-2, 2), vx: range(-0.5, 0.5) + 0.6, vy: range(4, 6), vz: range(-0.5, 0.5), drag: 0.1, buoy: 0.3, s0, s1: s0 * 7, life: range(10, 14), a: 0.85, fadeIn: 0.1, fadeOut: 0.5, r: 0.07, g: 0.06, b: 0.05, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.2, glowFade: 5 }); }
+      if (rand() < dt * 1.0) { tp.copy(this.tanker.m.root.getWorldPosition(_v)); const s0 = range(1.8, 2.8); g.clouds.spawn({ x: tp.x + range(-3, 3), y: tp.y + 4, z: tp.z - 3 + range(-2, 2), vx: range(-0.5, 0.5), vy: range(7, 9), vz: range(-2.2, -1.2), drag: 0.1, buoy: 0.4, s0, s1: s0 * 6, life: range(8, 11), a: 0.8, fadeIn: 0.1, fadeOut: 0.5, r: 0.07, g: 0.06, b: 0.05, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.2, glowFade: 5 }); }
       g.audio.setLoop('fire_big', { x: tp.x, y: tp.y, z: tp.z, volume: 0.9 });
     }
     if (S.phase === 'down') {
@@ -144,7 +144,7 @@ export class SetPieces {
     g.lastExplosionT = g.time; g.lastExplosionShake = 1.3;
     g.haptic(1, 300);
     // dust + sparks + a fireball where the fuel lands, the street's glass goes
-    for (let i = 0; i < 10; i++) { const s0 = range(4, 7); g.clouds.spawn({ x: P.x + range(-12, 4), y: range(1, 4), z: -150 + range(-9, 9), vx: range(-5, 5), vy: range(1, 4), vz: range(-6, 6), drag: 0.8, buoy: 0.15, s0, s1: s0 * 3, life: range(6, 9), a: 0.75, fadeIn: 0.04, fadeOut: 0.55, r: 0.3, g: 0.27, b: 0.24, r1: 0.2, g1: 0.18, b1: 0.16, glow: 0.6, glowFade: 2 }); }
+    for (let i = 0; i < 7; i++) { const s0 = range(3, 5); g.clouds.spawn({ x: P.x + range(-12, 4), y: range(1, 3), z: -150 + range(-9, 9), vx: range(-5, 5), vy: range(0.5, 2.5), vz: range(-6, 6), drag: 0.9, buoy: 0.08, s0, s1: s0 * 2.2, life: range(4, 6), a: 0.6, fadeIn: 0.04, fadeOut: 0.55, r: 0.3, g: 0.27, b: 0.24, r1: 0.2, g1: 0.18, b1: 0.16, glow: 0.6, glowFade: 2 }); }
     g.boom(P.clone(), 2.2, { radius: 12, dmg: 0, player: false });
     for (let i = 0; i < 40; i++) g.fx.sparks.spawn({ x: P.x + range(-14, 2), y: range(0.5, 4), z: -150 + range(-9, 9), vx: range(-6, 6), vy: range(2, 9), vz: range(-6, 6), grav: 9.8, drag: 0.2, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.12, life: range(0.8, 2), r: 2.8, g: 1.8, b: 0.8, a: 1, fadeOut: 0.4 });
     for (let i = 0; i < 10; i++) g.fx.spawnDebris(P.clone().add(_v.set(range(-10, 2), 1, range(-8, 8))), range(-7, 7), range(4, 10), range(-7, 7), range(0.3, 0.8), chance(0.5));

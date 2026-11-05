@@ -189,16 +189,13 @@ Review status (fresh reviewer each round, same calibration frames: L2 gate/crane
 - Round 1 (first daylight build): 6.0. Center-gai and the gas chase ~7 (Level 5 quality); plaza / deck / expressway ~5 ("greybox"); "hard sun" read as overcast.
 - Round 2: 6.0. The tanker review frames were taken before its look gate opened (fixed: gate at 7 s, frames later); smoke columns read as boxes; factory-clean surfaces; no crowd.
 - Round 3: 6.5. Smoke columns (baked plume texture) and the fleeing crowd landed; Center-gai 7.5 ("best frame in the game for sense of place"). Open: the span drop hidden in smoke, empty decks, generic glass towers, American-looking sedans, debris / glass shards as flat white polygons (shared `fx.js`).
-
-## Quality bar and lessons from Level 1
-- **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).
-- An independent reviewer critiqued the screenshots twice, and both times it was worth it.
-- Recurring problems:
-  - Backlit objects crushing to black (fixed by the rim light).
-  - "String of pearls" smoke trails (use `trailEmit`).
-  - Repetition.
-  - Huge or toy-like viewmodels.
-- The desktop viewmodel gotcha: `Object3D.lookAt` points +z. Barrels run along -z, so call `rotateY(Math.PI)` after it.
-- Rendering in the cloud sandbox is software (SwiftShader), at about 1 s per 720p frame, so a 90 s trailer takes roughly 50 min to record.
-- Quest performance and the `VR_HOLD` offsets still have to be verified on a real headset.
-- **Structure suggestion for multiple levels:** move level-specific code (`world.js`, `director.js`, the truck and traffic parts of `game.js`) under `src/levels/<name>/`, and keep shared engine modules in `src/`. Add a level-select screen.
+- Round 4: 6.2 — within reviewer noise of round 3, so an honest plateau around 6.2–6.5 (Levels 2/3 territory, below Level 5's 7.5). Every round: street level (crossing, Center-gai, gas chase, dive) 7–7.5 and reads as Tokyo "more strongly than any other level reads as its city"; the middle third (plaza, deck, expressway) 5–6.
+- Found in round 4: the "thick bar" lying across the skybridge in the intro was the sniper scope's realtime shadow streaking from a far rooftop; Tokyo's snipers' scopes no longer cast (`game.js spawnSoldier`). Level 3's snipers use the same scope + sun shadows: check them for the same streak.
+Open issues (round 4, by impact):
+- The span drop: from the deck the fallen slab is below your eye line and the fire / dust hides it; frame it from the side (a landing beside the gore, or a cinematic look) and add a dust ring where it hits.
+- The plaza / deck / expressway still read generic next to the streets: a denser jam, Shuto-style parapets with the grey-green band, a second deck stacked over parts of the expressway, buildings closer to the road.
+- Filler buildings (white grids, glass slabs) — a Tokyo mixed-use kit: external stair cores, balcony stacks with laundry, rooftop billboard frames everywhere.
+- Shared `fx.js`: flat black / white debris chips, flat white glass shards, an olive fringe on big fireballs (same engine-level limit Levels 3 and 5 hit).
+- Cars keep their American bodies under the Tokyo liveries (a boxy JPN-taxi / kei-van body in `cars.js` would fix the last vehicle cue).
+- HUD: the objective, a callout and a radio line can stack at once at the crossing.
+Headset checks needed: the 2.5D sun-shadow march cost on Quest (16 texture taps on every static fragment facing the sun; drop to 10 steps or bake the ground into a map if it's heavy), the deck layering (walking up the open stairs, perch gunmen above you), the crowd at the start, and the fleeing crowd's comfort (none should run through the player).
