@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex, signMat } from './kit.js';
+import { Acc, rmMat, hex, signMat, zelkova } from './kit.js';
 import { signAtlas, JP } from './signs.js';
 import { signQuad, signMaterial } from './city.js';
 import { CURB, PLAZA, TAXI, CENTER, GASWORKS } from './layout.js';
@@ -63,8 +63,7 @@ export function buildProps(ctx = {}) {
   // ---- zelkova trees in round granite planters on the square
   for (const [x, z] of [[-46, -22], [-64, 14], [-40, 21], [-68, -4]]) {
     P.set({ col: hex(0x7c776e), rm: [0.75, 0, 0] }); P.cyl(x, CURB, z, 1.3, 1.3, CURB + 0.55, 14);
-    P.set({ col: hex(0x3a2e24), rm: [0.9, 0, 0] }); P.tube([x, CURB + 0.5, z], [x + 0.2, 4.2, z + 0.1], 0.2, 6); P.tube([x + 0.2, 3.6, z + 0.1], [x + 1.4, 5.2, z - 0.6], 0.09, 5); P.tube([x + 0.2, 3.8, z + 0.1], [x - 1.2, 5.6, z + 0.8], 0.09, 5);
-    for (let k = 0; k < 9; k++) { const a = k * 2.4, rr = 1.1 + (k % 3) * 0.5; P.set({ col: hex([0x2a3a1e, 0x34461f, 0x24321a][k % 3]), rm: [0.95, 0, 0.02] }); P.cyl(x + Math.cos(a) * rr * 0.7, 4.4 + (k % 3) * 0.6, z + Math.sin(a) * rr * 0.7, 0.9 + (k % 2) * 0.4, 0.4, 5.6 + (k % 3) * 0.7, 7); }
+    zelkova(P, x, CURB + 0.5, z, 1.0, x + z * 7);
     col([x - 1.3, 0, z - 1.3], [x + 1.3, CURB + 0.55, z + 1.3], 'planter');
     colliders.push({ min: [x - 0.25, 0, z - 0.25], max: [x + 0.25, 4.2, z + 0.25], data: { kind: 'tree', mat: 'wood' } });
   }

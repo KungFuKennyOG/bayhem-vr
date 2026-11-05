@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex, signMat } from './kit.js';
+import { Acc, rmMat, hex, signMat, zelkova } from './kit.js';
 import { facadeMaterial, cellRect, FCELL } from './facade.js';
 import { signAtlas, JP } from './signs.js';
 import { signAtlas2 } from './signs2.js';
@@ -233,8 +233,7 @@ export function buildEastExit(ctx = {}) {
       prop.set({ col: hex(0x3a4a26), rm: [0.95, 0, 0] }); prop.box(cx - w / 2 + 0.12, B + 0.7, cz - d / 2 + 0.12, cx + w / 2 - 0.12, B + 1.05, cz + d / 2 - 0.12, { faces: 'Y' });
       col([cx - w / 2, B, cz - d / 2], [cx + w / 2, B + 1.05, cz + d / 2], { kind: 'planter' });
       if (tree) for (const [tx, tz] of tree) {
-        prop.set({ col: hex(0x4a3a2c), rm: [0.9, 0, 0] }); prop.tube([tx, B + 0.7, tz], [tx + 0.15, B + 3.6, tz], 0.13, 6);
-        for (let k = 0; k < 7; k++) { const a = k * 2.3, rr = 0.6 + (k % 3) * 0.4; prop.set({ col: hex([0x3c5226, 0x48622a, 0x34481f][k % 3]), rm: [0.95, 0, 0] }); prop.cyl(tx + Math.cos(a) * rr * 0.6, B + 3.2 + (k % 3) * 0.5, tz + Math.sin(a) * rr * 0.6, 0.75 + (k % 2) * 0.3, 0.3, B + 4.4 + (k % 3) * 0.5, 7); }
+        zelkova(prop, tx, B + 0.7, tz, 0.75, tx + tz);
         col([tx - 0.2, B, tz - 0.2], [tx + 0.2, B + 3.6, tz + 0.2], { kind: 'tree', mat: 'wood' });
       }
     };
@@ -310,8 +309,7 @@ export function buildEastExit(ctx = {}) {
     // zelkova trees in round granite planters
     for (const [x, z] of [[62, -42], [96, -42], [62, -66], [96, -66]]) {
       prop.set({ col: hex(0x8a857c), rm: [0.75, 0, 0] }); prop.cyl(x, y, z, 1.3, 1.3, y + 0.55, 14);
-      prop.set({ col: hex(0x4a3a2c), rm: [0.9, 0, 0] }); prop.tube([x, y + 0.5, z], [x + 0.2, 4.4, z + 0.1], 0.2, 6); prop.tube([x + 0.2, 3.6, z + 0.1], [x + 1.4, 5.0, z - 0.6], 0.09, 5); prop.tube([x + 0.2, 3.8, z + 0.1], [x - 1.2, 5.2, z + 0.8], 0.09, 5);
-      for (let k = 0; k < 9; k++) { const a = k * 2.4, rr = 1.1 + (k % 3) * 0.5; prop.set({ col: hex([0x3c5226, 0x48622a, 0x34481f][k % 3]), rm: [0.95, 0, 0] }); prop.cyl(x + Math.cos(a) * rr * 0.7, 3.9 + (k % 3) * 0.35, z + Math.sin(a) * rr * 0.7, 0.9 + (k % 2) * 0.4, 0.4, 4.9 + (k % 3) * 0.2, 7); }
+      zelkova(prop, x, y + 0.5, z, 1.0, x * 3 + z);
       col([x - 1.3, 0, z - 1.3], [x + 1.3, y + 0.55, z + 1.3], { kind: 'planter' });
       col([x - 0.25, 0, z - 0.25], [x + 0.25, 4.4, z + 0.25], { kind: 'tree', mat: 'wood' });
     }

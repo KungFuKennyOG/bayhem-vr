@@ -134,3 +134,23 @@ export function signMat(tex, { color = null, rough = 0.55, vc = true } = {}) {
   m.customProgramCacheKey = () => 'tkSign' + (vc ? 'v' : '') + (color ?? 1);
   return m;
 }
+
+// A zelkova (keyaki, Tokyo's street tree): a short trunk forking into a vase of branches, a broad
+// rounded crown of leaf clusters (each an ellipsoid of three frusta), darker and denser underneath.
+export function zelkova(A, x, y, z, s = 1, seed = 0) {
+  const h = (k) => { const t = Math.sin((seed + 1) * 12.9898 + k * 78.233) * 43758.5453; return t - Math.floor(t); };
+  A.set({ col: hex(0x4a3e32), rm: [0.9, 0, 0] });
+  const ty = y + 2.6 * s;
+  A.tube([x, y, z], [x + 0.1 * s, ty, z], 0.2 * s, 7);
+  const tips = [];
+  for (let k = 0; k < 5; k++) { const a = k * 1.26 + h(k) * 0.5, r = (1.3 + h(k + 9) * 0.6) * s; const tip = [x + Math.cos(a) * r, ty + (1.6 + h(k + 3) * 0.8) * s, z + Math.sin(a) * r]; A.tube([x + 0.1 * s, ty - 0.2 * s, z], tip, 0.09 * s, 5); tips.push(tip); }
+  const blob = (cx, cy, cz, r, ry, c) => {
+    A.set({ col: c, rm: [0.95, 0, 0] });
+    A.cyl(cx, cy - ry, cz, r * 0.35, r * 0.95, cy - ry * 0.35, 9, { cap: false });
+    A.cyl(cx, cy - ry * 0.35, cz, r * 0.95, r * 0.92, cy + ry * 0.35, 9, { cap: false });
+    A.cyl(cx, cy + ry * 0.35, cz, r * 0.92, r * 0.25, cy + ry, 9, { cap: true });
+  };
+  const greens = [hex(0x3a5226), hex(0x456230), hex(0x2f4620), hex(0x50703a)];
+  for (let k = 0; k < tips.length; k++) { const [tx, tyy, tz] = tips[k]; blob(tx, tyy + 0.2 * s, tz, (1.25 + h(k + 20) * 0.5) * s, (0.95 + h(k + 30) * 0.3) * s, greens[k % 4]); }
+  blob(x, ty + 2.6 * s, z, 1.7 * s, 1.1 * s, greens[3]);
+}
