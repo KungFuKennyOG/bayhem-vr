@@ -148,6 +148,14 @@ export async function create(E) {
   const _fw = new THREE.Vector3();
   const ctx = { groundAt: () => 0 };
   window.__perf = () => panel.summary();
+  // A measured run starts when play starts (ENTER VR / PLAY ON DESKTOP), and again whenever the mode changes:
+  // the menu in the Quest's 2D browser window renders at the window's rate and the XR session start is a
+  // ~0.3 s hitch, and neither belongs in the table. The first 1.5 s of a run aren't recorded either.
+  let runKey = null, graceUntil = 0;
+  const restartRun = () => { manual = false; reset(); T.step = 0; if (timeline) enter(timeline[0][0]); panel.resetPhases(); graceUntil = performance.now() + 1500; };
+  // the display rate the session actually runs at (Quest Browser: 90 Hz unless asked otherwise) sets the panel's budget
+  let rateT = 0;
+  const syncRate = () => { const s = renderer.xr.getSession?.(); const r = s?.frameRate; if (r && Math.abs(1000 / r - panel.budgetMs) > 0.05) panel.setBudget(r); };
   return {
     game, player, warm,
     environmentIntensity: 0.7,
@@ -158,8 +166,7 @@ export async function create(E) {
       // the heli runs on real time (slow-mo never drags the cabin), the world on sim time
       rail.update(sdt);
       const dt = game.update(sdt);
-      T.t += sdt;
-      runTimeline(sdt);
+      if (started) { T.t += sdt; runTimeline(sdt); }
       player.update(sdt, started ? dt : 0);
       mids.update(dt, dust);
       hero?.update(dt);
@@ -172,6 +179,9 @@ export async function create(E) {
     },
     frame(rdt, started, head) {
       const t0 = performance.now();
+      const key = started ? (renderer.xr.isPresenting ? 'vr' : 'flat') : null;
+      if (key && key !== runKey) { runKey = key; restartRun(); }
+      if ((rateT -= rdt) <= 0) { rateT = 1; syncRate(); }
       pollVR(); tryHz();
       dust.update(game.timeScale * rdt, head, camera);
       far.update(head, wall);
@@ -179,7 +189,7 @@ export async function create(E) {
       if (started) audio.setLoop('heli', { x: head.x, y: head.y + 2.5, z: head.z, volume: 0.55, intensity: 0.7 });
       if (wall.state) audio.setLoop('dust_roar', { x: head.x * 1.6, y: 40, z: head.z * 1.6, volume: 0.5 });
       simMs += performance.now() - t0;
-      panel.frame(simMs, manual ? T.phase + '*' : T.phase); simMs = 0;
+      panel.frame(simMs, !runKey || performance.now() < graceUntil ? null : manual ? T.phase + '*' : T.phase); simMs = 0;
       const R = rail.st;
       camera.getWorldDirection(_fw);
       panel.draw({

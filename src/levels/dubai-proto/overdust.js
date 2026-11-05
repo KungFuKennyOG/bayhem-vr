@@ -64,7 +64,7 @@ void main(){
   #include <bay_premul_colorspace>
 }`;
 
-const QUEST_FOV_TAN = { x: Math.tan(52 * Math.PI / 180), y: Math.tan(48 * Math.PI / 180) }; // ~per-eye half-angles
+const EYE_SR = 3.0; // per-eye field of view of a Quest 3 in steradians (~104° × 96°)
 const _f = new THREE.Vector3();
 
 export class OverDust {
@@ -117,18 +117,19 @@ export class OverDust {
   update(dt, eye, camera) {
     camera.getWorldDirection(_f);
     this.clouds.update(dt, eye, 0, _f);
-    // fill estimate: sum over drawn quads of (projected quad area / per-eye screen area), each capped at 1 screen
+    // fill estimate: each drawn quad's angular area over the per-eye field of view (~3 sr), capped at 1 screen per
+    // quad. Upper bound: the cauliflower lobes cover about half of each quad (the rest is discarded), foveation
+    // shades the periphery at lower rate, and the occlusion cull has already dropped buried puffs. (v1 divided by
+    // depth along the view axis, which blew peripheral puffs up ~25×: it read 16–23 on the Quest at a steady 90 fps.)
     let fill = 0, n = 0;
-    const scr = 4 * QUEST_FOV_TAN.x * QUEST_FOV_TAN.y;
     for (const p of this.clouds.order) {
       const a = p.al * (p.bv ?? 1); if (a < 0.02) continue;
       const dx = p.x - eye.x, dy = p.y - eye.y, dz = p.z - eye.z, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const fw = (dx * _f.x + dy * _f.y + dz * _f.z) / Math.max(1e-3, d); // cos of angle from the view axis
+      const fw = (dx * _f.x + dy * _f.y + dz * _f.z) / Math.max(1e-3, d);
       const half = Math.atan(p.sz * 0.71 / Math.max(1, d));
-      if (Math.acos(clamp(fw, -1, 1)) - half > 1.05) continue; // outside a ~60° half cone
+      if (Math.acos(clamp(fw, -1, 1)) - half > 0.95) continue; // outside the ~55° half-angle view cone
       n++;
-      const z = Math.max(1, d * Math.max(0.2, fw));
-      fill += Math.min(1, (p.sz * p.sz * (p.st || 1)) / (z * z) / scr);
+      fill += Math.min(1, (p.sz * p.sz * (p.st || 1)) / Math.max(1, d * d) / EYE_SR);
     }
     this.fill = this.fill * 0.8 + fill * 0.2; this.drawn = n;
     this.fillPeak = Math.max(this.fillPeak, this.fill);
