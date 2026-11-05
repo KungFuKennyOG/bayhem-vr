@@ -22,6 +22,7 @@ A tech test for the Level 8 finale, not the level. Grey boxes, no art polish. It
 | Flag | Default | Meaning |
 |---|---|---|
 | `beat` | `cycle` | Auto timeline. `cycle`: idle 14 s → mid towers every 4 s → hero → settle 26 s → reset → idle 6 s → worst → settle 40 s → reset, looping. `worst`, `mid` and `hero` loop just that set piece, and `idle` runs nothing. |
+| `route` | `orbit` | `orbit`: circle the city ~250 m up. `low`: weave between the mid towers at rooftop height (~150 m, 30 m/s, passes 50–70 m from tower faces). On `low`, mid towers fall away from the path, the hero falls square across the view, and the escort flies ahead and above. |
 | `towers` | 6 | Mid towers (0–12). |
 | `hero` | 1 | Hero tower on/off. |
 | `far` | 48 | Far skyline towers (0–160). |
@@ -33,7 +34,7 @@ A tech test for the Level 8 finale, not the level. Grey boxes, no art polish. It
 | `detail` | 1 | Vertex density multiplier on every tower (2, 4, 8 emulate final-art meshes). |
 | `swap` / `swapdebug` | 1 / 0 | Far swap on/off. `swapdebug` tints the ruins red so swaps are easy to spot. |
 | `escort` | 1 | WIDOWMAKER flying alongside. |
-| `speed` / `bank` / `pitch` / `alt` / `radius` | 38 / 6 / 1.5 / 250 / 640 | Rail: m/s, max roll in degrees (0 = horizon-locked), max pitch in degrees, altitude, loop radius. |
+| `speed` / `bank` / `pitch` / `alt` / `radius` | 38 / 6 / 1.5 / 250 / 640 (low route: 30 / 6 / 1.5 / 150 / 370) | Rail: m/s, max roll in degrees (0 = horizon-locked), max pitch in degrees, altitude, loop radius. |
 | `slowmo` | 1 | World slow-mo on the hero break. |
 | `hz` | 72 | Ask the XR session for this display rate (72 = the Level 8 target; 90 / 120 to compare; 0 = browser default, which is 90 on Quest Browser). The panel's budget follows the session's real rate. |
 | `panel` | `cabin` | `cabin`, `wrist`, `float`, `off`. |

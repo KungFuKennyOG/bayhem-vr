@@ -250,6 +250,11 @@ The worst case (left grip, key 1, or `beat=worst`) drops all mid towers and the 
 - A seated heli ride at 72 Hz is comfortable; it's the Quest's own default for most apps.
 - The prototype now asks for 72 by default (`hz=90` to compare).
 
+**Low route (`&route=low`, added Nov 5).** The Level 8 plan says to fly low between the towers rather than orbit, since destruction reads small from 400–600 m.
+- What it does: weaves between the mid towers at rooftop height (~150 m, 30 m/s), passing 50–70 m from tower faces. Mid towers fall away from the path, the hero falls square across the view, and the panel shows a live clearance (closest tower or chunk) and its minimum.
+- Sandbox comfort numbers: yaw ≤ 9.2°/s, lateral ≤ 4.5 m/s², smoothed jerk ≤ 2.2 m/s³. The orbit is 5.1 / 3.6 / 0.4. The weaving is the cost; still gentle by VR standards, but it needs a headset check.
+- **Next headset run:** `?level=dubai-proto&route=low`, two loops. Up close, collapses and dust fill much more of the screen, so expect this to be the expensive case.
+
 **Test plan for the Quest 3** (Quest Browser, 72 Hz, budget 13.9 ms). For each run, photograph the per-phase table on the bulkhead panel, or call `__perf()` over remote devtools.
 1. `?level=dubai-proto&beat=idle`, 30 s: the baseline (sky, ground, 6 + 1 towers, far skyline, cabin, escort). If this fails, the base scene is the problem, not the finale.
 2. `?level=dubai-proto` (beat=cycle), two full loops (~4 min): the table gets idle / mid / hero / settle / worst rows. **This is the main run.**

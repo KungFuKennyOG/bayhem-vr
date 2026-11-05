@@ -22,9 +22,9 @@ import { railPoints } from './layout.js';
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 
 export class HeliRail {
-  constructor(E, F, game) {
+  constructor(E, F, game, towers = []) {
     this.E = E; this.F = F; this.g = game;
-    this.curve = new THREE.CatmullRomCurve3(railPoints(F).map(p => new THREE.Vector3(...p)), true, 'centripetal');
+    this.curve = new THREE.CatmullRomCurve3(railPoints(F, towers).map(p => new THREE.Vector3(...p)), true, 'centripetal');
     // arc-length table at ~1 m (the default 200 divisions = 20 m chords: the speed steps a few % at every chord,
     // which is a real micro-stutter at 40 m/s, not just noise in the stats)
     this.curve.arcLengthDivisions = Math.ceil(this.curve.getLength());
@@ -97,7 +97,9 @@ export class HeliRail {
     const e = this.escort, u = ((this.s + 110) / this.L) % 1;
     const p = this.curve.getPointAt(u), t = this.curve.getTangentAt(u);
     const left = _v.set(-t.z, 0, t.x).negate(); // centre side (left of travel)
-    e.root.position.copy(p).addScaledVector(left, 55).add(new THREE.Vector3(0, -18 + Math.sin(this.g.time * 0.4) * 4, 0));
+    // orbit: off the inside of the turn; low route: on the path ahead and above (beside us it would clip towers)
+    const low = this.F.route === 'low';
+    e.root.position.copy(p).addScaledVector(left, low ? 0 : 55).add(new THREE.Vector3(0, (low ? 28 : -18) + Math.sin(this.g.time * 0.4) * 4, 0));
     e.root.rotation.set(0.06, Math.atan2(-t.x, -t.z), this.bank * 1.5, 'YXZ');
     if (e.rotor) e.rotor.rotation.y += rdt * 26;
     if (e.tailRotor) e.tailRotor.rotation.x += rdt * 60;
@@ -121,6 +123,13 @@ export class HeliRail {
     }
   }
   get speed() { return this.v; }
+  // unit xz vector pointing from the nearest point of the route toward (x, z): things fall that way, away from the heli
+  awayFrom(x, z) {
+    let best = 1e18, bx = 0, bz = 0;
+    for (let i = 0; i < 400; i++) { const p = this.curve.getPointAt(i / 400), d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < best) { best = d; bx = p.x; bz = p.z; } }
+    const dx = x - bx, dz = z - bz, l = Math.hypot(dx, dz) || 1;
+    return { x: dx / l, z: dz / l, dist: Math.sqrt(best) };
+  }
 }
 
 // grey-box door-gunner cabin, one merged mesh (vertex colours) + a rotor disc. Heli frame: forward -z, floor y = 0.
