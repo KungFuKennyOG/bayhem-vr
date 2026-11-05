@@ -209,8 +209,11 @@ function lowerQuays(S) {
     for (let x = -400; x < 600; x += 5 + rr() * 7) wallDecal(S.B.decal, [x, LOW_Y - 0.4 - 0.7, s * 40.0], [0, 0, -s], [0, 1, 0], 0.8 + rr() * 1.5, 1.4, D.streak2, [1, 1, 1]);
   }
   // graffiti on the walls near the bridge and the ramps (VR-readable size)
-  for (const [x, y, s, w] of [[28, -3.8, 1, 5.5], [80, -3.6, 1, 4.6], [150, -3.9, 1, 3.8], [36, -4.0, -1, 5], [120, -3.7, -1, 4.2], [-40, -3.8, 1, 5], [-60, -3.7, -1, 4.5]]) {
-    const y0 = groundY(x, s * 51.5);
+  // (x 28 on the north side used to sit past the top of the north ramp, where there is no wall: the clamp below
+  // lifted it to ~1.4 m over the street, a floating scribble in the bridge fight. It's at the ramp's foot now.)
+  for (const [x, y, s, w] of [[70, -3.8, 1, 5.5], [80, -3.6, 1, 4.6], [150, -3.9, 1, 3.8], [36, -4.0, -1, 5], [120, -3.7, -1, 4.2], [-40, -3.8, 1, 5], [-60, -3.7, -1, 4.5]]) {
+    const y0 = Math.max(groundY(x - w / 2, s * 51.5), groundY(x + w / 2, s * 51.5)), h = w * 0.37;
+    if (Math.max(y, y0 + 1.1) + h / 2 > -0.6) continue; // no wall left above the ground here: never float it
     wallDecal(S.B.decal, [x, Math.max(y, y0 + 1.1), s * 51.98], [0, 0, -s], [0, 1, 0], w, w * 0.37, D.graffiti, [1, 1, 1]);
   }
   // the outer bridge arch spans the lower quay; it is walled in under the bridge (fill wall at |x| 13.6 with a
