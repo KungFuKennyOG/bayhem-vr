@@ -15,13 +15,20 @@ SPOKEN = {
     'MOVE! MOVE!!': 'Move! Move! MOVE!',
     'JET A-1': 'Jet A one',
     'GO GO GO!': 'Go! Go! GO!',
+    # Level 5 (Paris): French words in an American mouth, spelled so the English TTS lands them.
+    'bateau-mouche': 'batto moosh',
+    'bonsoir': 'bon swah',
+    'Peugeots': 'Pooh-zhohs',
+    'Seine': 'Senn',
 }
 
 def spoken(text):
     t = text
     for a, b in SPOKEN.items(): t = t.replace(a, b)
     t = re.sub(r'(\w)—', r'\1...', t)              # cut-off ("Is that— ANOTHER")
-    t = re.sub(r'\s*—\s*', ', ', t)                # spaced dash -> pause
+    if '!' in t:                                   # in a shouted line, a dash splits two barked bursts
+        t = re.sub(r'\s*—\s*(\w)', lambda m: '! ' + m.group(1).upper(), t)
+    t = re.sub(r'\s*—\s*', ', ', t)                # otherwise a spaced dash is a pause
     t = re.sub(r'^\.\.\.\s*', '', t)               # leading "..." makes it mumble; style() still reads it as deadpan
     # Chatterbox spells out ALL-CAPS words ("O N U S"), so read them as normal words; the shouting comes from
     # style(), which looks at the original caps.
@@ -30,11 +37,22 @@ def spoken(text):
 
 KEEP_CAPS = {'HR', 'SUV', 'SUVs'}
 
-def style(text):
-    """(exaggeration, cfg_weight): deadpan for '...' asides, louder with ! and CAPS."""
-    caps = len([w for w in re.findall(r"[A-Z][A-Z']+", text) if w not in ('HR', 'A-1')])
+# Per-level energy lift: the Paris script is written wry, and read literally it came out bored.
+LIFT = {'iron-lady': 0.15}
+
+def style(text, levels=()):
+    """(exaggeration, cfg_weight): deadpan for '...' joke asides, louder with ! and CAPS."""
+    ex, cfg = _style(text)
+    if ex > 0.4:  # true deadpan asides stay deadpan
+        lift = max([LIFT.get(v, 0) for v in levels] or [0])
+        ex, cfg = min(1.2, ex + lift), max(0.3, cfg - lift / 2)
+    if len(re.findall(r"[A-Za-z']+", text)) <= 3: ex = min(ex, 0.95)  # very short shouts slur above this ("GET IN!" -> "Bye, Jen")
+    return ex, cfg
+
+def _style(text):
+    caps = len([w for w in re.findall(r"[A-Z][A-Z']*[A-Z]", text) if w not in ('HR', 'A-1')])
     bangs = text.count('!')
-    if text.startswith('...') and not bangs: return 0.4, 0.5
+    if text.startswith('...') and not bangs: return (0.4, 0.5) if not caps else (0.7, 0.4)  # a shaken '...' still has caps
     if caps >= 3 or 'RUN' in text or '!!' in text: return 1.15, 0.3
     if caps >= 1 or bangs >= 2: return 0.95, 0.35
     if bangs: return 0.75, 0.4
@@ -63,7 +81,7 @@ if __name__ == '__main__':
     model = ChatterboxTTS.from_pretrained(device='cpu')
     model.prepare_conditionals(REF, exaggeration=0.5)
     for i, l in enumerate(todo):
-        ex, cfg = style(l['text'])
+        ex, cfg = style(l['text'], l['levels'])
         t = time.time()
         wav = model.generate(spoken(l['text']), exaggeration=ex, cfg_weight=cfg)
         torchaudio.save(os.path.join(RAW, l['key'] + '.wav'), wav, model.sr)
