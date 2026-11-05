@@ -74,7 +74,9 @@ export class HeroTower {
     if (this.S) return false;
     const to = _v.set(eye.x, 0, eye.z).normalize();
     const side = new THREE.Vector3(-to.z, 0, to.x); // perpendicular: we watch it fall across the frame
-    const fd = side.clone().multiplyScalar(0.85).addScaledVector(to, 0.35).normalize(); // a little toward us (Bay)
+    // a little toward us (Bay) when watched from the orbit; square across the view on the low route (we fly through
+    // where a 'toward us' top would land)
+    const fd = this.F.route === 'low' ? side.clone() : side.clone().multiplyScalar(0.85).addScaledVector(to, 0.35).normalize();
     this.S = { t: 0, phase: 'blowout', th: 0, om: 0, bend: 0, sink: 0, sinkV: 0, fd, ax: new THREE.Vector3().crossVectors(UP, fd).normalize(), face: to.clone(), eye: eye.clone(), blowBand: this.B - 2, blowT: 0, landed: 0 };
     // which facade faces us: blow those out first
     let best = -2; for (const c of this.chunks) if (c.kind === 'face') { const d = c.n[0] * to.x + c.n[2] * to.z; if (d > best) best = d; }

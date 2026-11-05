@@ -102,13 +102,14 @@ export class MidTowers {
   }
 
   // start tower i falling. dir: unit xz; returns false if it already fell
-  fall(i) {
+  // dir: optional unit {x, z} to fall toward (the low route passes them: they fall away from it)
+  fall(i, dir = null) {
     if (this.state[i]) return false;
     const t = this.list[i];
     // fall sideways along the ring (seen side-on from the rail), alternating sides
     const rx = t.x / Math.hypot(t.x, t.z), rz = t.z / Math.hypot(t.x, t.z);
     const s = i % 2 ? 1 : -1;
-    const fx = -rz * s, fz = rx * s;
+    const fx = dir ? dir.x : -rz * s, fz = dir ? dir.z : rx * s;
     const half = 0.5 * (Math.abs(fx) * t.w + Math.abs(fz) * t.d);
     const brk = t.mode === 'tilt' ? t.h * range(0.38, 0.52) : t.mode === 'lean' ? 4 : t.h + 100;
     this.state[i] = { t: 0, th: 0, om: 0, drop: 0, dropV: 0, up: 0, upV: 0, fx, fz, half, brk, landed: false, mode: t.mode, done: false };

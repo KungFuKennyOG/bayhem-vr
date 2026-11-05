@@ -37,7 +37,7 @@ export async function create(E) {
   const dust = new OverDust(scene, scene.fog, F);
   const wall = new HorizonWall(scene, scene.fog);
   const hero = F.hero ? new HeroTower(game, dust, F) : null;
-  const rail = new HeliRail(E, F, game);
+  const rail = new HeliRail(E, F, game, mids.list);
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });
   player.yaw = 0; player.pitch = -0.12;
   game.onHaptic = (i, ms) => player.pulse(i, ms);
@@ -51,13 +51,33 @@ export async function create(E) {
   const setPhase = (p) => { T.phase = p; T.t = 0; };
   // the far dust sea rises ~5 s after the first tower goes (a reset in between cancels it)
   const startWall = () => { if (!T.wallStarted) { T.wallStarted = true; const gen = T.gen; game.fx.later(5, () => { if (gen === T.gen) wall.start(950, 1265, 540); }); } };
-  const fallMid = () => { while (T.midI < mids.list.length && !mids.fall(T.midI)) T.midI++; if (T.midI < mids.list.length) { T.midI++; startWall(); audio.play('collapse_rumble', { volume: 0.8 }); return true; } return false; };
+  // on the low route a mid tower falls away from the path (the default sideways fall would sweep through it)
+  const away = mids.list.map(t => F.route === 'low' ? rail.awayFrom(t.x, t.z) : null);
+  const awayDir = (i) => away[i];
+  // clearance: the closest the cabin gets to tower geometry (intact mid towers as footprint boxes, the intact hero,
+  // flying / resting hero chunks). Falling mid towers aren't tracked (their pieces fall away from the route).
+  const clearance = () => {
+    const h = rail.root.position; let m = 1e9;
+    mids.list.forEach((t, i) => {
+      const S = mids.state[i]; if (S) return;
+      const dh = Math.max(0, Math.hypot(h.x - t.x, h.z - t.z) - 0.71 * Math.max(t.w, t.d)), dv = h.y - t.h - 30;
+      m = Math.min(m, dv > 0 ? Math.hypot(dh, dv) : dh);
+    });
+    if (hero) {
+      if (!hero.S) { const dh = Math.max(0, Math.hypot(h.x, h.z) - HERO.w0 * 0.71); m = Math.min(m, h.y > HERO.h + HERO.spire ? Math.hypot(dh, h.y - HERO.h - HERO.spire) : dh); }
+      for (const c of hero.chunks) if (c.state === 'fly') m = Math.min(m, Math.max(0, c.p.distanceTo(h) - Math.max(c.h.x, c.h.y, c.h.z) * 1.4));
+      const sb = hero.spireBody; if (sb && !sb.landed) m = Math.min(m, Math.max(0, sb.p.distanceTo(h) - 40));
+    }
+    return m;
+  };
+  const CL = { now: 0, min: 1e9 };
+  const fallMid = () => { while (T.midI < mids.list.length && !mids.fall(T.midI, awayDir(T.midI))) T.midI++; if (T.midI < mids.list.length) { T.midI++; startWall(); audio.play('collapse_rumble', { volume: 0.8 }); return true; } return false; };
   const fallHero = () => { if (hero && hero.start(game.headPos)) { startWall(); return true; } return false; };
   let dustBefore = null;
   const worst = () => {
     // everything at once + full dust
     dustBefore = dust.level; dust.setLevel('high');
-    for (let i = 0; i < mids.list.length; i++) mids.fall(i);
+    for (let i = 0; i < mids.list.length; i++) mids.fall(i, awayDir(i));
     T.midI = mids.list.length;
     fallHero(); startWall();
     // the dust sea: a few huge puffs over the whole centre, rolling out
@@ -68,7 +88,7 @@ export async function create(E) {
     mids.reset(); hero?.reset(); dust.clear(); wall.stop(); far.reset();
     T.midI = 0; T.wallStarted = false; T.gen++; game.slowT = 0;
     if (dustBefore) { dust.setLevel(dustBefore); dustBefore = null; }
-    dust.fillPeak = 0;
+    dust.fillPeak = 0; CL.min = 1e9;
     setPhase('idle');
   };
   // Resets are a test-harness thing (the real level never un-destroys a city), but done in the open they pop the whole
@@ -206,6 +226,7 @@ export async function create(E) {
       if (wall.state) audio.setLoop('dust_roar', { x: head.x * 1.6, y: 40, z: head.z * 1.6, volume: 0.5 });
       simMs += performance.now() - t0;
       panel.frame(simMs, !runKey || B.t >= 0 || performance.now() < graceUntil ? null : manual ? T.phase + '*' : T.phase); simMs = 0;
+      CL.now = clearance(); if (runKey && T.t > 1) CL.min = Math.min(CL.min, CL.now);
       const R = rail.st;
       camera.getWorldDirection(_fw);
       panel.draw({
@@ -215,12 +236,13 @@ export async function create(E) {
         swapped: far.count, far: far.list.length, wall: wall.state ? `${wall.state.R.toFixed(0)}m ${wall.state.H.toFixed(0)}h` : 'off',
         speed: rail.speed, yawRate: R.yawRate, bank: rail.bank * 180 / Math.PI, lat: R.latA, lon: R.lonA, vert: R.vertA,
         maxYaw: R.maxYawRate, maxLat: R.maxLat, maxJerk: R.maxJerk,
+        clr: `${CL.now > 1e8 ? '-' : CL.now.toFixed(0) + 'm'} (min ${CL.min > 1e8 ? '-' : CL.min.toFixed(0) + 'm'})`, route: F.route,
         phase: `${T.phase}${manual ? '*' : ''} ${T.t.toFixed(0)}s`, flags: `T${mids.list.length} H${hero ? 1 : 0} D${F.detail}`,
       });
     },
     ammoText() { return `${player.rifle.reloading > 0 ? 'RELOADING' : player.rifle.ammo + ' RDS'}   ${player.launcher.reloading > 0 ? '--' : player.launcher.ammo} GL`; },
     state() {
-      return { phase: T.phase, t: +T.t.toFixed(1), fps: +panel.fps.toFixed(1), calls: panel.calls, tris: panel.tris, clouds: dust.alive, fill: +dust.fill.toFixed(2), fx: fx.main.max - fx.main.free.length, glass: hero?.shards ?? 0, bodies: hero?.bodies ?? 0, swapped: far.count, wall: wall.state ? +wall.state.R.toFixed(0) : 0, heroPhase: hero?.S?.phase ?? null, mid: mids.falling(), speed: +rail.speed.toFixed(1), yawRate: +rail.st.yawRate.toFixed(2), maxYaw: +rail.st.maxYawRate.toFixed(2), maxLat: +rail.st.maxLat.toFixed(2), maxJerk: +rail.st.maxJerk.toFixed(2), tris0: { mid: mids.tris, hero: hero?.tris ?? 0 } };
+      return { phase: T.phase, t: +T.t.toFixed(1), fps: +panel.fps.toFixed(1), calls: panel.calls, tris: panel.tris, clouds: dust.alive, fill: +dust.fill.toFixed(2), fx: fx.main.max - fx.main.free.length, glass: hero?.shards ?? 0, bodies: hero?.bodies ?? 0, swapped: far.count, wall: wall.state ? +wall.state.R.toFixed(0) : 0, heroPhase: hero?.S?.phase ?? null, mid: mids.falling(), speed: +rail.speed.toFixed(1), clear: CL.now > 1e8 ? null : +CL.now.toFixed(0), clearMin: CL.min > 1e8 ? null : +CL.min.toFixed(0), route: F.route, yawRate: +rail.st.yawRate.toFixed(2), maxYaw: +rail.st.maxYawRate.toFixed(2), maxLat: +rail.st.maxLat.toFixed(2), maxJerk: +rail.st.maxJerk.toFixed(2), tris0: { mid: mids.tris, hero: hero?.tris ?? 0 } };
     },
   };
 }
