@@ -3,7 +3,7 @@
 BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model or texture files, and the only audio files are the driver's voiced radio lines (`public/vo/`, see `tools/vo/README.md`).
 
 ## Status
-- **Dubai (Level 8) prototype on branch `dubai-prototype`** (`?level=dubai-proto`): a grey-box tech test of the Level 8 finale with an in-VR perf panel and load flags. **Needs a Quest 3 run** — see "Dubai prototype" below for the test plan and pass/fail numbers.
+- **Dubai (Level 8) prototype, merged as PR #14, URL only** (`?level=dubai-proto`, not in the menu): a grey-box tech test of the Level 8 finale with an in-VR perf panel and load flags. **Needs a Quest 3 run** — see "Dubai prototype" below for the test plan and pass/fail numbers.
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
 - **Level 5, "The Iron Lady" (on foot, Paris at blue hour, a fictional lattice tower falls across the Seine), is built** on branch `level-5-iron-lady` — see its section below and `src/levels/iron-lady/DESIGN.md`.
 - **Level 4, "Airport No Return" (on foot, ends in a jeep chase), is done** — see its section below.
@@ -177,8 +177,8 @@ Open issues (round 5, by impact):
 - The bridge "jam" is a handful of cars; repeated facade grids along the river; low-poly planter shrubs; the speedboat needs a wake and bow spray.
 Headset checks needed: frame rate during the fall (2 660 instanced girders through the rig shader + rain + reflections + up to 320 cloud puffs), the look-gated collapse trigger, rain streak comfort within 1.2–13 m, callout placement with the new clamp, speedboat ride comfort (power turn), and the shared `VR_HOLD` grips.
 
-### Dubai prototype (Level 8 tech test) — branch `dubai-prototype`, NOT a level
-Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. `?level=dubai-proto` (menu: LEVEL 08 DUBAI PROTOTYPE; prototypes are never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.
+### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
+Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. URL only: https://kungfukennyog.github.io/bayhem-vr/?level=dubai-proto (registered with `hidden: true`, so it is not in the menu and never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.
 
 **What it does.** A door-gunner heli loops the city (radius ~640 m, ~250 m up, 38 m/s) with the open door facing the centre. The scene has:
 - **The hero, THE SPINDLE** (470 m + 130 m spire): about 150 chunks on a 30-node CPU spine. Floors blow out down the face toward the heli with a glass waterfall, the spire shears off and tips toward the heli, the stump pancakes, and the upper chunks detach into rigid bodies.
@@ -244,7 +244,7 @@ Pass / fail per phase (miss = a frame longer than 1.5× budget, i.e. > 20.8 ms a
 - Sort popping: DustClouds sorts by distance every frame. With 200–400 m puffs overlapping at similar distances, the order flips as the heli moves, which may read as flicker. Watch for it in the headset. It doesn't show in stills.
 - The ring wall reads as a uniform band with a bright crest. It works as an occluder but needs real art (layered rings, a lit rolling crest, puffs riding the top) before the level.
 - The mid-tower crush mound is a grey-box stand-in; it's hidden by the skirts at default dust and visible at `dust=off`.
-- Testing on the headset needs the build served over HTTPS. Pages deploys only from `main`. Either merge this branch (it's isolated, and the menu labels it a prototype) or run the deploy workflow on the branch, if the Pages environment allows non-default branches.
+- On the headset: open the Pages URL above in the Quest browser and add the flags (bookmark the test-plan variants). For live reload and `__perf()` over remote devtools: `npm run dev`, `adb reverse tcp:5173 tcp:5173`, then http://localhost:5173/?level=dubai-proto on the Quest.
 
 ## Quality bar and lessons from Level 1
 - **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).

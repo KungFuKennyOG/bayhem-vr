@@ -1,4 +1,4 @@
-# Dubai prototype (`?level=dubai-proto`)
+# Dubai prototype (`?level=dubai-proto`, URL only — not in the menu)
 
 A tech test for the Level 8 finale, not the level. Grey boxes, no art polish. It answers one question on a Quest 3: can a door-gunner heli loop around a skyline where a hero supertall and 4–6 mid towers all come down at once, in a sea of dust seen from above, while the far skyline swaps to ruins with no visible pop, at 72 fps?
 
