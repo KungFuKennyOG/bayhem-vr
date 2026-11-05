@@ -188,6 +188,7 @@ Shared-engine changes: `downtown-haven/cars.js` — `city: 'tokyo'` now has its 
 Review status (fresh reviewer each round, same calibration frames: L2 gate/crane, L3 street/dust, L5 quay):
 - Round 1 (first daylight build): 6.0. Center-gai and the gas chase ~7 (Level 5 quality); plaza / deck / expressway ~5 ("greybox"); "hard sun" read as overcast.
 - Round 2: 6.0. The tanker review frames were taken before its look gate opened (fixed: gate at 7 s, frames later); smoke columns read as boxes; factory-clean surfaces; no crowd.
+- Round 3: 6.5. Smoke columns (baked plume texture) and the fleeing crowd landed; Center-gai 7.5 ("best frame in the game for sense of place"). Open: the span drop hidden in smoke, empty decks, generic glass towers, American-looking sedans, debris / glass shards as flat white polygons (shared `fx.js`).
 
 ## Quality bar and lessons from Level 1
 - **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).
