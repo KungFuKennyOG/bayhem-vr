@@ -606,28 +606,7 @@ export function buildSubwayInterior({ atlas, A, PA = 1024 }) {
     BK.props.tri(P(-s, -s), P(s, s), P(-s, s), nrm, nrm, nrm, [u[0], u[1]], [u[2], u[3]], [u[0], u[3]], col, RM0);
   }
 
-  // ---- headhouse (street level): tile the inner faces of the rear walls + back wall, backlit ad, station panel, cornice lip
-  {
-    const zh0 = zH, zh1 = zE - 0.008, y0 = SW, y1 = SW + 2.85;
-    const dshade = (p, nn, alb) => dayShade(p, nn, alb);
-    const hz = (xw, s) => {
-      const nn = [s, 0, 0], nu = Math.max(2, Math.round((zh1 - zh0) / 0.4));
-      const band = (ya, yb2, nv, alb) => sheet(BK.tile, nu, nv, (u, t) => [xw, ya + (yb2 - ya) * t, zh0 + (zh1 - zh0) * u], nn, (p) => [p[2] / TS, p[1] / TS], (p) => dshade(p, nn, wallColour(alb, p, y0, y1)));
-      band(y0, y0 + 1.0, 3, GREEN); band(y0 + 1.0, y0 + 1.11, 1, MAROON); band(y0 + 1.11, y1, 5, CREAM);
-    };
-    // 5 cm proud of the granite: the sidewalk/granite material is polygon-offset toward the camera
-    hz(x0 + 0.08, 1); hz(x1 - 0.08, -1);
-    xWall(zh1 - 0.02, -1, x0 + 0.08, x1 - 0.08, y0, y1, (p, nn, alb) => dshade(p, nn, alb));
-    // backlit ad lightbox + enamel station panel on the back wall
-    baked(BK.metal, BOX(1.26, 1.8, 0.1), M4(xc - 0.75, SW + 1.2, zh1 - 0.05), [0.1, 0.1, 0.1], { uv: 'white' });
-    texQuad(BK.props, [xc - 0.75, SW + 1.2, zh1 - 0.102], [-1, 0, 0], [0, 1, 0], 1.12, 1.66, rUV(A.ad2), [1.05, 1.02, 0.95]);
-    glows.push({ p: [xc - 0.75, SW + 1.2, zh1 - 0.3], color: [0.35, 0.28, 0.22], size: 2.0 });
-    framedX(xc + 0.85, SW + 1.55, zh1, 1.15, 0.3, rowUV(2));
-    framedX(xc + 0.85, SW + 1.1, zh1, 1.15, 0.3, rowUV(1));
-    // cornice lip along the top of the headhouse walls (green steel, projecting)
-    baked(BK.metal, BOX(W + 0.06, 0.12, 0.16), M4(xc, y1 + 0.02, zh1 - 0.08), GREEN_PAINT, { uv: 'white', day: true });
-    for (const [xw, s] of [[x0 + 0.08, 1], [x1 - 0.08, -1]]) baked(BK.metal, BOX(0.16, 0.12, zh1 - zh0), M4(xw + s * 0.06, y1 + 0.02, (zh0 + zh1) / 2), GREEN_PAINT, { uv: 'white', day: true });
-  }
+  // (the street-level headhouse behind the stair lintel is closed by a headwall in street.js: nothing to tile here)
   function framedX(x, y, zw, w, h, uv) {
     baked(BK.metal, BOX(w + 0.07, h + 0.07, 0.03), M4(x, y, zw - 0.015), [0.14, 0.12, 0.09], { uv: 'white', day: true });
     texQuad(BK.sign, [x, y, zw - 0.032], [-1, 0, 0], [0, 1, 0], w, h, uv, dayShade([x, y, zw], [0, 0, -1], [1.25, 1.25, 1.25]));

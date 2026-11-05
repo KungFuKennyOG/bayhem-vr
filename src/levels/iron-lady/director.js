@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { pick, range, clamp, damp, rand } from '../../rng.js';
+import { arrivedAtMarker } from '../../beats.js';
 import { SNIPERS, TOWER, LEGS, START, LOW_Y, RAMP_N, RAMP_S, BRIDGE, BOAT_DOCK, PONTOON, RIVERBOAT } from './layout.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -54,7 +55,7 @@ export class Director {
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 5.8 : 7.8) },
       // 2 ---- the quay fight
-      { name: 'quay', wp: V(70, LOW_Y + 2.4, 44), hunt: true, music: 0.65, dusk: 0.25, enter: () => {
+      { name: 'quay', wp: V(70, LOW_Y + 2.4, 44), hunt: true, arrive: () => !setp.boat || setp.boat.state !== 'cruise', gate: () => (setp.boat && setp.boat.state === 'cruise' ? setp.boat.fuelW.clone().setY(setp.boat.fuelW.y + 3) : null), gateMsg: 'SINK THE BOAT!', music: 0.65, dusk: 0.25, enter: () => {
           g.cinematicLook = null;
           hud.objective('Fight down the quay to the bridge');
           if (g.player) g.player.autoState.holdFire = false;
@@ -83,7 +84,7 @@ export class Director {
         },
         until: (t) => (t > 6 && quayTargets() === 0 && setp.boat && setp.boat.state !== 'cruise') || t > 110 * T },
       // 3 ---- up the ramp, across the bridge (tower snipers on the first platform)
-      { name: 'bridge', wp: V(0, 2.5, -46), hunt: true, music: 0.8, dusk: 0.35, enter: () => {
+      { name: 'bridge', wp: V(0, 2.5, -46), hunt: true, arrive: true, music: 0.8, dusk: 0.35, enter: () => {
           later(1.6, () => hud.objective('Cross the bridge to the tower'));
           later(0.6, () => say('Up the ramp and across the bridge. She\'s waiting.', 2.8));
           S({ x: 26, z: 63, delay: 0.5 }); S({ x: 8, z: 46, delay: 1.2 });
@@ -159,7 +160,9 @@ export class Director {
             hud.setWaypoint(E.root.position.clone().setY(LOW_Y + 2.2));
             const d = Math.hypot(px() - E.root.position.x, pz() - (PONTOON.z0 + PONTOON.z1) / 2);
             if (d < 6 && first('jumpin')) say('GET IN!', 1.4);
-            if (d < 4.5 && g.headPos.z > PONTOON.z0 - 0.5) setp.board();
+            // board anywhere on the pontoon (or at its mouth), not only within 4.5 m of the helm
+            const onP = px() > PONTOON.x0 - 1 && px() < PONTOON.x1 + 1 && pz() > PONTOON.z0 - 1.2;
+            if (onP || d < 4.5) setp.board();
           }
         }, until: () => setp.riding },
       // 8 ---- the getaway
@@ -227,7 +230,7 @@ export class Director {
       this.g.fx.dt0 = dt;
       for (const e of this.g.events) this.react(e);
       this.cur.update?.(this.t);
-      if (this.cur.until(this.t)) this.next();
+      if (this.cur.until(this.t) || arrivedAtMarker(this, dt)) this.next();
     }
     this.g.dusk = damp(this.g.dusk, this.duskTarget, 0.3, dt);
     this.g.events.length = 0;

@@ -109,7 +109,11 @@ export class IronWorld {
     b([LOWQ.x0, WATER_Y - 1, LOWQ.edge - 0.35], [LOWQ.x1 + 40, LOW_Y + 1.2, LOWQ.edge]);
     b([LOWQ.x0, WATER_Y - 1, -LOWQ.edge], [PONTOON.x0, LOW_Y + 1.2, -LOWQ.edge + 0.35]);
     b([PONTOON.x1, WATER_Y - 1, -LOWQ.edge], [LOWQ.x1 + 40, LOW_Y + 1.2, -LOWQ.edge + 0.35]);
-    b([PONTOON.x0 - 0.3, WATER_Y - 1, PONTOON.z0 - 0.3], [PONTOON.x1 + 0.3, LOW_Y + 1.2, PONTOON.z0]);
+    // the pontoon's own edges: its two ends and its river side (the quay side, z0, stays open: that
+    // wall used to sit across the entrance, so you could never step onto it to board the speedboat)
+    b([PONTOON.x0 - 0.3, WATER_Y - 1, PONTOON.z0], [PONTOON.x0, LOW_Y + 1.2, PONTOON.z1 + 0.3]);
+    b([PONTOON.x1, WATER_Y - 1, PONTOON.z0], [PONTOON.x1 + 0.3, LOW_Y + 1.2, PONTOON.z1 + 0.3]);
+    b([PONTOON.x0, WATER_Y - 1, PONTOON.z1], [PONTOON.x1, LOW_Y + 1.2, PONTOON.z1 + 0.3]);
     // far ends of the walkable strips
     b([LOWQ.x1, WATER_Y, -80], [LOWQ.x1 + 2, 8, 80]);
     b([-112, 0, 52], [-110, 8, 80]); b([-112, 0, -80], [-110, 8, -52]);

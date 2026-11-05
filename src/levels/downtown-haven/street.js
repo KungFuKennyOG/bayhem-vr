@@ -1071,6 +1071,17 @@ export async function buildSubway(ctx = {}) {
   quad(P, [xc, SW + 1.4, zE + 0.304], [1, 0, 0], [0, 1, 0], 1.6, 2.4, A.ad2, COL.white, [0.4, 0, 0.3]);
   colliders.push({ min: [x0 - 0.25, SW, zE], max: [x1 + 0.25, SW + 2.9, zE + 0.3], data: { kind: 'wall', mat: 'concrete' } });
   colliders.push({ min: [x0 - 0.25, yB - 0.5, zE - 0.1], max: [x1 + 0.25, SW, zE + 0.3], data: { kind: 'bound', noBullet: true } });
+  // headwall over the stair lintel: the stairs run on under the street, so the headhouse closes here
+  // (before, the rear half was an open slab at street level with a poster wall behind it: from the top
+  // of the stairs it read as a staircase down to a walled-off shelf)
+  {
+    const yTop = SW + 3.12, yBot = SW - 0.42, hW = yTop - yBot;
+    addStone(B.stone, BOX(W + 0.06, hW, 0.3), M4(xc, (yTop + yBot) / 2, zH + 0.15), gran);
+    addStone(B.stone, BOX(W + 0.12, 0.08, 0.36), M4(xc, SW + 0.05, zH + 0.15), coping);
+    quad(P, [xc, SW + 1.95, zH - 0.035], [-1, 0, 0], [0, 1, 0], 3.0, 0.75, A.metro);
+    quad(P, [xc, SW + 0.82, zH - 0.035], [-1, 0, 0], [0, 1, 0], 0.8, 1.2, A.ad2, COL.white, [0.4, 0, 0.3]);
+    colliders.push({ min: [x0, yBot, zH], max: [x1, yTop, zH + 0.3], data: { kind: 'wall', mat: 'concrete' } });
+  }
   // glass canopy on a green steel frame, the open front under a HAVEN METRO fascia
   const yC0 = SW + 3.25, yC1 = SW + 3.0, zc0 = zT - 0.6, zc1 = zE + 0.3, green = [0.05, 0.16, 0.09];
   const yC = (z) => yC0 + (yC1 - yC0) * (z - zc0) / (zc1 - zc0);

@@ -1,4 +1,4 @@
-import{o as w,a as x,aa as y,p as z,b7 as S,V as k,P as b,h as R,G as N,m as d,f as u,v as F,R as W}from"./index-DLjI59Ma.js";import{e as p,W as M}from"./index-D59oYfCT.js";import"./collision-Cd7JzSKf.js";import"./player-CjHPLBx1.js";import"./birds-CSU939aj.js";import"./dustfx-syG2Iib3.js";import"./heli-BehZpzrg.js";const P=`
+import{o as w,a as x,aa as y,p as z,b7 as S,V as k,P as b,h as R,G as N,m as d,f as u,v as F,R as W}from"./index-BroHsaRL.js";import{e as p,W as M}from"./index-Dg3DFc9N.js";import"./beats-czc_pKIo.js";import"./player-DVT1E2pY.js";import"./birds-CdEnINE5.js";import"./dustfx-kJBKB41b.js";import"./heli-Cypr9HLe.js";const P=`
 // cheap copy of sky.js nightSky() without clouds / stars (night 0..1)
 vec3 nightSkyApprox(vec3 d, vec3 sunDir, float n) {
   float hh = max(d.y, 0.0);

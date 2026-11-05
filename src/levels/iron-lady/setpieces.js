@@ -112,8 +112,16 @@ export class SetPieces {
     };
     this.boatTarget = {
       active: () => !!this.boat && this.boat.state === 'cruise',
-      ray: (o, d) => { const B = this.boat; const f = B.fuelW; const t = raySphere(o, d, f, 1.4); return t; },
-      hit: (P, dir) => { g.fx.impact(P, _v.copy(dir).negate(), 'metal'); g.audio.play('impact_metal', { x: P.x, y: P.y, z: P.z, volume: 0.8 }); this.damageBoat(1, P); g.hitMarker(false); },
+      // the whole boat takes hits (hull, saloon glass, the tank): before, only a 1.4 m sphere on the stern tank
+      // counted, so shooting the boat itself did nothing at all (bullets went through to the far quay)
+      ray: (o, d) => this._rayBoat(o, d),
+      hit: (P, dir) => {
+        const B = this.boat, part = B.lastPart;
+        g.fx.impact(P, _v.copy(dir).negate(), part === 'glass' ? 'glass' : 'metal');
+        g.audio.play(part === 'glass' ? 'impact_glass' : 'impact_metal', { x: P.x, y: P.y, z: P.z, volume: 0.8 });
+        this.damageBoat(part === 'fuel' ? 3 : 0.75, P, part === 'fuel');
+        g.hitMarker(part === 'fuel');
+      },
       near: (p) => this.boat.fuelW.distanceTo(p) < 3.5,
       direct: (p) => { this.damageBoat(14, p); g.hitMarker(true); },
       blast: (P, r) => { const d = this.boat.fuelW.distanceTo(P); if (d < r + 3) this.damageBoat(8 * (1 - d / (r + 3)) + 2, P); },
@@ -180,10 +188,34 @@ export class SetPieces {
     r.updateMatrixWorld(true);
     const f = B.m.anchors.fuel; B.fuelW.set(...(Array.isArray(f) ? f : [f.x, f.y, f.z])).applyMatrix4(r.matrixWorld);
   }
-  damageBoat(d, P) {
+  // ray vs the boat's own colliders, in boat space (it moves, so it isn't in the static CollisionWorld)
+  _rayBoat(o, d) {
+    const B = this.boat, cs = B.m.colliders; let best = -1;
+    if (!cs || !cs.length) { const t = raySphere(o, d, B.fuelW, 1.6); B.lastPart = 'fuel'; return t; }
+    _mInv.copy(B.root.matrixWorld).invert();
+    const lo = _v4.copy(o).applyMatrix4(_mInv), ld = _v5.copy(d).transformDirection(_mInv);
+    for (const c of cs) {
+      let t0 = 0, t1 = 1e9;
+      for (let a = 0; a < 3; a++) {
+        const oa = lo.getComponent(a), da = ld.getComponent(a), mn = c.min[a], mx = c.max[a];
+        if (Math.abs(da) < 1e-8) { if (oa < mn || oa > mx) { t0 = 2e9; break; } continue; }
+        let ta = (mn - oa) / da, tb = (mx - oa) / da; if (ta > tb) { const q = ta; ta = tb; tb = q; }
+        t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) break;
+      }
+      if (t0 <= t1 && t0 > 0 && (best < 0 || t0 < best || (c.data?.fuel && t0 < best + 0.3))) { best = t0; B.lastPart = c.data?.fuel ? 'fuel' : c.data?.mat === 'glass' ? 'glass' : 'hull'; }
+    }
+    // the tank itself is generous: a near miss on the stern still counts as the tank
+    const tf = raySphere(o, d, B.fuelW, 1.6);
+    if (tf > 0 && (best < 0 || tf < best + 1.5)) { best = tf; B.lastPart = 'fuel'; }
+    return best;
+  }
+  damageBoat(d, P, tank = false) {
     const B = this.boat; if (!B || B.state !== 'cruise') return;
+    const g = this.g;
     B.hp -= d;
-    if (B.hp < 8 && !B.leak) { B.leak = true; this.g.callout('FUEL LEAK!', B.fuelW.clone().setY(B.fuelW.y + 3), 'small'); }
+    // show progress on every hit: smoke, then fire on the stern, then the leak
+    if (B.hp < 16 && !B.smoking) { B.smoking = true; if (!tank) g.callout('AIM FOR THE RED TANK!', B.fuelW.clone().setY(B.fuelW.y + 3), 'small'); }
+    if (B.hp < 8 && !B.leak) { B.leak = true; g.callout('FUEL LEAK!', B.fuelW.clone().setY(B.fuelW.y + 3), 'small'); }
     if (B.hp <= 0) this.explodeBoat();
   }
   // break her back: the hull mesh is cut in two at the saloon (triangles by centroid), each half on its own pivot
@@ -267,6 +299,11 @@ export class SetPieces {
     B.t += dt;
     if (B.state === 'cruise') {
       B.v = RIVERBOAT.speed;
+      if (B.smoking && g.headPos.distanceToSquared(B.root.position) < 220 * 220) {
+        const dmg = clamp(1 - B.hp / 16, 0, 1);
+        if (rand() < dt * (3 + dmg * 10)) { const p = _v.copy(B.fuelW); p.y += 0.8; g.fx.main.spawn({ x: p.x + range(-1, 1), y: p.y, z: p.z + range(-0.5, 0.5), vx: range(-0.5, 0.5) + 1.5, vy: range(1.5, 3), vz: range(-0.4, 0.4), drag: 0.5, frame: CELL.WISP, s0: 0.8, s1: range(3, 5), life: range(1.5, 2.5), rot: rand() * 6, r: 0.12, g: 0.11, b: 0.1, a: 0.7, fadeIn: 0.05, fadeOut: 0.6 }); }
+        if (B.leak && rand() < dt * 10) g.fx.flame(_v.copy(B.fuelW).add(_v2.set(range(-0.8, 0.8), 0.6, range(-0.5, 0.5))), range(0.6, 1.0));
+      }
       // it never gets past the bridge in one piece (Bay rule): rams the pier
       if (B.x < BRIDGE.half + 26) this.explodeBoat();
       if (B.t % 7 < dt) g.audio.play('ship_horn', { x: B.x, y: WATER_Y + 4, z: B.z, volume: 0.6, pitch: 0.95 });
@@ -960,4 +997,5 @@ export class SetPieces {
   }
   casingFloor(x, z) { return groundAt(x, z); }
 }
+const _mInv = new THREE.Matrix4(), _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3();
 const _tip = new THREE.Vector3(), _m3 = new THREE.Matrix3(), _m3v = new THREE.Vector3(), _vF = new THREE.Vector3(), _vT = new THREE.Vector3(), _vd = new THREE.Vector3();

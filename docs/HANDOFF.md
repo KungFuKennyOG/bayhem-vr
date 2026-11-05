@@ -64,6 +64,14 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
   - The camera far plane is 3 km; Level 4 raises it to 12 km.
   - With near = 0.05, depth precision at 4 km is about 20 m, so far glows must be lifted off the ground.
 
+- **Playtest fixes (Nov 4, 2026, from Kenny's Quest run):**
+  - `src/beats.js`: beats can add `gate: () => Vector3 | null` (+ `gateMsg`). When `arrive()` still says no and the player has stood on the marker for 2 s, the waypoint moves to what is holding the beat and returns once it's dealt with. Level 3's avenues point at the nearest live sniper; Level 5's quay points at the tour boat. Level 5's quay and bridge beats now use `arrive` too (the bridge used to need you 10 m *past* its marker).
+  - Level 5 tour boat: bullets only hit a 1.4 m sphere on the stern tank, so shooting the boat itself did nothing. `_rayBoat` now tests the boat's own colliders in boat space (hull 0.75, tank 3 damage; it smokes, then burns, as it takes hits).
+  - Level 5 speedboat: a quay-edge collider sat across the pontoon's entrance instead of its river side, so you could never step on to board. Boarding now triggers anywhere on the pontoon.
+  - Level 5 art: ramp cobbles stopped 0.45 m short of the river-side wall (a see-through strip); wall lanterns that a ramp lifted above the retaining wall hung in the sky and are skipped.
+  - Level 3 subway: the rear half of the headhouse was an open street-level slab with a poster wall (from the top of the stairs it read as stairs down to a walled-off shelf). A granite headwall with the HAVEN METRO sign now closes it over the stair lintel.
+  - Level 4: the end credits are now a "LEVEL 4 COMPLETE / NEXT STOP PARIS" card in the same sky band, and the beat is ~13 s shorter.
+
 ## Level briefs
 
 ### Level 2: PORT OF VICTORY (on foot) — DONE

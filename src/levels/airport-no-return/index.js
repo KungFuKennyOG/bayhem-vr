@@ -13,7 +13,7 @@ import { applyDusk, setSunElevation } from '../../atmosphere.js';
 import { gseMaterials } from './gse.js';
 
 // LEVEL 4 — "AIRPORT NO RETURN": on foot across a sunset apron, two jets go up on the taxiway,
-// then a FOLLOW-ME jeep chase down runway 27 after a cargo plane. You jump onto its ramp. Credits.
+// then a FOLLOW-ME jeep chase down runway 27 after a cargo plane. You jump onto its ramp. Level-complete card.
 export async function create(E) {
   const { scene, renderer, fx, hud, audio, rig, camera, params, flags } = E;
   initMaterials();
