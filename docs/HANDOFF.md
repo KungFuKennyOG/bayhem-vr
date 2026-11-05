@@ -200,6 +200,7 @@ Open issues (round 4, by impact):
 - Shared `fx.js`: flat black / white debris chips, flat white glass shards, an olive fringe on big fireballs (same engine-level limit Levels 3 and 5 hit).
 - Cars keep their American bodies under the Tokyo liveries (a boxy JPN-taxi / kei-van body in `cars.js` would fix the last vehicle cue).
 - HUD: the objective, a callout and a radio line can stack at once at the crossing.
+Driver VO: all 31 Level 6 lines are voiced (30 new Chatterbox takes, Whisper-checked, 0 flagged; built with only the Tokyo takes and merged into `src/vo-manifest.js`, because the other levels' raw takes aren't kept in git and `build.py` rewrites the manifest from whatever raw takes exist — rebuild the full set only on a machine that has them all). Pre-merge sweep: every beat jumps cleanly with and without `noauto=1` (22/22, no page errors); the autopilot finishes the level from `beat=xway` (done at the outro).
 Headset checks needed: the 2.5D sun-shadow march cost on Quest (16 texture taps on every static fragment facing the sun; drop to 10 steps or bake the ground into a map if it's heavy), the deck layering (walking up the open stairs, perch gunmen above you), the crowd at the start, and the fleeing crowd's comfort (none should run through the player).
 
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
