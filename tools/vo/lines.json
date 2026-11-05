@@ -90,8 +90,8 @@
   ]
  },
  {
-  "key": "4e69d1ce",
-  "text": "Look left! Checkered jeep! I borrowed it! Get in the back!",
+  "key": "b3e1f26d",
+  "text": "Checkered jeep, coming up the taxiway! I borrowed it! Get in the back!",
   "levels": [
    "airport-no-return"
   ],
@@ -507,30 +507,300 @@
   "key": "ae4c09da",
   "text": "Get up! The city's not done with you!",
   "levels": [
-   "downtown-haven"
+   "downtown-haven",
+   "iron-lady"
   ],
   "files": [
-   "src/levels/downtown-haven/game.js"
+   "src/levels/downtown-haven/game.js",
+   "src/levels/iron-lady/game.js"
   ]
  },
  {
   "key": "b475869b",
   "text": "Breathe! Shoot back! In that order!",
   "levels": [
-   "downtown-haven"
+   "downtown-haven",
+   "iron-lady",
+   "tokyo-scramble"
   ],
   "files": [
-   "src/levels/downtown-haven/game.js"
+   "src/levels/downtown-haven/game.js",
+   "src/levels/iron-lady/game.js",
+   "src/levels/tokyo-scramble/game.js"
   ]
  },
  {
   "key": "c3362af3",
   "text": "Don't you dare die before the tower does!",
   "levels": [
-   "downtown-haven"
+   "downtown-haven",
+   "iron-lady"
   ],
   "files": [
-   "src/levels/downtown-haven/game.js"
+   "src/levels/downtown-haven/game.js",
+   "src/levels/iron-lady/game.js"
+  ]
+ },
+ {
+  "key": "963061ff",
+  "text": "Balconies! Red dot! Keep moving!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "4a15aae2",
+  "text": "Snipers on the balconies — don't let the dot settle on you!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "fa74a682",
+  "text": "Even the Peugeots explode. Of course they do.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "69a080b5",
+  "text": "Sniper down! Off the balcony, very French.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "1d710f81",
+  "text": "Paris. Nine o'clock — she does the sparkle on the hour. Pretty, right?",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "6ff6f813",
+  "text": "Our guy is in the tower. His friends are on the quay. Go say bonsoir.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "196c1178",
+  "text": "Use the barges and the bar for cover. And keep an eye on those balconies.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "de9634e1",
+  "text": "BEHIND YOU — ON THE RIVER! A tour boat full of them!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "32fb85c3",
+  "text": "The fuel tank — at the stern! Hit it with a grenade!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "456d693b",
+  "text": "...You set fire to a bateau-mouche. On the Seine. They will write songs about you.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "b0f72cce",
+  "text": "Up the ramp and across the bridge. She's waiting.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "bfa976af",
+  "text": "Laser from the FIRST PLATFORM — up on the tower!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "89574654",
+  "text": "Gunship — up the river! WIDOWMAKER again?! How many of these does this guy OWN?",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "98eed00d",
+  "text": "Grenades! And stay under the lattice, it can't see through all that iron!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "80d5b33d",
+  "text": "It's going THROUGH the tower! Between the legs!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "2f383b22",
+  "text": "Hit! It's going down— LOOK — it's going into the TOWER—",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "401d4b03",
+  "text": "...Okay. Okay. Into the LEG. That's... that's bad. Hear that?",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "699476a3",
+  "text": "She's groaning — she's LEANING! Get out from under her! Down to the river, east!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "ed6b26ba",
+  "text": "LOOK! LOOK AT HER! She's going over!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "0f18767b",
+  "text": "...She took the bridge with her.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "7f9fe4f9",
+  "text": "And the whole north bank. Somebody's getting a very big bill.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "b979e7b6",
+  "text": "Here comes the spray — RUN! I'm bringing the boat to the pontoon!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "3830993d",
+  "text": "GET IN!",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "173d8814",
+  "text": "Look back. Look at her. Across the bridge like she's taking a nap.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "6966f239",
+  "text": "Hold on to something!",
+  "levels": [
+   "iron-lady",
+   "the-405-job"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js",
+   "src/levels/the-405-job/game.js"
+  ]
+ },
+ {
+  "key": "c12dcbd5",
+  "text": "...I'll miss her. She had a good run. Mostly before you showed up.",
+  "levels": [
+   "iron-lady"
+  ],
+  "files": [
+   "src/levels/iron-lady/director.js"
   ]
  },
  {
@@ -864,8 +1134,8 @@
   ]
  },
  {
-  "key": "6966f239",
-  "text": "Hold on to something!",
+  "key": "87990b23",
+  "text": "Helicopter! Why is it ALWAYS a helicopter?!",
   "levels": [
    "the-405-job"
   ],
@@ -874,13 +1144,303 @@
   ]
  },
  {
-  "key": "87990b23",
-  "text": "Helicopter! Why is it ALWAYS a helicopter?!",
+  "key": "c1b82a13",
+  "text": "Red dot! Up on the screens — the catwalk!",
   "levels": [
-   "the-405-job"
+   "tokyo-scramble"
   ],
   "files": [
-   "src/levels/the-405-job/game.js"
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "95efa8e5",
+  "text": "Sniper on the big screen catwalk! Don't let the dot settle on you!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "83da6965",
+  "text": "Even the taxis explode. Of course they do.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "04860bb3",
+  "text": "Sniper down! Good. That one was ruining the ads.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "68432d60",
+  "text": "You shot the cola ad. Somewhere a marketing guy just felt that.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "327a581f",
+  "text": "It's leaking! Hit it again!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "f2494f84",
+  "text": "Kurogane. Three in the afternoon. Busiest crossing on Earth, and not one tourist. That's how you know.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "095328ec",
+  "text": "Our guy's on the far side of the crossing. His friends are between you and him. Down the stairs.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "02d82173",
+  "text": "Plaza first. Then the crossing — the cars are your cover.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "3f865fcd",
+  "text": "...Every screen in Kurogane just went to emergency broadcast. Subtle.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "d9e60d77",
+  "text": "Station east exit, on your left. The expressway ramp is up past the decks — they're waiting on them.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "36ef17dc",
+  "text": "Another dot — across the avenue, on the roof!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "93fc9952",
+  "text": "Look up! They're on the walkways — every bridge over the plaza.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "6209a1fe",
+  "text": "Stairs at the east end take you up onto the deck.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "3a72c0a2",
+  "text": "Up the stairs. Station terrace at the top, then the link onto the expressway.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "1b563d81",
+  "text": "Shuto expressway, jammed solid both ways. Duck between the cars and keep going west.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "1e607600",
+  "text": "Roof across the road — red dot, north side!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "0d38634d",
+  "text": "That's a fuel tanker. In the middle of a jam. On a bridge. ...Yeah, you know what to do.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "90bf0be4",
+  "text": "The TANKER! Shoot the tanker!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "aeb406cf",
+  "text": "...She's going— the WHOLE SPAN is going—",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "4c902682",
+  "text": "...You dropped a piece of expressway on a street. In Tokyo. They will never let me drive here again.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "29e97ff7",
+  "text": "Center-gai. Watch the shops — they love a doorway.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "4423bdff",
+  "text": "Smell that? The fuel off that tanker's running into the drains...",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "cd300485",
+  "text": "Wait— that's gas. The fuel's in the gas main. LOOK — back up the street!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "fb2c255c",
+  "text": "RUN! RUN! OUT TO THE CROSSING!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "8e58ed48",
+  "text": "Keep going! It's right behind you!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "d3f1c54c",
+  "text": "GET DOWN!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "a45bd276",
+  "text": "...Okay. Okay. You're alive. The street isn't.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
+  "key": "9aa3ee5c",
+  "text": "Get up! Tokyo's not done with you!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/game.js"
+  ]
+ },
+ {
+  "key": "ba12321d",
+  "text": "Don't you dare die in a karaoke district!",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/game.js"
   ]
  }
 ]
