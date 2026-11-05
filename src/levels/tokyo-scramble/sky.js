@@ -46,7 +46,7 @@ vec3 tokyoSky(vec3 d){
 vec3 tokyoDay(vec3 d){
   float h = d.y, hh = max(h, 0.0);
   vec3 L = normalize(sunDir); float sa = max(dot(d, L), 0.0);
-  vec3 zen = vec3(0.08, 0.22, 0.6), mid = vec3(0.26, 0.46, 0.84), hor = vec3(0.64, 0.76, 0.9);
+  vec3 zen = vec3(0.04, 0.14, 0.48), mid = vec3(0.16, 0.36, 0.78), hor = vec3(0.56, 0.7, 0.88);
   vec3 c = mix(hor, mid, smoothstep(0.0, 0.25, hh)); c = mix(c, zen, smoothstep(0.25, 0.95, hh));
   c += vec3(1.0, 0.9, 0.72) * pow(sa, 28.0) * 0.7 + vec3(0.45, 0.4, 0.32) * pow(sa, 4.0) * 0.3 + vec3(40.0) * smoothstep(0.99955, 0.9998, sa);
   if (h > 0.0) {
@@ -60,7 +60,7 @@ vec3 tokyoDay(vec3 d){
     float ci = smoothstep(0.55, 0.8, tfbm(vec2(uv.x * 0.5, uv.y * 3.0) + 11.0)) * smoothstep(0.2, 0.6, hh) * 0.22;
     c = mix(c, vec3(0.95, 0.97, 1.0), ci * (1.0 - cov));
   }
-  c = mix(c, vec3(0.72, 0.8, 0.9), (1.0 - smoothstep(0.0, 0.07, hh)) * 0.6);
+  c = mix(c, vec3(0.7, 0.78, 0.88), (1.0 - smoothstep(0.0, 0.05, hh)) * 0.5);
   float low = 1.0 - smoothstep(0.0, 0.5, hh);
   c = mix(c, vec3(0.3, 0.26, 0.22), glow * low * 0.55);
   if (h < 0.0) c = mix(vec3(0.72, 0.8, 0.9), vec3(0.4, 0.42, 0.45), smoothstep(0.0, -0.2, h));

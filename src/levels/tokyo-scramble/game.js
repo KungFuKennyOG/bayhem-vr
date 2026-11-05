@@ -28,9 +28,9 @@ export function applyTokyo(heat, { sun, hemi, fog, renderer, scene }) {
   if (DAY.on) {
     // hard afternoon sun from the west-south-west, a blue sky fill (blue shadows), light blue haze
     applyDusk(0, { sun, hemi, fog, renderer });
-    sun.color.copy(C(1.0, 0.92, 0.8)).lerp(C(1.0, 0.68, 0.42), heat * 0.6); sun.intensity = 4.3 - heat * 1.4;
-    hemi.color.copy(C(0.62, 0.7, 0.88)).lerp(C(0.6, 0.5, 0.44), heat * 0.7); hemi.groundColor.copy(C(0.56, 0.5, 0.42)).lerp(C(0.55, 0.36, 0.22), heat * 0.6); hemi.intensity = 1.05 - heat * 0.2;
-    fog.color.copy(C(0.64, 0.73, 0.86)).lerp(C(0.36, 0.31, 0.27), heat);
+    sun.color.copy(C(1.0, 0.92, 0.8)).lerp(C(1.0, 0.68, 0.42), heat * 0.6); sun.intensity = 5.0 - heat * 1.6;
+    hemi.color.copy(C(0.66, 0.72, 0.86)).lerp(C(0.6, 0.5, 0.44), heat * 0.7); hemi.groundColor.copy(C(0.56, 0.5, 0.42)).lerp(C(0.55, 0.36, 0.22), heat * 0.6); hemi.intensity = 0.72 - heat * 0.12;
+    fog.color.copy(C(0.6, 0.7, 0.84)).lerp(C(0.36, 0.31, 0.27), heat);
     fogShared.sunColor.r = 0.3 + heat * 0.2; fogShared.sunColor.g = 0.26 + heat * 0.06; fogShared.sunColor.b = 0.18;
     rimShared.color.r = 0.4; rimShared.color.g = 0.38; rimShared.color.b = 0.34;
     renderer.toneMappingExposure = 0.95;

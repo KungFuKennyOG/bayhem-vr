@@ -24,7 +24,7 @@ export async function create(E) {
   E.sky.material = createTokyoSky();
   E.flare.visible = false;
   applyTokyo(0, { sun: E.sun, hemi: E.hemi, fog: scene.fog, renderer, scene });
-  scene.fog.near = DAY.on ? 90 : 40; scene.fog.far = DAY.on ? 1100 : 900;
+  scene.fog.near = DAY.on ? 140 : 40; scene.fog.far = DAY.on ? 1700 : 900;
   // day: the soft afternoon sun casts (cars, people, props near you); night: the moon key is too weak
   E.sun.castShadow = DAY.on;
   camera.far = 4000; camera.updateProjectionMatrix();

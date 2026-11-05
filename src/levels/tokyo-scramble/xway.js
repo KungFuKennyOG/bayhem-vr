@@ -27,14 +27,14 @@ export function buildXway(ctx = {}) {
     S.road.quad([a, Y - oy, z1], [b, Y - oy, z1], [b, Y - oy, z0], [a, Y - oy, z0], [xa / RS, -z1 / RS, xb / RS, -z0 / RS]);
     S.con.set({ col: hex(0x8a8780), rm: [0.85, 0, 0] });
     // girder: the slab and a narrower box under it, dark underside
-    S.con.box(a, Y - 0.45 - oy, z0, b, Y - oy, z1, { faces: 'zZy' });
+    S.con.box(a, Y - 0.45 - oy, z0, b, Y - oy, z1, { faces: 'zZy', uvScale: 2.1 });
     S.con.set({ col: hex(0x6e6b65), rm: [0.9, 0, 0] });
-    S.con.box(a, Y - TH - oy, z0 + 3.5, b, Y - 0.45 - oy, z1 - 3.5, { faces: 'zZy' });
+    S.con.box(a, Y - TH - oy, z0 + 3.5, b, Y - 0.45 - oy, z1 - 3.5, { faces: 'zZy', uvScale: 2.1 });
     // parapets + rail
     S.con.set({ col: hex(0x7c7972), rm: [0.85, 0, 0] });
-    S.con.box(a, Y - oy, z0, b, Y + XWAY.barrier - oy, XWAY_IN.z0, { faces: 'zZYxX', bottomDark: 0.55 });
-    if (gap) { S.con.box(a, Y - oy, XWAY_IN.z1, gap[0] - ox, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.55 }); S.con.box(gap[1] - ox, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.55 }); }
-    else S.con.box(a, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.55 });
+    S.con.box(a, Y - oy, z0, b, Y + XWAY.barrier - oy, XWAY_IN.z0, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 });
+    if (gap) { S.con.box(a, Y - oy, XWAY_IN.z1, gap[0] - ox, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 }); S.con.box(gap[1] - ox, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 }); }
+    else S.con.box(a, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 });
     S.con.set({ col: hex(0x58595c), rm: [0.4, 0.7, 0] });
     S.con.tube([a, Y + XWAY.barrier + 0.25 - oy, XWAY_IN.z0 - 0.3], [b, Y + XWAY.barrier + 0.25 - oy, XWAY_IN.z0 - 0.3], 0.05, 5);
     // median: a low concrete divider with orange reflectors
@@ -127,7 +127,7 @@ export function buildXway(ctx = {}) {
   const tex = asphaltTex();
   const roadMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xa8a8ac, roughness: 0.78 });
   const paintMat = new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const conMat = rmMat({});
+  const conMat = rmMat({ map: concreteTex() });
   for (const [S, parent] of [[main, root]]) { parent.add(S.road.mesh(roadMat)); parent.add(S.paint.mesh(paintMat)); parent.add(S.con.mesh(conMat, { shadow: true })); }
   const spanG = new THREE.Group(); spanG.name = 'span';
   spanG.position.set(SPAN.x0, Y, 0);
@@ -149,4 +149,25 @@ function gantrySign(back = false) {
   g.fillStyle = '#f2f2f2'; g.font = `900 64px ${JP}`; g.fillText(back ? '← 出口 EXIT' : '黒金線 ←', 420, 312);
   const t = canvasTex(c, { repeat: false, aniso: 4 });
   return new THREE.Mesh(new THREE.PlaneGeometry(9.2, 3.45), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35 }));
+}
+
+// weathered expressway concrete (one 2.1 m tile): board-form lines, form-tie holes, rain streaks running
+// down from the top lip, tyre scuffs and road grime along the foot, a reflector stud
+function concreteTex() {
+  const S = 256, c = makeCanvas(S, S), g = c.getContext('2d'), rng = makeRng(311);
+  g.fillStyle = '#b8b4ac'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 9000; i++) { const v = rng(); g.fillStyle = `rgba(${v < 0.5 ? '40,38,34' : '255,252,246'},${0.08 * rng()})`; g.fillRect(rng() * S, rng() * S, 1.5 + rng() * 2, 1.5 + rng() * 2); }
+  g.fillStyle = 'rgba(60,56,50,0.18)'; for (let y = 0; y < S; y += 32) g.fillRect(0, y, S, 1.5);
+  g.fillStyle = 'rgba(40,38,34,0.5)'; g.fillRect(0, 0, 2, S);
+  for (const [x, y] of [[40, 70], [168, 70], [40, 198], [168, 198]]) { g.fillStyle = 'rgba(30,28,26,0.55)'; g.beginPath(); g.arc(x, y, 3.2, 0, 7); g.fill(); }
+  // streaks from the lip (v ≈ 0.5 is the barrier top: the tile's lower half shows on the 1.05 m barrier)
+  for (let i = 0; i < 26; i++) { const x = rng() * S, y0 = S * 0.5 + rng() * 6, len = 30 + rng() * 90, a = 0.08 + rng() * 0.16;
+    const lg = g.createLinearGradient(0, y0, 0, y0 + len); lg.addColorStop(0, `rgba(54,48,40,${a})`); lg.addColorStop(1, 'rgba(54,48,40,0)'); g.fillStyle = lg; g.fillRect(x, y0, 2 + rng() * 5, len); }
+  for (let i = 0; i < 18; i++) { const x = rng() * S, y0 = rng() * 20, len = 30 + rng() * 70, a = 0.06 + rng() * 0.12;
+    const lg = g.createLinearGradient(0, y0, 0, y0 + len); lg.addColorStop(0, `rgba(54,48,40,${a})`); lg.addColorStop(1, 'rgba(54,48,40,0)'); g.fillStyle = lg; g.fillRect(x, y0, 2 + rng() * 5, len); }
+  // road grime + tyre scuffs along the foot
+  const gr = g.createLinearGradient(0, S, 0, S - 60); gr.addColorStop(0, 'rgba(40,36,32,0.55)'); gr.addColorStop(1, 'rgba(40,36,32,0)'); g.fillStyle = gr; g.fillRect(0, S - 60, S, 60);
+  for (let i = 0; i < 6; i++) { g.strokeStyle = `rgba(20,20,20,${0.2 + rng() * 0.25})`; g.lineWidth = 3 + rng() * 5; g.beginPath(); const x = rng() * S; g.moveTo(x, S - 8 - rng() * 14); g.lineTo(x + 40 + rng() * 80, S - 6 - rng() * 12); g.stroke(); }
+  g.fillStyle = '#e8a21a'; g.fillRect(124, S - 96, 10, 6);
+  return canvasTex(c, { aniso: 8 });
 }

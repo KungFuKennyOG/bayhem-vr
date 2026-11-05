@@ -322,6 +322,23 @@ export function buildCity(ctx = {}) {
       if (e.neon) haloQuad([C[0] - N[0] * 0.08, y, C[2] - N[2] * 0.08], N, w * 1.3, hh + 2, e.glow, 0.16);
     }
     if (lot.h < 34 && L > 7 && rng() < 0.36 && !lot.noBill) billboard(lot, Wl);
+    // outdoor AC units on little brackets under the windows, a drain pipe down one side (by day the
+    // facade's clutter is what stops it reading as an office grid)
+    if (DAY.on && !big) {
+      const { O, T, N } = Wl, bays = Math.max(1, Math.round(L / 3));
+      for (let f = 1; f < lot.floors; f++) for (let i = 0; i < bays; i++) {
+        if (rng() > 0.09) continue;
+        const a2 = (i + 0.5) * L / bays + R(-0.4, 0.4), y = GROUND_H + f * lot.floorH - lot.floorH * 0.72;
+        if (Math.abs(a2 - a) < 1.4) continue;
+        const P = (u, yy, o) => [O[0] + T[0] * u + N[0] * o, yy, O[2] + T[2] * u + N[2] * o];
+        const c = P(a2, y, 0.32), hx = Math.abs(T[0]) * 0.42 + Math.abs(N[0]) * 0.18, hz = Math.abs(T[2]) * 0.42 + Math.abs(N[2]) * 0.18;
+        prop.set({ col: hex(0xd8d6ce), rm: [0.6, 0.2, 0] }); prop.box(c[0] - hx, y, c[2] - hz, c[0] + hx, y + 0.6, c[2] + hz);
+        prop.set({ col: hex(0x2a2a2a), rm: [0.7, 0.3, 0] }); const g = P(a2 + 0.08, y + 0.3, 0.505); prop.cyl(g[0], y + 0.12, g[2], 0.2, 0.2, y + 0.5, 8, { cap: false });
+        prop.set({ col: hex(0x6a6c70), rm: [0.5, 0.6, 0] }); const k0 = P(a2 - 0.3, y - 0.05, 0.25), k1 = P(a2 + 0.3, y - 0.05, 0.25);
+        prop.box(Math.min(k0[0], k1[0]) - 0.03 - Math.abs(N[0]) * 0.25, y - 0.08, Math.min(k0[2], k1[2]) - 0.03 - Math.abs(N[2]) * 0.25, Math.max(k0[0], k1[0]) + 0.03 + Math.abs(N[0]) * 0.25, y - 0.02, Math.max(k0[2], k1[2]) + 0.03 + Math.abs(N[2]) * 0.25);
+      }
+      if (rng() < 0.6) { const u = rng() < 0.5 ? 0.25 : L - 0.25, p0 = [O[0] + T[0] * u + N[0] * 0.12, O[2] + T[2] * u + N[2] * 0.12]; prop.set({ col: hex(0x8a8a86), rm: [0.6, 0.3, 0] }); prop.cyl(p0[0], 0, p0[1], 0.06, 0.06, lot.h, 6, { cap: false }); }
+    }
   }
   // K-FRONT (the QFRONT stand-in): the giant screen covers its crossing face; a café band at 2F under it,
   // the brand band at street level, a vertical name at the corner
@@ -360,7 +377,7 @@ export function buildCity(ctx = {}) {
   }
   function roofClutter(lot) {
     const { x0, z0, x1, z1, h } = lot;
-    const n = Math.floor(R(1, 4));
+    const n = Math.floor(R(DAY.on ? 2 : 1, DAY.on ? 6 : 4));
     for (let i = 0; i < n; i++) {
       const x = R(x0 + 1.5, x1 - 1.5), z = R(z0 + 1.5, z1 - 1.5), t = rng();
       if (t < 0.35) { prop.set({ col: hex(0xb8b4aa), rm: [0.7, 0.2, 0] }); prop.cyl(x, h, z, 1.1, 1.1, h + 2.4, 10); prop.set({ col: hex(0x5a5a5a), rm: [0.7, 0.5, 0] }); for (const [dx, dz] of [[-0.8, -0.8], [0.8, 0.8]]) prop.box(x + dx - 0.08, h, z + dz - 0.08, x + dx + 0.08, h + 0.9, z + dz + 0.08); }

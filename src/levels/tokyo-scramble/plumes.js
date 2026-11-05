@@ -37,7 +37,7 @@ void main(){
   float n = n1 * 0.65 + n2 * 0.45;
   float u = vUv.x - 0.5 - drift + (n1 - 0.5) * 0.16 * v;
   float body = 1.0 - pow(abs(u) / (w * (0.75 + 0.5 * n2)), 2.0);
-  float a = clamp(body * (0.7 + 1.3 * n) - 0.12, 0.0, 1.0) * smoothstep(0.5, 0.42, abs(vUv.x - 0.5)) * smoothstep(0.0, 0.05, v) * (1.0 - pow(v, 2.6)) * uK;
+  float a = smoothstep(0.0, 0.55, body) * clamp(0.25 + 1.1 * n * n, 0.0, 1.0) * smoothstep(0.5, 0.36, abs(vUv.x - 0.5)) * smoothstep(0.0, 0.05, v) * (1.0 - pow(v, 2.6)) * uK;
   // lit side (the sun is to one side of the column as you see it), billows catch light
   float lit = clamp(0.5 + uSide * u / w * 0.6, 0.0, 1.0) * smoothstep(0.08, 0.5, v);
   vec3 c = mix(vec3(0.035, 0.03, 0.028), vec3(0.27, 0.26, 0.24), lit * (0.3 + 0.6 * n));

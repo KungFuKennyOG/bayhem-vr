@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BillboardBatch, CELL } from '../../particles.js';
+import { DAY } from './tod.js';
 
 // =====================================================================================
 //  Laser sights on the regular gunmen (the snipers keep Level 3's big beams): a thin red beam from
@@ -16,7 +17,7 @@ export class RifleLasers {
     const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false });
     m.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying float vEyeD;\nvoid main() {')
-        .replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\n vec4 axisW = modelMatrix * instanceMatrix * vec4(0.0, 0.0, position.z, 1.0);\n float axD = -(viewMatrix * axisW).z;\n transformed.xy *= max(1.0, axD * 0.45);')
+        .replace('#include <begin_vertex>', `vec3 transformed = vec3(position);\n vec4 axisW = modelMatrix * instanceMatrix * vec4(0.0, 0.0, position.z, 1.0);\n float axD = -(viewMatrix * axisW).z;\n transformed.xy *= max(1.0, axD * ${DAY.on ? '0.16' : '0.45'});`)
         .replace('#include <project_vertex>', '#include <project_vertex>\n vEyeD = -mvPosition.z;');
       sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'varying float vEyeD;\nvoid main() {').replace('#include <opaque_fragment>', '#include <opaque_fragment>\n gl_FragColor.rgb *= smoothstep(0.8, 4.5, vEyeD);');
     };
@@ -55,7 +56,7 @@ export class RifleLasers {
       _q.setFromUnitVectors(Z, _d);
       _m.compose(_a, _q, _s.set(0.0045, 0.0045, len)); this.mesh.setMatrixAt(n, _m);
       const k = s._lz * (0.75 + 0.25 * Math.sin(g.time * 13 + s.pos.x));
-      this.mesh.instanceColor.setXYZ(n, 2.4 * k, 0.08 * k, 0.06 * k);
+      const kd = DAY.on ? 0.7 : 1; this.mesh.instanceColor.setXYZ(n, 2.4 * k * kd, 0.08 * k * kd, 0.06 * k * kd);
       n++;
       _b.copy(_a).addScaledVector(_d, len);
       if (d < this.dots.max) this.dots.set(d++, _b.x, _b.y + 0.02, _b.z, 0.18, 0.18, 0, CELL.GLOW, 0, 3 * k, 0.2 * k, 0.12 * k, 1);

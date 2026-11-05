@@ -392,7 +392,7 @@ export function buildStreet(ctx = {}) {
   // ---------------------------------------------------------------- meshes
   const tA = asphaltTex(), tW = sidewalkTex(), tP = plazaTex(), tC = centerTex();
   const mats = {
-    asphalt: new THREE.MeshStandardMaterial({ map: tA, color: 0xe2e2e6, roughness: 0.7, metalness: 0.0, emissive: 0x000000 }),
+    asphalt: new THREE.MeshStandardMaterial({ map: tA, color: 0xe4dfd8, roughness: 0.7, metalness: 0.0, emissive: 0x000000 }),
     walk: new THREE.MeshStandardMaterial({ map: tW, vertexColors: true, color: 0xcfcbc4, roughness: 0.82 }),
     plaza: new THREE.MeshStandardMaterial({ map: tP, vertexColors: true, color: 0xdcd4c8, roughness: 0.6 }),
     center: new THREE.MeshStandardMaterial({ map: tC, vertexColors: true, color: 0xd2c8be, roughness: 0.72 }),

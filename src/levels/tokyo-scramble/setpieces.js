@@ -290,14 +290,14 @@ export class SetPieces {
     if (this.gas) this.gas.phase = 'done';
     g.slowmo(3.2, 0.22, true);
     const P = new THREE.Vector3(0, 2, -32);
-    g.boom(P, 3.0, { radius: 10, dmg: 0, player: false, shake: 1.8 });
-    g.fx.later(0.1, () => g.boom(P.clone().add(_v.set(-4, 1.5, 3)), 2.2, { radius: 6, dmg: 0, player: false, noRing: true }));
-    g.fx.later(0.2, () => g.boom(P.clone().add(_v.set(4, 3, 4)), 2.2, { radius: 6, dmg: 0, player: false, noRing: true }));
+    g.boom(P, 2.3, { radius: 10, dmg: 0, player: false, shake: 1.8 });
+    g.fx.later(0.1, () => g.boom(P.clone().add(_v.set(-4, 1.5, 3)), 1.6, { radius: 6, dmg: 0, player: false, noRing: true }));
+    g.fx.later(0.2, () => g.boom(P.clone().add(_v.set(4, 3, 4)), 1.6, { radius: 6, dmg: 0, player: false, noRing: true }));
     this.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
     // the arch sign comes down in sparks
     for (let i = 0; i < 60; i++) g.fx.later(range(0, 1.2), () => g.fx.sparks.spawn({ x: range(-7, 7), y: range(6.4, 7.8), z: -30 + range(-0.4, 0.4), vx: range(-2, 2), vy: range(-1, 3), vz: range(0, 4), grav: 9.8, drag: 0.2, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.12, life: range(1, 2.4), r: 2.9, g: 2.2, b: 1.2, a: 1, fadeOut: 0.3 }));
     // a rolling fireball out into the crossing (forced: this one gets the budget)
-    for (let i = 0; i < 9; i++) g.fx.later(0.05 + i * 0.07, () => g.fx.explosion(_v.set(range(-5, 5), range(2, 5), -26 + i * 1.6).clone(), 1.6 - i * 0.08, { noRing: true }));
+    for (let i = 0; i < 7; i++) g.fx.later(0.08 + i * 0.09, () => g.fx.explosion(_v.set(range(-5, 5), range(2, 5), -26 + i * 1.6).clone(), 1.25 - i * 0.07, { noRing: true }));
     g.events.push({ type: 'dive' });
   }
 

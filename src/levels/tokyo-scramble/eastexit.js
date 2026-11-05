@@ -118,12 +118,12 @@ export function buildEastExit(ctx = {}) {
   const bal = (x0, z0, x1, z1, y = Y, h = 1.1) => {
     const alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), L = alongX ? x1 - x0 : z1 - z0;
     const n = Math.max(1, Math.round(L / 1.6));
-    prop.set({ col: hex(0x9aa0a6), rm: [0.35, 0.75, 0] });
+    prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] });
     for (let i = 0; i <= n; i++) { const t = i / n, px = alongX ? x0 + L * t : (x0 + x1) / 2, pz = alongX ? (z0 + z1) / 2 : z0 + L * t; prop.box(px - 0.04, y, pz - 0.04, px + 0.04, y + h, pz + 0.04, { faces: 'xXzZ' }); }
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     if (alongX) { prop.box(x0, y + h - 0.06, cz - 0.05, x1, y + h + 0.02, cz + 0.05); prop.box(x0, y, cz - 0.05, x1, y + 0.12, cz + 0.05, { faces: 'zZY' }); }
     else { prop.box(cx - 0.05, y + h - 0.06, z0, cx + 0.05, y + h + 0.02, z1); prop.box(cx - 0.05, y, z0, cx + 0.05, y + 0.12, z1, { faces: 'xXY' }); }
-    glass.set({ col: hex(0x9fb2b8), rm: [0.12, 0.35, 0.02] });
+    glass.set({ col: hex(0x7d8a88), rm: [0.15, 0.25, 0.0] });
     if (alongX) glass.box(x0, y + 0.14, cz - 0.012, x1, y + h - 0.1, cz + 0.012, { faces: 'zZ' });
     else glass.box(cx - 0.012, y + 0.14, z0, cx + 0.012, y + h - 0.1, z1, { faces: 'xX' });
     col(alongX ? [x0, y - 0.3, cz - 0.12] : [cx - 0.12, y - 0.3, z0], alongX ? [x1, y + h, cz + 0.12] : [cx + 0.12, y + h, z1], { kind: 'rail', mat: 'metal', layer: 'deck' });
@@ -166,10 +166,10 @@ export function buildEastExit(ctx = {}) {
       const P = (x, y) => [x, y, z + s * 0.06];
       if (s > 0) prop.quad(P(xl, lo - 0.3), P(xh, hi - 0.45), P(xh, hi + 0.25), P(xl, lo + 0.25)); else prop.quad(P(xh, hi - 0.45), P(xl, lo - 0.3), P(xl, lo + 0.25), P(xh, hi + 0.25));
       // sloped glass balustrade above the stringer
-      glass.set({ col: hex(0x9fb2b8), rm: [0.12, 0.35, 0.02] });
+      glass.set({ col: hex(0x7d8a88), rm: [0.15, 0.25, 0.0] });
       const G = (x, y) => [x, y, z];
       glass.quad(G(xl, lo + 0.3), G(xh, hi + 0.3), G(xh, hi + 1.0), G(xl, lo + 1.0)); glass.quad(G(xh, hi + 0.3), G(xl, lo + 0.3), G(xl, lo + 1.0), G(xh, hi + 1.0));
-      prop.set({ col: hex(0x9aa0a6), rm: [0.35, 0.75, 0] }); prop.tube([xl, lo + 1.1, z], [xh, hi + 1.1, z], 0.04, 6);
+      prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); prop.tube([xl, lo + 1.1, z], [xh, hi + 1.1, z], 0.04, 6);
       for (let x = xl; x <= xh + 0.01; x += 1.8) prop.box(x - 0.04, yAt(x), z - 0.04, x + 0.04, yAt(x) + 1.1, z + 0.04, { faces: 'xXzZ' });
       // cheeks: block the stair's sides at every height (the street nav sees them too)
       for (let x = S.x0; x < S.x1 - 0.01; x += 2) { const ya = yAt(x), yb = yAt(x + 2); col([x, 0, z - (s < 0 ? 0.25 : 0)], [x + 2, Math.max(ya, yb) + 1.1, z + (s > 0 ? 0.25 : 0)], { kind: 'rail', mat: 'metal' }); }
@@ -192,10 +192,10 @@ export function buildEastExit(ctx = {}) {
       const ya = R2.y0 + (R2.y1 - R2.y0) * (x - R2.x0) / (R2.x1 - R2.x0), yb = R2.y0 + (R2.y1 - R2.y0) * (x + 4 - R2.x0) / (R2.x1 - R2.x0);
       prop.set({ col: hex(0xbcb9b2), rm: [0.85, 0, 0] });
       prop.quad([x, Y - T, zS + 0.01], [x + 4, Y - T, zS + 0.01], [x + 4, yb + 0.25, zS + 0.01], [x, ya + 0.25, zS + 0.01]);
-      glass.set({ col: hex(0x9fb2b8), rm: [0.12, 0.35, 0.02] });
+      glass.set({ col: hex(0x7d8a88), rm: [0.15, 0.25, 0.0] });
       glass.quad([x, ya + 0.3, zS + 0.03], [x + 4, yb + 0.3, zS + 0.03], [x + 4, yb + 1.0, zS + 0.03], [x, ya + 1.0, zS + 0.03]);
       glass.quad([x + 4, yb + 0.3, zS + 0.02], [x, ya + 0.3, zS + 0.02], [x, ya + 1.0, zS + 0.02], [x + 4, yb + 1.0, zS + 0.02]);
-      prop.set({ col: hex(0x9aa0a6), rm: [0.35, 0.75, 0] }); prop.tube([x, ya + 1.1, zS], [x + 4, yb + 1.1, zS], 0.04, 6); prop.box(x - 0.04, ya, zS - 0.04, x + 0.04, ya + 1.1, zS + 0.04, { faces: 'xXzZ' });
+      prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); prop.tube([x, ya + 1.1, zS], [x + 4, yb + 1.1, zS], 0.04, 6); prop.box(x - 0.04, ya, zS - 0.04, x + 0.04, ya + 1.1, zS + 0.04, { faces: 'xXzZ' });
       col([x, Y - 0.3, zS - 0.35], [x + 4, Math.max(ya, yb) + 1.1, zS + 0.05], { kind: 'rail', mat: 'metal' });
       // the set-back face from the stair up to the terrace
       fac.set({ cell: cellRect(FCELL.stationGlass), info: [94 + x, 0, 0, 3], col: [1, 1, 1] });
@@ -241,7 +241,7 @@ export function buildEastExit(ctx = {}) {
     for (const [bx, bz] of [[92, -106], [72, -94]]) { prop.set({ col: hex(0x6a5a46), rm: [0.8, 0, 0] }); prop.box(bx - 1.2, B + 0.42, bz - 0.25, bx + 1.2, B + 0.5, bz + 0.25); prop.set({ col: hex(0x8a8e92), rm: [0.4, 0.7, 0] }); prop.box(bx - 1.1, B, bz - 0.2, bx - 1.0, B + 0.42, bz + 0.2); prop.box(bx + 1.0, B, bz - 0.2, bx + 1.1, B + 0.42, bz + 0.2); }
     // a kiosk pavilion (glass + white canopy) on the terrace — cover
     prop.set({ col: hex(0xe6e4de), rm: [0.6, 0, 0] }); prop.box(94, B + 3, -124, 106, B + 3.25, -116);
-    prop.set({ col: hex(0x9aa0a6), rm: [0.35, 0.75, 0] }); for (const [px, pz] of [[94.3, -123.7], [105.7, -123.7], [94.3, -116.3], [105.7, -116.3]]) prop.box(px - 0.08, B, pz - 0.08, px + 0.08, B + 3, pz + 0.08);
+    prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); for (const [px, pz] of [[94.3, -123.7], [105.7, -123.7], [94.3, -116.3], [105.7, -116.3]]) prop.box(px - 0.08, B, pz - 0.08, px + 0.08, B + 3, pz + 0.08);
     prop.set({ col: hex(0xd8d6d0), rm: [0.5, 0.2, 0] }); prop.box(97, B, -123, 103, B + 1.1, -120);
     col([97, B, -123], [103, B + 1.1, -120], { kind: 'counter' });
     // the billboard on the terrace's north edge, facing the expressway (and its back facing the plaza)
@@ -309,15 +309,15 @@ export function buildEastExit(ctx = {}) {
     // zelkova trees in round granite planters
     for (const [x, z] of [[62, -42], [96, -42], [62, -66], [96, -66]]) {
       prop.set({ col: hex(0x8a857c), rm: [0.75, 0, 0] }); prop.cyl(x, y, z, 1.3, 1.3, y + 0.55, 14);
-      zelkova(prop, x, y + 0.5, z, 1.0, x * 3 + z);
+      zelkova(prop, x, y + 0.5, z, 0.82, x * 3 + z);
       col([x - 1.3, 0, z - 1.3], [x + 1.3, y + 0.55, z + 1.3], { kind: 'planter' });
       col([x - 0.25, 0, z - 0.25], [x + 0.25, 4.4, z + 0.25], { kind: 'tree', mat: 'wood' });
     }
     // two bus shelters (glass, a white roof, the route board)
     const shelter = (cx, cz) => {
       prop.set({ col: hex(0xe8e6e0), rm: [0.55, 0.1, 0] }); prop.box(cx - 3.5, y + 2.5, cz - 1.0, cx + 3.5, y + 2.7, cz + 1.0);
-      prop.set({ col: hex(0x9aa0a6), rm: [0.35, 0.75, 0] }); for (const dx of [-3.3, 0, 3.3]) prop.box(cx + dx - 0.05, y, cz - 0.95, cx + dx + 0.05, y + 2.5, cz - 0.85);
-      glass.set({ col: hex(0x9fb2b8), rm: [0.12, 0.35, 0.02] }); glass.box(cx - 3.3, y + 0.3, cz - 0.92, cx + 3.3, y + 2.3, cz - 0.9, { faces: 'zZ' });
+      prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); for (const dx of [-3.3, 0, 3.3]) prop.box(cx + dx - 0.05, y, cz - 0.95, cx + dx + 0.05, y + 2.5, cz - 0.85);
+      glass.set({ col: hex(0x7d8a88), rm: [0.15, 0.25, 0.0] }); glass.box(cx - 3.3, y + 0.3, cz - 0.92, cx + 3.3, y + 2.3, cz - 0.9, { faces: 'zZ' });
       prop.set({ col: hex(0x6a5a46), rm: [0.8, 0, 0] }); prop.box(cx - 2.5, y + 0.42, cz - 0.8, cx + 2.5, y + 0.5, cz - 0.4);
       signQuad(sign, [cx + 2.2, y + 1.6, cz - 0.87], [0, 0, 1], 1.0, 1.4, SE.plate[(Math.floor(cx) % SE.plate.length + SE.plate.length) % SE.plate.length].uv, 1.0);
       col([cx - 3.4, 0, cz - 1.0], [cx + 3.4, y + 2.4, cz - 0.82], { kind: 'shelter', mat: 'glass' });
