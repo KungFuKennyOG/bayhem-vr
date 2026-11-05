@@ -46,6 +46,7 @@ def style(text, levels=()):
     if ex > 0.4:  # true deadpan asides stay deadpan
         lift = max([LIFT.get(v, 0) for v in levels] or [0])
         ex, cfg = min(1.2, ex + lift), max(0.3, cfg - lift / 2)
+    if len(re.findall(r"[A-Za-z']+", text)) <= 3: ex = min(ex, 0.95)  # very short shouts slur above this ("GET IN!" -> "Bye, Jen")
     return ex, cfg
 
 def _style(text):
