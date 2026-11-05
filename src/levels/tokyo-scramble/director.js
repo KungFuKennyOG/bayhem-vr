@@ -97,9 +97,9 @@ export class Director {
           // the ones you leave below shoot up at you; the terrace holds the ones above
           for (const [x, z, d] of [[66, -40, 6], [90, -62, 8], [74, -66, 12]]) S({ x, z, delay: d });
           for (const [x, z, d] of [[60, -95, 4], [84, -100, 6], [100, -118, 8], [70, -92, 14]]) S({ x, z, delay: d, flanker: d > 7 });
-          A?.go([{ p: V(84, 0, -27), nav: null, slow: 0.6 }, { p: V(104.5, 0, -27), nav: null, slow: 0.5 }, { p: V(107, 0, -32), nav: null, slow: 0.5 }, { p: V(107, 0, -77), nav: null, slow: 0.45 },
-            { p: V(103, 0, -83), nav: null, slow: 0.5 }, { p: V(54, 0, -83), nav: null, slow: 0.5 }, { p: V(49, 0, -89), nav: null, slow: 0.5 }, go(80, -95, { slow: 0.5 }), go(97, -124, { slow: 0.55 }), go(97, -133, {})]);
-        }, until: (t) => (pz() < -128 && py() > XWAY.y - 0.5 && t > 6) || t > 160 * T },
+          A?.go([{ p: V(84, 0, -27), nav: null, slow: 0.75 }, { p: V(104.5, 0, -27), nav: null, slow: 0.7 }, { p: V(107, 0, -32), nav: null, slow: 0.7 }, { p: V(107, 0, -77), nav: null, slow: 0.65 },
+            { p: V(103, 0, -83), nav: null, slow: 0.7 }, { p: V(54, 0, -83), nav: null, slow: 0.7 }, { p: V(49, 0, -89), nav: null, slow: 0.65 }, go(80, -95, { slow: 0.6 }), go(97, -124, { slow: 0.6 }), go(97, -133, {})]);
+        }, until: (t) => (pz() < -128 && py() > XWAY.y - 0.5 && t > 6) || t > 200 * T },
       // 5 ---- the expressway jam
       { name: 'xway', wp: V(36, XWAY.y + 2, -148), hunt: true, arrive: true, music: 0.85, enter: () => {
           this.sp.tankerArmed = true;

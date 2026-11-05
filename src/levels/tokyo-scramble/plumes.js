@@ -31,18 +31,18 @@ varying vec2 vUv;
 void main(){
   float v = vUv.y;
   float drift = pow(v, 1.5) * 0.22;
-  float w = 0.07 + 0.36 * pow(v, 0.75);
+  float w = 0.1 + 0.38 * pow(v, 0.7);
   float n1 = texture2D(tN, vec2(vUv.x * 1.3 + uSeed, v * 1.6 - uT * 0.018)).r;
   float n2 = texture2D(tN, vec2(vUv.x * 2.7 - uSeed, v * 3.4 - uT * 0.041)).r;
   float n = n1 * 0.65 + n2 * 0.45;
   float u = vUv.x - 0.5 - drift + (n1 - 0.5) * 0.16 * v;
   float body = 1.0 - pow(abs(u) / w, 2.0);
-  float a = clamp(body * (0.55 + 0.9 * n) - 0.12, 0.0, 1.0) * smoothstep(0.0, 0.05, v) * (1.0 - pow(v, 2.6)) * uK;
+  float a = clamp(body * (0.9 + 1.1 * n) - 0.05, 0.0, 1.0) * smoothstep(0.0, 0.05, v) * (1.0 - pow(v, 2.6)) * uK;
   // lit side (the sun is to one side of the column as you see it), billows catch light
   float lit = clamp(0.5 + uSide * u / w * 0.6, 0.0, 1.0) * smoothstep(0.08, 0.5, v);
-  vec3 c = mix(vec3(0.05, 0.045, 0.04), vec3(0.34, 0.33, 0.31), lit * (0.4 + 0.6 * n));
+  vec3 c = mix(vec3(0.035, 0.03, 0.028), vec3(0.27, 0.26, 0.24), lit * (0.3 + 0.6 * n));
   c += vec3(1.6, 0.55, 0.15) * (1.0 - smoothstep(0.0, 0.07, v)) * n;   // the fire at its foot
-  c = mix(c, uHaze, 0.32 * smoothstep(0.2, 1.0, v));
+  c = mix(c, uHaze, 0.22 * smoothstep(0.3, 1.0, v));
   gl_FragColor = vec4(c, a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -59,8 +59,8 @@ export function buildPlumes(ctx = {}) {
     return p;
   };
   // over the skyline in every direction you look from the bridge, the crossing and the expressway
-  add(640, -180, 210, 640, 0.13); add(420, -640, 170, 560, 0.41); add(-560, -460, 150, 480, 0.77);
-  add(520, 420, 190, 600, 0.29); add(-80, 720, 160, 520, 0.61); add(900, 260, 240, 700, 0.9, 0.85);
+  add(430, -150, 300, 760, 0.13); add(300, -480, 240, 640, 0.41); add(-420, -380, 220, 560, 0.77);
+  add(380, 330, 260, 700, 0.29); add(-60, 520, 220, 600, 0.61); add(760, 180, 320, 820, 0.9, 0.9);
   const update = (dt, t, head) => {
     for (const p of list) {
       p.material.uniforms.uT.value = t;

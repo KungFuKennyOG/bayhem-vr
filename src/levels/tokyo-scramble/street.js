@@ -356,6 +356,26 @@ export function buildStreet(ctx = {}) {
     colliders.push({ min: [-7.7, 0, zG - 0.3], max: [-7.1, 8.6, zG + 0.3], data: { mat: 'metal', kind: 'pole' } }); colliders.push({ min: [7.1, 0, zG - 0.3], max: [7.7, 8.6, zG + 0.3], data: { mat: 'metal', kind: 'pole' } });
   }
 
+  // ---------------------------------------------------------------- blue direction gantries over the avenues
+  {
+    const tex = gantryTex(), m = signMat(tex, { color: 1.1, vc: false });
+    const gantry = (cx, cz, alongX, w, flip) => {
+      // posts at the road edges, a box truss beam, the blue sign facing the traffic
+      prop.set({ col: hex(0x9aa0a4), rm: [0.45, 0.6, 0] });
+      const half = w / 2;
+      for (const s of [-1, 1]) { const px = alongX ? cx : cx + s * half, pz = alongX ? cz + s * half : cz; prop.cyl(px, CURB, pz, 0.22, 0.2, 7.6, 10); colliders.push({ min: [px - 0.25, 0, pz - 0.25], max: [px + 0.25, 7.6, pz + 0.25], data: { mat: 'metal', kind: 'pole' } }); }
+      if (alongX) { prop.box(cx - 0.25, 6.9, cz - half, cx + 0.25, 7.5, cz + half); } else { prop.box(cx - half, 6.9, cz - 0.25, cx + half, 7.5, cz + 0.25); }
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.6), m);
+      if (alongX) { g.position.set(cx + (flip ? -0.3 : 0.3), 6.1, cz + half * 0.35); g.rotation.y = flip ? -Math.PI / 2 : Math.PI / 2; }
+      else { g.position.set(cx - half * 0.3, 6.1, cz + (flip ? -0.3 : 0.3)); g.rotation.y = flip ? Math.PI : 0; }
+      prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] });
+      if (alongX) prop.box(cx - 0.28, 4.75, g.position.z - 4.6, cx + 0.28, 7.45, g.position.z + 4.6, { faces: 'xX' });
+      else prop.box(g.position.x - 4.6, 4.75, cz - 0.28, g.position.x + 4.6, 7.45, cz + 0.28, { faces: 'zZ' });
+      root.add(g);
+    };
+    gantry(70, 0, true, 2 * AVE_E.road + 1, true);           // over the east avenue, facing you as you head east
+    gantry(0, 70, false, 2 * AVE_S.road + 1, true);           // over the south avenue, facing the crossing
+  }
   // ---------------------------------------------------------------- meshes
   const tA = asphaltTex(), tW = sidewalkTex(), tP = plazaTex(), tC = centerTex();
   const mats = {
@@ -387,4 +407,17 @@ function archSign() {
   const t = canvasTex(c, { repeat: false, aniso: 4 });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.6), signMat(t, { color: 1.6, vc: false }));
   return m;
+}
+
+// the blue road direction sign (expressway-style lettering, white on blue, route shields)
+function gantryTex() {
+  const W = 1024, H = 296, c = makeCanvas(W, H), g = c.getContext('2d');
+  g.fillStyle = '#1b56a8'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#f2f4f6'; g.lineWidth = 8; g.strokeRect(10, 10, W - 20, H - 20);
+  g.fillStyle = '#fff'; g.textBaseline = 'middle';
+  const col = (x, arrow, jp, en) => { g.textAlign = 'center'; g.font = '700 70px Anton, sans-serif'; g.fillText(arrow, x, 70); g.font = `900 64px ${JP}`; g.fillText(jp, x, 160); g.font = '400 34px Anton, sans-serif'; g.fillText(en, x, 228); };
+  col(170, '←', '霞台', 'KASUMIDAI'); col(512, '↑', '黒金駅', 'KUROGANE STA.'); col(854, '→', '銀鶏', 'GINKEI');
+  g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(340, 40, 4, 216); g.fillRect(682, 40, 4, 216);
+  g.fillStyle = '#2e8a3e'; g.fillRect(560, 22, 110, 40); g.fillStyle = '#fff'; g.font = '700 30px Anton, sans-serif'; g.fillText('246', 615, 43);
+  return canvasTex(c, { repeat: false, aniso: 8 });
 }
