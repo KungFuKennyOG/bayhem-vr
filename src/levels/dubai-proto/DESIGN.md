@@ -16,6 +16,7 @@ A tech test for the Level 8 finale, not the level. Grey boxes, no art polish. It
 - **VR:** left grip = WORST CASE, right grip = RESET, A = next mid tower, B = hero tower, X = dust level (off → low → mid → high), Y = panel (cabin → wrist → float → off). Triggers fire the rifle and launcher at the ground.
 - **Desktop:** 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.
 - A button press takes over from the auto timeline until RESET. Manual phases show with a `*` in the table.
+- A run (and the table) starts when play starts. Resets happen behind a short fade to black, which isn't recorded: a reset puts the whole skyline back, and done in the open it looks exactly like the swap popping.
 
 ## URL flags
 | Flag | Default | Meaning |
@@ -34,7 +35,7 @@ A tech test for the Level 8 finale, not the level. Grey boxes, no art polish. It
 | `escort` | 1 | WIDOWMAKER flying alongside. |
 | `speed` / `bank` / `pitch` / `alt` / `radius` | 38 / 6 / 1.5 / 250 / 640 | Rail: m/s, max roll in degrees (0 = horizon-locked), max pitch in degrees, altitude, loop radius. |
 | `slowmo` | 1 | World slow-mo on the hero break. |
-| `hz` | (72) | Ask the XR session for 72, 90 or 120 Hz. The panel's budget line follows. |
+| `hz` | 72 | Ask the XR session for this display rate (72 = the Level 8 target; 90 / 120 to compare; 0 = browser default, which is 90 on Quest Browser). The panel's budget follows the session's real rate. |
 | `panel` | `cabin` | `cabin`, `wrist`, `float`, `off`. |
 | `shadows` | 0 | Sun shadows (off by default, see HANDOFF). |
 | `gpu` | 1 | GPU timer queries. |
