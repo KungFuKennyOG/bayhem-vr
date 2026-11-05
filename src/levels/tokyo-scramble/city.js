@@ -308,12 +308,14 @@ export function buildCity(ctx = {}) {
       while (lot.h > yy + 3.5 && rng() < 0.55) { const H2 = Math.min(R(3.6, 6), lot.h - yy - 0.6); blade(lot, Wl, a, yy, H2, pickBlade()); yy += H2 + 0.5; }
     }
     if (!big && L > 8 && rng() < 0.4 && lot.floors >= 3) { if (rng() < 0.5) directory(lot, Wl, L - a); else if (y0 + 5 < lot.h) blade(lot, Wl, L - a, y0 + R(0, 2), R(3.5, 5.5), pickBlade()); }
-    // lettering on the windows of a floor or two; the odd tenant box across a floor
-    if (!big) for (let f = 0; f < Math.min(3, lot.floors - 1); f++) if (rng() < 0.32) windowLetters(lot, Wl, f);
-    if (!big && rng() < 0.22 && lot.floors >= 3) {
-      const f = 1 + Math.floor(rng() * Math.min(3, lot.floors - 1));
+    // lettering on the windows of a few floors; tenant boxes across others (by day the zakkyo building's
+    // floors are what carries the street: every one a different tenant, labelled)
+    const used = new Set();
+    if (!big) for (let f = 0; f < Math.min(DAY.on ? 6 : 3, lot.floors - 1); f++) if (rng() < (DAY.on ? 0.5 : 0.32)) { windowLetters(lot, Wl, f); used.add(f + 1); }
+    if (!big && lot.floors >= 3) for (let f = 1; f <= Math.min(DAY.on ? 6 : 1, lot.floors - 1); f++) {
+      if (used.has(f) || rng() > (DAY.on ? 0.4 : 0.22)) continue;
       const y = GROUND_H + (f - 1) * lot.floorH + lot.floorH * 0.5;
-      const e = pickFascia(), w = Math.min(L * R(0.5, 0.75), 7), hh = Math.min(w / 4.27, lot.floorH * 0.6);
+      const e = pickFascia(), w = Math.min(L * R(0.5, 0.8), 7.5), hh = Math.min(w / 4.27, lot.floorH * 0.6);
       const { O, T, N } = Wl;
       const C = [O[0] + T[0] * L / 2 + N[0] * 0.12, y, O[2] + T[2] * L / 2 + N[2] * 0.12];
       signQuad(sign, C, N, w, hh, e.uv, e.neon ? 1.8 : 1.3);
@@ -461,7 +463,12 @@ export function buildCity(ctx = {}) {
   const mHalo = halo.mesh(haloMaterial()); mHalo.renderOrder = 6; mHalo.receiveShadow = false; root.add(mHalo);
   const a2 = signAtlas2().tex;
   const mS2 = sign2.mesh(signMat(a2)); mS2.renderOrder = 2; root.add(mS2);
-  const mW2 = win2.mesh(new THREE.MeshBasicMaterial({ visible: !DAY.on, map: a2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })); mW2.renderOrder = 5; root.add(mW2);
+  // window lettering: lit letters added on the glass at night; by day the same atlas cells as cut vinyl
+  // (alpha keyed from the letters on their black ground), lit by the sun like the wall
+  const winDay = () => { const m = new THREE.MeshStandardMaterial({ map: a2, vertexColors: false, roughness: 0.5, alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, emissive: 0xffffff, emissiveIntensity: 0.15, emissiveMap: a2 });
+    m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  { float lk = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b); diffuseColor.a = smoothstep(0.06, 0.22, lk); diffuseColor.rgb = clamp(diffuseColor.rgb / max(lk, 0.2) * 0.85, 0.0, 1.0); }'); };
+    m.customProgramCacheKey = () => 'tkWinDay'; return m; };
+  const mW2 = win2.mesh(DAY.on ? winDay() : new THREE.MeshBasicMaterial({ map: a2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })); mW2.renderOrder = 5; root.add(mW2);
   for (const S of screens) root.add(S.root);
   let t = 0;
   const update = (dt) => { t += dt; for (const S of screens) S.update(t); };

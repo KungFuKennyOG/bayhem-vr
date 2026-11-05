@@ -104,6 +104,25 @@ export function buildProps(ctx = {}) {
     col([x - 0.8, 0, z - 1.4], [x + 0.8, CURB + 1.05, z + 1.4], 'stall', 'wood'); lights.push({ x, z, r: 3.5, color: [1.6, 0.6, 0.3], k: 0.7 }); }
   // flower stand + bikes near the station stairs
   for (const [x, z] of [[-48, -6], [-48, 7]]) { P.set({ col: hex(0x3a2a1a), rm: [0.7, 0, 0] }); P.box(x - 0.6, CURB, z - 1, x + 0.6, CURB + 0.8, z + 1); for (let i = 0; i < 6; i++) { P.set({ col: hex([0xd83a6a, 0xf2c21a, 0xe8e0d8, 0xd85a1a][i % 4]), rm: [0.9, 0, 0.05] }); P.cyl(x + R(-0.4, 0.4), CURB + 0.8, z + R(-0.8, 0.8), 0.14, 0.18, CURB + 1.05, 6); } col([x - 0.6, 0, z - 1], [x + 0.6, CURB + 1.05, z + 1], 'stand', 'wood'); }
+  // ---- nobori: the tall cloth shop banners on poles (every shopping street in Japan), bright, vertical text
+  {
+    const tex = noboriTex(), m = new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.9, alphaTest: 0.5 });
+    const NB = new Acc();
+    const flag = (x, z, ang, k) => {
+      const c = Math.cos(ang), s_ = Math.sin(ang), w = 0.5, h = 1.75, y0 = CURB + 0.75;
+      const u0 = k / 8, u1 = (k + 1) / 8;
+      // the cloth hangs a little bowed in the breeze
+      NB.quad([x, y0, z], [x + c * w, y0 + 0.02, z + s_ * w], [x + c * w * 0.98, y0 + h, z + s_ * w * 0.98], [x, y0 + h, z], [u0, 0, u1, 1]);
+      P.set({ col: hex(0x8a8e92), rm: [0.45, 0.6, 0] }); P.cyl(x, CURB, z, 0.018, 0.018, y0 + h + 0.12, 5, { cap: false }); P.tube([x, y0 + h + 0.05, z], [x + c * w, y0 + h + 0.05, z + s_ * w], 0.012, 4);
+      P.set({ col: hex(0x5a5c60), rm: [0.6, 0.3, 0] }); P.cyl(x, CURB, z, 0.14, 0.14, CURB + 0.08, 8);
+    };
+    let k = 0;
+    // Center-gai, both sides, in front of the shops; the plaza's shop fronts; the avenue's
+    for (const side of [-1, 1]) for (let z = CENTER.z0 + 8; z < CENTER.z1 - 2; z += R(3.5, 8)) if (rng() < 0.75) { const x = side * (CENTER.half - 0.9); flag(x, z, side > 0 ? Math.PI / 2 + 0.2 : -Math.PI / 2 - 0.2, (k++) % 8); if (rng() < 0.5) flag(x, z + 0.7, side > 0 ? Math.PI / 2 + 0.2 : -Math.PI / 2 - 0.2, (k++) % 8); }
+    for (let x = 32; x < 160; x += R(5, 12)) if (rng() < 0.6) flag(x, (rng() < 0.5 ? -1 : 1) * 16.2, rng() * 0.6 - 0.3, (k++) % 8);
+    for (let z = 32; z < 120; z += R(6, 14)) if (rng() < 0.5) flag((rng() < 0.5 ? -1 : 1) * 16.2, z, Math.PI / 2 + rng() * 0.6 - 0.3, (k++) % 8);
+    const mn = NB.mesh(m); mn.castShadow = true; root.add(mn);
+  }
   // ---- meshes
   root.add(P.mesh(rmMat({}), { shadow: true }));
   root.add(S.mesh(signMaterial()));
@@ -117,4 +136,22 @@ function kobanSign() {
   g.fillStyle = '#c81a1a'; g.fillRect(0, H - 10, W, 10);
   const t = canvasTex(c, { repeat: false, aniso: 4 });
   return new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), signMat(t, { color: 1.3, vc: false }));
+}
+
+// eight nobori designs side by side: a bright field, a white band, the words down it (sale, open, ramen...)
+function noboriTex() {
+  const W = 1024, H = 512, c = makeCanvas(W, H), g = c.getContext('2d');
+  const D = [['#d8281c', '営業中', '#fff'], ['#f2c21a', '大盛無料', '#c8281c'], ['#1f7a3e', '生ビール', '#fff'], ['#1b4aa0', 'カラオケ', '#fff'],
+    ['#e85a9a', 'セール', '#fff'], ['#f2f0e8', 'ラーメン', '#c8281c'], ['#d8281c', '焼き鳥', '#f2c21a'], ['#f28a1a', 'たこ焼', '#1a1a1a']];
+  g.clearRect(0, 0, W, H);
+  D.forEach(([bg, t, fg], i) => {
+    const x = i * 128 + 6, w = 116;
+    g.fillStyle = bg; g.fillRect(x, 0, w, H);
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.fillRect(x, 0, w, 26); g.fillStyle = bg; g.font = `900 18px ${JP}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('のぼり', x + w / 2, 13);
+    // cloth edge: a darker hem with the pole loops
+    g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 30; y < H; y += 40) g.fillRect(x, y, 8, 18);
+    g.fillStyle = fg; const chars = [...t], st = (H - 60) / chars.length;
+    chars.forEach((ch, k) => { g.font = `900 ${Math.min(st * 0.86, 96)}px ${JP}`; g.fillText(ch, x + w / 2 + 3, 46 + st * (k + 0.5)); });
+  });
+  return canvasTex(c, { repeat: false, aniso: 4 });
 }

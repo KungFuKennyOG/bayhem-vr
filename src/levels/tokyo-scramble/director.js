@@ -165,7 +165,7 @@ export class Director {
             }
           }
           if (this.went && t > 3 && first('halfway') && pz() > -50) say('Keep going! It\'s right behind you!', 1.8);
-        }, until: () => pz() > DIVE_Z },
+        }, until: (t) => t > 0.5 && pz() > DIVE_Z },
       // 10 ---- the dive: the last one comes out of the street behind you
       { name: 'dive', wp: null, music: 1.0, enter: () => {
           this.sp.finale();

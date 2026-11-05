@@ -232,7 +232,7 @@ export function buildStreet(ctx = {}) {
     [[0.15, 1.6, 0.6], [2.4, 1.6, 0.2], [2.6, 0.3, 0.15]].forEach((c, i) => {
       const px = hcx + armDir[0] * (i - 1) * 0.48 + nx * 0.2, pz = hcz + armDir[1] * (i - 1) * 0.48 + nz * 0.2;
       const on = i === lit;
-      prop.set({ col: on ? c.map(v => Math.min(1, v / 2.6)) : [0.05, 0.05, 0.05], rm: [0.3, 0, on ? 2.5 : 0] });
+      prop.set({ col: on ? c.map(v => Math.min(1, v / 2.6)) : [0.05, 0.05, 0.05], rm: [0.3, 0, on ? 4.0 : 0] });
       prop.box(px - 0.15, 5.8, pz - 0.15, px + 0.15, 6.1, pz + 0.15, { faces: nz > 0.5 ? 'Z' : nz < -0.5 ? 'z' : nx > 0.5 ? 'X' : 'x' });
       if (on) glows.push({ p: [px + nx * 0.05, 5.95, pz + nz * 0.05], color: c, size: 0.7 });
     });
@@ -240,6 +240,7 @@ export function buildStreet(ctx = {}) {
     const pxh = x + pedDir[0] * 0.25, pzh = z + pedDir[1] * 0.25;
     prop.set({ col: hex(0x2a2c2e), rm: [0.5, 0.4, 0] }); prop.box(pxh - 0.25, 2.6, pzh - 0.25, pxh + 0.25, 3.5, pzh + 0.25);
     const walk = rng() < 0.5;
+    { const fx = pxh + pedDir[0] * 0.26, fz = pzh + pedDir[1] * 0.26, yy = walk ? 2.85 : 3.25; prop.set({ col: walk ? [0.1, 0.9, 0.75] : [1, 0.12, 0.08], rm: [0.3, 0, 4.0] }); prop.box(fx - 0.17 * Math.abs(pedDir[1]) - 0.005, yy - 0.17, fz - 0.17 * Math.abs(pedDir[0]) - 0.005, fx + 0.17 * Math.abs(pedDir[1]) + 0.005, yy + 0.17, fz + 0.17 * Math.abs(pedDir[0]) + 0.005); }
     glows.push({ p: [pxh + pedDir[0] * 0.27, walk ? 2.85 : 3.25, pzh + pedDir[1] * 0.27], color: walk ? [0.2, 2.2, 1.8] : [2.6, 0.25, 0.15], size: 0.55 });
     colliders.push({ min: [x - 0.18, 0, z - 0.18], max: [x + 0.18, 6.6, z + 0.18], data: { mat: 'metal', kind: 'pole', thin: true } });
   };
@@ -356,6 +357,18 @@ export function buildStreet(ctx = {}) {
     colliders.push({ min: [-7.7, 0, zG - 0.3], max: [-7.1, 8.6, zG + 0.3], data: { mat: 'metal', kind: 'pole' } }); colliders.push({ min: [7.1, 0, zG - 0.3], max: [7.7, 8.6, zG + 0.3], data: { mat: 'metal', kind: 'pole' } });
   }
 
+  const lateGround = [];
+  // ---------------------------------------------------------------- yellow tactile guide strips (tenji blocks) down every sidewalk
+  {
+    const T = new Acc(), st = (x0, z0, x1, z1) => T.quad([x0, CURB + 0.012, z1], [x1, CURB + 0.012, z1], [x1, CURB + 0.012, z0], [x0, CURB + 0.012, z0], [x0 / 0.3, -z1 / 0.3, x1 / 0.3, -z0 / 0.3]);
+    st(30, -14.6, 168, -14.3); st(30, 14.3, 168, 14.6); st(-14.6, 30, -14.3, 128); st(14.3, 30, 14.6, 128);
+    st(-25.2, -25.2, 25.2, -24.9); st(-25.2, 24.9, 25.2, 25.2); st(24.9, -25.2, 25.2, 25.2); st(-25.2, -25.2, -24.9, 25.2);
+    // the warning pads at every crossing edge
+    for (const [x, z, w, d] of [[-8, -22.4, 16, 0.6], [-8, 21.8, 16, 0.6], [21.8, -8, 0.6, 16], [-22.4, -8, 0.6, 16]]) st(x, z, x + w, z + d);
+    const tc = makeCanvas(64, 64), tg = tc.getContext('2d'); tg.fillStyle = '#d8b21a'; tg.fillRect(0, 0, 64, 64); tg.fillStyle = '#b8920e'; for (let i = 0; i < 4; i++) tg.fillRect(4 + i * 16, 4, 6, 56);
+    const tm = new THREE.MeshStandardMaterial({ map: canvasTex(tc, { aniso: 4 }), roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const tmesh = T.mesh(tm); tmesh.receiveShadow = true; root.add(tmesh); lateGround.push(tm);
+  }
   // ---------------------------------------------------------------- blue direction gantries over the avenues
   {
     const tex = gantryTex(), m = signMat(tex, { color: 1.1, vc: false });
@@ -384,7 +397,7 @@ export function buildStreet(ctx = {}) {
     plaza: new THREE.MeshStandardMaterial({ map: tP, vertexColors: true, color: 0xdcd4c8, roughness: 0.6 }),
     center: new THREE.MeshStandardMaterial({ map: tC, vertexColors: true, color: 0xd2c8be, roughness: 0.72 }),
   };
-  const ground = [];
+  const ground = [...lateGround];
   for (const k of Object.keys(surf)) { const m = surf[k].mesh(mats[k]); m.receiveShadow = true; root.add(m); ground.push(mats[k]); }
   const markMat = new THREE.MeshStandardMaterial({ map: markTex(), transparent: true, roughness: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const mMark = mk.mesh(markMat); mMark.renderOrder = 1; root.add(mMark); ground.push(markMat);

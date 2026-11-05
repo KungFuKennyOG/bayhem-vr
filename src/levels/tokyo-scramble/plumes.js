@@ -30,14 +30,14 @@ uniform sampler2D tN; uniform float uT, uSeed, uSide, uK; uniform vec3 uHaze;
 varying vec2 vUv;
 void main(){
   float v = vUv.y;
-  float drift = pow(v, 1.5) * 0.22;
-  float w = 0.1 + 0.38 * pow(v, 0.7);
+  float drift = pow(v, 1.5) * 0.12;
+  float w = 0.07 + 0.27 * pow(v, 0.7);
   float n1 = texture2D(tN, vec2(vUv.x * 1.3 + uSeed, v * 1.6 - uT * 0.018)).r;
   float n2 = texture2D(tN, vec2(vUv.x * 2.7 - uSeed, v * 3.4 - uT * 0.041)).r;
   float n = n1 * 0.65 + n2 * 0.45;
   float u = vUv.x - 0.5 - drift + (n1 - 0.5) * 0.16 * v;
-  float body = 1.0 - pow(abs(u) / w, 2.0);
-  float a = clamp(body * (0.9 + 1.1 * n) - 0.05, 0.0, 1.0) * smoothstep(0.0, 0.05, v) * (1.0 - pow(v, 2.6)) * uK;
+  float body = 1.0 - pow(abs(u) / (w * (0.75 + 0.5 * n2)), 2.0);
+  float a = clamp(body * (0.7 + 1.3 * n) - 0.12, 0.0, 1.0) * smoothstep(0.5, 0.42, abs(vUv.x - 0.5)) * smoothstep(0.0, 0.05, v) * (1.0 - pow(v, 2.6)) * uK;
   // lit side (the sun is to one side of the column as you see it), billows catch light
   float lit = clamp(0.5 + uSide * u / w * 0.6, 0.0, 1.0) * smoothstep(0.08, 0.5, v);
   vec3 c = mix(vec3(0.035, 0.03, 0.028), vec3(0.27, 0.26, 0.24), lit * (0.3 + 0.6 * n));
