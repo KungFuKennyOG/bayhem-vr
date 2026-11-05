@@ -27,6 +27,11 @@ export const LEVELS = [
     blurb: 'Fight down the Seine quays at night, cross the bridge, bring down a gunship among the lattice — then watch her fall.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. At the end, run onto the boat.',
   },
+  {
+    id: 'tokyo-scramble', num: '06', title: 'TOKYO SCRAMBLE', tagline: 'MIDNIGHT. ONE CROSSING. ONE GAS MAIN.',
+    blurb: 'Down into the scramble crossing under the giant screens, up through a car park onto the expressway — then run from the street itself.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Watch the billboard catwalks for red dots.',
+  },
 ];
 
 export const levelById = (id) => LEVELS.find(l => l.id === id) || LEVELS[0];

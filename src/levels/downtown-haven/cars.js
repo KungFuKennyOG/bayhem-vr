@@ -9,8 +9,9 @@ import { blobShadowTexture } from '../../textures.js';
 //  all opaque parts in ONE mesh (shared material: atlas map × vertex colour, per-vertex roughness /
 //  metalness / emission in a `rm` attribute), glass in a second, contact shadow in a third → 3 draws.
 //  Model space: forward = -z, wheels on y = 0, left (driver) = -x.
-//  opts.city = 'paris' (Level 5): French liveries + long EU plates, its own atlas / body material; the default
-//  (no city) path is untouched.
+//  opts.city = 'paris' (Level 5): French liveries + long EU plates, its own atlas / body material.
+//  opts.city = 'tokyo' (Level 6): only the taxi paint and the police light colours change (same atlas).
+//  The default (no city) path is untouched.
 // =====================================================================================
 
 const AW = 2048;                                  // atlas size (px)
@@ -18,6 +19,7 @@ const SIDE_ROW = { sedan: 0, taxi: 1, police: 2, suv: 3, van: 4, bus: 5 }; // 25
 const R = {};                                     // named atlas rects [x, y, w, h] in px
 let ATLAS = null, MAT = null, THIN = null;           // THIN: antenna / mirrors (kept out of the cover bounds)
 let PARIS = false, MAT_P = null;                     // PARIS: the car being built uses the Paris liveries
+let TOKYO = false;                                   // TOKYO (Level 6): dark taxis, all-red police light bars (default atlas)
 
 // ---------------------------------------------------------------------- small math
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1281,9 +1283,10 @@ function policeKit(bk, S, lights) {
   pushGeo(bk, RBOX(1.36, 0.06, 0.3, 0.02, 1), M4(0, y + 0.02, z), C.black, RM.satin);
   for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
     const x = s * (0.13 + k * 0.19);
-    const col = s < 0 && !PARIS ? [0.8, 0.03, 0.02] : [0.03, 0.12, 0.9];
+    const red = TOKYO || (s < 0 && !PARIS);
+    const col = red ? [0.8, 0.03, 0.02] : [0.03, 0.12, 0.9];
     pushGeo(bk, RBOX(0.17, 0.085, 0.24, 0.03, 1), M4(x, y + 0.095, z), col, [0.06, 0.1, 0.5]);
-    if (k !== 1) lights.push({ p: [x, y + 0.1, z], kind: s < 0 && !PARIS ? 'red' : 'blue' });
+    if (k !== 1) lights.push({ p: [x, y + 0.1, z], kind: red ? 'red' : 'blue' });
   }
   pushGeo(bk, RBOX(0.1, 0.08, 0.24, 0.03, 1), M4(0, y + 0.09, z), [1, 1, 1], [0.06, 0.1, 0.4]);
   if (PARIS) {   // no push bar / A-pillar spot: two blue strobes in the grille instead
@@ -1329,7 +1332,7 @@ function suvKit(bk, S) {
 
 // ---------------------------------------------------------------------- public API
 export function buildCar(type, opts = {}) {
-  PARIS = opts.city === 'paris';
+  PARIS = opts.city === 'paris'; TOKYO = opts.city === 'tokyo';
   const M = materials(PARIS);
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
@@ -1342,7 +1345,7 @@ export function buildCar(type, opts = {}) {
   const kind = wreck ? 'sedan' : type;
   let S;
   let paint = hex(opts.paint ?? (type === 'taxi' ? 0xf2b705 : type === 'police' ? 0xf4f4f2 : type === 'suv' ? 0x0d0e10 : type === 'van' ? 0xe8e6e0 : 0x6f7378));
-  if (type === 'taxi') paint = PARIS ? hex([0x17181b, 0x24262a, 0x101113, 0x2e3034][seed & 3]) : hex(0xf2b705);
+  if (type === 'taxi') paint = PARIS ? hex([0x17181b, 0x24262a, 0x101113, 0x2e3034][seed & 3]) : TOKYO ? hex([0x161c34, 0x101113, 0x173a2a, 0x161c34, 0x5a1a1e, 0xd8a818][seed % 6]) : hex(0xf2b705);
   if (type === 'police') paint = hex(0xf4f4f2);
   if (type === 'bus') S = buildBus(out, rng, lights);
   else {
