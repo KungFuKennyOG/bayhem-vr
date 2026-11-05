@@ -29,6 +29,11 @@ const ALL = [
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. At the end, run onto the boat.',
   },
   {
+    id: 'tokyo-scramble', num: '06', title: 'TOKYO SCRAMBLE', tagline: 'HARD SUN. ONE CROSSING. ONE GAS MAIN.',
+    blurb: 'Down into the scramble crossing under the giant screens, up through the station decks onto the expressway — then run from the street itself.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Watch the billboard catwalks for red dots — and look up at the decks.',
+  },
+  {
     id: 'dubai-proto', num: '08', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true, hidden: true,
     blurb: 'Door-gunner heli loop around a collapsing grey-box skyline. Measures the Level 8 finale on the headset.',
     help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',
