@@ -17,12 +17,35 @@ const NEAR_R = 35;         // soldiers inside this still count as "the fight"
 const FAR_R = 45;          // soldiers beyond this are dropped on an arrival skip
 const QUICK = 1.0, MAX_WAIT = 6.0;
 
+//  A beat whose `arrive()` still says no (snipers up, the boat still afloat) can add `gate: () =>
+//  Vector3 | null`: once the player has stood at the marker for GATE_T, the waypoint moves to what is
+//  holding the beat (and `gateMsg` pops as a callout), then returns to the marker when it's dealt with.
+//  Before, the marker just sat under the player's feet with nothing happening.
+const GATE_T = 2.0;
+
+function updateGate(dir, s, atMarker, dt) {
+  const g = dir.g, hud = g.hud;
+  if (dir.gateBeat !== s) { dir.gateBeat = s; dir.gateOn = false; dir.gateT = 0; }
+  if (!s.gate || !hud) return;
+  if (!dir.gateOn) {
+    dir.gateT = atMarker ? dir.gateT + dt : 0;
+    if (dir.gateT < GATE_T) return;
+    const P = s.gate(); if (!P) return;
+    dir.gateOn = true;
+    if (s.gateMsg) g.callout?.(s.gateMsg, P.clone().setY(P.y + 3), 'small');
+  }
+  const P = s.gate();
+  if (P) hud.setWaypoint(P); else { dir.gateOn = false; dir.gateT = 0; hud.setWaypoint(s.wp); }
+}
+
 export function arrivedAtMarker(dir, dt) {
   const s = dir.cur, g = dir.g;
   if (!s || !s.wp || !s.arrive || dir.t < 3) return false;
-  if (typeof s.arrive === 'function' && !s.arrive()) { dir.atMarker = 0; return false; }
   const h = g.headPos;
-  if (Math.hypot(h.x - s.wp.x, h.z - s.wp.z) > ARRIVE_R) { dir.atMarker = 0; return false; }
+  const at = Math.hypot(h.x - s.wp.x, h.z - s.wp.z) <= ARRIVE_R;
+  if (typeof s.arrive === 'function' && !s.arrive()) { dir.atMarker = 0; updateGate(dir, s, at, dt); return false; }
+  if (dir.gateOn) { dir.gateOn = false; g.hud?.setWaypoint(s.wp); }
+  if (!at) { dir.atMarker = 0; return false; }
   dir.atMarker = (dir.atMarker || 0) + dt;
   let near = 0;
   for (const o of g.soldiers) if (o.alive && o.pos.distanceTo(h) < NEAR_R) near++;

@@ -133,25 +133,14 @@ export class Director {
       { name: 'credits', wp: null, music: 0.6, dusk: 0.62, enter: () => {
           setp.holdNight = 0; // the hold goes to red night lighting as the credits roll
           const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 'S'}`;
+          // not the game's end any more: a level-complete card rolls through the sky band, then on to Paris
           setp.rollCredits([
-            { text: 'BAYHEM', big: true, sub: 'A FILM BY EXPLOSIONS' },
+            { text: 'AIRPORT NO RETURN', big: true, sub: 'LEVEL 4 COMPLETE' },
             null,
             { text: `${pl(g.kills, 'GOON')}  •  ${pl(g.jetsDown, 'JET')}  •  ${pl(g.carsDown, 'SUV')}`, dim: true },
             { text: `${pl(g.headshots, 'HEADSHOT')}  •  SCORE ${g.score}`, dim: true },
-            null,
-            { text: 'STARRING', dim: true }, { text: 'YOU' },
-            null,
-            { text: 'THE DRIVER', dim: true }, { text: 'HIMSELF' },
-            null,
-            { text: 'THE JEEP', dim: true }, { text: 'IN LOVING MEMORY' },
-            null,
-            { text: 'THE FORKLIFT', dim: true }, { text: 'AS ITSELF' },
-            null,
-            { text: 'GOONS', dim: true }, { text: 'ALL OF THEM' },
-            null,
-            { text: 'NO JETS WERE HARMED', dim: true }, { text: '(THAT IS A LIE)' },
             null, null,
-            { text: 'THANKS FOR PLAYING', big: true },
+            { text: 'NEXT STOP', dim: true }, { text: 'PARIS', big: true },
           ]);
           say('Hey — where are we flying?', 2.4, 'DRIVER');
           later(3.0, () => say('...Is that a question I should be worried about?', 2.8, 'DRIVER'));
@@ -160,9 +149,9 @@ export class Director {
           g.cinematicLook = setp.cargo.root.localToWorld(V(CREDITS_X, CARGO.floorY + 2.4, 30)); g.cinematicW = 2; // eye on the sky band where the credits roll
           g.scene.fog.far = Math.min(5200, g.scene.fog.far + (1 / 30) * 300); // open up the view: airport lights on the horizon
           // last shot: the ramp starts closing on the sunset
-          if (t > (trailer ? 18 : 24)) { setp.rampA = Math.max(-0.42, setp.rampA - (1 / 30) * 0.06); setp.cargo.setRamp(setp.rampA); }
-          if (t > (trailer ? 22 : 30)) hud.black.material.opacity = Math.min(1, (t - (trailer ? 22 : 30)) / 2);
-        }, until: (t) => t > (trailer ? 25 : 33) },
+          if (t > (trailer ? 11 : 13)) { setp.rampA = Math.max(-0.42, setp.rampA - (1 / 30) * 0.06); setp.cargo.setRamp(setp.rampA); }
+          if (t > (trailer ? 14 : 17)) hud.black.material.opacity = Math.min(1, (t - (trailer ? 14 : 17)) / 2);
+        }, until: (t) => t > (trailer ? 17 : 20) },
     ];
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');

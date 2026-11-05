@@ -265,7 +265,7 @@ function ramps(S) {
     const ry = s > 0 ? rampNY : rampSY;
     const xs = brk(steps(land, xHigh, 1.5), steps(xHigh, xLow, 1.5));
     // pavés on the ramp (rows run up the slope), a flagstone gutter at the wall foot
-    surf(cobble, xs, brk(steps(46.45, 51.1, 1.2)).map((z) => s * z), (x, z) => [x, ry(x), z], { hint: [0, 1, 0], ws: TC, col: cobbleCol, rm: RM.cobble, uv: (p) => [p[2] / TC, p[0] / TC] });
+    surf(cobble, xs, brk(steps(46.0, 51.1, 1.2)).map((z) => s * z), (x, z) => [x, ry(x), z], { hint: [0, 1, 0], ws: TC, col: cobbleCol, rm: RM.cobble, uv: (p) => [p[2] / TC, p[0] / TC] });
     surf(stone, xs, [s * 51.1, s * 52], (x, z) => [x, ry(x) + 0.004, z], { hint: [0, 1, 0], ws: TS, col: (p) => mul(stoneCol(p, { base: [0.6, 0.58, 0.55] }), 0.7), rm: RM.wet });
     // river-side wall: lower-quay face, coping (1.0 m above the ramp), ramp-side face
     const zO = s * 45.55, zI = s * 46.0, top = (x) => ry(x) + 1.0;
@@ -902,7 +902,13 @@ function lowerFurniture(S) {
   const rng = makeRng(9911), P = S.B.props;
   // wall lanterns along the retaining walls (walkable stretch dense, scenery stretch sparser)
   for (const s of [1, -1]) {
-    for (let x = 22; x <= 340; x += 24) wallLantern(S, x, Math.max(LOW_Y, groundY(x, s * 51.5)) + 3.2, s);
+    for (let x = 22; x <= 340; x += 24) {
+      // 3.2 m above the ground at the wall foot; skip the ones where a ramp lifts that above the
+      // retaining wall's top (street level): they hung in the sky over the parapet
+      const y = Math.max(LOW_Y, groundY(x, s * 51.5)) + 3.2;
+      if (y + 0.6 > 0) continue;
+      wallLantern(S, x, y, s);
+    }
     for (let x = -30; x >= -330; x -= 40) farWallLamp(S, x, s);
     for (let x = 380; x <= 580; x += 50) farWallLamp(S, x, s);
   }
