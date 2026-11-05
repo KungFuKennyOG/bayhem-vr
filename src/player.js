@@ -71,7 +71,7 @@ export class Player {
           if (gp.buttons[3]?.pressed) w.multiplyScalar(1.5);
         }
       } else if (c.hand === 'right') {
-        if (this.snapArmed && Math.abs(ax) > 0.7) { this.snapArmed = false; rotateRigAboutHead(this.rig, this.camera, -Math.sign(ax) * Math.PI / 4); this.loco.turnFX = 1; this.g.audio.play('ui_select', { volume: 0.25, pitch: 0.6 }); }
+        if (this.snapArmed && Math.abs(ax) > 0.7) { this.snapArmed = false; rotateRigAboutHead(this.rig, this.camera, -Math.sign(ax) * Math.PI / 4); this.loco.turnFX = 1; }
         else if (Math.abs(ax) < 0.3) this.snapArmed = true;
         // right stick click: comfort vignette on/off (saved for next time)
         const click = !!gp.buttons[3]?.pressed;
