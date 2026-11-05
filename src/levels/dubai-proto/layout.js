@@ -10,7 +10,10 @@ export function readFlags(params, isQuest) {
   const num = (k, d, lo = -Infinity, hi = Infinity) => { const v = parseFloat(params.get(k)); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
   const bool = (k, d) => (params.has(k) ? params.get(k) !== '0' && params.get(k) !== 'false' : d);
   const dust = (params.get('dust') || 'mid').toLowerCase();
+  // route: 'orbit' circles the city ~250 m up; 'low' weaves between the mid towers at rooftop height
+  const low = (params.get('route') || '').toLowerCase() === 'low';
   return {
+    route: low ? 'low' : 'orbit',
     towers: Math.round(num('towers', 6, 0, 12)),     // mid-distance towers with the cheap vertex-shader rig
     hero: bool('hero', true),                          // the supertall with the full chunk + glass treatment
     far: Math.round(num('far', 48, 0, 160)),           // far skyline towers (intact <-> pre-ruined swap)
@@ -23,11 +26,11 @@ export function readFlags(params, isQuest) {
     swap: bool('swap', true),                          // far skyline swap on/off
     swapdebug: bool('swapdebug', false),               // ruined far towers tinted red (spot swaps in the headset)
     escort: bool('escort', true),                      // the WIDOWMAKER gunship (heli.js) flying alongside
-    speed: num('speed', 38, 5, 90),                    // cruise speed m/s
+    speed: num('speed', low ? 30 : 38, 5, 90),         // cruise speed m/s
     bank: num('bank', 6, 0, 25),                       // max cabin roll in degrees (0 = horizon-locked cabin)
     pitch: num('pitch', 1.5, 0, 10),                   // max cabin pitch in degrees
-    alt: num('alt', 250, 80, 600),                     // rail altitude
-    radius: num('radius', 640, 300, 1400),             // rail loop radius
+    alt: num('alt', low ? 150 : 250, 60, 600),         // rail altitude
+    radius: num('radius', low ? 370 : 640, 250, 1400), // rail loop radius
     beat: (params.get('beat') || 'cycle').toLowerCase(),
     slowmo: bool('slowmo', true),                      // world slow-mo on the hero fall (the heli keeps real time)
     hz: num('hz', 72, 0, 120),                         // XR display rate to request: 72 = the Level 8 target (90 / 120 to compare, 0 = browser default)
@@ -87,14 +90,30 @@ export function farTowers(n) {
 
 // the rail: a closed loop, ordered clockwise seen from above (decreasing angle) so the city
 // centre stays on the LEFT of the heli, where the open door is
-export function railPoints(F) {
+export function railPoints(F, towers = []) {
   // a smooth closed curve (low-frequency radius / height waves sampled densely): random knots made 1 g corners
   const pts = [];
-  const N = 48;
+  const N = F.route === 'low' ? 96 : 48;
   for (let i = 0; i < N; i++) {
     const a = -(i / N) * Math.PI * 2;
-    const r = F.radius * (1 + 0.1 * Math.sin(2 * a + 0.7) + 0.04 * Math.sin(3 * a + 2.1));
-    const y = F.alt * (1 + 0.08 * Math.sin(2 * a + 1.3) + 0.03 * Math.sin(3 * a));
+    let r, y;
+    if (F.route === 'low') {
+      // slalom: wherever a mid tower stands near the base circle, bend the path to pass it at `clear` metres from its
+      // centre, on whichever side is closer (inside for towers further out, outside for towers further in)
+      r = F.radius;
+      for (const t of towers) {
+        const rt = Math.hypot(t.x, t.z), at = Math.atan2(t.z, t.x);
+        const clear = 0.71 * Math.max(t.w, t.d) + 60;
+        if (Math.abs(rt - F.radius) >= clear) continue;
+        const want = rt >= F.radius ? rt - clear : rt + clear;
+        let da = a - at; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+        r += (want - F.radius) * Math.exp(-(((da * rt) / 150) ** 2));
+      }
+      y = F.alt * (1 + 0.08 * Math.sin(3 * a + 0.4));
+    } else {
+      r = F.radius * (1 + 0.1 * Math.sin(2 * a + 0.7) + 0.04 * Math.sin(3 * a + 2.1));
+      y = F.alt * (1 + 0.08 * Math.sin(2 * a + 1.3) + 0.03 * Math.sin(3 * a));
+    }
     pts.push([Math.cos(a) * r, y, Math.sin(a) * r]);
   }
   return pts;
