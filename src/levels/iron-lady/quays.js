@@ -209,8 +209,11 @@ function lowerQuays(S) {
     for (let x = -400; x < 600; x += 5 + rr() * 7) wallDecal(S.B.decal, [x, LOW_Y - 0.4 - 0.7, s * 40.0], [0, 0, -s], [0, 1, 0], 0.8 + rr() * 1.5, 1.4, D.streak2, [1, 1, 1]);
   }
   // graffiti on the walls near the bridge and the ramps (VR-readable size)
-  for (const [x, y, s, w] of [[28, -3.8, 1, 5.5], [80, -3.6, 1, 4.6], [150, -3.9, 1, 3.8], [36, -4.0, -1, 5], [120, -3.7, -1, 4.2], [-40, -3.8, 1, 5], [-60, -3.7, -1, 4.5]]) {
-    const y0 = groundY(x, s * 51.5);
+  // (x 28 on the north side used to sit past the top of the north ramp, where there is no wall: the clamp below
+  // lifted it to ~1.4 m over the street, a floating scribble in the bridge fight. It's at the ramp's foot now.)
+  for (const [x, y, s, w] of [[70, -3.8, 1, 5.5], [80, -3.6, 1, 4.6], [150, -3.9, 1, 3.8], [36, -4.0, -1, 5], [120, -3.7, -1, 4.2], [-40, -3.8, 1, 5], [-60, -3.7, -1, 4.5]]) {
+    const y0 = Math.max(groundY(x - w / 2, s * 51.5), groundY(x + w / 2, s * 51.5)), h = w * 0.37;
+    if (Math.max(y, y0 + 1.1) + h / 2 > -0.6) continue; // no wall left above the ground here: never float it
     wallDecal(S.B.decal, [x, Math.max(y, y0 + 1.1), s * 51.98], [0, 0, -s], [0, 1, 0], w, w * 0.37, D.graffiti, [1, 1, 1]);
   }
   // the outer bridge arch spans the lower quay; it is walled in under the bridge (fill wall at |x| 13.6 with a
@@ -363,6 +366,11 @@ function upperQuays(S) {
     // bridge-head sidewalk corners (9.5..14 between parapet line and the quay curb)
     for (const sx of [-1, 1]) surf(stone, [14, PED.x1 + 0.2].map((x) => sx * x), [52, 52.6].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], 0.9 * WET), rm: RM.wet });
     for (const sx of [-1, 1]) surf(stone, [9.5, 14].map((x) => sx * x), [52, 55, 57.8].map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], (0.85 + 0.25 * wfbm(p[0] * 0.1, p[2] * 0.1)) * WET), rm: RM.wet });
+    // ramp-top landing: the parapet is open here, so pave its footprint (it was a hole down past the
+    // retaining wall into the sky dome: a pink strip at the top of each ramp). surf faces +y only when x rises
+    // while z falls, hence the z order
+    { const [g0, g1] = s > 0 ? [RAMPN_LAND, RAMP_N.xHigh + 2] : [RAMPS_LAND, RAMP_S.xHigh + 2];
+      surf(stone, [g0, (g0 + g1) / 2, g1], (s > 0 ? [52.6, 52] : [52, 52.6]).map((z) => s * z), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TS, col: (p) => mul([0.62, 0.6, 0.57], (0.85 + 0.25 * wfbm(p[0] * 0.1, p[2] * 0.1)) * WET), rm: RM.wet }); }
     // curbs
     curbX(S, xsRange(X0, X1, [], 4), s * 58, -s);
     curbX(S, xsRange(X0, -9.5, [], 4), s * 72, s); curbX(S, xsRange(9.5, X1, [], 4), s * 72, s);
@@ -1151,6 +1159,13 @@ function park(S) {
   surf(gravel, steps(-90, 90, 15), steps(-250, -300, -10), (x, z) => [x, 0, z], { n: () => [0, 1, 0], ws: TG, col: gravelCol, rm: RM.gravel });
   // granite edging between quay sidewalk and park
   curbX(S, steps(-90, 90, 3), -78.15, -1);
+  // sidewalks along the flanking blocks (the gravel stops at |x| 90, the blocks start at 96: the gap between
+  // showed the sky dome as a pink line at the foot of the facades). 1.5 cm low so it never fights the facade plinths.
+  for (const sx of [-1, 1]) {
+    const xs = sx > 0 ? [90, 93.2, 96.4] : [-96.4, -93.2, -90];
+    surf(S.B.asph, xs, steps(-129.6, -256.4, -4.2), (x, z) => [x, -0.015, z], { n: () => [0, 1, 0], ws: TA, col: (p) => asphCol(p, true), rm: RM.asph });
+    curbZ(S, steps(-130, -255, -5), sx * 90, -sx);
+  }
   // lawns framed by clipped hedges and hoops (clear of the leg plinths by 10 m)
   for (const sx of [-1, 1]) {
     lawn(S, sx > 0 ? 68 : -82, -126, sx > 0 ? 82 : -68, -112); lawn(S, sx > 0 ? 68 : -82, -168, sx > 0 ? 82 : -68, -132);

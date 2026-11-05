@@ -85,7 +85,7 @@ export class IronWorld {
     }
     this._bounds();
     this._collectDusk(this.group);
-    this.glows = new BillboardBatch(Math.max(64, this.glowList.length + 16), E.atlas, { boost: 1, renderOrder: 19, fog: this.scene.fog });
+    this.glows = new BillboardBatch(Math.max(64, this.glowList.length + 16), E.atlas, { boost: 1, renderOrder: 19, fog: this.scene.fog, ground: -20 });
     this.scene.add(this.glows.mesh);
     return this;
   }

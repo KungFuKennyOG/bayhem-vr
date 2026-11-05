@@ -17,7 +17,7 @@ export class Traffic {
   constructor(game, carMod, fallback) {
     this.g = game; this.scene = game.scene; this.col = game.col;
     this.cars = [];
-    this.glows = new BillboardBatch(220, game.E.atlas, { boost: 1, renderOrder: 19, fog: game.scene.fog });
+    this.glows = new BillboardBatch(220, game.E.atlas, { boost: 1, renderOrder: 19, fog: game.scene.fog, ground: -20 });
     this.scene.add(this.glows.mesh);
     let k = 0;
     for (const [x, z, yawDeg, type, flags = ''] of CARS) {
