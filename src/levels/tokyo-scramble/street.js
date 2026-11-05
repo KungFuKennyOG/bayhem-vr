@@ -4,7 +4,8 @@ import { makeCanvas, canvasTex } from '../../textures.js';
 import { Acc, rmMat, hex } from './kit.js';
 import { signAtlas, JP } from './signs.js';
 import { signQuad, signMaterial, haloMaterial } from './city.js';
-import { CROSS, AVE_E, AVE_S, PLAZA, TAXI, CENTER, CROSS_ST, CURB, MANHOLES, XWAY } from './layout.js';
+import { CROSS, AVE_E, AVE_S, PLAZA, TAXI, CENTER, CROSS_ST, CURB, MANHOLES, XWAY, KOEN } from './layout.js';
+import { signAtlas2 } from './signs2.js';
 
 // =====================================================================================
 //  Street level: asphalt / sidewalk / plaza / Center-gai paving (world-space textures, all on the
@@ -120,6 +121,7 @@ export function buildStreet(ctx = {}) {
   rect(surf.asphalt, AVE_E.x0, -AVE_E.road, AVE_E.x1 + 20, AVE_E.road, 0, AS);
   rect(surf.asphalt, -AVE_S.road, AVE_S.z0, AVE_S.road, AVE_S.z1 + 20, 0, AS);
   rect(surf.asphalt, TAXI.x0, TAXI.z0, TAXI.x1, TAXI.z1, 0, AS);
+  rect(surf.asphalt, KOEN.x0 + 1.5, KOEN.z0, KOEN.x1 - 1.5, KOEN.z1, 0, AS);
   rect(surf.asphalt, -280, CROSS_ST.z0, 280, CROSS_ST.z1, 0, AS);
   // under everything (gaps, far ends): a dark base so nothing shows sky
   rect(surf.asphalt, -340, -300, 340, 320, -0.05, AS);
@@ -131,6 +133,7 @@ export function buildStreet(ctx = {}) {
   slab(surf.walk, 28, -17, AVE_E.x1 + 20, -11, W); slab(surf.walk, 28, 11, AVE_E.x1 + 20, 17, W);
   slab(surf.walk, -17, 28, -11, AVE_S.z1 + 20, W); slab(surf.walk, 11, 28, 17, AVE_S.z1 + 20, W);
   slab(surf.walk, -28, -22, -22, -11, W);
+  slab(surf.walk, KOEN.x0, KOEN.z0, KOEN.x0 + 1.5, -28, W); slab(surf.walk, KOEN.x1 - 1.5, KOEN.z0, KOEN.x1, -17, W);
   // plaza (granite), with the strips either side of the taxi lane
   slab(surf.plaza, PLAZA.x0, PLAZA.z0, TAXI.x0, PLAZA.z1, 4.8);
   slab(surf.plaza, TAXI.x0, PLAZA.z0, -28, TAXI.z0, 4.8); slab(surf.plaza, TAXI.x0, TAXI.z1, -28, PLAZA.z1, 4.8);
@@ -189,7 +192,7 @@ export function buildStreet(ctx = {}) {
   for (const [x, z] of [[6, -8], [-9, 12], [48, 3], [80, -7], [3, 60], [-3, 95], [130, 6]]) paint(x, z, 0.9, 0.9, 0, [4 / 8, 0, 5 / 8, 0.5]);
 
   // ---------------------------------------------------------------- furniture
-  const sign = new Acc(), halo = new Acc();
+  const sign = new Acc(), halo = new Acc(), arch2 = new Acc();
   const { E: SE } = signAtlas();
   // LED street lamps: grey pole, a slim head over the road, cool-white pool
   const lamp = (x, z, dir) => {
@@ -205,7 +208,13 @@ export function buildStreet(ctx = {}) {
   };
   for (let x = 36; x < AVE_E.x1; x += 24) { lamp(x, -16.2, [0, 1]); lamp(x + 12, 16.2, [0, -1]); }
   for (let z = 40; z < AVE_S.z1; z += 24) { lamp(-16.2, z, [1, 0]); lamp(16.2, z + 12, [-1, 0]); }
-  for (const [x, z, d] of [[-27, -27, [1, 1]], [27, -27, [-1, 1]], [27, 27, [-1, -1]], [-27, 27, [1, -1]]]) lamp(x, z, [d[0] * 0.7, d[1] * 0.7]);
+  for (const [x, z, d] of [[-27, -27, [1, 1]], [27, -27, [-1, 1]], [27, 27, [-1, -1]], [-27, 27, [1, -1]]]) {
+    lamp(x, z, [d[0] * 0.7, d[1] * 0.7]);
+    // a tall twin-head mast over the scramble itself (the crossing is lit like a stage)
+    const mx = x - d[0] * 1.2, mz = z - d[1] * 1.2;
+    prop.set({ col: hex(0x7a7c80), rm: [0.5, 0.6, 0] }); prop.cyl(mx, CURB, mz, 0.16, 0.12, 13, 8, { cap: false });
+    for (const k of [-1, 1]) { const hx = mx + d[0] * 2.4 + (k * d[1]) * 0.9, hz = mz + d[1] * 2.4 - (k * d[0]) * 0.9; prop.tube([mx, 12.8, mz], [hx, 13.1, hz], 0.06, 5); prop.set({ col: [1, 1, 1], rm: [0.3, 0, 3] }); prop.box(hx - 0.35, 12.95, hz - 0.35, hx + 0.35, 13.0, hz + 0.35, { faces: 'y' }); prop.set({ col: hex(0x7a7c80), rm: [0.5, 0.6, 0] }); glows.push({ p: [hx, 12.9, hz], color: [2.3, 2.3, 2.4], size: 1.4 }); lights.push({ x: x + d[0] * 9, z: z + d[1] * 9, r: 15, color: [1.0, 1.0, 1.05], k: 0.6 }); }
+  }
   for (let z = TAXI.z0 + 6; z < TAXI.z1; z += 14) lamp(TAXI.x0 - 1.2, z, [1, 0]);
   for (const [x, z, c] of [[20, -20, [1.3, 1.1, 1.2]], [20, 20, [1.2, 1.15, 1.25]], [-20, 20, [1.3, 1.1, 0.95]], [-20, -20, [1.25, 1.0, 1.25]], [0, 0, [1.0, 0.9, 1.1]]]) lights.push({ x, z, r: 16, color: c, k: 0.35 });
   // signals at the four corners: car heads (horizontal, 3 lamps) on arms + pedestrian heads
@@ -316,7 +325,7 @@ export function buildStreet(ctx = {}) {
       glows.push({ p: [ox, CURB + 1.1, oz], color: [2.8, 0.9, 0.1], size: 0.45, blink: true, rate: 5 });
     }
   };
-  barricade(166, 0, Math.PI / 2, 7); barricade(0, 128, 0, 7); barricade(-40, (CROSS_ST.z0 + CROSS_ST.z1) / 2, Math.PI / 2, 4);
+  barricade(166, 0, Math.PI / 2, 7); barricade((KOEN.x0 + KOEN.x1) / 2, KOEN.z0 + 0.5, 0, 4); barricade(0, 128, 0, 7); barricade(-40, (CROSS_ST.z0 + CROSS_ST.z1) / 2, Math.PI / 2, 4);
   // bins, cones, the bus shelter, the taxi sign
   prop.set({ col: hex(0x2a5a3a), rm: [0.6, 0.3, 0] });
   for (const [x, z] of [[-24, -25], [25, 25], [-25, 25], [40, -15.6], [-15.6, 40], [-6.6, -52], [6.6, -100]]) { prop.cyl(x, CURB, z, 0.3, 0.3, CURB + 0.9, 10); colliders.push({ min: [x - 0.32, 0, z - 0.32], max: [x + 0.32, 1.05, z + 0.32], data: { mat: 'metal', kind: 'bin' } }); }
@@ -331,16 +340,21 @@ export function buildStreet(ctx = {}) {
   lights.push({ x: -45, z: -9, w: 4, d: 12, ang: 0, color: [1.3, 1.3, 1.4], k: 0.8 });
   colliders.push({ min: [-46.7, 0, -11], max: [-46.3, 2.7, -7], data: { mat: 'metal', kind: 'shelter' } });
   prop.set({ col: hex(0x2a2c30), rm: [0.4, 0.5, 0] }); prop.box(-46.7, CURB, -11, -46.3, 2.4, -7);
-  // the Center-gai arch over the mouth (lit sign, two steel legs)
-  const arch = archSign();
-  prop.set({ col: hex(0x2c2e32), rm: [0.45, 0.65, 0] });
-  for (const x of [-7.2, 7.2]) prop.box(x - 0.18, CURB, -30.2, x + 0.18, 7.6, -29.8);
-  prop.box(-7.6, 6.2, -30.25, 7.6, 7.9, -29.75);
-  arch.position.set(0, 7.05, -29.7); root.add(arch);
-  const arch2 = arch.clone(); arch2.position.set(0, 7.05, -30.3); arch2.rotation.y = Math.PI; root.add(arch2);
-  glows.push({ p: [0, 7.1, -29.4], color: [1.6, 0.9, 1.6], size: 9, far: true });
-  lights.push({ x: 0, z: -27, w: 14, d: 7, ang: 0, color: [1.3, 0.8, 1.3], k: 0.6 });
-  colliders.push({ min: [-7.4, 0, -30.3], max: [-7.0, 7.6, -29.7], data: { mat: 'metal', kind: 'pole' } }); colliders.push({ min: [7.0, 0, -30.3], max: [7.4, 7.6, -29.7], data: { mat: 'metal', kind: 'pole' } });
+  // the Center-gai gate (Kabukichō-style): a red steel portal, a lit sign box across it, lamps on the legs
+  {
+    const { E: G2 } = signAtlas2();
+    const zG = -30;
+    prop.set({ col: hex(0xa8140e), rm: [0.45, 0.4, 0.15] });
+    for (const x of [-7.4, 7.4]) prop.box(x - 0.28, CURB, zG - 0.28, x + 0.28, 8.6, zG + 0.28);
+    prop.box(-8.2, 8.6, zG - 0.5, 8.2, 9.2, zG + 0.5);
+    prop.box(-7.6, 5.9, zG - 0.42, 7.6, 6.15, zG + 0.42);
+    prop.set({ col: hex(0x1a1a1c), rm: [0.5, 0.4, 0] }); prop.box(-7.1, 6.15, zG - 0.36, 7.1, 8.6, zG + 0.36);
+    for (const [z, n] of [[zG + 0.37, [0, 0, 1]], [zG - 0.37, [0, 0, -1]]]) signQuad(arch2, [0, 7.38, z], n, 14.0, 2.3, G2.arch.uv, 1.45);
+    for (const x of [-7.4, 7.4]) for (const z of [zG + 0.32, zG - 0.32]) { prop.set({ col: [1, 0.85, 0.6], rm: [0.3, 0, 2.6] }); prop.box(x - 0.18, 4.6, z - 0.05, x + 0.18, 5.4, z + 0.05); glows.push({ p: [x, 5.0, z + (z > zG ? 0.2 : -0.2)], color: [2.4, 1.9, 1.3], size: 0.9 }); }
+    glows.push({ p: [0, 7.4, zG + 0.6], color: [1.2, 0.5, 0.45], size: 10, far: true });
+    lights.push({ x: 0, z: zG + 4, w: 14, d: 8, ang: 0, color: [1.5, 1.1, 1.0], k: 0.55 });
+    colliders.push({ min: [-7.7, 0, zG - 0.3], max: [-7.1, 8.6, zG + 0.3], data: { mat: 'metal', kind: 'pole' } }); colliders.push({ min: [7.1, 0, zG - 0.3], max: [7.7, 8.6, zG + 0.3], data: { mat: 'metal', kind: 'pole' } });
+  }
 
   // ---------------------------------------------------------------- meshes
   const tA = asphaltTex(), tW = sidewalkTex(), tP = plazaTex(), tC = centerTex();
@@ -357,6 +371,7 @@ export function buildStreet(ctx = {}) {
   const propMat = rmMat({});
   root.add(prop.mesh(propMat, { shadow: true }));
   root.add(sign.mesh(signMaterial()));
+  root.add(arch2.mesh(new THREE.MeshBasicMaterial({ map: signAtlas2().tex, vertexColors: true })));
   if (halo.vn) root.add(halo.mesh(haloMaterial()));
   return { root, colliders, panes, groundMats: ground, anchors: { glows, lights }, info: { tris: prop.tris + mk.tris } };
 }

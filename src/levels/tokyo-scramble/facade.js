@@ -137,16 +137,16 @@ float fh(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 
     float office = step(vInfo.z, 0.45);
     float litP = vInfo.y * (vInfo.w > 0.5 && vInfo.w < 1.5 ? 0.45 : 1.0);
     float lit = mix(step(h1, litP), step(hf, litP) * step(0.12, h1), office);
-    vec3 cool = vec3(0.72, 0.86, 1.0), warm = vec3(1.1, 0.74, 0.4), mag = vec3(1.05, 0.3, 0.8), blu = vec3(0.32, 0.55, 1.15);
+    vec3 cool = vec3(0.8, 0.86, 0.9), warm = vec3(1.1, 0.72, 0.38), mag = vec3(1.05, 0.3, 0.8), blu = vec3(0.32, 0.55, 1.15);
     vec3 wc = office > 0.5 ? mix(cool, cool * vec3(1.05, 1.0, 0.88), step(0.7, hf2)) : mix(cool * 0.9, warm, step(h2, 0.75));
-    wc = (office < 0.5 && h3 > 0.95) ? mag : (office < 0.5 && h3 > 0.92) ? blu : wc;
+    wc = (office < 0.5 && h3 > 0.975) ? mag : (office < 0.5 && h3 > 0.955) ? blu : wc;
     // the room: rows of ceiling lights, a falloff down the wall, blinds on some, desks / shelves as dark shapes
     float tubes = 0.25 + 0.75 * step(0.55, fract(fF.x * (2.0 + floor(h2 * 3.0))));
     float ceil = 0.12 + 0.55 * smoothstep(0.35, 0.9, fF.y) + 0.7 * smoothstep(0.86, 0.95, fF.y) * tubes;
     float blinds = h3 < 0.3 ? 0.6 + 0.4 * step(0.45, fract(fF.y * 16.0)) : 1.0;
     float shape = 1.0 - 0.7 * step(abs(fF.x - fract(h1 * 7.0)), 0.14) * step(fF.y, 0.42 + 0.2 * h2);
     shape *= 1.0 - 0.5 * step(abs(fF.x - fract(h2 * 5.0)), 0.09) * step(fF.y, 0.65);
-    float k = (vInfo.w > 1.5 && vInfo.w < 2.5) ? 0.5 : 0.48;
+    float k = (vInfo.w > 1.5 && vInfo.w < 2.5) ? 0.45 : 0.38;
     totalEmissiveRadiance = fGlass * lit * wc * ceil * blinds * shape * k * uNightK * (0.7 + 0.5 * h2);
     // unlit glass: a hint of the room in the dark + the city's glow on it
     totalEmissiveRadiance += fGlass * (1.0 - lit) * vec3(0.012, 0.014, 0.022);

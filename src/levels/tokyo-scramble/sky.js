@@ -19,8 +19,8 @@ vec3 tokyoSky(vec3 d){
   // city glow on the horizon: warm, with a magenta cast toward the neon (east / north-east)
   float az = atan(d.x, -d.z);
   float neon = 0.5 + 0.5 * cos(az - 0.9);
-  vec3 hor = mix(vec3(0.22, 0.12, 0.09), vec3(0.22, 0.08, 0.16), neon * 0.6);
-  vec3 mid = vec3(0.05, 0.045, 0.09), zen = vec3(0.012, 0.016, 0.04);
+  vec3 hor = mix(vec3(0.24, 0.15, 0.1), vec3(0.24, 0.13, 0.12), neon * 0.5);
+  vec3 mid = vec3(0.06, 0.05, 0.06), zen = vec3(0.016, 0.018, 0.03);
   vec3 c = mix(hor, mix(mid, zen, smoothstep(0.15, 0.7, hh)), smoothstep(0.0, 0.3, pow(hh, 0.75)));
   if (h > 0.0) {
     vec2 uv = d.xz / (h + 0.08);
@@ -28,7 +28,7 @@ vec3 tokyoSky(vec3 d){
     float c1 = tfbm(cuv * 1.2 + 1.7), c2 = tfbm(uv * 2.8 + vec2(time * 0.008, 0.0) + 5.0);
     float cov = smoothstep(0.3, 0.68, c1 * 0.85 + c2 * 0.3) * smoothstep(0.0, 0.06, h);
     float lit = 1.0 - smoothstep(0.0, 0.7, hh);
-    vec3 under = mix(vec3(0.15, 0.08, 0.065), vec3(0.16, 0.06, 0.13), neon * 0.5);
+    vec3 under = mix(vec3(0.17, 0.11, 0.075), vec3(0.17, 0.1, 0.09), neon * 0.5);
     vec3 cc = mix(vec3(0.05, 0.045, 0.07), under, 0.25 + 0.75 * lit) * (0.7 + 0.55 * c2);
     cc += vec3(0.42, 0.15, 0.05) * glow * lit * (0.5 + 0.5 * c2);
     vec2 sp = d.xz / (h + 0.35) * 380.0;

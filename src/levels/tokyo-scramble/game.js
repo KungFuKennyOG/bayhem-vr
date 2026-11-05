@@ -26,10 +26,10 @@ export function applyTokyo(heat, { sun, hemi, fog, renderer, scene }) {
   heat = Math.min(1, Math.max(0, heat));
   applyDusk(1, { sun, hemi, fog, renderer });
   sun.color.set(0x8c96d8); sun.intensity = 0.22;
-  hemi.color.copy(C(0.36, 0.34, 0.62)).lerp(C(0.6, 0.34, 0.24), heat * 0.6); hemi.groundColor.copy(C(0.34, 0.2, 0.22)).lerp(C(0.5, 0.24, 0.1), heat); hemi.intensity = 0.55 + heat * 0.15;
-  fog.color.copy(C(0.12, 0.085, 0.13)).lerp(C(0.22, 0.1, 0.06), heat);
+  hemi.color.copy(C(0.4, 0.4, 0.55)).lerp(C(0.6, 0.34, 0.24), heat * 0.6); hemi.groundColor.copy(C(0.34, 0.2, 0.22)).lerp(C(0.5, 0.24, 0.1), heat); hemi.intensity = 0.55 + heat * 0.15;
+  fog.color.copy(C(0.12, 0.095, 0.09)).lerp(C(0.22, 0.1, 0.06), heat);
   fogShared.sunColor.r = 0.24 + heat * 0.3; fogShared.sunColor.g = 0.12 + heat * 0.08; fogShared.sunColor.b = 0.2 - heat * 0.12;
-  rimShared.color.r = 0.42; rimShared.color.g = 0.3; rimShared.color.b = 0.62;
+  rimShared.color.r = 0.45; rimShared.color.g = 0.4; rimShared.color.b = 0.5;
   renderer.toneMappingExposure = 1.15;
   if (scene) scene.environmentIntensity = 0.75;
   skyShared.glow.value = heat;

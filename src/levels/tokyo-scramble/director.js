@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { clamp, damp } from '../../rng.js';
 import { arrivedAtMarker } from '../../beats.js';
-import { SNIPERS, START, CURB, TERRACE, STAIRS, GASWORKS, DIVE_Z, TANKER, XWAY, GORE } from './layout.js';
+import { SNIPERS, START, CURB, SKY, STAIRS, GASWORKS, DIVE_Z, TANKER, XWAY, GORE } from './layout.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _look = new THREE.Vector3(), _to = new THREE.Vector3();
@@ -44,12 +44,12 @@ export class Director {
       { name: 'intro', wp: null, music: 0.3, enter: () => {
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; }
-          hud.showTitle(V(-24, 21, 0), 'TOKYO SCRAMBLE', 'LEVEL 6  •  KUROGANE, 00:12', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(-30, 24, 0), 'TOKYO SCRAMBLE', 'LEVEL 6  •  KUROGANE, 00:12', trailer ? 4.4 : 5.8);
           audio.startMusic();
           this.snipers = [sniper('c1', { delay: 1.2, lockTime: 2.6 }), sniper('c2', { delay: 2.4, lockTime: 2.8 })];
           for (const s of this.snipers) s.holdFire = true;
           later(0.8, () => say('Kurogane. Midnight. Busiest crossing on Earth, and not one tourist. That\'s how you know.', 3.6));
-          later(4.6, () => say('Our guy\'s on the far side of town. His friends are between you and him. Down the stairs.', 3.4));
+          later(4.6, () => say('Our guy\'s on the far side of the crossing. His friends are between you and him. Down the stairs.', 3.4));
           if (A) { g.cinematicLook = V(10, 16, -10); g.cinematicW = 1.4; }
           if (g.player) g.player.autoState.holdFire = true;
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
@@ -67,7 +67,7 @@ export class Director {
           S({ x: 14, z: 4, role: 'rusher', delay: 16, entry: V(26, 0, 0) });
           later(2.0, () => say('Plaza first. Then the crossing — the cars are your cover.', 2.8));
           later(9.0, () => { screens(true); say('...Every screen in Kurogane just went to emergency broadcast. Subtle.', 3.2); });
-          A?.go([go(-70, 0, { slow: 0.7 }), go(-55, 2, { slow: 0.55 }), go(-40, -4, { slow: 0.5 }), go(-20, 4, { slow: 0.45 }), go(0, -2, { slow: 0.45 }), go(18, -6, { slow: 0.5 })]);
+          A?.go([{ p: V(-74, 0, 0.6), nav: null, slow: 0.8 }, { p: V(-50, 0, 0.6), nav: null, slow: 0.7 }, go(-40, -4, { slow: 0.5 }), go(-20, 4, { slow: 0.45 }), go(0, -2, { slow: 0.45 }), go(18, -6, { slow: 0.5 })]);
         }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper') === 0 && px() > 22) || t > 130 * T },
       // 3 ---- east down the avenue to the car park
       { name: 'avenue', wp: V(47, 2, -21), hunt: true, arrive: true, music: 0.75, enter: () => {
@@ -175,7 +175,7 @@ export class Director {
     ];
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
-    const START_P = { crossing: [-68, CURB, 0], avenue: [26, 0.15, -8], garage: [47, CURB, -21], xway: [97, XWAY.y, -136], tanker: [38, XWAY.y, -148], offramp: [40, XWAY.y, -148], center: [10, CURB, -135], gas: [0, CURB, -76], dive: [0, CURB, -26], outro: [0, 0, -14] };
+    const START_P = { crossing: [-49, CURB, 0.6], avenue: [26, 0.15, -8], garage: [47, CURB, -21], xway: [97, XWAY.y, -136], tanker: [38, XWAY.y, -148], offramp: [40, XWAY.y, -148], center: [10, CURB, -135], gas: [0, CURB, -76], dive: [0, CURB, -26], outro: [0, 0, -14] };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
     if (ji > 0) {
       const p = START_P[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);

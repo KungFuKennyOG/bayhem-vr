@@ -22,13 +22,19 @@ export const CROSS = { half: 22, walk: 6 };    // road |x|,|z| < 22; the sidewal
 // Streets leaving the crossing
 export const AVE_E = { x0: 22, x1: 196, road: 11, walk: 17 };   // east avenue: road |z| < 11, sidewalks to 17
 export const AVE_S = { z0: 22, z1: 176, road: 11, walk: 17 };   // south avenue: road |x| < 11, sidewalks to 17
-export const PLAZA = { x0: -80, x1: -22, z0: -30, z1: 28 };      // station plaza (paved, curb height)
+export const PLAZA = { x0: -74, x1: -22, z0: -30, z1: 28 };      // "Hachikō square": the station plaza (paved, curb height)
 export const TAXI = { x0: -42, x1: -22, z0: -24, z1: 22 };       // the taxi / bus lane across the plaza front (asphalt)
 export const CENTER = { half: 8, z0: -140, z1: -28 };            // Center-gai: paved, facades at |x| = 8
 
-// The station: a terrace at y 7 in front of the concourse, a broad stair down (east) to the plaza.
-export const TERRACE = { x0: -96, x1: -80, z0: -22, z1: 22, y: 7 };
-export const STAIRS = { x0: -80, x1: -69, z0: -18, z1: 18 };     // falls toward +x from TERRACE.y to CURB
+// The station: an elevated railway (JR-style, trains roll through) along the plaza's west side, the
+// station behind it, and a glass SKYBRIDGE from the station's upper concourse out over the tracks (the
+// intro vantage, à la the Mark City walkway) ending in a broad stair down into the plaza.
+export const VIADUCT = { x0: -88, x1: -76, y: 7.0, z0: -330, z1: 330 };   // deck top; rails at y + 0.3
+export const SKY = { x0: -100, x1: -72, z0: -5, z1: 5, y: 13 };          // the skybridge floor
+export const STAIRS = { x0: -72, x1: -51, z0: -5, z1: 5 };               // falls toward +x from SKY.y to CURB
+export const TERRACE = SKY;                                               // (older name)
+// Kōen-dōri: a side street off the crossing's north-east corner, barricaded where it meets the next block
+export const KOEN = { x0: 26, x1: 36, z0: -60, z1: -17 };
 
 // The car park (multi-storey, open decks). Footprint x 44..112, z -128..-17.
 export const GARAGE = { x0: 44, x1: 112, z0: -128, z1: -17 };
@@ -54,32 +60,35 @@ export const CROSS_ST = { z0: -164, z1: -140 };                   // the street 
 // Building blocks: [x0, z0, x1, z1, faces] — faces = which sides front a street the player sees
 // ('n' 's' 'e' 'w'). city.js splits each block into narrow lots along its fronts.
 export const BLOCKS = [
-  { id: 'nw', r: [-80, -140, -28, -30], faces: 'sen', hot: 'sen' },
+  { id: 'nw', r: [-74, -140, -28, -30], faces: 'sen', hot: 'sen' },
   { id: 'nw2', r: [-28, -140, -8, -28], faces: 'esn', hot: 'esn' },
-  { id: 'n1', r: [8, -60, 28, -28], faces: 'sw', hot: 'sw', tower: true },
-  { id: 'n1b', r: [28, -60, 44, -17], faces: 'sw', hot: 's' },
-  { id: 'n2', r: [8, -131, 44, -60], faces: 'wne', hot: 'wne' },
+  { id: 'n1', r: [8, -60, 26, -28], faces: 'sw', hot: 'sw', tower: true },
+  { id: 'n1b', r: [36, -60, 44, -17], faces: 'sw', hot: 'sw' },
+  { id: 'n2', r: [8, -131, 44, -60], faces: 'wnes', hot: 'wnes' },
   { id: 'ne2', r: [112, -134, 196, -17], faces: 'swn', hot: 'swn' },
   { id: 'se', r: [28, 17, 196, 176], faces: 'nw', hot: 'nw' },
   { id: 'se2', r: [17, 28, 28, 176], faces: 'nw', hot: 'w' },
-  { id: 'sw', r: [-80, 30, -28, 176], faces: 'ne', hot: 'n' },
+  { id: 'sw', r: [-74, 30, -28, 176], faces: 'ne', hot: 'n' },
   { id: 'sw2', r: [-28, 28, -17, 176], faces: 'ne', hot: 'e' },
-  { id: 'stn_n', r: [-96, -60, -80, -22], faces: 'e', hot: 'e' },
-  { id: 'stn_s', r: [-96, 22, -80, 60], faces: 'e', hot: 'e' },
   { id: 'nfar', r: [-260, -276, 260, -164], faces: 's', hot: 's', far: true },
   { id: 'efar', r: [196, -164, 330, 190], faces: 'w', far: true },
   { id: 'sfar', r: [-200, 176, 196, 300], faces: 'n', far: true },
   { id: 'wfar', r: [-330, -164, -150, 190], faces: 'e', far: true },
 ];
-export const STATION = { x0: -150, x1: -96, z0: -60, z1: 60, h: 24 };
+export const STATION = { x0: -170, x1: -100, z0: -70, z1: 70, h: 26 };
+// the silver cylinder at the fork (Shibuya 109's stand-in) and the yellow subway train's bridge over the avenue
+export const T108 = { x: 37, z: 26, r: 8.5, h: 46 };
+export const GINZA = { x: 132, y: 9.5 };
+// lots that must not be generated (landmarks stand there)
+export const EXCL = [[28, 17, 47, 36]];
 
 // Player start: on the station terrace, looking east over the plaza at the crossing.
-export const START = { x: -86, y: TERRACE.y, z: 2, yaw: -Math.PI / 2 + 0.06 };
+export const START = { x: -81, y: SKY.y, z: 0.6, yaw: -Math.PI / 2 + 0.05 };
 
 // Snipers (laser): billboard catwalks / roof parapets. face = outward direction [x, z].
 export const SNIPERS = {
-  c1: { x: 13.5, y: 23.8, z: -27.1, face: [0, 1] },        // the catwalk over the corner tower's giant screen
-  c2: { x: 31, y: 25.2, z: 17.5, face: [-0.6, -0.8] },     // SE corner roof
+  c1: { x: 12, y: 27.0, z: -27.1, face: [0, 1] },          // the catwalk over K-FRONT's giant screen
+  c2: { x: 40, y: 26.2, z: -17.5, face: [-0.9, 0.4] },     // the corner roof across Kōen-dōri
   g1: { x: 84, y: 30.2, z: 17.5, face: [0, -1] },          // across the avenue from the car park
   x1: { x: 58, y: 28.2, z: -164.5, face: [0, 1] },         // north of the expressway
 };
@@ -132,8 +141,8 @@ export function groundAt(x, z) {
     if (z <= R2.z0) return DECK_B.y;
     return x <= R2.x0 ? DECK_B.y : DECK_A.y;
   }
-  // station terrace + stairs
-  if (x > TERRACE.x0 && x <= TERRACE.x1 && z > TERRACE.z0 && z < TERRACE.z1) return TERRACE.y;
+  // the skybridge + its stair down into the plaza
+  if (x > SKY.x0 && x <= SKY.x1 && z > SKY.z0 && z < SKY.z1) return SKY.y;
   if (x > STAIRS.x0 && x < STAIRS.x1 && z > STAIRS.z0 && z < STAIRS.z1) return stairY(x);
   // street level
   const ax = Math.abs(x), az = Math.abs(z);
@@ -142,10 +151,11 @@ export function groundAt(x, z) {
   if (z > AVE_S.z0 && ax < AVE_S.road) return STREET_Y;
   if (z > CROSS_ST.z0 && z < CROSS_ST.z1) return STREET_Y;
   if (x > TAXI.x0 && x < TAXI.x1 && z > TAXI.z0 && z < TAXI.z1) return STREET_Y;
+  if (x > KOEN.x0 + 1.5 && x < KOEN.x1 - 1.5 && z > KOEN.z0 && z < KOEN.z1) return STREET_Y;
   return CURB;
 }
 // the stair: 23 treads of 0.48 m, 0.3 m risers (sampled continuously, the locomotion eases it)
-export function stairY(x) { const t = (x - STAIRS.x0) / (STAIRS.x1 - STAIRS.x0); return TERRACE.y + (CURB - TERRACE.y) * Math.min(1, Math.max(0, t)); }
+export function stairY(x) { const t = (x - STAIRS.x0) / (STAIRS.x1 - STAIRS.x0); return SKY.y + (CURB - SKY.y) * Math.min(1, Math.max(0, t)); }
 // the dropped span: hinged at its west pier (y 12), the east end on the street
 export const SLAB = { hingeX: SPAN.x0, len: SPAN.x1 - SPAN.x0, drop: XWAY.y - 0.9 };
 export function slabY(x) {
@@ -163,12 +173,13 @@ export function walkable(x, z) {
   if (z > OFFRAMP.z0 + 0.6 && z < OFFRAMP.z1 - 0.6 && x >= OFFRAMP.x0 && x < OFFRAMP.x1) return true;
   if (z > LANE.z0 + 0.6 && z < LANE.z1 && x >= LANE.x0 - 0.5 && x < LANE.x1) return true;
   if (x > GARAGE.x0 && x < GARAGE.x1 && z > GARAGE.z0 && z < GARAGE.z1) return x > 46.5 && x < 111.5 && z > -127.5 && z < -17.5;
-  if (x > TERRACE.x0 && x < STAIRS.x1 && az < 22) return x > TERRACE.x0 + 1 && az < (x < STAIRS.x0 ? 21 : STAIRS.z1);
+  if (x > SKY.x0 + 3 && x < STAIRS.x1 && az < SKY.z1) return az < SKY.z1 - 0.6;
   // street level (the far ends of the avenues are barricaded)
   if (ax < CROSS.half + CROSS.walk && az < CROSS.half + CROSS.walk) return true;
   if (x > 0 && x < 170 && az < AVE_E.walk) return true;
   if (z > 0 && z < 130 && ax < AVE_S.walk) return true;
   if (x > PLAZA.x0 && x < PLAZA.x1 && z > PLAZA.z0 && z < PLAZA.z1) return true;
+  if (x > KOEN.x0 && x < KOEN.x1 && z > KOEN.z0 + 1 && z < KOEN.z1) return true;
   if (ax < CENTER.half && z > CENTER.z0 && z < CENTER.z1 + 2) return true;
   return false;
 }

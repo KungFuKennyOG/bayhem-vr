@@ -3,11 +3,11 @@ import { BillboardBatch, CELL } from '../../particles.js';
 import { CollisionWorld, NavGrid } from '../../collision.js';
 import { buildSedan, buildSUV, MAT } from '../../vehicles.js';
 import { GroundLight } from './lightmap.js';
-import { groundAt, walkable, STATE, CROSS, AVE_E, AVE_S, TAXI, PLAZA, CENTER, STAIRS, TERRACE, GARAGE, XWAY, XWAY_IN, XWAY_BLOCK, GORE, OFFRAMP, LANE, CROSS_ST, CURB } from './layout.js';
+import { groundAt, walkable, STATE, CROSS, AVE_E, AVE_S, TAXI, PLAZA, CENTER, STAIRS, SKY, VIADUCT, KOEN, GARAGE, XWAY, XWAY_IN, XWAY_BLOCK, GORE, OFFRAMP, LANE, CROSS_ST, CURB } from './layout.js';
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
 const PROG = [[1.5, 0.35, 0.3], [1.3, 0.65, 1.15], [0.55, 0.6, 1.4], [0.5, 0.95, 1.35]];
-const ASSETS = import.meta.glob(['./city.js', './street.js', './station.js', './garage.js', './xway.js', './props.js', '../downtown-haven/cars.js']);
+const ASSETS = import.meta.glob(['./city.js', './street.js', './station.js', './garage.js', './xway.js', './props.js', './landmarks.js', '../downtown-haven/cars.js']);
 async function asset(name) { const l = ASSETS[name]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 // =====================================================================================
@@ -25,9 +25,9 @@ export class TokyoWorld {
   }
   async build() {
     const E = this.E, ctx = { renderer: E.renderer, scene: E.scene, camera: E.camera, sun: E.sun, hemi: E.hemi, atlas: E.atlas, light: this.light };
-    const names = ['./city.js', './street.js', './station.js', './garage.js', './xway.js', './props.js', '../downtown-haven/cars.js'];
-    const [cityM, streetM, stationM, garageM, xwayM, propsM, carMod] = await Promise.all(names.map(asset));
-    this.mods = { cityM, streetM, stationM, garageM, xwayM, propsM, carMod };
+    const names = ['./city.js', './street.js', './station.js', './garage.js', './xway.js', './props.js', './landmarks.js', '../downtown-haven/cars.js'];
+    const [cityM, streetM, stationM, garageM, xwayM, propsM, landM, carMod] = await Promise.all(names.map(asset));
+    this.mods = { cityM, streetM, stationM, garageM, xwayM, propsM, landM, carMod };
     this.col.floorFn = groundAt;
     this.fastGround = groundAt;
     const take = async (fn, label) => {
@@ -48,12 +48,13 @@ export class TokyoWorld {
     this.street = await take(streetM?.buildStreet, 'street');
     this.station = await take(stationM?.buildStation, 'station');
     this.props = await take(propsM?.buildProps, 'props');
+    this.landmarks = await take(landM?.buildLandmarks, 'landmarks');
     this.garage = await take(garageM?.buildGarage, 'garage');
     this.xway = await take(xwayM?.buildXway, 'xway');
     this.screens = this.city?.screens || [];
     // contact darkening at every building base near the play areas (the blurred footprint map)
     for (const L of this.city?.lots || []) if (!L.far) this.light.occlude(L.x0, L.z0, L.x1, L.z1);
-    for (const r of [[-150, -60, -96, 60], [44, -128, 112, -17], [-40, -29.6, -35.5, -26], [-60 - 1.4, -24.9, -60 + 1.4, -23.1]]) this.light.occlude(...r);
+    for (const r of [[-170, -70, -100, 70], [-88, -330, -76, 330], [29, 18, 45, 34], [44, -128, 112, -17], [-40, -29.6, -35.5, -26], [-60 - 1.4, -24.9, -60 + 1.4, -23.1]]) this.light.occlude(...r);
     // the light on the ground: bake once everything has reported its lamps, patch every ground surface
     this.light.bake();
     for (const m of this.groundMats) this.light.patch(m, m.userData.glK ?? 1, { ao: !m.userData.noAO });
@@ -69,6 +70,7 @@ export class TokyoWorld {
     const b = (min, max, extra = {}) => this.col.add(min, max, { kind: 'bound', noBullet: true, ...extra });
     // the far ends of the avenues (barricades) and the plaza / Center-gai ends
     b([168, 0, -17], [170, 6, 17]); b([-17, 0, 130], [17, 6, 132]);
+    b([KOEN.x0, 0, KOEN.z0], [KOEN.x1, 6, KOEN.z0 + 1]);   // Kōen-dōri is barricaded
     // the cross street under the expressway is closed (rubble / fire): Center-gai stops at its north end
     b([-CENTER.half, 0, CENTER.z0 - 1.6], [CENTER.half, 4, CENTER.z0 - 0.6]);
     // the expressway: parapets both sides, the jam stops you at XWAY_BLOCK, the east end closed
@@ -84,13 +86,15 @@ export class TokyoWorld {
     rampPar(OFFRAMP.z0 - 0.4, OFFRAMP.z0 + 0.4); rampPar(OFFRAMP.z1 - 0.4, OFFRAMP.z1 + 0.4);
     // the lane at the bottom of the off-ramp: walls either side
     this.col.add([LANE.x0, 0, LANE.z0 - 0.5], [LANE.x1, 3, LANE.z0], { kind: 'wall', mat: 'concrete' });
-    // station terrace edge + stair balustrades
-    const bal = (x0, z0, x1, z1, y0, y1) => this.col.add([x0, y0, z0], [x1, y1, z1], { kind: 'parapet', mat: 'concrete' });
-    bal(TERRACE.x1 - 0.3, TERRACE.z0, TERRACE.x1, STAIRS.z0, 0, TERRACE.y + 1.05); bal(TERRACE.x1 - 0.3, STAIRS.z1, TERRACE.x1, TERRACE.z1, 0, TERRACE.y + 1.05);
-    bal(TERRACE.x0, TERRACE.z0 - 0.4, TERRACE.x1, TERRACE.z0, 0, TERRACE.y + 1.05); bal(TERRACE.x0, TERRACE.z1, TERRACE.x1, TERRACE.z1 + 0.4, 0, TERRACE.y + 1.05);
-    for (const z of [STAIRS.z0, STAIRS.z1]) for (let x = STAIRS.x0; x < STAIRS.x1; x += 1.5) { const y = groundAt(x + 0.75, 0); bal(x, z - (z < 0 ? 0.4 : 0), x + 1.5, z + (z > 0 ? 0.4 : 0), 0, y + 1.0); }
-    // the station front behind the terrace
-    this.col.add([TERRACE.x0 - 1, 0, TERRACE.z0], [TERRACE.x0, 24, TERRACE.z1], { kind: 'wall', mat: 'glass' });
+    // the skybridge: glass sides (bullets break the glass first; these keep you in), the station end
+    const wallB = (min, max, extra = {}) => this.col.add(min, max, { kind: 'wall', mat: 'glass', noBullet: true, ...extra });
+    wallB([SKY.x0, SKY.y, SKY.z0 - 0.3], [SKY.x1, SKY.y + 1.1, SKY.z0]); wallB([SKY.x0, SKY.y, SKY.z1], [SKY.x1, SKY.y + 1.1, SKY.z1 + 0.3]);
+    this.col.add([SKY.x0 - 1, SKY.y - 1, SKY.z0], [SKY.x0 + 1.5, SKY.y + 4, SKY.z1], { kind: 'wall', mat: 'glass' });
+    // the stair's granite cheeks (they follow the stair down), and the space under the bridge is closed
+    for (const z of [STAIRS.z0, STAIRS.z1]) for (let x = STAIRS.x0; x < STAIRS.x1; x += 1.5) { const y = groundAt(x + 0.75, 0); this.col.add([x, 0, z - (z < 0 ? 0.4 : 0)], [x + 1.5, y + 1.0, z + (z > 0 ? 0.4 : 0)], { kind: 'parapet', mat: 'concrete' }); }
+    this.col.add([VIADUCT.x1, 0, SKY.z0 - 0.4], [STAIRS.x0, SKY.y - 1, SKY.z1 + 0.4], { kind: 'wall', mat: 'concrete' });
+    // the viaduct's plaza side (the bars in the arches are scenery)
+    this.col.add([VIADUCT.x1 - 0.2, 0, -330], [VIADUCT.x1 + 0.3, VIADUCT.y, 330], { kind: 'wall', mat: 'concrete' });
   }
 
   update(dt, head) {
@@ -119,9 +123,9 @@ export class TokyoWorld {
       const c = k < 0.5 ? PROG[0] : k < 1.5 ? PROG[1] : k < 2.5 ? PROG[2] : PROG[3];
       const fl = (S.mat.uniforms.uT.value * 1.1) % 1 > 0.5 ? 1 : 0.25;
       const a = S.alert || 0, d = 1 - Math.min(1, (S.dead || 0) * 1.2);
-      SCC[i].set((c[0] * (1 - a) + 2.2 * fl * a) * d, (c[1] * (1 - a) + 0.12 * fl * a) * d, (c[2] * (1 - a) + 0.08 * fl * a) * d);
+      SCC[i].set((c[0] * (1 - a) + 0.95 * fl * a) * d, (c[1] * (1 - a) + 0.07 * fl * a) * d, (c[2] * (1 - a) + 0.06 * fl * a) * d);
       const N = S._n ||= new THREE.Vector3(0, 0, 1).applyQuaternion(S.root.quaternion);
-      SC[i].set(S.root.position.x + N.x * S.w * 0.8, S.root.position.z + N.z * S.w * 0.8, S.w * 1.9, 0.55);
+      SC[i].set(S.root.position.x + N.x * S.w * 0.9, S.root.position.z + N.z * S.w * 0.9, S.w * (2.2 - 0.6 * a), 0.85);
     }
   }
 

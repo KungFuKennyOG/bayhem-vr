@@ -5,7 +5,8 @@ import { Acc, rmMat, hex } from './kit.js';
 import { facadeMaterial, cellRect, FCELL } from './facade.js';
 import { signAtlas } from './signs.js';
 import { buildScreen } from './screens.js';
-import { BLOCKS, SNIPERS } from './layout.js';
+import { BLOCKS, SNIPERS, EXCL } from './layout.js';
+import { signAtlas2 } from './signs2.js';
 
 // =====================================================================================
 //  Kurogane's buildings. Each block is split into narrow lots along its street fronts (Tokyo's
@@ -62,10 +63,12 @@ export function signQuad(acc, C, N, w, h, uv, k = 1, up = [0, 1, 0]) {
 
 // the giant screens: [x, yCentre, z, yaw, w, h, seed, programme panels] (on the facade planes, 0.3–0.4 m out)
 export const SCREENS = [
-  [18, 18.5, -27.6, 0, 17, 9.6, 0, [0, 6, 4, 2]],          // the corner tower over the crossing (the hero screen)
-  [36, 19, -16.7, 0, 11, 6.2, 1.3, [6, 0, 4, 2]],          // avenue corner
-  [37, 16, 16.7, Math.PI, 13, 7.3, 2.1, [7, 6, 5, 2]],     // SE corner
-  [-60, 15, 29.7, Math.PI, 15, 8.4, 3.4, [5, 0, 4, 2]],    // over the plaza
+  [17, 17.6, -27.6, 0, 16.4, 17.6, 0, [0, 6, 4, 2]],       // K-FRONT: the glass corner building that is one giant screen (QFRONT)
+  [-56, 15, 29.7, Math.PI, 15, 8.4, 3.4, [5, 0, 4, 2]],    // over Hachikō square
+  [-18, 16, -27.6, 0, 12, 7.2, 4.6, [6, 7, 4, 2]],          // the NW corner, beside the Center-gai gate
+  [-22.5, 13, 27.7, Math.PI, 9.5, 5.6, 5.2, [0, 5, 4, 2]],  // the SW corner
+  [74, 15.5, 16.7, Math.PI, 14, 7.9, 2.1, [7, 6, 5, 2]],   // down the avenue (Yasukuni-dōri style)
+  [152, 18, -16.7, 0, 12, 6.8, 1.3, [6, 0, 4, 2]],
 ];
 function screenOn(x0, z0, x1, z1, face) {
   // a screen on this lot's front: returns the height the lot must reach
@@ -87,7 +90,12 @@ export function buildCity(ctx = {}) {
   const prop = new Acc({ rm: true });
   const sign = new Acc(), halo = new Acc();
   const colliders = [], panes = [], glows = [], lights = [], lots = [];
-  const { E: SE } = signAtlas();
+  const { E: SE } = signAtlas(), { E: S2 } = signAtlas2();
+  const sign2 = new Acc(), win2 = new Acc();
+  // today's Tokyo is mostly white LED light boxes: neon tube is the exception (bars, pachinko, karaoke)
+  const BL = SE.blade.filter(b => !b.neon), BN = SE.blade.filter(b => b.neon), FL = SE.fascia.filter(f => !f.neon), FN = SE.fascia.filter(f => f.neon);
+  const pickBlade = () => (rng() < 0.16 ? pickOf(BN) : pickOf(BL));
+  const pickFascia = () => (rng() < 0.18 ? pickOf(FN) : pickOf(FL));
   const R = (a, b) => a + (b - a) * rng();
   const pickOf = (arr) => arr[Math.floor(rng() * arr.length)];
   let seedN = 1;
@@ -105,6 +113,7 @@ export function buildCity(ctx = {}) {
   const sniperIn = (x0, z0, x1, z1) => Object.values(SNIPERS).find(s => s.x > x0 && s.x < x1 && s.z > z0 && s.z < z1);
   function lot(L) {
     // L: { x0, z0, x1, z1, face, hot, corner?: face2, h?, style?, shop? }
+    if (EXCL.some(([a, b, c, d]) => L.x1 > a && L.x0 < c && L.z1 > b && L.z0 < d)) return null;
     const F = FACE[L.face], N = F.n, T = F.t;
     const seed = seedN++;
     const snp = sniperIn(L.x0, L.z0, L.x1, L.z1);
@@ -163,6 +172,7 @@ export function buildCity(ctx = {}) {
       wall(Wf.O, Wf.T, Wf.N, Wf.L, 0, GROUND_H, FCELL.base, [seed, 0, 0, 3], col, { floorH: GROUND_H, bay: 2 });
     }
     if (L.hot && !L.noSigns) signsFor(lotRec, Wf);
+    else if (L.hot && L.tower) kfront(lotRec, Wf);
     if (!L.far) roofClutter(lotRec);
     return lotRec;
   }
@@ -180,9 +190,9 @@ export function buildCity(ctx = {}) {
     // the fascia sign (most shops have one)
     const fw = L - 1.1, fh = Math.min(0.95, fw / 4.27);
     const fc = at(L / 2, 3.15 + (GROUND_H - 3.2) / 2, 0.335);
-    const fe = pickOf(SE.fascia);
+    const fe = pickFascia();
     signQuad(sign, fc, N, fw, fh, fe.uv, fe.neon ? 1.9 : 1.35);
-    if (fe.neon) haloQuad(at(L / 2, 3.6, 0.34), N, fw * 1.25, 2.2, fe.glow, 0.22);
+    if (fe.neon) haloQuad(at(L / 2, 3.6, 0.34), N, fw * 1.25, 2.2, fe.glow, 0.14);
     if (open) {
       const kind = Math.floor(rng() * 4), card = SE.shop[kind];
       // the glass (breakable) from 0.25 to 3.1, the interior card 1.25 m behind, a lit ceiling strip, the recess walls
@@ -226,39 +236,103 @@ export function buildCity(ctx = {}) {
     signQuad(sign, [cx - T[0] * 0.135, y0 + H / 2, cz - T[2] * 0.135], [-T[0], 0, -T[2]], w, H, entry.uv, k);
     // the light it throws on the wall, and down on the pavement
     const [wx, wz] = ox(0.03);
-    haloQuad([wx, y0 + H / 2, wz], N, w * 3.2, H + 2.4, entry.glow, entry.neon ? 0.34 : 0.16);
+    haloQuad([wx, y0 + H / 2, wz], N, w * 3.0, H + 2.4, entry.glow, entry.neon ? 0.22 : 0.1);
     lights.push({ x: cx + N[0] * 1.5, z: cz + N[2] * 1.5, r: 3.4, color: entry.glow, k: entry.neon ? 0.45 : 0.25 });
     glows.push({ p: [cx, y0 + H / 2, cz], color: entry.glow.map(v => v * (entry.neon ? 0.55 : 0.3)), size: H * 0.9, far: true, dusk: false });
+  }
+  // the zakkyo tenant tower: one backlit plate per floor, stacked up a projecting frame at the building's edge
+  function directory(lot, Wl, a) {
+    const { O, T, N } = Wl;
+    const w = 0.95, out0 = 0.3, out1 = out0 + w;
+    const ox = (o) => [O[0] + T[0] * a + N[0] * o, O[2] + T[2] * a + N[2] * o];
+    const [cx, cz] = ox((out0 + out1) / 2);
+    const y0 = GROUND_H + 0.25, y1 = Math.min(lot.h - 0.4, y0 + lot.floors * lot.floorH);
+    const ph = Math.min(1.25, lot.floorH * 0.36), n = Math.max(2, Math.floor((y1 - y0) / (ph + 0.06)));
+    const top = y0 + n * (ph + 0.06);
+    prop.set({ col: hex(0x1c1c1e), rm: [0.5, 0.4, 0] });
+    const hx = Math.abs(T[0]) * 0.12 + Math.abs(N[0]) * (w / 2 + 0.06), hz = Math.abs(T[2]) * 0.12 + Math.abs(N[2]) * (w / 2 + 0.06);
+    prop.box(cx - hx, y0 - 0.1, cz - hz, cx + hx, top + 0.25, cz + hz);
+    for (const yy of [y0 + 0.5, (y0 + top) / 2, top - 0.3]) { const [ax, az] = ox(out0 / 2); const ahx = Math.abs(T[0]) * 0.04 + Math.abs(N[0]) * out0 / 2, ahz = Math.abs(T[2]) * 0.04 + Math.abs(N[2]) * out0 / 2; prop.box(ax - ahx, yy - 0.04, az - ahz, ax + ahx, yy + 0.04, az + ahz); }
+    // a lit cap with the building's name on top
+    const cap = pickOf(SE.plate);
+    for (const s_ of [1, -1]) {
+      const Ns = [T[0] * s_, 0, T[2] * s_];
+      for (let i = 0; i < n; i++) { const p = pickOf(S2.plate); signQuad(sign2, [cx + T[0] * 0.125 * s_, y0 + i * (ph + 0.06) + ph / 2, cz + T[2] * 0.125 * s_], Ns, w, ph, p.uv, 1.3); }
+      signQuad(sign, [cx + T[0] * 0.125 * s_, top + 0.12, cz + T[2] * 0.125 * s_], Ns, w, 0.22, [cap.uv[0], cap.uv[1], cap.uv[2] * 0.55, cap.uv[3]], 1.2);
+    }
+    const [wx, wz] = ox(0.03);
+    haloQuad([wx, (y0 + top) / 2, wz], N, w * 2.6, top - y0 + 1.5, [1.2, 1.15, 1.1], 0.07);
+    lights.push({ x: cx + N[0] * 1.4, z: cz + N[2] * 1.4, r: 3, color: [1.2, 1.15, 1.1], k: 0.3 });
+    glows.push({ p: [cx, (y0 + top) / 2, cz], color: [0.35, 0.33, 0.3], size: (top - y0) * 0.8, far: true });
+  }
+  // characters stuck on the window glass, lit by the room behind (added: only the letters show)
+  function windowLetters(lot, Wl, f) {
+    const { O, T, N, L } = Wl;
+    const e = pickOf(S2.win), w = Math.min(L * 0.7, 5.5), hh = w / 2.9;
+    const y = GROUND_H + f * lot.floorH + lot.floorH * 0.55;
+    const C = [O[0] + T[0] * L / 2 + N[0] * 0.04, y, O[2] + T[2] * L / 2 + N[2] * 0.04];
+    signQuad(win2, C, N, w, hh, e.uv, 1.5);
+  }
+  // a whole-facade backlit poster over a few floors
+  function poster(lot, Wl) {
+    const { O, T, N, L } = Wl;
+    const e = pickOf(S2.poster), w = Math.min(L * 0.82, 11), hh = w * 1.4;
+    const y = GROUND_H + 1.5 + hh / 2; if (y + hh / 2 > lot.h - 1) return false;
+    const C = [O[0] + T[0] * L / 2 + N[0] * 0.25, y, O[2] + T[2] * L / 2 + N[2] * 0.25];
+    prop.set({ col: hex(0x161618), rm: [0.5, 0.4, 0] });
+    const hx = Math.abs(T[0]) * (w / 2 + 0.15) + Math.abs(N[0]) * 0.15, hz = Math.abs(T[2]) * (w / 2 + 0.15) + Math.abs(N[2]) * 0.15;
+    prop.box(C[0] - N[0] * 0.12 - hx, y - hh / 2 - 0.15, C[2] - N[2] * 0.12 - hz, C[0] - N[0] * 0.12 + hx, y + hh / 2 + 0.15, C[2] - N[2] * 0.12 + hz);
+    signQuad(sign2, [C[0] + N[0] * 0.04, y, C[2] + N[2] * 0.04], N, w, hh, e.uv, 1.25);
+    haloQuad([C[0] - N[0] * 0.2, y, C[2] - N[2] * 0.2], N, w * 1.3, hh * 1.2, e.glow, 0.08);
+    lights.push({ x: C[0] + N[0] * 5, z: C[2] + N[2] * 5, r: w, color: e.glow, k: 0.3 });
+    glows.push({ p: C, color: e.glow.map(v => v * 0.25), size: w, far: true });
+    return true;
   }
   function signsFor(lot, Wl) {
     const { L } = Wl;
     const y0 = GROUND_H + 0.5;
-    // blade signs: almost every lot, often two (one each end) and stacked where the building is tall
-    if (rng() < 0.95) {
-      const a = rng() < 0.5 ? 0.55 : L - 0.55, H = R(4.2, 6.6);
-      if (y0 + H < lot.h - 0.5) blade(lot, Wl, a, y0, H, pickOf(SE.blade));
+    const a = rng() < 0.5 ? 0.55 : L - 0.55;
+    const nearX = Math.hypot((lot.x0 + lot.x1) / 2, (lot.z0 + lot.z1) / 2) < 75;
+    const big = L >= 7 && lot.floors >= 5 && rng() < (nearX ? 0.5 : 0.16) && poster(lot, Wl);
+    // the edge: a tenant directory tower (most), or a tall single-tenant blade (karaoke, ramen, a bar)
+    const k = rng();
+    if (k < 0.58 && lot.floors >= 3) directory(lot, Wl, a);
+    else if (k < 0.93) {
+      const H = R(4.2, 6.6);
+      if (y0 + H < lot.h - 0.5) blade(lot, Wl, a, y0, H, pickBlade());
       let yy = y0 + H + 0.5;
-      while (lot.h > yy + 3.5 && rng() < 0.7) { const H2 = Math.min(R(3.6, 6), lot.h - yy - 0.6); blade(lot, Wl, a, yy, H2, pickOf(SE.blade)); yy += H2 + 0.5; }
-      if (L > 8 && rng() < 0.55 && y0 + H < lot.h - 0.5) blade(lot, Wl, L - a, y0 + R(0, 2), H * R(0.6, 1), pickOf(SE.blade));
+      while (lot.h > yy + 3.5 && rng() < 0.55) { const H2 = Math.min(R(3.6, 6), lot.h - yy - 0.6); blade(lot, Wl, a, yy, H2, pickBlade()); yy += H2 + 0.5; }
     }
-    // tenant fascias across the upper floors (light boxes / neon), up to three per lot
-    let nf = 0;
-    for (let f = 1; f < lot.floors && nf < 3; f++) {
-      if (rng() > 0.42) continue; nf++;
+    if (!big && L > 8 && rng() < 0.4 && lot.floors >= 3) { if (rng() < 0.5) directory(lot, Wl, L - a); else if (y0 + 5 < lot.h) blade(lot, Wl, L - a, y0 + R(0, 2), R(3.5, 5.5), pickBlade()); }
+    // lettering on the windows of a floor or two; the odd tenant box across a floor
+    if (!big) for (let f = 0; f < Math.min(3, lot.floors - 1); f++) if (rng() < 0.32) windowLetters(lot, Wl, f);
+    if (!big && rng() < 0.22 && lot.floors >= 3) {
+      const f = 1 + Math.floor(rng() * Math.min(3, lot.floors - 1));
       const y = GROUND_H + (f - 1) * lot.floorH + lot.floorH * 0.5;
-      const e = pickOf(SE.fascia), w = Math.min(L * R(0.55, 0.8), 7.5), hh = Math.min(w / 4.27, lot.floorH * 0.7);
+      const e = pickFascia(), w = Math.min(L * R(0.5, 0.75), 7), hh = Math.min(w / 4.27, lot.floorH * 0.6);
       const { O, T, N } = Wl;
-      const along = L / 2 + R(-1, 1) * (L - w) * 0.3;
-      const C = [O[0] + T[0] * along + N[0] * 0.2, y, O[2] + T[2] * along + N[2] * 0.2];
-      prop.set({ col: hex(0x1a1a1c), rm: [0.5, 0.3, 0] });
-      const hx = Math.abs(T[0]) * w / 2 + Math.abs(N[0]) * 0.1, hz = Math.abs(T[2]) * w / 2 + Math.abs(N[2]) * 0.1;
-      prop.box(C[0] - N[0] * 0.08 - hx, y - hh / 2 - 0.05, C[2] - N[2] * 0.08 - hz, C[0] - N[0] * 0.08 + hx, y + hh / 2 + 0.05, C[2] - N[2] * 0.08 + hz);
-      signQuad(sign, [C[0] + N[0] * 0.03, y, C[2] + N[2] * 0.03], N, w, hh, e.uv, e.neon ? 2.0 : 1.35);
-      haloQuad([C[0] - N[0] * 0.12, y, C[2] - N[2] * 0.12], N, w * 1.35, hh + 2.4, e.glow, e.neon ? 0.3 : 0.14);
-      glows.push({ p: C, color: e.glow.map(v => v * 0.25), size: w * 0.7, far: true });
+      const C = [O[0] + T[0] * L / 2 + N[0] * 0.12, y, O[2] + T[2] * L / 2 + N[2] * 0.12];
+      signQuad(sign, C, N, w, hh, e.uv, e.neon ? 1.8 : 1.3);
+      if (e.neon) haloQuad([C[0] - N[0] * 0.08, y, C[2] - N[2] * 0.08], N, w * 1.3, hh + 2, e.glow, 0.16);
     }
-    // rooftop billboard (floodlit from the catwalk)
     if (lot.h < 34 && L > 7 && rng() < 0.36 && !lot.noBill) billboard(lot, Wl);
+  }
+  // K-FRONT (the QFRONT stand-in): the giant screen covers its crossing face; a café band at 2F under it,
+  // the brand band at street level, a vertical name at the corner
+  function kfront(lot, Wl) {
+    const { O, T, N, L } = Wl;
+    const at = (a, y, out = 0) => [O[0] + T[0] * a + N[0] * out, y, O[2] + T[2] * a + N[2] * out];
+    signQuad(sign2, at(L / 2, 3.6, 0.36), N, L - 1.2, 1.1, S2.band[0].uv, 1.4);
+    // the café floor under the screen: warm, a long counter, silhouettes against the window
+    prop.set({ col: hex(0xd8a868), rm: [0.5, 0, 1.0] }); const c0 = at(0.6, 4.6, -1.6), c1 = at(L - 0.6, 7.9, -1.5);
+    prop.box(Math.min(c0[0], c1[0]), 4.6, Math.min(c0[2], c1[2]), Math.max(c0[0], c1[0]), 7.9, Math.max(c0[2], c1[2]), { faces: N[2] > 0 ? 'Z' : 'z' });
+    prop.set({ col: hex(0x1a1410), rm: [0.6, 0, 0] }); for (let a = 1.5; a < L - 1; a += 1.7) { const p = at(a, 5.2, -1.0); prop.box(p[0] - 0.2, 4.6, p[2] - 0.2, p[0] + 0.2, 5.6 + (a % 3 > 1.5 ? 0.3 : 0), p[2] + 0.2); }
+    panes.push({ c: at(L / 2, 6.25, 0.05), n: N, w: L - 1, h: 3.1, kind: 'lobby' });
+    lights.push({ x: at(L / 2, 0, 3)[0], z: at(L / 2, 0, 3)[2], w: L, d: 5, ang: Math.atan2(T[2], T[0]), color: [1.6, 1.2, 0.8], k: 0.6 });
+    // the vertical K-FRONT name at the west corner (both faces)
+    const e = S2.band[0];
+    signQuad(sign2, [O[0] - 0.45, 18, O[2] - N[2] * 0.8], [-1, 0, 0], 14, 1.4, e.uv, 1.5, [0, 0, 1]);
+    prop.set({ col: hex(0x161618), rm: [0.5, 0.4, 0] }); prop.box(O[0] - 0.42, 10.8, O[2] - N[2] * 0.8 - 0.8, O[0], 25.2, O[2] - N[2] * 0.8 + 0.8);
   }
   function billboard(lot, Wl) {
     const { O, T, N, L } = Wl, h = lot.h;
@@ -305,8 +379,8 @@ export function buildCity(ctx = {}) {
       for (const g of done) { const e = ADJ[f][g.f]; if (e === 0) a0 = g.D; if (e === 1) a1 = len - g.D; }
       if (B.tower) { // the corner tower: one lot for the whole block, fronts on both streets
         if (done.length) continue;
-        const t = lot({ x0: bx0, z0: bz0, x1: bx1, z1: bz1, face: f, corner: B.faces[1], hot: true, h: 46, style: FCELL.curtain, tower: true, lit: 0.75, noBill: true });
-        t.isTower = true;
+        const t = lot({ x0: bx0, z0: bz0, x1: bx1, z1: bz1, face: f, corner: B.faces[1], hot: true, h: 33, style: FCELL.curtain, tower: true, lit: 0.8, noBill: true, shop: true });
+        if (t) t.isTower = true;
         done.push({ f, D: 99 });
         continue;
       }
@@ -381,6 +455,9 @@ export function buildCity(ctx = {}) {
   const mProp = prop.mesh(propMat, { shadow: true }); root.add(mProp);
   const mSign = sign.mesh(signMaterial()); mSign.renderOrder = 2; root.add(mSign);
   const mHalo = halo.mesh(haloMaterial()); mHalo.renderOrder = 6; mHalo.receiveShadow = false; root.add(mHalo);
+  const a2 = signAtlas2().tex;
+  const mS2 = sign2.mesh(new THREE.MeshBasicMaterial({ map: a2, vertexColors: true })); mS2.renderOrder = 2; root.add(mS2);
+  const mW2 = win2.mesh(new THREE.MeshBasicMaterial({ map: a2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })); mW2.renderOrder = 5; root.add(mW2);
   for (const S of screens) root.add(S.root);
   let t = 0;
   const update = (dt) => { t += dt; for (const S of screens) S.update(t); };

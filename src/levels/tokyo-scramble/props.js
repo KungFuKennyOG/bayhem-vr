@@ -33,20 +33,40 @@ export function buildProps(ctx = {}) {
     lights.push({ x: (x0 + x1) / 2, z: z1 + 2, w: 5, d: 3, ang: 0, color: [1.3, 1.25, 1.15], k: 0.7 });
     col([x0, 0, z0], [x1, y + h, z1], 'koban');
   }
-  // ---- the bronze cat on its plinth (Kurogane's own loyal-pet statue)
+  // ---- the bronze dog on its plinth (Hachikō square has to have one): a sitting Akita, ears up, tail curled
   {
-    const x = -58, z = 4, y = CURB;
-    P.set({ col: hex(0x6e6a62), rm: [0.75, 0, 0] }); P.box(x - 1.1, y, z - 0.8, x + 1.1, y + 1.25, z + 0.8);
-    P.set({ col: hex(0x5a5850), rm: [0.75, 0, 0] }); P.box(x - 1.3, y, z - 1.0, x + 1.3, y + 0.2, z + 1.0);
-    P.set({ col: hex(0x5a4228), rm: [0.35, 0.85, 0] });
-    const yt = y + 1.25;
-    P.cyl(x, yt, z, 0.42, 0.34, yt + 0.85, 12);                         // sitting body
-    P.cyl(x, yt + 0.85, z + 0.05, 0.3, 0.26, yt + 1.25, 12);            // head
-    for (const s of [-1, 1]) { P.tube([x + s * 0.16, yt + 1.2, z + 0.05], [x + s * 0.22, yt + 1.48, z + 0.02], 0.07, 4); } // ears
-    P.tube([x - 0.3, yt + 0.1, z - 0.3], [x - 0.55, yt + 0.5, z - 0.1], 0.06, 5); P.tube([x - 0.55, yt + 0.5, z - 0.1], [x - 0.45, yt + 0.95, z + 0.1], 0.055, 5); // tail
-    for (const s of [-1, 1]) P.cyl(x + s * 0.18, yt, z + 0.3, 0.08, 0.08, yt + 0.55, 6);
-    col([x - 1.1, 0, z - 0.8], [x + 1.1, y + 2.6, z + 0.8], 'statue');
-    const pl = SE.plate[0]; void pl;
+    const x = -52, z = 9, y = CURB;
+    P.set({ col: hex(0x6e6a62), rm: [0.75, 0, 0] }); P.box(x - 0.9, y, z - 0.7, x + 0.9, y + 1.3, z + 0.7);
+    P.set({ col: hex(0x5a5850), rm: [0.75, 0, 0] }); P.box(x - 1.15, y, z - 0.95, x + 1.15, y + 0.2, z + 0.95);
+    P.set({ col: hex(0x4a3a24), rm: [0.35, 0.85, 0] });
+    const yt = y + 1.3;
+    P.tube([x - 0.25, yt + 0.3, z], [x + 0.15, yt + 0.85, z], 0.3, 10);                 // chest, sitting up
+    P.tube([x - 0.45, yt + 0.25, z], [x - 0.15, yt + 0.25, z], 0.32, 10);                // haunches
+    P.tube([x + 0.12, yt + 0.95, z], [x + 0.42, yt + 1.05, z], 0.17, 8);                 // head + muzzle
+    P.tube([x + 0.42, yt + 1.03, z], [x + 0.62, yt + 0.98, z], 0.09, 6);
+    for (const s of [-1, 1]) { P.tube([x + 0.12, yt + 1.12, z + s * 0.09], [x + 0.1, yt + 1.36, z + s * 0.12], 0.05, 4); P.tube([x + 0.22, yt + 0.6, z + s * 0.14], [x + 0.25, yt, z + s * 0.14], 0.06, 6); }
+    P.tube([x - 0.6, yt + 0.35, z], [x - 0.55, yt + 0.6, z + 0.12], 0.07, 5);            // the curled tail
+    col([x - 0.9, 0, z - 0.7], [x + 0.9, y + 2.6, z + 0.7], 'statue');
+    lights.push({ x, z, r: 3, color: [1.2, 1.1, 0.95], k: 0.4 });
+  }
+  // ---- the retired green railcar parked on the square (a tourist booth now: cover, and a landmark)
+  {
+    const x0 = -70, x1 = -58, z = -18, y = CURB + 0.4;
+    P.set({ col: hex(0x5a8a4a), rm: [0.45, 0.3, 0] }); P.box(x0, y + 0.6, z - 1.35, x1, y + 2.7, z + 1.35);
+    P.set({ col: hex(0xd8d0a8), rm: [0.5, 0.2, 0] }); P.box(x0, y + 2.7, z - 1.35, x1, y + 3.3, z + 1.35); P.box(x0 + 0.2, y + 3.3, z - 1.1, x1 - 0.2, y + 3.55, z + 1.1);
+    P.set({ col: hex(0x1a1a1a), rm: [0.7, 0.3, 0] }); P.box(x0 + 1, y, z - 1.1, x1 - 1, y + 0.6, z + 1.1);
+    P.set({ col: [1.0, 0.92, 0.75], rm: [0.4, 0, 1.4] }); for (let x = x0 + 0.8; x < x1 - 1; x += 1.6) for (const s of [-1, 1]) P.box(x, y + 1.6, s > 0 ? z + 1.35 : z - 1.36, x + 1.1, y + 2.4, s > 0 ? z + 1.36 : z - 1.35, { faces: s > 0 ? 'Z' : 'z' });
+    P.set({ col: hex(0x3a3a3a), rm: [0.6, 0.6, 0] }); P.box(x0 - 0.4, CURB, z - 1.6, x1 + 0.4, CURB + 0.4, z + 1.6);
+    col([x0, 0, z - 1.4], [x1, y + 3.3, z + 1.4], 'railcar', 'metal');
+    lights.push({ x: (x0 + x1) / 2, z: z + 3, w: 12, d: 4, ang: 0, color: [1.4, 1.25, 1.0], k: 0.6 }); lights.push({ x: (x0 + x1) / 2, z: z - 3, w: 12, d: 4, ang: 0, color: [1.4, 1.25, 1.0], k: 0.6 });
+  }
+  // ---- zelkova trees in round granite planters on the square
+  for (const [x, z] of [[-46, -22], [-64, 14], [-40, 21], [-68, -4]]) {
+    P.set({ col: hex(0x7c776e), rm: [0.75, 0, 0] }); P.cyl(x, CURB, z, 1.3, 1.3, CURB + 0.55, 14);
+    P.set({ col: hex(0x3a2e24), rm: [0.9, 0, 0] }); P.tube([x, CURB + 0.5, z], [x + 0.2, 4.2, z + 0.1], 0.2, 6); P.tube([x + 0.2, 3.6, z + 0.1], [x + 1.4, 5.2, z - 0.6], 0.09, 5); P.tube([x + 0.2, 3.8, z + 0.1], [x - 1.2, 5.6, z + 0.8], 0.09, 5);
+    for (let k = 0; k < 9; k++) { const a = k * 2.4, rr = 1.1 + (k % 3) * 0.5; P.set({ col: hex([0x2a3a1e, 0x34461f, 0x24321a][k % 3]), rm: [0.95, 0, 0.02] }); P.cyl(x + Math.cos(a) * rr * 0.7, 4.4 + (k % 3) * 0.6, z + Math.sin(a) * rr * 0.7, 0.9 + (k % 2) * 0.4, 0.4, 5.6 + (k % 3) * 0.7, 7); }
+    col([x - 1.3, 0, z - 1.3], [x + 1.3, CURB + 0.55, z + 1.3], 'planter');
+    colliders.push({ min: [x - 0.25, 0, z - 0.25], max: [x + 0.25, 4.2, z + 0.25], data: { kind: 'tree', mat: 'wood' } });
   }
   // ---- granite planters with clipped shrubs (plaza)
   const planter = (x, z, w = 2.4, d = 1.2) => {
@@ -54,7 +74,7 @@ export function buildProps(ctx = {}) {
     P.set({ col: hex(0x24361c), rm: [0.95, 0, 0] }); P.box(x - w / 2 + 0.1, CURB + 0.75, z - d / 2 + 0.1, x + w / 2 - 0.1, CURB + 1.25, z + d / 2 - 0.1);
     col([x - w / 2, 0, z - d / 2], [x + w / 2, CURB + 1.25, z + d / 2], 'planter');
   };
-  for (const [x, z, w, d] of [[-66, -18, 1.2, 3], [-66, 18, 1.2, 3], [-52, -12, 2.6, 1.2], [-50, 18, 2.6, 1.2], [-70, 0, 1.2, 2.4], [-45, 3, 1.2, 2.6]]) planter(x, z, w, d);
+  for (const [x, z, w, d] of [[-48, -10, 2.6, 1.2], [-46, 16, 2.6, 1.2], [-45, 3, 1.2, 2.6]]) planter(x, z, w, d);
   // ---- newsstand (plaza) + utility cabinets (sidewalks)
   { const x = -60, z = -24; P.set({ col: hex(0x1d5a3a), rm: [0.5, 0.3, 0] }); P.box(x - 1.4, CURB, z - 0.9, x + 1.4, CURB + 2.3, z + 0.9); P.set({ col: hex(0x123a24), rm: [0.5, 0.3, 0] }); P.box(x - 1.6, CURB + 2.3, z - 1.1, x + 1.6, CURB + 2.45, z + 1.3);
     const f = SE.fascia[1]; signQuad(S, [x, CURB + 2.0, z + 0.91], [0, 0, 1], 2.6, 0.55, f.uv, 1.2); col([x - 1.4, 0, z - 0.9], [x + 1.4, CURB + 2.4, z + 0.9], 'kiosk'); lights.push({ x, z: z + 2, r: 3, color: [1.3, 1.2, 1.0], k: 0.6 }); }
@@ -84,7 +104,7 @@ export function buildProps(ctx = {}) {
     P.set({ col: hex(0xd8281c), rm: [0.6, 0, 1.4] }); P.cyl(x - 0.85, CURB + 1.4, z, 0.22, 0.22, CURB + 1.95, 8); glows.push({ p: [x - 0.85, CURB + 1.68, z], color: [2.6, 0.5, 0.25], size: 1.0 });
     col([x - 0.8, 0, z - 1.4], [x + 0.8, CURB + 1.05, z + 1.4], 'stall', 'wood'); lights.push({ x, z, r: 3.5, color: [1.6, 0.6, 0.3], k: 0.7 }); }
   // flower stand + bikes near the station stairs
-  for (const [x, z] of [[-66, -14], [-66, 14]]) { P.set({ col: hex(0x3a2a1a), rm: [0.7, 0, 0] }); P.box(x - 0.6, CURB, z - 1, x + 0.6, CURB + 0.8, z + 1); for (let i = 0; i < 6; i++) { P.set({ col: hex([0xd83a6a, 0xf2c21a, 0xe8e0d8, 0xd85a1a][i % 4]), rm: [0.9, 0, 0.05] }); P.cyl(x + R(-0.4, 0.4), CURB + 0.8, z + R(-0.8, 0.8), 0.14, 0.18, CURB + 1.05, 6); } col([x - 0.6, 0, z - 1], [x + 0.6, CURB + 1.05, z + 1], 'stand', 'wood'); }
+  for (const [x, z] of [[-48, -6], [-48, 7]]) { P.set({ col: hex(0x3a2a1a), rm: [0.7, 0, 0] }); P.box(x - 0.6, CURB, z - 1, x + 0.6, CURB + 0.8, z + 1); for (let i = 0; i < 6; i++) { P.set({ col: hex([0xd83a6a, 0xf2c21a, 0xe8e0d8, 0xd85a1a][i % 4]), rm: [0.9, 0, 0.05] }); P.cyl(x + R(-0.4, 0.4), CURB + 0.8, z + R(-0.8, 0.8), 0.14, 0.18, CURB + 1.05, 6); } col([x - 0.6, 0, z - 1], [x + 0.6, CURB + 1.05, z + 1], 'stand', 'wood'); }
   // ---- meshes
   root.add(P.mesh(rmMat({}), { shadow: true }));
   root.add(S.mesh(signMaterial()));
