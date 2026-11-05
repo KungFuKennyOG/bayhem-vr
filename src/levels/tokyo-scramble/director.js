@@ -120,7 +120,7 @@ export class Director {
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t;
           const T_ = this.sp.tanker;
-          if (T_ && T_.state !== 'boom' && t > 12) {
+          if (T_ && T_.state !== 'boom' && t > 7) {
             if (first('tankhint')) say('The TANKER! Shoot the tanker!', 2);
             this.lookT = looking(T_.center, 0.82) ? this.lookT + dt : 0;
             if (this.lookT > 0.4 || t > 22) this.sp.damageTanker(99);

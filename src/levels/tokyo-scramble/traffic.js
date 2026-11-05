@@ -10,7 +10,7 @@ import { CARS } from './layout.js';
 //  still cover. Grenades and nearby blasts cook them off; chains are the point.
 // =====================================================================================
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
-const PAINTS = [0x8a8f96, 0xd8d6d0, 0x1c2a44, 0x5a1414, 0x2b2f33, 0x6f6450, 0x123a2c, 0xa79f8d];
+const PAINTS = [0xe8e8e4, 0xd8d6d0, 0x9a9ea2, 0x2a2e34, 0xf0eee8, 0x6f7378, 0x1c2a44, 0x5a1414];   // Tokyo: white, pearl, silver first
 const HP = { sedan: 13, taxi: 13, police: 15, suv: 17, van: 16, bus: Infinity, wreck: Infinity };
 
 export class Traffic {
@@ -22,7 +22,7 @@ export class Traffic {
     let k = 0;
     for (const [x, z, yawDeg, type, flags = ''] of CARS) {
       const f = flags.split(/\s+/);
-      const paint = type === 'sedan' || type === 'suv' || type === 'van' ? (type === 'suv' ? 0x101114 : type === 'van' ? 0xe8e6e0 : PAINTS[k % PAINTS.length]) : undefined;
+      const paint = type === 'sedan' || type === 'suv' || type === 'van' ? (type === 'suv' ? [0xe8e8e4, 0x9a9ea2, 0x2a2e34, 0xd8d4c8][k % 4] : type === 'van' ? 0xe8e6e0 : PAINTS[k % PAINTS.length]) : undefined;
       const m = carMod?.buildCar ? carMod.buildCar(type, { paint, doorOpen: f.includes('open'), shattered: f.includes('intact') ? false : undefined, seed: 101 + k, city: 'tokyo' }) : fallback(type, paint);
       const yaw = yawDeg * Math.PI / 180;
       m.root.position.set(x, this.g.world.fastGround(x, z), z); m.root.rotation.y = yaw;

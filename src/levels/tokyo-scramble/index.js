@@ -6,6 +6,8 @@ import { Director } from './director.js';
 import { Auto } from '../iron-lady/auto.js';
 import { START } from './layout.js';
 import { DAY } from './tod.js';
+import { buildCrowd } from './crowd.js';
+import { patchSun } from './sunshadow.js';
 import { createTokyoSky, createTokyoEnvironment } from './sky.js';
 import { Player } from '../../player.js';
 import { Locomotion } from '../../locomotion.js';
@@ -38,6 +40,9 @@ export async function create(E) {
   const game = new TokyoGame(E, world);
   { const c = game.clouds, spawn = c.spawn.bind(c); c.spawn = (o) => { if ((o.r ?? 0.5) < 0.3 && Math.abs((o.r ?? 0) - (o.b ?? 0)) < 0.05) { o.r *= 1.18; o.b *= 0.8; if (o.r1 !== undefined) { o.r1 *= 1.12; o.b1 *= 0.82; } } return spawn(o); }; }
   game.dusk = 0;
+  // the last of the crowd running out of the scramble as the level opens (not on a beat jump past it)
+  const jb = params.get('beat');
+  if (!flags.SANDBOX && (!jb || jb === 'crossing')) { game.crowd = buildCrowd(scene); patchSun(game.crowd.mat); }
   const setp = new SetPieces(game);
   game.setpieces = setp;
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });
@@ -73,6 +78,7 @@ export async function create(E) {
     step(sdt, started) {
       if (!envDone) { envDone = true; scene.environment = createTokyoEnvironment(renderer); }
       const dt = game.update(sdt);
+      if (started) game.crowd?.update(dt, world.fastGround);
       if (auto && started) auto.update(dt);
       player.update(sdt, started ? dt : 0);
       setp.afterPlayer?.(sdt, dt);

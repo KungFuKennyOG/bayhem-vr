@@ -150,7 +150,8 @@ export function buildStreet(ctx = {}) {
   // tactile paving (yellow): along the curb at every crossing edge
   const tac = (x0, z0, x1, z1) => { prop.set({ col: hex(0x9a8436), rm: [0.75, 0, 0] }); prop.box(x0, CURB, z0, x1, CURB + 0.012, z1, { faces: 'Y' }); };
   tac(-21, -23, -9, -22.6); tac(9, -23, 21, -22.6); tac(22.6, -21, 23, -12); tac(22.6, 12, 23, 21); tac(-21, 22.6, -12, 23); tac(12, 22.6, 21, 23);
-  prop.set({ col: hex(0x8a7a3a), rm: [0.8, 0, 0] }); prop.box(-0.15, CURB, -136, 0.15, CURB + 0.012, -30, { faces: 'Y' }); // the guide line down Center-gai
+  // the tactile guide line down Center-gai: a row of studded yellow blocks off to one side (not a road line)
+  for (let z = -136; z < -30; z += 0.3) { prop.set({ col: hex(Math.round((z + 136) / 0.3) % 2 ? 0x9a8436 : 0x8e7a30), rm: [0.75, 0, 0] }); prop.box(-3.15, CURB, z + 0.01, -2.85, CURB + 0.014, z + 0.29, { faces: 'Y' }); }
 
   // ---------------------------------------------------------------- road paint
   const mk = new Acc();

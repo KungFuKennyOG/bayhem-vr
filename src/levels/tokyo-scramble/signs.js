@@ -285,8 +285,25 @@ function drawVend(g, x, y, w, h, i, rng) {
 function drawShop(g, x, y, w, h, i, rng) {
   if (i === 0) { // convenience store: white light, shelves of colour, the counter
     bg(g, x, y, w, h, '#f4f4ee');
-    for (let r = 0; r < 4; r++) for (let k = 0; k < 18; k++) { g.fillStyle = `hsl(${Math.floor(rng() * 360)},${50 + rng() * 40}%,${45 + rng() * 25}%)`; g.fillRect(x + 6 + k * 13, y + 40 + r * 30, 11, 22); }
-    g.fillStyle = '#d8d8d0'; for (let r = 0; r < 4; r++) g.fillRect(x, y + 62 + r * 30, w, 4);
+    // shelves: runs of the same product (facings), a shadow under each shelf lip, yellow price strips
+    for (let r = 0; r < 4; r++) {
+      const sy = y + 40 + r * 30;
+      g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x, sy - 4, w, 6);
+      let px = x + 4;
+      while (px < x + w - 8) {
+        const run = 3 + Math.floor(rng() * 5), hue = Math.floor(rng() * 360), sat = 35 + rng() * 45, lit = 40 + rng() * 30, pw = 7 + Math.floor(rng() * 4), ph = 14 + Math.floor(rng() * 8);
+        for (let k = 0; k < run && px < x + w - 8; k++) {
+          g.fillStyle = `hsl(${hue},${sat}%,${lit}%)`; g.fillRect(px, sy + 22 - ph, pw, ph);
+          g.fillStyle = `hsl(${hue},${sat}%,${Math.min(92, lit + 25)}%)`; g.fillRect(px + 1, sy + 22 - ph + 2, Math.max(1, pw - 5), 3);
+          px += pw + 1;
+        }
+        px += 3 + rng() * 4;
+      }
+      g.fillStyle = '#d8d8d0'; g.fillRect(x, sy + 22, w, 4); g.fillStyle = '#f2d23a'; g.fillRect(x, sy + 26, w, 3);
+    }
+    // posters taped on the glass, a sale banner
+    g.fillStyle = '#e8281c'; g.fillRect(x + 6, y + h - 74, 46, 40); fitText(g, '新発売', x + 29, y + h - 54, 40, 16, JP, '#fff', 900);
+    g.fillStyle = '#f2c21a'; g.fillRect(x + w - 52, y + h - 74, 46, 40); fitText(g, 'おでん', x + w - 29, y + h - 54, 40, 16, JP, '#c8281c', 900);
     g.fillStyle = '#c8c8c0'; g.fillRect(x, y + h - 30, w, 30);
     g.fillStyle = '#1d8a4a'; g.fillRect(x, y, w, 14); g.fillStyle = '#f08a12'; g.fillRect(x, y + 14, w, 6);
   } else if (i === 1) { // ramen counter: warm wood, noren, steam-yellow light
@@ -308,7 +325,7 @@ function drawShop(g, x, y, w, h, i, rng) {
     g.fillStyle = '#18101e'; g.fillRect(x, y + h - 30, w, 30);
   } else { // clothes shop: racks, mannequins, warm spots
     bg(g, x, y, w, h, '#e8ddd0');
-    for (let k = 0; k < 14; k++) { g.fillStyle = `hsl(${Math.floor(rng() * 40 + (rng() < 0.3 ? 200 : 0))},${30 + rng() * 40}%,${25 + rng() * 40}%)`; g.fillRect(x + 8 + k * 17, y + 60, 14, 70); }
+    for (let k = 0; k < 28; k++) { const hue = Math.floor(rng() * 40 + (rng() < 0.3 ? 200 : 0)); g.fillStyle = `hsl(${hue},${20 + rng() * 30}%,${30 + rng() * 35}%)`; g.fillRect(x + 8 + k * 8.5, y + 62, 7, 60 + rng() * 12); g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(x + 14 + k * 8.5, y + 62, 1.5, 66); }
     g.fillStyle = '#8a8a8a'; g.fillRect(x, y + 58, w, 3);
     for (let k = 0; k < 2; k++) { g.fillStyle = '#d8d0c8'; g.fillRect(x + 60 + k * 120, y + 30, 16, 120); g.beginPath(); g.arc(x + 68 + k * 120, y + 26, 9, 0, Math.PI * 2); g.fill(); }
     g.fillStyle = '#b8a890'; g.fillRect(x, y + h - 24, w, 24);
