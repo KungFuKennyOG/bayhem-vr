@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { DAY } from './tod.js';
+import { buildSunMap, casterMesh, patchSunTree } from './sunshadow.js';
 import { BillboardBatch, CELL } from '../../particles.js';
 import { CollisionWorld, NavGrid } from '../../collision.js';
 import { buildSedan, buildSUV, MAT } from '../../vehicles.js';
@@ -7,7 +9,7 @@ import { groundAt, walkable, STATE, CROSS, AVE_E, AVE_S, TAXI, PLAZA, CENTER, ST
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
 const PROG = [[1.5, 0.35, 0.3], [1.3, 0.65, 1.15], [0.55, 0.6, 1.4], [0.5, 0.95, 1.35]];
-const ASSETS = import.meta.glob(['./city.js', './street.js', './station.js', './garage.js', './xway.js', './props.js', './landmarks.js', '../downtown-haven/cars.js']);
+const ASSETS = import.meta.glob(['./city.js', './street.js', './station.js', './eastexit.js', './xway.js', './props.js', './landmarks.js', './plumes.js', '../downtown-haven/cars.js']);
 async function asset(name) { const l = ASSETS[name]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 // =====================================================================================
@@ -25,9 +27,9 @@ export class TokyoWorld {
   }
   async build() {
     const E = this.E, ctx = { renderer: E.renderer, scene: E.scene, camera: E.camera, sun: E.sun, hemi: E.hemi, atlas: E.atlas, light: this.light };
-    const names = ['./city.js', './street.js', './station.js', './garage.js', './xway.js', './props.js', './landmarks.js', '../downtown-haven/cars.js'];
-    const [cityM, streetM, stationM, garageM, xwayM, propsM, landM, carMod] = await Promise.all(names.map(asset));
-    this.mods = { cityM, streetM, stationM, garageM, xwayM, propsM, landM, carMod };
+    const names = ['./city.js', './street.js', './station.js', './eastexit.js', './xway.js', './props.js', './landmarks.js', './plumes.js', '../downtown-haven/cars.js'];
+    const [cityM, streetM, stationM, eastM, xwayM, propsM, landM, plumeM, carMod] = await Promise.all(names.map(asset));
+    this.mods = { cityM, streetM, stationM, eastM, xwayM, propsM, landM, carMod };
     this.col.floorFn = groundAt;
     this.fastGround = groundAt;
     const take = async (fn, label) => {
@@ -42,6 +44,8 @@ export class TokyoWorld {
       for (const gl of r.anchors?.glows || []) this.glowList.push(gl);
       for (const L of r.anchors?.lights || []) this.light.add(L);
       if (r.groundMats) this.groundMats.push(...r.groundMats);
+      if (r.walks) for (const w of r.walks) this.col.walk.push(w);
+      for (const sh of r.shade || []) this.light.shade(...sh);
       return r;
     };
     this.city = await take(cityM?.buildCity, 'city');
@@ -49,22 +53,37 @@ export class TokyoWorld {
     this.station = await take(stationM?.buildStation, 'station');
     this.props = await take(propsM?.buildProps, 'props');
     this.landmarks = await take(landM?.buildLandmarks, 'landmarks');
-    this.garage = await take(garageM?.buildGarage, 'garage');
+    this.east = await take(eastM?.buildEastExit, 'eastexit');
     this.xway = await take(xwayM?.buildXway, 'xway');
+    this.plumes = await take(plumeM?.buildPlumes, 'plumes');
     this.screens = this.city?.screens || [];
     // contact darkening at every building base near the play areas (the blurred footprint map)
     for (const L of this.city?.lots || []) if (!L.far) this.light.occlude(L.x0, L.z0, L.x1, L.z1);
-    for (const r of [[-170, -70, -100, 70], [-88, -330, -76, 330], [29, 18, 45, 34], [44, -128, 112, -17], [-40, -29.6, -35.5, -26], [-60 - 1.4, -24.9, -60 + 1.4, -23.1]]) this.light.occlude(...r);
+    for (const r of [[-170, -70, -100, 70], [-88, -330, -76, 330], [29, 18, 45, 34], [44, -128, 112, -80], [-40, -29.6, -35.5, -26], [-60 - 1.4, -24.9, -60 + 1.4, -23.1]]) this.light.occlude(...r);
     // the light on the ground: bake once everything has reported its lamps, patch every ground surface
+    // sky occlusion under the expressway and the station's skybridge
+    this.light.shade(XWAY.x0, XWAY.z0, XWAY.x1, XWAY.z1, 0.55); this.light.shade(SKY.x0, SKY.z0, SKY.x1, SKY.z1, 0.4);
     this.light.bake();
+    this.light.k.value = DAY.groundK;
     for (const m of this.groundMats) this.light.patch(m, m.userData.glK ?? 1, { ao: !m.userData.noAO });
     this._bounds();
+    // the afternoon sun: a building-height map every static surface marches toward the sun, and the
+    // same boxes (invisible) casting into the realtime shadow map for cars / people / props
+    if (DAY.on) {
+      const extra = [[VIADUCT.x0, VIADUCT.z0, VIADUCT.x1, VIADUCT.z1, VIADUCT.y + 1.2], [SKY.x0, SKY.z0, SKY.x1, SKY.z1, SKY.y]];
+      const casters = buildSunMap(this.col, extra);
+      this.group.add(casterMesh(casters.filter(b => Math.abs((b.min.x + b.max.x) / 2) < 260 && Math.abs((b.min.z + b.max.z) / 2) < 260)));
+      patchSunTree(this.group);
+    }
     this.glows = new BillboardBatch(Math.max(64, this.glowList.length + 16), E.atlas, { boost: 1, renderOrder: 19, fog: this.scene.fog });
     this.scene.add(this.glows.mesh);
     return this;
   }
   buildNav() {
+    // the East Exit's deck balustrades hang over the plaza: the street nav must not see them
+    const deck = this.col.boxes.filter(b => b.enabled && b.data.layer === 'deck'); for (const b of deck) b.enabled = false;
     this.nav = new NavGrid(this.col, { x0: -100, z0: -162, x1: 172, z1: 132, y: 0, height: 15, cell: 1, clearance: 0.42, walkable });
+    for (const b of deck) b.enabled = true;
   }
   _bounds() {
     const b = (min, max, extra = {}) => this.col.add(min, max, { kind: 'bound', noBullet: true, ...extra });
@@ -106,6 +125,7 @@ export class TokyoWorld {
     for (const L of this.glowList) {
       if (gi >= G.max - 1) break;
       if (L.dead) continue;
+      if (DAY.on && !L.blink && !L.day) continue;
       const p = L.p.isVector3 ? L.p : (L._p ||= new THREE.Vector3(...L.p));
       if (L.blink && Math.sin(t * (L.rate || 3.2) + p.x * 0.7) < 0.15) continue;
       if (L.far !== true && p.distanceToSquared(head) > 160 * 160) continue;
@@ -117,7 +137,7 @@ export class TokyoWorld {
     // the screens throw their current picture's colour onto the crossing (red, flashing, in an emergency)
     const SC = this.light.scr.value, SCC = this.light.scrC.value;
     for (let i = 0; i < 4; i++) {
-      const S = this.screens[i]; if (!S) { SC[i].w = 0; continue; }
+      const S = this.screens[i]; if (!S || DAY.on) { SC[i].w = 0; continue; }
       const seed = S.mat.uniforms.uSeed.value, tt = S.mat.uniforms.uT.value + seed * 37;
       const k = ((Math.floor(tt / 9) + seed * 3) % 4 + 4) % 4;
       const c = k < 0.5 ? PROG[0] : k < 1.5 ? PROG[1] : k < 2.5 ? PROG[2] : PROG[3];

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex } from './kit.js';
+import { Acc, rmMat, hex, signMat } from './kit.js';
 import { facadeMaterial, cellRect, FCELL } from './facade.js';
 import { signAtlas, JP } from './signs.js';
 import { signAtlas2 } from './signs2.js';
@@ -156,7 +156,7 @@ export function buildStation(ctx = {}) {
   root.add(fac.mesh(facMat));
   root.add(prop.mesh(rmMat({}), { shadow: false }));
   root.add(sign.mesh(signMaterial()));
-  root.add(sign2.mesh(new THREE.MeshBasicMaterial({ map: signAtlas2().tex, vertexColors: true })));
+  root.add(sign2.mesh(signMat(signAtlas2().tex)));
   if (halo.vn) { const mh = halo.mesh(haloMaterial()); mh.renderOrder = 6; root.add(mh); }
   const pm = new THREE.MeshStandardMaterial({ map: plazaTex(), color: 0xdcd4c8, roughness: 0.55 });
   pm.userData.noAO = true;
@@ -218,5 +218,5 @@ function boardCard() {
   });
   g.fillStyle = 'rgba(0,0,0,0.45)'; for (let y = 0; y < H; y += 4) g.fillRect(0, y, W, 1); for (let x = 0; x < W; x += 4) g.fillRect(x, 0, 1, H);
   const t = canvasTex(c, { repeat: false, aniso: 4 });
-  return new THREE.Mesh(new THREE.PlaneGeometry(9, 2.25), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.5, 1.5, 1.5) }));
+  return new THREE.Mesh(new THREE.PlaneGeometry(9, 2.25), signMat(t, { color: 1.5, vc: false }));
 }

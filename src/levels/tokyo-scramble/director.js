@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { clamp, damp } from '../../rng.js';
 import { arrivedAtMarker } from '../../beats.js';
-import { SNIPERS, START, CURB, SKY, STAIRS, GASWORKS, DIVE_Z, TANKER, XWAY, GORE } from './layout.js';
+import { SNIPERS, START, CURB, SKY, STAIRS, GASWORKS, DIVE_Z, TANKER, XWAY, GORE, EDECK } from './layout.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _look = new THREE.Vector3(), _to = new THREE.Vector3();
@@ -44,11 +44,11 @@ export class Director {
       { name: 'intro', wp: null, music: 0.3, enter: () => {
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; }
-          hud.showTitle(V(-30, 24, 0), 'TOKYO SCRAMBLE', 'LEVEL 6  •  KUROGANE, 00:12', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(-30, 24, 0), 'TOKYO SCRAMBLE', 'LEVEL 6  •  KUROGANE, 15:40', trailer ? 4.4 : 5.8);
           audio.startMusic();
           this.snipers = [sniper('c1', { delay: 1.2, lockTime: 2.6 }), sniper('c2', { delay: 2.4, lockTime: 2.8 })];
           for (const s of this.snipers) s.holdFire = true;
-          later(0.8, () => say('Kurogane. Midnight. Busiest crossing on Earth, and not one tourist. That\'s how you know.', 3.6));
+          later(0.8, () => say('Kurogane. Three in the afternoon. Busiest crossing on Earth, and not one tourist. That\'s how you know.', 3.6));
           later(4.6, () => say('Our guy\'s on the far side of the crossing. His friends are between you and him. Down the stairs.', 3.4));
           if (A) { g.cinematicLook = V(10, 16, -10); g.cinematicW = 1.4; }
           if (g.player) g.player.autoState.holdFire = true;
@@ -69,23 +69,37 @@ export class Director {
           later(9.0, () => { screens(true); say('...Every screen in Kurogane just went to emergency broadcast. Subtle.', 3.2); });
           A?.go([{ p: V(-74, 0, 0.6), nav: null, slow: 0.8 }, { p: V(-50, 0, 0.6), nav: null, slow: 0.7 }, go(-40, -4, { slow: 0.5 }), go(-20, 4, { slow: 0.45 }), go(0, -2, { slow: 0.45 }), go(18, -6, { slow: 0.5 })]);
         }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper') === 0 && px() > 22) || t > 130 * T },
-      // 3 ---- east down the avenue to the car park
-      { name: 'avenue', wp: V(47, 2, -21), hunt: true, arrive: true, music: 0.75, enter: () => {
-          later(0.8, () => say('Car park on the left — up the ramp. The expressway runs right past the roof.', 3.2));
-          later(1.4, () => hud.objective('Up through the car park'));
+      // 3 ---- east down the avenue to the station's east exit
+      { name: 'avenue', wp: V(79, 2, -24), hunt: true, arrive: true, music: 0.75, enter: () => {
+          later(0.8, () => say('Station east exit, on your left. The expressway ramp is up past the decks — they\'re waiting on them.', 3.4));
+          later(1.4, () => hud.objective('Into the East Exit plaza'));
           S({ x: 40, z: -4, delay: 0.5 }); S({ x: 55, z: 6, delay: 1.2 }); S({ x: 62, z: -8, delay: 2 }); S({ x: 76, z: 4, delay: 2.8, flanker: true }); S({ x: 70, z: -14, delay: 3.6 });
-          S({ x: 52, z: -22, role: 'rusher', delay: 11, entry: V(48, 0, -20) });
+          S({ x: 60, z: -24, role: 'rusher', delay: 11, entry: V(58, 0, -20) });
           sniper('g1', { delay: 4, lockTime: 2.8 });
           later(7, () => say('Another dot — across the avenue, on the roof!', 2.6));
-          A?.go([go(36, -12, { slow: 0.6 }), go(44, -14, { slow: 0.55 }), go(47, -20, { slow: 0.6 })]);
+          A?.go([go(36, -12, { slow: 0.6 }), go(56, -14, { slow: 0.55 }), go(76, -18, { slow: 0.6 }), go(79, -22, { slow: 0.6 })]);
         }, until: (t) => (t > 6 && alive(s => s.role !== 'sniper') === 0 && px() > 44 && pz() < -18) || t > 110 * T },
-      // 4 ---- the decks: deck A, the back ramp, deck B, the link
-      { name: 'garage', wp: V(98, XWAY.y + 2, -133), hunt: true, arrive: true, music: 0.8, enter: () => {
-          later(0.6, () => say('Two decks. They\'ll come down the ramps at you — use the cars and the pillars.', 3));
-          for (const [x, z, d] of [[62, -46, 1], [78, -62, 2], [96, -40, 2.6], [104, -70, 3.4], [84, -83, 5], [60, -100, 7], [82, -116, 8], [102, -104, 9]]) S({ x, z, delay: d, flanker: d > 6 });
-          S({ x: 70, z: -96, role: 'rusher', delay: 18, entry: V(66, 0, -84) });
-          A?.go([go(56, -22, { slow: 0.7 }), go(72, -22, { slow: 0.6 }), go(92, -22, { slow: 0.6 }), go(100, -42, { slow: 0.5 }), go(105, -74, { slow: 0.5 }), go(104, -83, { slow: 0.6 }), go(70, -83, { slow: 0.6 }), go(56, -90, { slow: 0.5 }), go(80, -112, { slow: 0.5 }), go(97, -126, { slow: 0.6 }), go(97, -133, {})]);
-        }, until: (t) => (pz() < -128 && py() > XWAY.y - 0.5 && t > 6) || t > 150 * T },
+      // 4 ---- the bus plaza: under the deck ring, gunmen pacing the decks overhead, more in the plaza
+      { name: 'eastexit', wp: V(95, EDECK.y + 2, -27), hunt: true, arrive: false, music: 0.8, enter: () => {
+          hud.objective('Clear the plaza — they\'re on the decks above you');
+          later(0.6, () => say('Look up! They\'re on the walkways — every bridge over the plaza.', 3));
+          const perch = (x, z, d) => S({ x, z, y: EDECK.y, role: 'perch', delay: d, noNade: d < 3 });
+          this.perched = [perch(49, -44, 0.6), perch(70, -53, 1.2), perch(92, -53, 2.0), perch(107, -60, 2.6), perch(64, -77, 3.4), perch(88, -77, 4.2)];
+          for (const [x, z, d] of [[64, -48, 0.8], [92, -66, 1.6], [70, -70, 2.4], [98, -40, 3.2], [58, -60, 6], [88, -36, 9]]) S({ x, z, delay: d, flanker: d > 5 });
+          later(10, () => say('Stairs at the east end take you up onto the deck.', 2.6));
+          A?.go([go(76, -30, { slow: 0.55 }), go(72, -44, { slow: 0.5 }), go(86, -58, { slow: 0.5 }), go(96, -46, { slow: 0.5 }), go(84, -30, { slow: 0.5 })]);
+        }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper' && s.role !== 'perch') === 0) || t > 120 * T },
+      // 5 ---- up onto the decks: along the east arm, the north arm, the station's face stair, the terrace, the link
+      { name: 'decks', wp: V(98, XWAY.y + 2, -133), hunt: true, arrive: true, music: 0.85, enter: () => {
+          hud.objective('Up the stairs — along the deck to the expressway');
+          later(0.5, () => say('Up the stairs. Station terrace at the top, then the link onto the expressway.', 3));
+          for (const [x, z, d] of [[106, -70, 1.5], [60, -53, 3]]) S({ x, z, y: EDECK.y, role: 'perch', delay: d });
+          // the ones you leave below shoot up at you; the terrace holds the ones above
+          for (const [x, z, d] of [[66, -40, 6], [90, -62, 8], [74, -66, 12]]) S({ x, z, delay: d });
+          for (const [x, z, d] of [[60, -95, 4], [84, -100, 6], [100, -118, 8], [70, -92, 14]]) S({ x, z, delay: d, flanker: d > 7 });
+          A?.go([{ p: V(84, 0, -27), nav: null, slow: 0.6 }, { p: V(104.5, 0, -27), nav: null, slow: 0.5 }, { p: V(107, 0, -32), nav: null, slow: 0.5 }, { p: V(107, 0, -77), nav: null, slow: 0.45 },
+            { p: V(103, 0, -83), nav: null, slow: 0.5 }, { p: V(54, 0, -83), nav: null, slow: 0.5 }, { p: V(49, 0, -89), nav: null, slow: 0.5 }, go(80, -95, { slow: 0.5 }), go(97, -124, { slow: 0.55 }), go(97, -133, {})]);
+        }, until: (t) => (pz() < -128 && py() > XWAY.y - 0.5 && t > 6) || t > 160 * T },
       // 5 ---- the expressway jam
       { name: 'xway', wp: V(36, XWAY.y + 2, -148), hunt: true, arrive: true, music: 0.85, enter: () => {
           this.sp.tankerArmed = true;
@@ -175,7 +189,7 @@ export class Director {
     ];
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
-    const START_P = { crossing: [-49, CURB, 0.6], avenue: [26, 0.15, -8], garage: [47, CURB, -21], xway: [97, XWAY.y, -136], tanker: [38, XWAY.y, -148], offramp: [40, XWAY.y, -148], center: [10, CURB, -135], gas: [0, CURB, -76], dive: [0, CURB, -26], outro: [0, 0, -14] };
+    const START_P = { crossing: [-49, CURB, 0.6], avenue: [26, 0.15, -8], eastexit: [79, CURB, -22], decks: [82, CURB, -27], xway: [97, XWAY.y, -136], tanker: [38, XWAY.y, -148], offramp: [40, XWAY.y, -148], center: [10, CURB, -135], gas: [0, CURB, -76], dive: [0, CURB, -26], outro: [0, 0, -14] };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
     if (ji > 0) {
       const p = START_P[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
@@ -185,7 +199,7 @@ export class Director {
       if (ji > idx('tanker')) { setp.tankerArmed = true; setp.blowTanker(); setp.spanDownNow(); g.slowT = 0; }
       if (ji > idx('gas')) { setp.startGas(); setp.gas.F = DIVE_Z - 6; for (const S_ of setp.shops) S_.done = true; g.slowT = 0; }
       if (jump === 'gas' || jump === 'dive' || jump === 'outro') g.dusk = 0.6;
-      g.score = [0, 0, 1800, 3600, 7400, 11000, 15500, 17200, 20400, 24200, 26800, 26800][ji] || 0;
+      g.score = [0, 0, 1800, 3600, 5600, 7400, 11000, 15500, 17200, 20400, 24200, 26800, 26800][ji] || 0;
       for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
       for (const L of Object.values(hud.lanes || {})) { L.q.length = 0; L.cur = null; }
       this.stepIdx = ji - 1;

@@ -13,17 +13,31 @@ import { Traffic } from './traffic.js';
 import { DustClouds } from '../downtown-haven/dustfx.js';
 import { Birds } from '../downtown-haven/birds.js';
 import { skyShared } from './sky.js';
+import { DAY } from './tod.js';
 import { START, CURB } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
-export const SUN_AZ = new THREE.Vector3(0.3, 0, -1).normalize();
-// Tokyo at midnight: the "sun" is a weak cool moon key from the north-north-east; everything warm is
-// emissive or baked. heat 0..1 = how much fire is lighting the night (the finale pushes it up).
-export const sunElevation = () => -8;
+// A clear afternoon: a hard sun from the west-south-west (behind the player on the intro, so the
+// crossing's faces are lit), a blue sky fill. heat 0..1 = the finale's smoke and fire.
+export const SUN_AZ = DAY.on ? new THREE.Vector3(-0.94, 0, 0.34).normalize() : new THREE.Vector3(0.3, 0, -1).normalize();
+export const sunElevation = () => DAY.on ? 48 : -8;
 const C = (r, g, b) => new THREE.Color(r, g, b);
 export function applyTokyo(heat, { sun, hemi, fog, renderer, scene }) {
   heat = Math.min(1, Math.max(0, heat));
+  if (DAY.on) {
+    // hard afternoon sun from the west-south-west, a blue sky fill (blue shadows), light blue haze
+    applyDusk(0, { sun, hemi, fog, renderer });
+    sun.color.copy(C(1.0, 0.92, 0.8)).lerp(C(1.0, 0.68, 0.42), heat * 0.6); sun.intensity = 4.3 - heat * 1.4;
+    hemi.color.copy(C(0.62, 0.7, 0.88)).lerp(C(0.6, 0.5, 0.44), heat * 0.7); hemi.groundColor.copy(C(0.56, 0.5, 0.42)).lerp(C(0.55, 0.36, 0.22), heat * 0.6); hemi.intensity = 1.05 - heat * 0.2;
+    fog.color.copy(C(0.64, 0.73, 0.86)).lerp(C(0.36, 0.31, 0.27), heat);
+    fogShared.sunColor.r = 0.3 + heat * 0.2; fogShared.sunColor.g = 0.26 + heat * 0.06; fogShared.sunColor.b = 0.18;
+    rimShared.color.r = 0.4; rimShared.color.g = 0.38; rimShared.color.b = 0.34;
+    renderer.toneMappingExposure = 0.95;
+    if (scene) scene.environmentIntensity = 1.0;
+    skyShared.glow.value = heat;
+    return;
+  }
   applyDusk(1, { sun, hemi, fog, renderer });
   sun.color.set(0x8c96d8); sun.intensity = 0.22;
   hemi.color.copy(C(0.4, 0.4, 0.55)).lerp(C(0.6, 0.34, 0.24), heat * 0.6); hemi.groundColor.copy(C(0.34, 0.2, 0.22)).lerp(C(0.5, 0.24, 0.1), heat); hemi.intensity = 0.55 + heat * 0.15;
@@ -88,8 +102,9 @@ export class TokyoGame {
       this.birds = new Birds(this, spots); }
     world.buildNav();
     this.glass.blockNav(world.nav);
-    // cover on every level: street / sidewalks, deck A, deck B + the expressway
-    this.cover = [...buildCoverPoints(this.col, world.nav, { y: 0 }), ...buildCoverPoints(this.col, world.nav, { y: 6 }), ...buildCoverPoints(this.col, world.nav, { y: 12 })];
+    // cover at street level and at y 12 (the station's roof terrace + the expressway); the East Exit's
+    // decks have no nav — the gunmen up there are perch shooters pacing their arm
+    this.cover = [...buildCoverPoints(this.col, world.nav, { y: 0 }), ...buildCoverPoints(this.col, world.nav, { y: 12 })];
     for (const c of this.cover) c.p.y = world.fastGround(c.p.x, c.p.z);
     // the giant screens are targets (shoot one out: it tears and dies)
     for (const S of world.screens) this.targets.push(screenTarget(this, S));

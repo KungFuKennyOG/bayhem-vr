@@ -5,6 +5,7 @@ import { SetPieces } from './setpieces.js';
 import { Director } from './director.js';
 import { Auto } from '../iron-lady/auto.js';
 import { START } from './layout.js';
+import { DAY } from './tod.js';
 import { createTokyoSky, createTokyoEnvironment } from './sky.js';
 import { Player } from '../../player.js';
 import { Locomotion } from '../../locomotion.js';
@@ -13,8 +14,8 @@ import { initMaterials, MAT } from '../../vehicles.js';
 import { setSunElevation } from '../../atmosphere.js';
 import { buildScope } from '../downtown-haven/snipers.js';
 
-// LEVEL 6 — "TOKYO SCRAMBLE": Kurogane at midnight. Down the station stairs into the scramble crossing,
-// up through the car park onto the expressway, drop a span into the street, then the gas main chases you
+// LEVEL 6 — "TOKYO SCRAMBLE": Kurogane on a hard-sun afternoon. Down the station stairs into the scramble
+// crossing, through the East Exit bus plaza and up its decks onto the expressway, drop a span into the street, then the gas main chases you
 // down Center-gai and out into the crossing.
 export async function create(E) {
   const { scene, renderer, fx, hud, audio, rig, camera, params, flags } = E;
@@ -23,12 +24,12 @@ export async function create(E) {
   E.sky.material = createTokyoSky();
   E.flare.visible = false;
   applyTokyo(0, { sun: E.sun, hemi: E.hemi, fog: scene.fog, renderer, scene });
-  scene.fog.near = 40; scene.fog.far = 900;
-  // midnight: the moon key is too weak to cast readable shadows — skip the shadow pass (contact blobs stay)
-  E.sun.castShadow = false;
+  scene.fog.near = DAY.on ? 90 : 40; scene.fog.far = DAY.on ? 1100 : 900;
+  // day: the soft afternoon sun casts (cars, people, props near you); night: the moon key is too weak
+  E.sun.castShadow = DAY.on;
   camera.far = 4000; camera.updateProjectionMatrix();
   // dark kit against bright signs: a little lift + lit reflective bands so they never vanish in the black gaps
-  setGunmanLook({ lift: 0.32, band: 0.65 });
+  setGunmanLook(DAY.on ? { lift: 0.06, band: 0.25 } : { lift: 0.32, band: 0.65 });
   fx.fireHue = 1; // orange core, deep-red edges, dark smoke (no white blow-outs against the neon)
   fx.heat = Math.min(fx.heat ?? 1, 0.86);
   // fire sprites: push toward orange and cool into near-black soot (same level-local patch as Level 5)
@@ -66,7 +67,7 @@ export async function create(E) {
   let director = null;
   return {
     game, player, warm, world, setp,
-    environmentIntensity: 0.75,
+    environmentIntensity: DAY.on ? 1.0 : 0.75,
     get director() { return director; },
     start() { if (!flags.SANDBOX) director = new Director(game, hud, audio, setp, auto, flags.TRAILER || flags.CAPTURE); },
     step(sdt, started) {

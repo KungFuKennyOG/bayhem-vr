@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DAY } from './tod.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
 import { makeRng } from '../../rng.js';
 
@@ -111,7 +112,7 @@ export function facadeMaterial() {
   m.userData.tex = tex;
   m.onBeforeCompile = (s) => {
     s.uniforms.tFac = { value: tex };
-    s.uniforms.uNightK = m.userData.nightK ||= { value: 1 };
+    s.uniforms.uNightK = m.userData.nightK ||= { value: DAY.facadeNight };
     s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aCell;\nattribute vec4 aInfo;\nvarying vec2 vFUV;\nflat varying vec4 vCell;\nflat varying vec4 vInfo;')
       .replace('#include <uv_vertex>', '#include <uv_vertex>\nvFUV = uv; vCell = aCell; vInfo = aInfo;');
     s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>

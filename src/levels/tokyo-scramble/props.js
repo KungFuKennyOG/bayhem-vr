@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex } from './kit.js';
+import { Acc, rmMat, hex, signMat } from './kit.js';
 import { signAtlas, JP } from './signs.js';
 import { signQuad, signMaterial } from './city.js';
 import { CURB, PLAZA, TAXI, CENTER, GASWORKS } from './layout.js';
@@ -117,5 +117,5 @@ function kobanSign() {
   g.font = '400 52px Anton, sans-serif'; g.fillText('KOBAN', 370, 68);
   g.fillStyle = '#c81a1a'; g.fillRect(0, H - 10, W, 10);
   const t = canvasTex(c, { repeat: false, aniso: 4 });
-  return new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.3, 1.3, 1.3) }));
+  return new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), signMat(t, { color: 1.3, vc: false }));
 }

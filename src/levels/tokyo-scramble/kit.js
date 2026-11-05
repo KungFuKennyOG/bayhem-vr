@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DAY } from './tod.js';
 
 // =====================================================================================
 //  Geometry accumulator for the level's merged static meshes. Quads / boxes / cylinders / prisms
@@ -106,13 +107,30 @@ export class Acc {
 export function rmMat(params = {}) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 1, emissive: 0xffffff, emissiveIntensity: 1, ...params });
   m.onBeforeCompile = (s) => {
+    s.uniforms.uEmK = DAY.emK;
     s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 rm;\nvarying vec3 vRM;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRM = rm;');
-    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vRM;')
+    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vRM;\nuniform float uEmK;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
-      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * diffuseColor.rgb * vRM.z;');
+      .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance = emissive * diffuseColor.rgb * vRM.z * (vRM.z > 3.5 ? 1.0 : uEmK);');
   };
   m.customProgramCacheKey = () => 'tkRM' + (params.map ? 'M' : '');
   return m;
 }
 export const hex = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255].map(v => Math.pow(v, 2.2));
+
+// A sign face that is lit by the day: the printed atlas is the albedo, and the vertex colour (the
+// night "glow" gain) only scales a little self-illumination on top (DAY.signK). Halos / additive
+// letters are night-only. `color` scales a single-texture sign (old MeshBasic signs passed 1.3–1.6).
+export function signMat(tex, { color = null, rough = 0.55, vc = true } = {}) {
+  const m = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 1, roughness: rough, metalness: 0, vertexColors: vc });
+  m.onBeforeCompile = (s) => {
+    s.uniforms.uSignK = DAY.signK;
+    s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uSignK;')
+      .replace('#include <color_fragment>', '')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  totalEmissiveRadiance *= ${vc ? 'vColor.rgb' : 'vec3(1.0)'} * uSignK * ${(color ?? 1).toFixed(2)};`);
+  };
+  m.customProgramCacheKey = () => 'tkSign' + (vc ? 'v' : '') + (color ?? 1);
+  return m;
+}

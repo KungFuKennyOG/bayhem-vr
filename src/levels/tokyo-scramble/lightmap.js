@@ -21,6 +21,8 @@ export class GroundLight {
   }
   // a building footprint: the pavement darkens toward its walls (contact shadow / corner occlusion)
   occlude(x0, z0, x1, z1) { this.occ.push([x0, z0, x1, z1]); }
+  // a roof over the ground (a deck, the expressway): softer, wider sky occlusion
+  shade(x0, z0, x1, z1, a = 0.5) { (this.sh ||= []).push([x0, z0, x1, z1, a]); }
   // disc: { x, z, r, color, k }   rect: { x, z, w, d, ang, color, k }
   add(L) { this.list.push(L); }
   bake() {
@@ -56,6 +58,8 @@ export class GroundLight {
     ag.fillStyle = '#fff'; ag.fillRect(0, 0, R2, R2);
     ag.filter = 'blur(3px)'; ag.fillStyle = '#000';
     for (const [x0, z0, x1, z1] of this.occ) ag.fillRect((x0 - LM.x0) * ax, (z0 - LM.z0) * az, (x1 - x0) * ax, (z1 - z0) * az);
+    ag.filter = 'blur(5px)';
+    for (const [x0, z0, x1, z1, k] of this.sh || []) { ag.fillStyle = `rgba(0,0,0,${k})`; ag.fillRect((x0 - LM.x0) * ax, (z0 - LM.z0) * az, (x1 - x0) * ax, (z1 - z0) * az); }
     ag.filter = 'none';
     const at = new THREE.CanvasTexture(a); at.colorSpace = THREE.NoColorSpace; at.flipY = false; at.needsUpdate = true;
     this.aoU.value = at;

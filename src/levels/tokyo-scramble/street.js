@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex } from './kit.js';
+import { Acc, rmMat, hex, signMat } from './kit.js';
 import { signAtlas, JP } from './signs.js';
 import { signQuad, signMaterial, haloMaterial } from './city.js';
 import { CROSS, AVE_E, AVE_S, PLAZA, TAXI, CENTER, CROSS_ST, CURB, MANHOLES, XWAY, KOEN } from './layout.js';
@@ -57,7 +57,7 @@ export function centerTex() {
   const bw = 32, bh = 16;
   for (let y = 0; y < S; y += bh) for (let x = -bw; x < S; x += bw) {
     const ox = ((y / bh) % 2) * bw / 2;
-    const k = rng(); const base = k < 0.55 ? [138, 92, 74] : k < 0.85 ? [112, 104, 98] : [160, 120, 92];
+    const k = rng(); const base = k < 0.4 ? [132, 104, 92] : k < 0.85 ? [124, 118, 112] : [150, 128, 108];
     const v = 0.75 + rng() * 0.3;
     g.fillStyle = `rgb(${Math.round(base[0] * v)},${Math.round(base[1] * v)},${Math.round(base[2] * v)})`;
     g.fillRect(x + ox + 1, y + 1, bw - 2, bh - 2);
@@ -371,7 +371,7 @@ export function buildStreet(ctx = {}) {
   const propMat = rmMat({});
   root.add(prop.mesh(propMat, { shadow: true }));
   root.add(sign.mesh(signMaterial()));
-  root.add(arch2.mesh(new THREE.MeshBasicMaterial({ map: signAtlas2().tex, vertexColors: true })));
+  root.add(arch2.mesh(signMat(signAtlas2().tex)));
   if (halo.vn) root.add(halo.mesh(haloMaterial()));
   return { root, colliders, panes, groundMats: ground, anchors: { glows, lights }, info: { tris: prop.tris + mk.tris } };
 }
@@ -385,6 +385,6 @@ function archSign() {
   neon('黒金センター街', 380, 66, 82, '#ff4fc0', JP);
   neon('KUROGANE CENTER-GAI', 820, 66, 40, '#4ff0ff', 'Anton, sans-serif');
   const t = canvasTex(c, { repeat: false, aniso: 4 });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.6), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.6, 1.6, 1.6) }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.6), signMat(t, { color: 1.6, vc: false }));
   return m;
 }

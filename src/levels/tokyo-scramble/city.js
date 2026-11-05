@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { DAY } from './tod.js';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex } from './kit.js';
+import { Acc, rmMat, hex, signMat } from './kit.js';
 import { facadeMaterial, cellRect, FCELL } from './facade.js';
 import { signAtlas } from './signs.js';
 import { buildScreen } from './screens.js';
@@ -18,9 +19,9 @@ import { signAtlas2 } from './signs2.js';
 // =====================================================================================
 const GROUND_H = 4.2;
 const STYLES = [
-  [FCELL.tileWhite, 7], [FCELL.tileWhiteAC, 7], [FCELL.tileBeige, 7], [FCELL.tileBeigeAC, 6], [FCELL.ribbon, 7], [FCELL.ribbonDark, 8],
-  [FCELL.curtain, 6], [FCELL.curtainBlue, 5], [FCELL.brick, 7], [FCELL.brickAC, 6], [FCELL.balcony, 4], [FCELL.balconyLaundry, 3],
-  [FCELL.darkPanel, 8], [FCELL.darkPanelSlot, 7], [FCELL.tileGreen, 5], [FCELL.office, 6],
+  [FCELL.tileWhite, 9], [FCELL.tileWhiteAC, 8], [FCELL.tileBeige, 9], [FCELL.tileBeigeAC, 7], [FCELL.ribbon, 7], [FCELL.ribbonDark, 4],
+  [FCELL.curtain, 6], [FCELL.curtainBlue, 5], [FCELL.brick, 2], [FCELL.brickAC, 2], [FCELL.balcony, 4], [FCELL.balconyLaundry, 3],
+  [FCELL.darkPanel, 4], [FCELL.darkPanelSlot, 3], [FCELL.tileGreen, 5], [FCELL.office, 6],
 ];
 const SIDES = [FCELL.side, FCELL.sideWin, FCELL.sideStain, FCELL.sideTile];
 const FACE = {
@@ -46,10 +47,10 @@ export function haloTexture() {
 
 export function signMaterial() {
   const { tex } = signAtlas();
-  return new THREE.MeshBasicMaterial({ map: tex, vertexColors: true });
+  return signMat(tex);
 }
 export function haloMaterial() {
-  return new THREE.MeshBasicMaterial({ map: haloTexture(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+  return new THREE.MeshBasicMaterial({ visible: !DAY.on, map: haloTexture(), vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
 }
 
 // signs / halos helpers (shared with street.js / station.js)
@@ -124,8 +125,11 @@ export function buildCity(ctx = {}) {
     const floors = Math.max(2, Math.round((h - GROUND_H) / 3.3)), floorH = (h - GROUND_H) / floors;
     const style = L.style ?? weighted(rng, STYLES), side = pickOf(SIDES);
     const lit = L.lit ?? R(0.18, 0.55), warm = R(0.25, 0.8);
-    const tintK = R(0.82, 1.08), hue = R(-0.04, 0.04);
-    const col = [tintK * (1 + hue), tintK, tintK * (1 - hue)];
+    // Tokyo tile colours by day: off-white, warm beige, cool grey, a pinkish or sage tile, the odd chocolate
+    const tintK = R(0.84, 1.06), hue = R(-0.03, 0.03);
+    const TT = [[1, 1, 1], [1.06, 1.0, 0.9], [0.92, 0.96, 1.02], [1.06, 0.95, 0.93], [0.95, 1.02, 0.95], [0.78, 0.68, 0.6], [1.0, 0.98, 0.94]];
+    const tt = DAY.on ? TT[Math.floor(rng() * TT.length)] : [1, 1, 1];
+    const col = [tintK * (1 + hue) * tt[0], tintK * tt[1], tintK * (1 - hue) * tt[2]];
     const info = [seed, lit, warm, 0], infoS = [seed, lit * 0.6, warm, 1];
     const { x0, z0, x1, z1 } = L;
     // the four walls, each drawn from its own outside-left corner
@@ -456,8 +460,8 @@ export function buildCity(ctx = {}) {
   const mSign = sign.mesh(signMaterial()); mSign.renderOrder = 2; root.add(mSign);
   const mHalo = halo.mesh(haloMaterial()); mHalo.renderOrder = 6; mHalo.receiveShadow = false; root.add(mHalo);
   const a2 = signAtlas2().tex;
-  const mS2 = sign2.mesh(new THREE.MeshBasicMaterial({ map: a2, vertexColors: true })); mS2.renderOrder = 2; root.add(mS2);
-  const mW2 = win2.mesh(new THREE.MeshBasicMaterial({ map: a2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })); mW2.renderOrder = 5; root.add(mW2);
+  const mS2 = sign2.mesh(signMat(a2)); mS2.renderOrder = 2; root.add(mS2);
+  const mW2 = win2.mesh(new THREE.MeshBasicMaterial({ visible: !DAY.on, map: a2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })); mW2.renderOrder = 5; root.add(mW2);
   for (const S of screens) root.add(S.root);
   let t = 0;
   const update = (dt) => { t += dt; for (const S of screens) S.update(t); };

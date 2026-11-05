@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { Acc, rmMat, hex } from './kit.js';
+import { Acc, rmMat, hex, signMat } from './kit.js';
 import { signAtlas2 } from './signs2.js';
 import { signAtlas } from './signs.js';
 import { signQuad, signMaterial, haloMaterial } from './city.js';
@@ -83,7 +83,7 @@ export function buildLandmarks(ctx = {}) {
   // ---------------------------------------------------------------- meshes
   root.add(A.mesh(rmMat({ envMapIntensity: 1.4 })));
   root.add(S.mesh(signMaterial()));
-  root.add(S2.mesh(new THREE.MeshBasicMaterial({ map: signAtlas2().tex, vertexColors: true })));
+  root.add(S2.mesh(signMat(signAtlas2().tex)));
   const mh = H.mesh(haloMaterial()); mh.renderOrder = 6; root.add(mh);
   return { root, colliders, anchors: { glows, lights } };
 }
