@@ -56,14 +56,14 @@ const FASCIA = [
   ['焼肉 炎', 'YAKINIKU  HOMURA', 'red', 'm'], ['MANGA CAFE', 'まんが・ネット 黒金店', 'blue', 'lat'],
   ['HOTEL MOON', 'ホテル・ムーン', 'neon:pink', 'lat'], ['回転寿司', '一皿 ¥110〜', 'white', 'g'],
   ['SALE 50%OFF', 'セール開催中', 'neon:red', 'lat'], ['黒金書店', 'BOOKS  KUROGANE', 'green', 'g'],
-  ['CAFE & BAR 夜', 'OPEN 18:00', 'neon:orange', 'lat'], ['ATM', '黒金銀行', 'navy', 'lat'],
+  ['CAFE & BAR 夜', 'OPEN 18:00', 'neon:orange', 'lat'], ['黒金銀行 ATM', '24時間  年中無休', 'navy', 'g'],
 ];
 // big panels: rooftop billboards + the station name
 const PANELS = [
-  ['NEO COLA', 'ネオコーラ  ゼロ  新登場', 'cola'], ['MIRAI', '未来フォン  X  発売中', 'phone'],
-  ['黒金駅', 'KUROGANE  STATION', 'station'], ['SKYWAY', 'スカイウェイ航空  羽田→那覇 ¥9,800', 'air'],
-  ['黒金銀行', 'KUROGANE BANK', 'bank'], ['HAVEN WHISKY', '夜は、ハイボール。', 'whisky'],
-  ['AKANE', 'NEW SINGLE  「夜明け」', 'idol'], ['NIGHT RACE', 'ナイトレース  開幕', 'race'],
+  ['NEO COLA', 'ネオコーラ  ゼロ  新登場', 'cola'], ['未来フォン X', 'MIRAI PHONE  発売中', 'phone'],
+  ['黒金駅', 'KUROGANE  STATION', 'station'], ['スカイウェイ航空', '羽田→那覇  ¥9,800〜', 'air'],
+  ['黒金銀行', 'KUROGANE BANK', 'bank'], ['黒霧ウイスキー', '夜は、ハイボール。', 'whisky'],
+  ['AKANE', 'NEW SINGLE  「夜明け」', 'idol'], ['ナイトレース', 'NIGHT RACE  開幕', 'race'],
 ];
 // small plates
 const PLATES = [
