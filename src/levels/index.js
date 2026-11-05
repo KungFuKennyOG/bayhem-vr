@@ -27,6 +27,11 @@ export const LEVELS = [
     blurb: 'Fight down the Seine quays at night, cross the bridge, bring down a gunship among the lattice — then watch her fall.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. At the end, run onto the boat.',
   },
+  {
+    id: 'dubai-proto', num: '08', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true,
+    blurb: 'Door-gunner heli loop around a collapsing grey-box skyline. Measures the Level 8 finale on the headset.',
+    help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',
+  },
 ];
 
 export const levelById = (id) => LEVELS.find(l => l.id === id) || LEVELS[0];
@@ -36,4 +41,5 @@ export function loadLevel(id) {
   return l();
 }
 function loader(id) { return loaders[`./${id}/index.js`]; }
-export const nextLevel = (id) => { const i = LEVELS.findIndex(l => l.id === id); return LEVELS[i + 1] || null; };
+// prototypes (proto: true) are in the menu but never offered as the "next level"
+export const nextLevel = (id) => { const i = LEVELS.findIndex(l => l.id === id); const n = LEVELS[i + 1]; return n && !n.proto ? n : null; };

@@ -3,6 +3,7 @@
 BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model or texture files, and the only audio files are the driver's voiced radio lines (`public/vo/`, see `tools/vo/README.md`).
 
 ## Status
+- **Dubai (Level 8) prototype on branch `dubai-prototype`** (`?level=dubai-proto`): a grey-box tech test of the Level 8 finale with an in-VR perf panel and load flags. **Needs a Quest 3 run** — see "Dubai prototype" below for the test plan and pass/fail numbers.
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
 - **Level 5, "The Iron Lady" (on foot, Paris at blue hour, a fictional lattice tower falls across the Seine), is built** on branch `level-5-iron-lady` — see its section below and `src/levels/iron-lady/DESIGN.md`.
 - **Level 4, "Airport No Return" (on foot, ends in a jeep chase), is done** — see its section below.
@@ -175,6 +176,75 @@ Open issues (round 5, by impact):
 - The gunship is small and lit flat by the tower (gunmetal paint + rim instead of the warm emissive lift; route it closer).
 - The bridge "jam" is a handful of cars; repeated facade grids along the river; low-poly planter shrubs; the speedboat needs a wake and bow spray.
 Headset checks needed: frame rate during the fall (2 660 instanced girders through the rig shader + rain + reflections + up to 320 cloud puffs), the look-gated collapse trigger, rain streak comfort within 1.2–13 m, callout placement with the new clamp, speedboat ride comfort (power turn), and the shared `VR_HOLD` grips.
+
+### Dubai prototype (Level 8 tech test) — branch `dubai-prototype`, NOT a level
+Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. `?level=dubai-proto` (menu: LEVEL 08 DUBAI PROTOTYPE; prototypes are never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.
+
+**What it does.** A door-gunner heli loops the city (radius ~640 m, ~250 m up, 38 m/s) with the open door facing the centre. The scene has:
+- **The hero, THE SPINDLE** (470 m + 130 m spire): about 150 chunks on a 30-node CPU spine. Floors blow out down the face toward the heli with a glass waterfall, the spire shears off and tips toward the heli, the stump pancakes, and the upper chunks detach into rigid bodies.
+- **6 mid towers** (tilt, pancake and lean) in one draw through a vertex-shader rig.
+- **48 far towers** that swap to ruins behind a horizon dust wall.
+- **Overhead dust:** DustClouds re-shaded for a top-down view.
+- **A perf panel** on the cabin bulkhead.
+
+The worst case (left grip, key 1, or `beat=worst`) drops all mid towers and the hero at once, forces `dust=high`, throws a dust sea of 10 huge puffs over the centre and raises the far wall.
+
+**Measured in the cloud sandbox.** It is software-rendered, so there are no fps numbers here, only counts:
+- Draw calls: 32 idle, up to 45 worst, per eye. In WebXR, three r170 draws every object once per eye, so expect about 2× on the headset.
+- Triangles: 52–80k at `detail=1`, 280k at `towers=12&far=160&detail=4`. Hero 9.8k, mid 1.9k at `detail=1`.
+- Shared fx particles: peak ~1 150 / 4 200, big sprites capped by `bigBudget`. Clouds: 240 / 240 at high. Glass shards: up to ~1 200.
+- **Dust fill estimate peaks at 3.5–4.2 screens of blended dust**, a few seconds into the worst case and when the heli looks across the dust sea. This is the number to watch.
+- Shader programs stay constant from load to the end of the worst case (29). Sun shadows were turning one on mid-collapse: a depth program for the shared fx debris. They are off in this level now (`&shadows=1` to compare): the shadow frustum follows the rig (~140 m), so from 250 m up it shadows nothing in the city anyway.
+- Comfort numbers on the default loop:
+  - yaw rate ≤ 5.1°/s;
+  - lateral acceleration ≤ 3.6 m/s², mostly the steady centripetal pull of circling;
+  - smoothed jerk ≤ 0.4 m/s³;
+  - bank ≤ 6°.
+
+  The first version used random spline knots: 16°/s yaw and 10 m/s² (1 g) lateral. A smooth parametric loop fixed that. The default 200-division arc-length table on a 4 km loop also gave the speed a small step every 20 m (micro-stutter), so it is now 1 m.
+- Far swap: 48/48 (and 160/160 at `far=160`) swap while the wall is opaque in front of them. The red `swapdebug` ruins only show once the wall thins about 40 s later. No pops in any capture.
+
+**Test plan for the Quest 3** (Quest Browser, 72 Hz, budget 13.9 ms). For each run, photograph the per-phase table on the bulkhead panel, or call `__perf()` over remote devtools.
+1. `?level=dubai-proto&beat=idle`, 30 s: the baseline (sky, ground, 6 + 1 towers, far skyline, cabin, escort). If this fails, the base scene is the problem, not the finale.
+2. `?level=dubai-proto` (beat=cycle), two full loops (~4 min): the table gets idle / mid / hero / settle / worst rows. **This is the main run.**
+3. If `worst` fails, isolate it, one flag at a time:
+   1. `beat=worst&dust=off`: geometry + rigs + fx without dust.
+   2. `beat=worst&glass=0&fx=0`.
+   3. `beat=worst&dust=low`, then `dust=mid`.
+   4. `beat=worst&fill=3`, then `fill=2`. Does a fill cap save it, and does it still read as a dust sea?
+   5. `beat=worst&occl=0`. If fps goes up, the occlusion CPU costs more than the overdraw it saves.
+4. From the best passing config, push until it breaks: `towers=9`, `towers=12`, `detail=2`, `detail=4`, `far=160`.
+5. Comfort: `beat=idle&bank=0`, then `bank=6` (default), then `bank=12`, then `speed=55`. Ride three loops each. Note any queasiness and whether looking down past the skid is OK.
+6. `hz=90` with the best passing config (11.1 ms budget).
+
+Pass / fail per phase (miss = a frame longer than 1.5× budget, i.e. > 20.8 ms at 72 Hz):
+- **Pass:** avg ≥ 71.5 fps and miss < 1%. If the browser exposes the GPU timer, GPU ≤ 11 ms (headroom for the real art). The `progs` count must not change after load (a change = a compile hitch).
+- **Marginal:** avg 68–71.5 or miss 1–3%. The scale-down levers below should fix it.
+- **Fail:** avg < 68 or miss > 3% in any phase the player will actually see.
+- **Comfort:** fails if three loops at that bank/speed make you queasy.
+
+**My expectation (honest, not measured).** Geometry, draw calls and CPU look comfortable: two instanced draws plus one merged draw carry all the towers. Fill rate is the risk.
+- `dust=high` in the worst case, with an estimated 3.5–4 screens of blended full-res dust on top of the scene, will probably miss 72 on the Quest 3.
+- `mid` is borderline.
+- The horizon wall and the far swap are cheap: 1 + 2 draws, and the swap is a few hundred vector ops time-sliced over 4 frames.
+
+**If it doesn't fit, scale the finale down in this order:**
+1. **Cap the dust fill** with `fillBudget` (~2 screens). Sell density with fog instead of layers: pull `scene.fog` in toward the dust colour as the sea spreads (Level 3's `fogMix`), so the far half of the city is fog, not puffs.
+2. **Stagger instead of "everything at once".** The Level 8 plan already says one tower every 30–60 s. The finale only needs the hero plus 1–2 mid towers falling at the same moment; the rest can be down already, behind the wall.
+3. **Fewer, bigger puffs only near the heli.** Let the HorizonWall (one layer) carry everything past ~900 m. Add a second, nearer ring wall rather than more puffs.
+4. **Hero glass and fx:**
+   - From 400–600 m, 1 m shards are sub-pixel; they're 2.5–3 m sheets here and still read as glitter at best. Keep glass on the face toward the heli only, or swap it for a sparkle sprite sheet.
+   - The shared `fx.explosion` balls read as small dark blobs at that range. Floor blow-outs need a custom big-but-cheap sprite (one flash card per floor), not the ground-level explosion stack.
+5. **Rendering scale:** `framebufferScaleFactor` 0.9 or dynamic foveation during the finale only (main.js sets foveation 1 already).
+
+**Open questions.**
+- Does Quest Browser expose `EXT_disjoint_timer_query_webgl2`? If the panel says `gpu n/a`, judge by the fps and miss columns.
+- Multiview: three r170 doesn't use `OVR_multiview2` in WebXR, so every draw call is issued twice. Check whether a newer three release adds it before the real Level 8; it would halve the draw-call CPU cost of a busy skyline.
+- Does the DustClouds occlusion grid cost more CPU than it saves with 240 *huge* puffs? It loops angular cells per puff, and huge near puffs cover many. That's the `occl=0` test.
+- Sort popping: DustClouds sorts by distance every frame. With 200–400 m puffs overlapping at similar distances, the order flips as the heli moves, which may read as flicker. Watch for it in the headset. It doesn't show in stills.
+- The ring wall reads as a uniform band with a bright crest. It works as an occluder but needs real art (layered rings, a lit rolling crest, puffs riding the top) before the level.
+- The mid-tower crush mound is a grey-box stand-in; it's hidden by the skirts at default dust and visible at `dust=off`.
+- Testing on the headset needs the build served over HTTPS. Pages deploys only from `main`. Either merge this branch (it's isolated, and the menu labels it a prototype) or run the deploy workflow on the branch, if the Pages environment allows non-default branches.
 
 ## Quality bar and lessons from Level 1
 - **The consolidated quality bar for all levels is `docs/QUALITY.md`** (review loop, VR-first rules from the Quest playtest, recurring review hits, Quest budget, pre-merge checklist).
