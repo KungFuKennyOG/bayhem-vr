@@ -15,6 +15,11 @@ SPOKEN = {
     'MOVE! MOVE!!': 'Move! Move! MOVE!',
     'JET A-1': 'Jet A one',
     'GO GO GO!': 'Go! Go! GO!',
+    # Level 5 (Paris): French words in an American mouth, spelled so the English TTS lands them.
+    'bateau-mouche': 'batto moosh',
+    'bonsoir': 'bon swah',
+    'Peugeots': 'Pooh-zhohs',
+    'Seine': 'Senn',
 }
 
 def spoken(text):
