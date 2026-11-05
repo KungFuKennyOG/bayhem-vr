@@ -1,7 +1,8 @@
 // Level registry. Each level folder exports `create(E)` from its index.js (loaded lazily, one chunk per level).
 const loaders = import.meta.glob('./*/index.js');
 
-export const LEVELS = [
+// every level, including prototypes (hidden: true = loads with ?level=<id> but stays out of the menu)
+const ALL = [
   {
     id: 'the-405-job', num: '01', title: 'THE 405 JOB', tagline: 'A HIGHWAY CHASE IN FIVE EXPLOSIONS',
     blurb: 'Freeway at sunset. You ride the truck bed. They bring SUVs, a fuel tanker and a gunship.',
@@ -28,18 +29,21 @@ export const LEVELS = [
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. At the end, run onto the boat.',
   },
   {
-    id: 'dubai-proto', num: '08', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true,
+    id: 'dubai-proto', num: '08', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true, hidden: true,
     blurb: 'Door-gunner heli loop around a collapsing grey-box skyline. Measures the Level 8 finale on the headset.',
     help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',
   },
 ];
 
-export const levelById = (id) => LEVELS.find(l => l.id === id) || LEVELS[0];
+// the menu and the level order
+export const LEVELS = ALL.filter(l => !l.hidden);
+
+export const levelById = (id) => ALL.find(l => l.id === id) || LEVELS[0];
 export function loadLevel(id) {
   const l = loader(id);
   if (!l) throw new Error('unknown level ' + id);
   return l();
 }
 function loader(id) { return loaders[`./${id}/index.js`]; }
-// prototypes (proto: true) are in the menu but never offered as the "next level"
-export const nextLevel = (id) => { const i = LEVELS.findIndex(l => l.id === id); const n = LEVELS[i + 1]; return n && !n.proto ? n : null; };
+// prototypes are never offered as the "next level" (and have no next level themselves)
+export const nextLevel = (id) => { const i = LEVELS.findIndex(l => l.id === id); const n = i < 0 ? null : LEVELS[i + 1]; return n && !n.proto ? n : null; };
