@@ -150,14 +150,14 @@ export class Haboob {
       if (S.puffT <= 0) {
         S.puffT = 0.45;
         const x = eye.x + range(-1400, 1400), y = range(520, 820);
-        this.dust.spawn({ x, y, z: S.z + range(-40, 80), vx: range(-3, 3), vy: range(4, 9), vz: -S.v * range(0.95, 1.08), drag: 0.02, buoy: 0.1, s0: range(160, 240), s1: range(280, 380), life: range(14, 20), a: 0.95, fadeIn: 0.15, fadeOut: 0.35, vrot: range(-0.03, 0.03), r: 0.52, g: 0.35, b: 0.2, r1: 0.6, g1: 0.43, b1: 0.27 });
+        this.dust.spawn({ x, y, z: S.z + range(-40, 80), vx: range(-3, 3), vy: range(4, 9), vz: -S.v * range(0.95, 1.08), drag: 0.02, buoy: 0.1, s0: range(160, 240), s1: range(280, 380), life: range(14, 20), a: 0.95, fadeIn: 0.15, fadeOut: 0.35, vrot: range(-0.03, 0.03), st: range(1.3, 1.7), r: 0.52, g: 0.35, b: 0.2, r1: 0.6, g1: 0.43, b1: 0.27 });
       }
       // billows rolling out ahead of the face, low over the roofs: the depth the sheet can't give up close
       S.lowT = (S.lowT ?? 0) - dt;
       if (ahead < 1500 && S.lowT <= 0) {
         S.lowT = 0.35;
         const x = eye.x + range(-700, 700), y = range(60, 420);
-        this.dust.spawn({ x, y, z: S.z - range(10, 140), vx: range(-4, 4), vy: range(2, 6), vz: -S.v * range(1.0, 1.15), drag: 0.02, buoy: 0.08, s0: range(120, 190), s1: range(240, 330), life: range(12, 16), a: 0.96, fadeIn: 0.2, fadeOut: 0.3, vrot: range(-0.04, 0.04), r: 0.42, g: 0.27, b: 0.15, r1: 0.56, g1: 0.39, b1: 0.24 });
+        this.dust.spawn({ x, y, z: S.z - range(10, 140), vx: range(-4, 4), vy: range(2, 6), vz: -S.v * range(1.0, 1.15), drag: 0.02, buoy: 0.08, s0: range(120, 190), s1: range(240, 330), life: range(12, 16), a: 0.96, fadeIn: 0.2, fadeOut: 0.3, vrot: range(-0.02, 0.02), st: range(1.6, 2.2), r: 0.36, g: 0.23, b: 0.13, r1: 0.5, g1: 0.35, b1: 0.22 }); // wind-flattened, darker
       }
     }
   }

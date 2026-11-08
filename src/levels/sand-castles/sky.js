@@ -100,7 +100,7 @@ export function bakeEnv(renderer, storm, sunset) {
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const LOOKS = {
   day: { sun: C(1.0, 0.64, 0.36), sunI: 5.3, hs: C(0.52, 0.5, 0.54), hg: C(0.62, 0.45, 0.3), hI: 0.42, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.6, 0.88, 0.42], rim: [1.0, 0.66, 0.38], exp: 0.76, env: 0.55 },
-  sunset: { sun: C(1.0, 0.52, 0.22), sunI: 4.0, hs: C(0.5, 0.42, 0.56), hg: C(0.55, 0.32, 0.2), hI: 0.62, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
+  sunset: { sun: C(1.0, 0.52, 0.22), sunI: 4.0, hs: C(0.52, 0.43, 0.44), hg: C(0.55, 0.32, 0.2), hI: 0.62, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
   storm: { sun: C(1.0, 0.62, 0.32), sunI: 1.3, hs: C(0.78, 0.55, 0.34), hg: C(0.55, 0.36, 0.2), hI: 1.0, fog: C(0.6, 0.4, 0.22), near: 30, far: 820, fogSun: [0.95, 0.5, 0.2], rim: [0.6, 0.38, 0.2], exp: 1.0, env: 0.55 },
 };
 const _c = new THREE.Color();

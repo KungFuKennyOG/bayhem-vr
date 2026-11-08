@@ -152,7 +152,7 @@ export class SandGame {
     for (const r of this.rockets) { if (r.dead) continue; const t = raySphere(origin, dir, r.pos, 2.2 + r.pos.distanceTo(origin) * 0.006); if (t > 0 && t < best.t) best = { t, kind: 'rocket', r }; }
     for (const a of this.aas) { if (!a.alive) continue; const t = raySphere(origin, dir, a.center, 3.2); if (t > 0 && t < best.t) best = { t, kind: 'aa', a }; }
     const g = this.gunship;
-    if (g && g.phase !== 'gone' && g.phase !== 'enter') { const n = new THREE.Vector3(); g.m.root.updateMatrixWorld(); _m.compose(g.pos, g.m.root.quaternion, _v2.set(1.6, 1.6, 1.6)); const t = rayOBB(origin, dir, _m.multiply(new THREE.Matrix4().makeTranslation(0, 0.05, 0.6)), _v3.set(2.4, 1.6, 6.5), n); if (t > 0 && t < best.t) best = { t, kind: 'gunship', n: n.clone() }; }
+    if (g && g.phase !== 'gone' && g.phase !== 'enter') { const n = new THREE.Vector3(); g.m.root.updateMatrixWorld(); _m.compose(g.pos, g.m.root.quaternion, _v2.set(2.1, 2.1, 2.1)); const t = rayOBB(origin, dir, _m.multiply(new THREE.Matrix4().makeTranslation(0, 0.05, 0.6)), _v3.set(2.4, 1.6, 6.5), n); if (t > 0 && t < best.t) best = { t, kind: 'gunship', n: n.clone() }; }
     const tw = this.towerRay(origin, dir, best.t);
     if (tw && tw.t < best.t) best = { t: tw.t, kind: 'tower', tower: tw.tower, n: tw.n };
     if (dir.y < 0) { const t = -origin.y / dir.y; if (t < best.t) best = { t, kind: 'ground' }; }
@@ -273,7 +273,7 @@ export class SandGame {
     // a miss passes close to the door: that's the point (tracers you can see go by)
     const aim = _v.copy(this.headPos).add(_v2.set(range(-1, 1), range(-0.6, 0.8), range(-1, 1)).multiplyScalar(hit ? 0.4 : range(2.5, 7)));
     const to = aim.clone().addScaledVector(_v2.subVectors(aim, mz).normalize(), hit ? 0 : 40);
-    this.fx.tracer(mz, to, { speed: 480, width: 0.06 + dist * 0.001, len: 6, color: [1.6, 0.55, 0.25] });
+    this.fx.tracer(mz, to, { speed: 480, width: 0.14 + dist * 0.0012, len: 4, color: [1.6, 0.55, 0.25] });
     this.fx.muzzle(mz, _v2.subVectors(aim, mz).normalize(), 'rifle', false);
     this.audio.play('enemy_gun', { x: mz.x, y: mz.y, z: mz.z, volume: 0.9 });
     if (hit) {
@@ -413,7 +413,7 @@ export class SandGame {
   // ------------------------------------------------------------------ WIDOWMAKER 4
   spawnGunship() {
     const m = buildHeli();
-    m.root.scale.setScalar(1.6);
+    m.root.scale.setScalar(2.1); // the duel is fought 100+ m out in the murk: a big silhouette reads, a true-scale one is a speck
     this.scene.add(m.root);
     const H = this.heliPos, f = this._frame();
     const pos = H.clone().addScaledVector(f.fwd, 420).addScaledVector(f.left, 260).add(_v.set(0, 40, 0));
@@ -426,7 +426,7 @@ export class SandGame {
     return { fwd: new THREE.Vector3(-Math.sin(y), 0, -Math.cos(y)), left: new THREE.Vector3(-Math.cos(y), 0, Math.sin(y)) };
   }
   // a set-piece callout toward P but no further than 60 m (past that the storm / haze washes it out)
-  calloutAt(P) { const h = this.headPos, d = P.distanceTo(h), Q = h.clone().lerp(P, Math.min(1, 60 / Math.max(1, d))); Q.y = clamp(Q.y, h.y - 8, h.y + 6); return Q; }
+  calloutAt(P) { const h = this.headPos, d = P.distanceTo(h), Q = h.clone().lerp(P, Math.min(1, 60 / Math.max(1, d))); Q.y = clamp(Q.y, h.y - 8, h.y + 6) + 9; return Q; } // above the kill, not on it
   killGunship() {
     const g = this.gunship; if (!g || g.phase === 'dying' || g.phase === 'gone') return;
     g.phase = 'dying'; g.t = 0; g.spin = 0.6;

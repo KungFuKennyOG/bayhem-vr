@@ -65,7 +65,7 @@ function lineMat() {
           float scan = 0.8 + 0.2 * sin(vObj.y * 900.0);
           totalEmissiveRadiance += vColor.rgb * (0.25 + 1.8 * max(hz, bars * 0.6)) * bez * scan;
         }
-        if (vK > 3.5 && vK < 4.5) totalEmissiveRadiance += vec3(1.0, 0.08, 0.04) * (uRed * 2.0 + uWarn * (0.5 + 0.5 * sin(uTime * 9.0)) * 4.0); // red cabin light / warning
+        if (vK > 3.5 && vK < 4.5) totalEmissiveRadiance += vec3(1.0, 0.12, 0.05) * (uRed * 0.6 + uWarn * (0.5 + 0.5 * sin(uTime * 9.0)) * 4.0); // red cabin light / warning
         `)
       .replace('#include <lights_fragment_begin>', `float dSun = doorSun(vObj);\n${begin}`)
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
