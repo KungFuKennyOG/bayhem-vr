@@ -83,17 +83,17 @@ function buildModel(mat) {
   const spinG = new THREE.Group(); spinG.position.set(0, Y, Z); spinG.add(new THREE.Mesh(mergeGeometries(spin), mat)); inner.add(spinG);
   const muzzle = new THREE.Object3D(); muzzle.position.set(0, Y, Z - 0.73); inner.add(muzzle);
   const port = new THREE.Object3D(); port.position.set(0.05, Y - 0.06, Z - 0.12); inner.add(port);
-  const feed = new THREE.Object3D(); feed.position.set(-0.15, Y, Z - 0.075); inner.add(feed);
+  const feed = new THREE.Object3D(); feed.position.set(0.09, Y - 0.06, Z - 0.02); inner.add(feed);
   return { group, inner, spinG, muzzle, port, feed };
 }
 
 function buildCan(mat) {
   // the ammo can on the floor beside you: the belt runs up the chute to the gun in your hand
   const L = [];
-  part(L, B(0.32, 0.36, 0.5, -0.36, -0.92, 0.3), OD, 2);
-  part(L, B(0.33, 0.04, 0.51, -0.36, -0.73, 0.3), [0.08, 0.09, 0.06], 2);
-  part(L, B(0.1, 0.03, 0.04, -0.36, -0.71, 0.3), WORN);
-  part(L, B(0.004, 0.08, 0.2, -0.198, -0.9, 0.3), [0.45, 0.4, 0.2], 2);
+  part(L, B(0.32, 0.36, 0.5, 0.3, -0.9, 0.78), OD, 2);
+  part(L, B(0.33, 0.04, 0.51, 0.3, -0.71, 0.78), [0.08, 0.09, 0.06], 2);
+  part(L, B(0.1, 0.03, 0.04, 0.3, -0.69, 0.78), WORN);
+  part(L, B(0.004, 0.08, 0.2, 0.462, -0.88, 0.78), [0.45, 0.4, 0.2], 2);
   return new THREE.Mesh(mergeGeometries(L), mat);
 }
 
@@ -130,7 +130,7 @@ export class DoorGun {
     this.chute = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 0.025, 1), new THREE.MeshStandardMaterial({ color: 0x1a1c18, roughness: 0.6, metalness: 0.5 }), this.chuteN);
     this.chute.frustumCulled = false; this.mount.add(this.chute);
     this.feed = M.feed;
-    this.canPt = new THREE.Vector3(-0.36, -0.7, 0.18);
+    this.canPt = new THREE.Vector3(0.3, -0.68, 0.62); // the can sits on the floor at your right hip, behind the gun
     // your gloved fist on the grip (desktop and VR alike)
     this.glove = buildGlove(); this.glove.position.set(0, -0.012, 0.012); M.group.add(this.glove);
     // spent brass piling up on the floor round the mount while you fire (one instanced draw)
@@ -190,7 +190,7 @@ export class DoorGun {
     this.mount.worldToLocal(a);
     const b = this.canPt;
     const m = this._m, q = new THREE.Quaternion(), p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), Z = new THREE.Vector3(0, 0, 1), dv = new THREE.Vector3();
-    const pt = (t, out) => { out.lerpVectors(a, b, t); out.y -= Math.sin(t * Math.PI) * 0.16; out.x -= Math.sin(t * Math.PI) * 0.08; return out; };
+    const pt = (t, out) => { out.lerpVectors(a, b, t); out.y -= Math.sin(t * Math.PI) * 0.22; out.x += Math.sin(t * Math.PI) * 0.12; return out; };
     for (let i = 0; i < this.chuteN; i++) {
       pt(i / this.chuteN, p0); pt((i + 1) / this.chuteN, p1);
       dv.subVectors(p1, p0); const L = dv.length(); q.setFromUnitVectors(Z, dv.normalize());

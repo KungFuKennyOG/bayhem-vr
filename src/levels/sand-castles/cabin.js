@@ -68,7 +68,7 @@ function lineMat() {
           diffuseColor.rgb *= 1.0 - 0.3 * rv;
         }
         // everything: grime and hand-worn patches, darker low down (no spotless surfaces)
-        diffuseColor.rgb *= (0.78 + 0.3 * cN(vObj * 3.1)) * (0.82 + 0.18 * smoothstep(0.0, 0.6, vObj.y));`)
+        diffuseColor.rgb *= (0.94 + 0.06 * cN(vObj * 4.3)) * (0.82 + 0.18 * smoothstep(0.0, 0.6, vObj.y));`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         if (vK > 2.5 && vK < 3.5) {
           // displays: a dark bezel, scan lines, a moving horizon / bar graph so they read as instruments

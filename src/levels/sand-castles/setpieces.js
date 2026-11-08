@@ -32,7 +32,7 @@ export class SetPieces {
     { const m = this.dust.clouds.mesh.material;
       m.fragmentShader = m.fragmentShader
         .replace('void main(){', 'float sdN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5); float b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(127.1, 311.7))) * 43758.5); float c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(127.1, 311.7))) * 43758.5); float d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(127.1, 311.7))) * 43758.5); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }\nvoid main(){')
-        .replace('if (al < 0.003) discard;', 'vec2 eq = vUv * 5.0 + vCS * 9.0; float en = sdN(eq) * 0.62 + sdN(eq * 2.3 + 4.0) * 0.38;\n  al *= smoothstep(0.0, 0.55, t.a * 1.25 - (en - 0.45) * 0.55);\n  if (al < 0.003) discard;')
+        .replace('if (al < 0.003) discard;', 'vec2 eq = vUv * 4.0 + vCS * 9.0; float en = sdN(eq) * 0.5 + sdN(eq * 2.7 + 4.0) * 0.32 + sdN(eq * 6.1 + 9.0) * 0.18;\n  al *= smoothstep(0.04, 0.6, t.a * 1.3 - (en - 0.42) * 1.05);\n  if (al < 0.003) discard;')
         .replace('vec3 Ns = vec3(vQ * 0.9, sqrt(max(0.05, 1.0 - dot(vQ, vQ) * 0.81)));', 'vec3 Ns = vec3(vQ * 0.55, sqrt(max(0.05, 1.0 - dot(vQ, vQ) * 0.3)));');
       m.needsUpdate = true; }
     // smoke here is soot, not dust: dark plumes start bigger (no small black spots inside the tan ones) and age to a
