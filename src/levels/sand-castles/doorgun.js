@@ -30,7 +30,7 @@ const Cz = (r, len, x, y, z, seg = 12, r2 = r) => new THREE.CylinderGeometry(r2,
 const GUNMETAL = [0.045, 0.048, 0.055], PARK = [0.055, 0.058, 0.062], WORN = [0.085, 0.088, 0.095], RUB = [0.02, 0.02, 0.02], OD = [0.12, 0.13, 0.08], REDB = [0.5, 0.05, 0.03], BRASS = [0.55, 0.38, 0.12];
 
 function gunMaterial(heatU) {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.58, metalness: 0.5, envMapIntensity: 0.4 });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0.35, envMapIntensity: 0.35 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uHeat = heatU;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aK; varying float vK; varying vec3 vObj;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvK = aK; vObj = position;');

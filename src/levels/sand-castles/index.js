@@ -36,6 +36,8 @@ export async function create(E) {
   // shadows itself with the 2.5D height-map march
   renderer.shadowMap.enabled = false;
   fx.fireHue = 1; fx.heat = 0.9;
+  // the explosions' own dark smoke balls read as black spots inside the tan dust plumes at 400 m: the soot plumes do that job here
+  fx.smokeMul = 0.35;
   fx.groundAt = () => 0;
   setGunmanLook({ lift: 0.22, band: 0.8 });
   // fire sprites: orange cores, near-black soot (the Level 5/6 level-local clamp)
