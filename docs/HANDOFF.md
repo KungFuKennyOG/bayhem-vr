@@ -225,6 +225,8 @@ The worst case (left grip, key 1, or `beat=worst`) drops all mid towers and the 
 - A seated heli ride at 72 Hz is comfortable; it's the Quest's own default for most apps.
 - The prototype now asks for 72 by default (`hz=90` to compare).
 
+**Second Quest 3 run (Nov 7, orbit, 72 Hz, clean measuring):** idle, mid, hero and settle all pass: 71.9 fps avg in every row, worst frames 23–36 ms, misses 0.1–0.3%. CPU 4.0 ms, 78 draw calls, 163k triangles. The orbit holds 72 with one tower falling at a time. The screenshot was taken before the auto worst-case beat, so everything-at-once at 72 Hz is still unmeasured (it was 76 fps at 90 Hz on the first run, so it should pass).
+
 **Low route (`&route=low`, added Nov 5).** The Level 8 plan says to fly low between the towers rather than orbit, since destruction reads small from 400–600 m.
 - What it does: weaves between the mid towers at rooftop height (~150 m, 30 m/s), passing 50–70 m from tower faces. Mid towers fall away from the path, the hero falls square across the view, and the panel shows a live clearance (closest tower or chunk) and its minimum.
 - Sandbox comfort numbers: yaw ≤ 9.2°/s, lateral ≤ 4.5 m/s², smoothed jerk ≤ 2.2 m/s³. The orbit is 5.1 / 3.6 / 0.4. The weaving is the cost; still gentle by VR standards, but it needs a headset check.
