@@ -97,7 +97,7 @@ export async function create(E) {
   const CL = { now: 0, min: 1e9 };
   const keys = (e) => { if (e.code === 'Digit5' && panel) { const P = ['cabin', 'float', 'off']; const m = P[(P.indexOf(panel.mode) + 1) % P.length]; panel.mount(m, rig, null); } };
   addEventListener('keydown', keys);
-  const _f = new THREE.Vector3(), _ex = new THREE.Vector3();
+  const _f = new THREE.Vector3(), _ex = new THREE.Vector3(), _rp = new THREE.Vector3();
   return {
     game, player, warm, setp, rail,
     environmentIntensity: 0.7,
@@ -107,7 +107,13 @@ export async function create(E) {
       const t0 = performance.now();
       if (!envs.day) { envs.day = bakeEnv(renderer, 0, 0); envs.storm = bakeEnv(renderer, 1, 0.2); envs.sunset = bakeEnv(renderer, 0, 1); }
       // the heli flies on real time: slow-mo never drags the cabin
+      _rp.copy(rig.position);
       if (started) rail.update(sdt); else rail.place(0);
+      // the heli carries its own effects: muzzle flashes (the 'near' batch) ride along with the cabin instead of
+      // being left 1–2 m behind every frame at 34 m/s (they read as coming from the tail, not your hands)
+      _rp.subVectors(rig.position, _rp);
+      if (_rp.lengthSq() > 0 && _rp.lengthSq() < 400) for (const q of fx.near.p) if (q.alive) { q.x += _rp.x; q.y += _rp.y; q.z += _rp.z; }
+      game.rigVel = rail.vel;
       const dt = game.update(sdt);
       FAC.uTime.value += dt;
       cabin.update(sdt, game.time);
@@ -123,7 +129,7 @@ export async function create(E) {
       player.update(sdt, started ? dt : 0);
       gun.update(sdt, dt);
       // desktop: the launcher viewmodel sits lower and further out (it hid the middle of the view)
-      if (player.mode === 'desktop') player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02));
+      if (player.mode === 'desktop') { player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02)); player.rifle.holder.position.add(_ex.set(0.09, -0.07, 0.1)); }
       setp.update(dt, sdt, game.headPos);
       // limping home: number two engine trails smoke past the door
       if (director && (director.cur?.name === 'escape' || director.cur?.name === 'outro')) { cabin.root.localToWorld(_ex.set(0.85, 2.7, 2.4)); fx.trailEmit(cabin, _ex, 0.7, (q) => fx.smoke(q, 2.2, 0.17, 3.5, 0.6, 0.5), 0); }

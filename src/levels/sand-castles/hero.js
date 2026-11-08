@@ -28,7 +28,8 @@ export class HeroTower {
     this.g = game; this.dust = dust; this.F = F;
     const B = Math.round(HERO.h / HERO.band);
     this.B = B;
-    const widthAt = (b) => (b < 10 ? HERO.w0 : b < 20 ? lerp(HERO.w0, HERO.w1, 0.55) : HERO.w1);
+    // four setbacks up to the needle (a stepped silhouette, not one fat stack)
+    const widthAt = (b) => (b < 9 ? HERO.w0 : b < 17 ? lerp(HERO.w0, HERO.w1, 0.5) : b < 25 ? HERO.w1 : HERO.w1 * 0.74);
     this.widthAt = widthAt;
     // chunk list: band b, local centre (relative to node b at the band floor), half extents, colour
     const C = [];
@@ -52,7 +53,7 @@ export class HeroTower {
       this.chunks.forEach(c => {
         const y = c.kind === 'spire' ? HERO.h + c.c.y : c.b * HERO.band + c.c.y;
         org.set([0, y, c.kind === 'face' && c.b >= this.B - 3 ? 1 : 0, c.kind === 'face' ? (c.n[0] + 2 * c.n[2]) * 37 : 0], c.i * 4);
-        st.set(c.kind === 'core' ? [5, 0.4, 4, 1] : c.kind === 'spire' ? [1, 0.9, 4, 0] : [1, 0.55, 4.2, 0], c.i * 4);
+        st.set(c.kind === 'core' ? [5, 0.4, 4, 1] : c.kind === 'spire' ? [1, 0.9, 4, 0] : [2, 0.55, 4.2, 0], c.i * 4); // gold glass: the one tower that catches the sunset
       });
       geo.setAttribute('aOrg', new THREE.InstancedBufferAttribute(org, 4)); geo.setAttribute('aSt', new THREE.InstancedBufferAttribute(st, 4)); }
     this.mesh.frustumCulled = false;

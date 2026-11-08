@@ -54,7 +54,8 @@ float sunVis(vec3 p, vec3 n){
   for (int i = 0; i < 18; i++) {
     vec2 q = o.xz + dxz * t;
     float h = texture2D(tSunH, (q - uSunHB.xy) * uSunHB.zw).r * 765.0;
-    vis = min(vis, clamp((o.y + t * tanE - h) * 0.12 + 0.5, 0.0, 1.0));
+    // the penumbra widens with distance to the occluder (a 3 m height map gave razor edges that read as stains)
+    vis = min(vis, clamp((o.y + t * tanE - h) * 0.12 / (1.0 + t * 0.035) + 0.5, 0.0, 1.0));
     t = t * 1.32 + 3.0;
   }
   return vis;

@@ -196,7 +196,9 @@ export class SandGame {
     }
     return hit;
   }
-  launchGrenade(origin, dir) { this.nades.push({ pos: origin.clone(), vel: dir.clone().multiplyScalar(80), t: 0 }); }
+  // the grenade leaves your launcher with the heli's own velocity (it used to start at rest in the air and fall
+  // behind the cabin at 34 m/s, so it looked like it came out of the helicopter, not your hand)
+  launchGrenade(origin, dir) { const v = dir.clone().multiplyScalar(80); if (this.rigVel) v.add(this.rigVel); this.nades.push({ pos: origin.clone(), vel: v, t: 0 }); }
 
   killMan(m, dir, head) {
     if (!m.alive) return;
