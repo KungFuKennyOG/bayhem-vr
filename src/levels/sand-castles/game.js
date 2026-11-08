@@ -497,7 +497,7 @@ export class SandGame {
       }
       g.hit *= Math.exp(-dt * 6);
       m.setDamage?.(clamp(1 - g.hp / g.maxHp, 0, 0.85));
-      if (g.hp < g.maxHp * 0.5) this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v), 0.7, (q) => this.fx.smoke(q, 2.4, 0.18, 3, 1.5, 0.45), 0); // tight spacing: no string of pearls behind a fast gunship
+      if (g.hp < g.maxHp * 0.5) this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v), 0.6, (q) => this.fx.smoke(q, 3.6, 0.17, 3.5, 1.2, 0.5), 0); // tight spacing: no string of pearls behind a fast gunship
     } else if (g.phase === 'dying') {
       // spins down into the crash tower (setpieces sets g.crashAt)
       const T = g.crashAt || g.pos.clone().setY(0);

@@ -154,9 +154,12 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     o.r = mix(o.r, 0.8, 0.35 * streak);
     // the Spire (S.w = -1): dark vertical mullion fins and heavier grime down its face
     if (S.w < -0.5) {
-      float fin = edgeLine(fract(u / 10.5), 0.05, du / 10.5);
-      o.c *= 1.0 - 0.35 * fin;
-      o.c *= 1.0 - 0.18 * fvn(vec2(u * 0.35, v * 0.01 + seed * 9.0));
+      // the Spire: a champagne mirror curtain wall between bright mullion fins: it reflects the sunset sky
+      // (metal F0 tint + low roughness), so it is the one tower that glows warm against the dusk
+      float fin = edgeLine(fract(u / 10.5), 0.06, du / 10.5);
+      o.c = mix(vec3(0.62, 0.5, 0.36) * (0.9 + 0.2 * pane), vec3(0.72, 0.7, 0.66), fin);
+      o.m = mix(0.92, 0.6, fin); o.r = mix(0.1 + 0.08 * pane, 0.35, fin);
+      o.c *= 1.0 - 0.12 * fvn(vec2(u * 0.35, v * 0.01 + seed * 9.0));
     }
   } else if (kind < 2.5) {
     // roof: concrete / gravel with expansion joints and stains
@@ -204,8 +207,9 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     float shop = step(v, 6.0);
     float bx = fract(u / 5.0);
     o.c = mix(vec3(0.17, 0.155, 0.135) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
-    o.r = mix(0.8, 0.15, shop); o.m = mix(0.0, 0.7, shop);
-    o.e = vec3(1.0, 0.75, 0.45) * shop * uNight * 0.6;
+    // (dull glass: a mirror shopfront band reflected the bright sky as a white line round every tower base)
+    o.r = mix(0.8, 0.5, shop); o.m = mix(0.0, 0.25, shop);
+    o.e = vec3(1.0, 0.62, 0.32) * shop * uNight * 0.22 * step(0.45, fract(u / 23.0 + seed));
   } else {
     // ruin / torn floors: concrete, rebar, soot
     float n = fvn(wp.xz * 0.3 + wp.y * 0.2);

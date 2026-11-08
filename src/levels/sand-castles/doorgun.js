@@ -69,7 +69,7 @@ export class DoorGun {
     this.M = M; this.spinG = M.spin;
     // feed chute: segments between the feeder (in your hand) and the can (fixed), one instanced draw
     this.chuteN = 16;
-    this.chute = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 0.025, 1), new THREE.MeshStandardMaterial({ color: 0x1a1c18, roughness: 0.6, metalness: 0.5 }), this.chuteN);
+    this.chute = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.022, 1), new THREE.MeshStandardMaterial({ color: 0x3b3f2e, roughness: 0.7, metalness: 0.25 }), this.chuteN);
     this.chute.frustumCulled = false; this.mount.add(this.chute);
     this.feed = M.feed;
     this.canPt = new THREE.Vector3(0.3, -0.68, 0.62); // the can sits on the floor at your right hip, behind the gun

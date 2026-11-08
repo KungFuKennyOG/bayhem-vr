@@ -1103,7 +1103,7 @@ export function buildMinigun(opts = {}) {
   const group = new THREE.Group(); group.name = 'minigun'; group.add(mesh);
   const muzzle = new THREE.Object3D(); muzzle.position.set(0, BM, -0.64); group.add(muzzle);
   const port = new THREE.Object3D(); port.position.set(0.06, BM - 0.035, -0.06); group.add(port);
-  const feed = new THREE.Object3D(); feed.position.set(-0.112, BM - 0.045, -0.055); group.add(feed); // the chute stub on the feeder
+  const feed = new THREE.Object3D(); feed.position.set(0.05, BM - 0.07, -0.1); group.add(feed); // belt entry under the right side (the chute hangs at your right hip, out of the sight line)
   const st = { trig: 0 };
   return {
     group, mesh, muzzle, port, feed, spin: B.spin, kind: 'rifle', bones: B, triangles: tris, drawCalls: 1, BM,

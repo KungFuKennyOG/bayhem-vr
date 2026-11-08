@@ -169,6 +169,11 @@ function buildLining() {
   piece(L, 0.18, 0.06, 0.18, 0.3, h - 0.04, -1.1, [1, 0.3, 0.2], 4);
   for (const x of [-0.6, -0.5, 0.55]) cyl(L, 0.022, z1 - z0 - 0.2, x, h - 0.06, (z0 + z1) / 2, [0.08, 0.08, 0.08], 0, Math.PI / 2);
   piece(L, 0.4, 0.3, 0.12, 1.05, 1.75, 1.6, OD); piece(L, 0.05, 0.05, 0.02, 1.0, 1.82, 1.53, [0.2, 0.9, 0.3], 3); piece(L, 0.05, 0.05, 0.02, 1.08, 1.82, 1.53, [0.95, 0.6, 0.1], 3);
+  // monkey straps and a coiled gunner's tether hanging from the ceiling track (it's a working cabin)
+  for (const [x, z, l] of [[-0.55, -0.9, 0.55], [-0.35, 0.35, 0.42], [0.2, -0.3, 0.6], [0.6, 0.9, 0.5]]) { piece(L, 0.035, l, 0.006, x, h - l / 2 - 0.04, z, [0.12, 0.12, 0.08]); piece(L, 0.05, 0.03, 0.02, x, h - l - 0.04, z, STEEL); }
+  for (let i = 0; i < 5; i++) cyl(L, 0.012, 0.09, -0.2 + Math.sin(i * 1.3) * 0.03, h - 0.5 - i * 0.07, -0.95, [0.5, 0.42, 0.1], 0, 0, Math.PI / 2 + Math.sin(i) * 0.2);
+  // stencils: rivet rows along the ribs (dark dots)
+  for (let z = z0 + 0.3; z < z1; z += 0.55) for (let y = 0.2; y < h - 0.1; y += 0.12) piece(L, 0.012, 0.012, 0.012, x1 - 0.055, y, z + 0.026, [0.25, 0.25, 0.23]);
   // an ICS intercom box + cord by the door
   piece(L, 0.12, 0.18, 0.08, x0 + 0.06, 1.5, DOOR.z0 - 0.25, OD); piece(L, 0.03, 0.03, 0.01, x0 + 0.06, 1.55, DOOR.z0 - 0.205, [0.2, 0.9, 0.3], 3);
   // ---- cockpit (through the passage): seats, pilots, consoles, the instrument panel

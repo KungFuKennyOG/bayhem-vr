@@ -131,10 +131,13 @@ export class HeroTower {
       // the break band lets go all round
       const nb = this.nodes[K].p;
       for (let k = 0; k < 4; k++) g.fx.later(k * 0.12, () => g.fx.explosion(new THREE.Vector3(HERO.x + range(-25, 25), nb.y + range(-4, 4), HERO.z + range(-25, 25)), 2.4, { noRing: true }));
-      for (let k = 0; k < Math.round(10 * dust.rate); k++) dust.plume(HERO.x + range(-30, 30), nb.y + range(-8, 8), HERO.z + range(-30, 30), range(-8, 8), range(-8, 8), 1.3, k % 2 === 0);
+      for (let k = 0; k < Math.round(10 * dust.rate); k++) dust.plume(HERO.x + range(-30, 30), nb.y + range(-8, 8), HERO.z + range(-30, 30), range(-8, 8), range(-8, 8), range(0.7, 2.6), false); // concrete dust: the soot comes from the fire at the break
       // the break burns: a long orange light that washes the neighbours, fire pouring out of the torn floors
       g.fx.light(nb.clone(), 5200, 9, 0xff6a20, false, 650);
       S.fireT = 9;
+      // the base lets go too: a pyroclastic surge rolls out along the streets, low and fast, 2–3 blocks each way
+      g.fx.later(1.2, () => { for (let k = 0; k < Math.round(26 * Math.max(0.5, dust.rate)); k++) { const a = k / 26 * Math.PI * 2 + rand() * 0.2, sp = range(22, 38);
+        dust.spawn({ x: HERO.x + Math.cos(a) * 40, y: range(8, 30), z: HERO.z + Math.sin(a) * 40, vx: Math.cos(a) * sp, vy: range(1, 4), vz: Math.sin(a) * sp, drag: 0.22, buoy: 0.05, s0: range(50, 80), s1: range(150, 220), life: range(14, 19), a: 0.95, fadeIn: 0.1, fadeOut: 0.35, vrot: range(-0.05, 0.05), r: 0.46, g: 0.38, b: 0.3, r1: 0.6, g1: 0.52, b1: 0.42 }); } });
     }
     if (S.fireT > 0) {
       S.fireT -= dt;

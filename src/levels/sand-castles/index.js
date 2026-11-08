@@ -133,7 +133,7 @@ export async function create(E) {
       player.update(sdt, started ? dt : 0);
       gun.update(sdt, dt);
       // desktop: the launcher viewmodel sits lower and further out (it hid the middle of the view)
-      if (player.mode === 'desktop') { player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02)); player.rifle.holder.position.add(_ex.set(0.14, -0.1, 0.12)); player.rifle.holder.rotateY(0.1); } // the minigun low at the hip, canted in a touch so its side reads
+      if (player.mode === 'desktop') { player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02)); player.rifle.holder.position.add(_ex.set(0.19, -0.15, 0.13)); player.rifle.holder.rotateY(0.12); } // the minigun low at the hip, canted in a touch so its side reads
       setp.update(dt, sdt, game.headPos);
       // limping home: number two engine trails smoke past the door
       if (director && (director.cur?.name === 'escape' || director.cur?.name === 'outro')) { cabin.root.localToWorld(_ex.set(0.85, 2.7, 2.4)); fx.trailEmit(cabin, _ex, 0.7, (q) => fx.smoke(q, 2.2, 0.17, 3.5, 0.6, 0.5), 0); }
