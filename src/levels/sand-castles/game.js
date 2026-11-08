@@ -243,6 +243,22 @@ export class SandGame {
   }
   _updateMen(dt) {
     const H = this.heliPos;
+    // a red smoke flare on every roof that still has shooters on it: you can find the squad at 100 m from a
+    // moving door (the men themselves are a few pixels at that range)
+    this._flareT = (this._flareT ?? 0) - dt;
+    if (this._flareT <= 0) {
+      this._flareT = 0.14;
+      const seen = new Set();
+      for (const m of this.men) {
+        if (!m.alive || m.delay > 0 || seen.has(m.tower)) continue;
+        seen.add(m.tower);
+        const T = m.tower; if (Math.hypot(T.x - H.x, T.z - H.z) > 900) continue;
+        const ang = Math.atan2(H.z - T.z, H.x - T.x) + 0.9, r = m.r * 0.9;
+        const x = T.x + Math.cos(ang) * r, z = T.z + Math.sin(ang) * r, y = T.h + 0.5;
+        this.fx.main.spawn({ x, y, z, vx: range(-0.6, 0.6) + 1.2, vy: range(2.5, 4), vz: range(-0.6, 0.6), drag: 0.4, frameKind: 2, frame: rand() * 40, frames: 16, s0: 1.6, s1: 9, ease: 0.6, life: range(3.5, 5), rot: rand() * 6.28, vrot: range(-0.3, 0.3), r: 0.55, g: 0.09, b: 0.06, a: 0.75, fadeIn: 0.05, fadeOut: 0.5 });
+        if (rand() < 0.5) this.fx.flame(_v.set(x, y, z), 0.9);
+      }
+    }
     for (const m of this.men) {
       if (!m.alive) continue;
       if (m.delay > 0) { if (m.pos.distanceTo(H) < 480) m.delay -= dt; if (m.delay <= 0) { m.gm.root.visible = true; this._placeMan(m); } continue; }
