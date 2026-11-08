@@ -22,7 +22,8 @@ SPOKEN = {
     'Seine': 'Senn',
     # Level 8 (Al-Sarab)
     'Al-Sarab': 'Al Sa-rahb',
-    'Haboob': 'Ha-boob',
+    'Haboob': 'Huh-boob',
+    'SARAB SPIRE': 'Sa-rahb Spire',
     'metres': 'meters',
 }
 
