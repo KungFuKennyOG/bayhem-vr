@@ -200,12 +200,11 @@ export function buildEastExit(ctx = {}) {
       // the set-back face from the stair up to the terrace
       fac.set({ cell: cellRect(FCELL.stationGlass), info: [94 + x, 0, 0, 3], col: [1, 1, 1] });
       fac.quad([x, ya, R2.z0], [x + 4, yb, R2.z0], [x + 4, B, R2.z0], [x, ya, R2.z0].map((v, i) => i === 1 ? B : v), [0, 0, 1, (B - Math.min(ya, yb)) / 3]);
-      // treads
-      const n = 7;
-      for (let i = 0; i < n; i++) {
-        const xa = x + i * 4 / n, xb = xa + 4 / n, yt = R2.y0 + (R2.y1 - R2.y0) * ((xa + xb) / 2 - R2.x0) / (R2.x1 - R2.x0) + 0.05;
-        prop.set({ col: hex(i % 2 ? 0x77746e : 0x7e7b75), rm: [0.8, 0, 0] }); prop.box(xa, yt - 0.2, R2.z0, xb, yt, R2.z1, { faces: 'Y' }); prop.set({ col: hex(0x5e5b56), rm: [0.85, 0, 0] }); prop.box(xa, yt - 0.2, R2.z0, xb, yt, R2.z1, { faces: 'x' });
-      }
+      // the walking surface: a gentle paved ramp (7°, the station's "slope" — a stair this shallow read
+      // as a ribbed ramp in the headset), the deck's pavers, yellow guide lines at both edges
+      top.quad([x, ya, R2.z1], [x + 4, yb, R2.z1], [x + 4, yb, R2.z0], [x, ya, R2.z0], [x / 3, -R2.z1 / 3, (x + 4) / 3, -R2.z0 / 3]);
+      for (const zz of [R2.z0 + 0.35, R2.z1 - 0.65]) tact.quad([x, ya + 0.012, zz + 0.3], [x + 4, yb + 0.012, zz + 0.3], [x + 4, yb + 0.012, zz], [x, ya + 0.012, zz], [x / 0.3, -(zz + 0.3) / 0.3, (x + 4) / 0.3, -zz / 0.3]);
+
     }
     // the landing at the stair's foot: the 2F gate line behind glass, the face above it
     wall([R2LAND.x0, Y, R2.z0], [1, 0, 0], R2LAND.x1 - R2LAND.x0, Y, B, FCELL.stationGlass, [95, 0, 0, 3], 4, B - Y);

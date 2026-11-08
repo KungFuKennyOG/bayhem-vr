@@ -5,7 +5,7 @@ import { BillboardBatch, CELL } from '../../particles.js';
 import { CollisionWorld, NavGrid } from '../../collision.js';
 import { buildSedan, buildSUV, MAT } from '../../vehicles.js';
 import { GroundLight } from './lightmap.js';
-import { groundAt, walkable, STATE, CROSS, AVE_E, AVE_S, TAXI, PLAZA, CENTER, STAIRS, SKY, VIADUCT, KOEN, GARAGE, XWAY, XWAY_IN, XWAY_BLOCK, GORE, OFFRAMP, LANE, CROSS_ST, CURB } from './layout.js';
+import { groundAt, walkable, STATE, CROSS, AVE_E, AVE_S, TAXI, PLAZA, CENTER, STAIRS, SKY, VIADUCT, KOEN, GARAGE, XWAY, XWAY_IN, XWAY_BLOCK, GORE, OFFRAMP, LANE, CROSS_ST, CURB, ESTAIR } from './layout.js';
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
 const PROG = [[1.5, 0.35, 0.3], [1.3, 0.65, 1.15], [0.55, 0.6, 1.4], [0.5, 0.95, 1.35]];
@@ -95,7 +95,8 @@ export class TokyoWorld {
     // the expressway: parapets both sides, the jam stops you at XWAY_BLOCK, the east end closed
     const par = (x0, x1, z0, z1, kind = 'parapet') => this.col.add([x0, XWAY.y - 0.4, z0], [x1, XWAY.y + XWAY.barrier, z1], { kind, mat: 'concrete' });
     par(XWAY.x0, XWAY.x1, XWAY.z0, XWAY_IN.z0);                     // north parapet, whole length
-    par(XWAY.x0, OFFRAMP.x1 - 2, XWAY_IN.z1, XWAY.z1);              // south parapet west of the off-ramp gore
+    par(XWAY.x0, ESTAIR.top.x0, XWAY_IN.z1, XWAY.z1);              // south parapet west of the emergency stair
+    par(ESTAIR.top.x1, OFFRAMP.x1 - 2, XWAY_IN.z1, XWAY.z1);        // ...between it and the off-ramp gore
     par(GORE.x1, XWAY.x1, XWAY_IN.z1, XWAY.z1);                      // ...and east of the link
     b([XWAY_BLOCK - 1, XWAY.y - 0.5, XWAY.z0], [XWAY_BLOCK, XWAY.y + 4, XWAY.z1]);
     b([120, XWAY.y - 0.5, XWAY.z0], [122, XWAY.y + 4, XWAY.z1]);

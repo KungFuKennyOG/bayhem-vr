@@ -69,7 +69,12 @@ export const XWAY_BLOCK = 26;                                    // the jam stop
 export const GORE = { x0: 86, x1: 104, z0: -140, z1: -128, y: 12 };
 export const OFFRAMP = { x0: 14, x1: 86, z0: -139, z1: -131, y0: CURB, y1: 12 };  // rises toward +x
 export const LANE = { x0: 8, x1: 14, z0: -139, z1: -131 };       // flat, curb height, into Center-gai's north end
-export const CROSS_ST = { z0: -164, z1: -140 };                   // the street under the expressway (not walkable)
+export const CROSS_ST = { z0: -164, z1: -140 };
+// The emergency stair (非常階段) off the expressway's south side, right by the jam's west end: a steel
+// flight down onto the off-ramp so you go straight down to Center-gai instead of back along the deck.
+// Layered over the off-ramp (a col.walk ramp + a landing box; the off-ramp below stays the floor function).
+export const ESTAIR = { x0: 24, x1: 39.6, z0: -138.5, z1: -135.5, top: { x0: 39.6, x1: 42.8, z0: -140.5, z1: -135.5 } };
+export const offrampY = (x) => OFFRAMP.y0 + (OFFRAMP.y1 - OFFRAMP.y0) * (x - OFFRAMP.x0) / (OFFRAMP.x1 - OFFRAMP.x0);                   // the street under the expressway (not walkable)
 
 // Building blocks: [x0, z0, x1, z1, faces] — faces = which sides front a street the player sees
 // ('n' 's' 'e' 'w'). city.js splits each block into narrow lots along its fronts.

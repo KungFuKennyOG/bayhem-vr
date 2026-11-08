@@ -1694,6 +1694,16 @@
   ]
  },
  {
+  "key": "65ec37d4",
+  "text": "Emergency stairs, right there on the south side! Down, down, down — into Center-gai.",
+  "levels": [
+   "tokyo-scramble"
+  ],
+  "files": [
+   "src/levels/tokyo-scramble/director.js"
+  ]
+ },
+ {
   "key": "29e97ff7",
   "text": "Center-gai. Watch the shops — they love a doorway.",
   "levels": [

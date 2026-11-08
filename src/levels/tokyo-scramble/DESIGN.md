@@ -5,8 +5,8 @@ from night neon on Nov 5: Kenny wanted daylight, and overcast tested flat). You 
 tracks, go down into the scramble crossing under the giant screens, east down the avenue into the station's **East
 Exit** (a bus plaza under a ring of pedestrian decks), up the decks and the station's face stair onto its roof terrace,
 across the link onto the elevated expressway, and fight west through the jam. When the fuel tanker goes up it takes a
-span of the expressway down into the street below. You take the off-ramp down into the north end of Center-gai, fight
-south, and the burning fuel finds the gas main. The street blows itself up behind you, storefront by storefront, all
+span of the expressway down into the street below. You take the emergency stair right beside you down onto the
+off-ramp and into the north end of Center-gai, fight south, and the burning fuel finds the gas main. The street blows itself up behind you, storefront by storefront, all
 the way back to the crossing, where you dive out of the street mouth as the last one goes off in slow-mo.
 
 Look: Michael Bay at a polished PS2-era level, the *Transformers* Chicago look. A deep blue sky with fair-weather
@@ -31,13 +31,29 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
    then the link bridge onto the expressway.
 6. **xway** — west through the jam (both carriageways), a sniper on a roof north of the road.
 7. **tanker** — shoot the tanker (it leaks, catches, blows). VR rule: if you don't, it goes once you're looking at it
-   (or after 22 s). It takes its span's east pier with it: the span hinges down about its west pier into the cross
-   street (slow-mo), still burning. Objective only after the money shot.
-8. **offramp** — down the off-ramp (y 12 → 0.15) into the north end of Center-gai.
+   (or after 22 s). The fireball climbs and leans north (the follow-up blasts go off higher, the shared fireball
+   smoke is thinned to 15 % and replaced by a column that rises off fast; no enemy grenades for 9 s) so the deck
+   stays in view. Its east pier
+   topples over sideways and slams down in the street (dust, chunks); the span **sags** on its torn west hinge for
+   1.2 s (jolts, sparks, concrete raining off, groaning), then lets go and hinges down into the cross street
+   (slow-mo), still burning; a beige concrete-dust surge boils up where it lands. Objective only after the money shot.
+8. **offramp** — down the **emergency stair** (the yellow-nosed steel stair with the green 非常口 sign, right behind
+   you at x 39.6–42.8 on the south parapet, green chevrons painted across the carriageway point at the gap; dark
+   risers, yellow nosings and a low stringer so the sawtooth reads; landing → flight down onto the off-ramp at x 24,
+   y ≈ 1.8), then the last
+   few metres of the off-ramp into the north end of Center-gai. (It used to send you 50 m back east to the gore and
+   down the whole ramp, which felt like backtracking.)
 9. **center** — fight south down Center-gai (shops, bars, crates, the takoyaki stall, bikes, garbage piles).
 10. **gas** — "LOOK back up the street": waits for the look (or 5 s), the gas works blow, then the chain runs down the
     street after you: manhole covers launch on fire jets, shopfronts erupt one after another, signs rain sparks, a
-    fire carpet + black smoke behind the front. Rubber-banded 4–13 m behind you; too close hurts.
+    fire carpet + black smoke behind the front. Rubber-banded 4–13 m behind you; too close hurts. Every third shop
+    is a big one (a bigger blast, a second one up the floors, more debris). **What it leaves stays** (`ruin.js`):
+    each blown shopfront becomes a gutted, ember-lit hole, soot climbs the facade over its fascia sign, the fascia /
+    shutter / awning frame and ~40 chunks of rubble fan out across the paving, two scorch marks spread over the
+    street and two heaps (on the biggest lumps) keep burning in it, a black smoke column rises off every gutted front; the big ones also tear a burning hole through a floor above. Every
+    manhole leaves a burnt crater with a low fire in it. Fires keep burning in the gutted shops (only those within
+    ~75 m of you spawn particles) for the rest of the level; jumping past the chain (`?beat=dive|outro`) starts with
+    the street already wrecked (`SetPieces.ruinAll`).
 11. **dive** — out of the street mouth into the crossing: the last blast rolls out after you in slow-mo, the arch sign
     comes down in sparks. **outro** — stats card.
 
@@ -55,11 +71,14 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
   - the bus plaza at street level, z −80..−17;
   - the deck ring at y 6: west arm x 46..52, east arm x 104..110, north arm z −80..−74, centre bridge z −56..−50;
   - open stairs from the arms down to the avenue edge (STAIR_W x 52..70, STAIR_E x 86..104, z −30..−24);
-  - the station's east building, z −128..−80: its face stair R2 (x 100→52, y 6→12, z −86..−80), the landing R2LAND,
+  - the station's east building, z −128..−80: its face ramp R2 (x 100→52, y 6→12, z −86..−80; a paved 7° ramp with
+    tactile edge strips — 48 m of 7 cm steps read as broken stairs going up), the landing R2LAND,
     the roof terrace DECK_B (y 12) with the station tower (ETOWER, 150 m) on its west end.
 - **Expressway** z −160..−140, deck top y 12, piers every 32 m. The tanker span is x −14..18 (hinge at −14).
-  Gore + link x 86..104, z −140..−128. Off-ramp x 14..86, z −139..−131 (y rises toward +x); a flat lane x 8..14
-  into Center-gai. The cross street under it (z −164..−140) is closed (rubble / fire).
+  Gore + link x 86..104, z −140..−128. Off-ramp x 14..86, z −139..−131 (y rises toward +x, `offrampY(x)`); a flat
+  lane x 8..14 into Center-gai. The emergency stair `ESTAIR`: a landing x 39.6..42.8, z −140.5..−135.5 at y 12 (a gap
+  in the south parapet, colliders split around it) and a flight x 24..39.6, z −138.5..−135.5 down onto the off-ramp's
+  north lane — `col.walk` box + ramp (`xway.js` returns `walks`), cheek and rail colliders tagged `layer: 'deck'`. The cross street under it (z −164..−140) is closed (rubble / fire).
 - **The floor function is single-valued in x/z** (`groundAt` serves the player, soldiers, particles and the main nav
   grid; elevated decks are floor-function regions, bodies below them `noBlock` bullet blockers). **One exception:**
   the East Exit's deck ring sits over the walkable plaza. Its slabs are collider tops (the engine's
@@ -98,4 +117,5 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
 `game.js` (from Level 5: soldiers, snipers, glass, traffic, scoring, slow-mo; `applyTokyo(heat)` sets the afternoon
 and browns it as things burn), `ai.js` + `auto.js` imported from Level 5, `traffic.js` (Level 5's, `city: 'tokyo'`
 liveries: dark taxis, all-red police light bars), `setpieces.js` (tanker + span, gas works + chain, dive),
-`director.js`.
+`ruin.js` (the chain's aftermath: 4 instanced meshes — gutted openings, facade soot, ground scorch, rubble — every
+instance built hidden at load and revealed by its blast, plus the lingering fires), `director.js`.
