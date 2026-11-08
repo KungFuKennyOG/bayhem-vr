@@ -1036,6 +1036,94 @@ export function buildLauncher(opts = {}) {
   };
 }
 
+// =====================================================================================
+// MINIGUN — hand-held six-barrel 7.62 (the Bay version of an M134): pistol grip under the
+// back of the receiver, carry handle on top, motor on the right, feeder on the left, barrel
+// cluster on its own bone (the level spins it). Same kit, bake and materials as the others.
+// =====================================================================================
+export function buildMinigun(opts = {}) {
+  const k = new Kit();
+  const BM = 0.118;                         // bore axis above the hand
+  const MB = { root: 0, spin: 1, trigger: 2, finger: 3, sleeve: 4 };
+  const idxPivot = IDX_LOCAL[1].clone().applyMatrix4(gripFrame(false));
+  const boneDefs = [
+    { name: 'root', pos: [0, 0, 0] },
+    { name: 'spin', pos: [0, BM, -0.4], parent: 0 },
+    { name: 'trigger', pos: [0, 0.05, -0.0525], parent: 0 },
+    { name: 'finger', pos: idxPivot.toArray(), parent: 0 },
+  ];
+  const ANO = { cls: C.ANO, col: COL.ano };
+  const PK = { cls: C.PARK, col: COL.park };
+  // ---------------- receiver housing (lathe) with raised bands, rear cap, screws
+  k.add(lathe([[0, -0.078], [0.046, -0.078], [0.055, -0.072], [0.058, -0.06], [0.058, 0.168], [0.054, 0.176], [0.044, 0.178], [0.044, 0.19], [0, 0.19]], 30, BM), { ...ANO, crease: 50, lw: true });
+  for (const u of [-0.052, 0.035, 0.125]) k.add(lathe([[0.0585, u - 0.007], [0.0612, u - 0.005], [0.0612, u + 0.005], [0.0585, u + 0.007]], 30, BM), { ...PK, wear: 1.4, crease: 50 });
+  k.add(rear(ext(circle(0, BM, 0.036, 22), 0.008, { bev: 0.002, seg: 1 }), 0.08), { ...PK, wear: 1.2 });
+  for (let i = 0; i < 6; i++) { const a = i * PI / 3; k.add(cylAB(v3(Math.cos(a) * 0.046, BM + Math.sin(a) * 0.046, 0.077), v3(Math.cos(a) * 0.046, BM + Math.sin(a) * 0.046, 0.081), 0.0045, 0.0045, 8), { cls: C.PARK, col: COL.pin, wear: 1.5 }); }
+  // ---------------- motor (right) + cable, feeder/delinker (left) + belt chute stub
+  k.add(cylAB(v3(0.068, BM + 0.02, 0.01), v3(0.068, BM + 0.02, -0.15), 0.026, 0.026, 18), { ...PK, crease: 50, lw: true });
+  k.add(lathe([[0.0275, 0.0], [0.0275, 0.012], [0.02, 0.016], [0, 0.016]], 18, BM + 0.02, 0.068).translate(0, 0, 0.012), { ...ANO, wear: 1.2 });
+  for (let i = 0; i < 5; i++) k.add(at(cbox(0.004, 0.056, 0.006, 0.001), 0.068 + 0.0255, BM + 0.02, -0.03 - i * 0.022), { ...ANO, wear: 1.3 });
+  k.add(tube([v3(0.07, BM - 0.006, -0.14), v3(0.06, BM - 0.05, -0.15), v3(0.035, BM - 0.075, -0.17)], [0.0055, 0.0055, 0.0055], 8, false), { cls: C.RUBBER, col: COL.rubber, wear: 0.3 });
+  k.add(at(cbox(0.062, 0.078, 0.115, 0.01), -0.074, BM - 0.004, -0.055), { ...ANO, wear: 1.1 });
+  k.add(at(cbox(0.048, 0.03, 0.07, 0.006), -0.112, BM - 0.03, -0.055, 0, 0, 0.55), { cls: C.POLY, col: COL.poly, wear: 0.6 });
+  for (const u of [-0.02, -0.09]) k.add(cylAB(v3(-0.106, BM + 0.02, -u), v3(-0.103, BM + 0.02, -u), 0.006, 0.006, 10), { cls: C.PARK, col: COL.pin, wear: 1.5 });
+  // ---------------- frame plate from the receiver down to the grip
+  k.add(side(ext(rp([[-0.05, 0.03, 0.004], [0.112, 0.03, 0.006], [0.112, 0.072, 0.004], [-0.05, 0.072, 0.004]]), 0.036, { bev: 0.0025 })), { ...ANO, wear: 1.1 });
+  addGrip(k, false);
+  addTriggerGuard(k, MB.trigger);
+  // ---------------- carry handle (posts + rubbered bar), ring sight on its nose
+  for (const u of [0.0, 0.15]) k.add(side(ext(rp([[u - 0.012, BM + 0.052, 0.002], [u + 0.012, BM + 0.052, 0.002], [u + 0.008, BM + 0.118, 0.004], [u - 0.008, BM + 0.118, 0.004]]), 0.016, { bev: 0.002 })), { ...ANO, wear: 1.2 });
+  k.add(cylAB(v3(0, BM + 0.118, 0.012), v3(0, BM + 0.118, -0.162), 0.0145, 0.0145, 16), { cls: C.RUBBER, col: COL.rubber, wear: 0.4, crease: 50 });
+  for (let i = 0; i < 7; i++) k.add(lathe([[0.0148, 0.0], [0.0152, 0.002], [0.0148, 0.004]], 16, BM + 0.118).translate(0, 0, 0.0 - (0.0 + i * 0.022) - 0.004), { cls: C.RUBBER, col: COL.rubber, wear: 0.5 });
+  k.add(rear(ext(circle(0, BM + 0.168, 0.022, 22), 0.003, { bev: 0, holes: [circle(0, BM + 0.168, 0.0185, 22)] }), -0.15), { ...ANO, wear: 1.3 });
+  k.add(cylAB(v3(0, BM + 0.132, -0.15), v3(0, BM + 0.146, -0.15), 0.0025, 0.0025, 8), ANO);
+  // ---------------- battery pack under the front of the receiver (OD), strap buckle
+  k.add(at(cbox(0.066, 0.05, 0.14, 0.008), 0, BM - 0.088, -0.19), { cls: C.PAINT, col: COL.od, wear: 0.9 });
+  k.add(at(cbox(0.07, 0.008, 0.02, 0.002), 0, BM - 0.088, -0.15), { cls: C.SYNTH, col: COL.gloveDk, wear: 0.4 });
+  // ---------------- barrel cluster (spin bone): rotor hub, 6 barrels, mid + muzzle clamps
+  const SB = { ...PK, bone: MB.spin, tag: 'barrels' };
+  k.add(lathe([[0, 0.188], [0.047, 0.188], [0.049, 0.196], [0.049, 0.212], [0.04, 0.22], [0, 0.22]], 26, BM), { ...SB, wear: 1.2, crease: 50 });
+  const R6 = 0.031;
+  const holes = []; for (let j = 0; j < 6; j++) holes.push(circle(Math.cos(j * PI / 3) * R6, BM + Math.sin(j * PI / 3) * R6, 0.0096, 12));
+  for (let j = 0; j < 6; j++) {
+    const a = j * PI / 3, x = Math.cos(a) * R6, y = BM + Math.sin(a) * R6;
+    k.add(cylAB(v3(x, y, -0.215), v3(x, y, -0.632), 0.0092, 0.0092, 12), { ...SB, crease: 50, wear: 0.9, lw: true });
+    k.add(rear(ext(circle(x, y, 0.0058, 10), 0.002, { bev: 0 }), -0.633), { cls: C.POLY, col: [0.008, 0.007, 0.007], bone: MB.spin, tag: 'barrels', wear: 0, dust: 0 });
+  }
+  for (const u of [0.42, 0.598]) k.add(rear(ext(circle(0, BM, 0.046, 26), 0.016, { bev: 0.0025, holes }), -u), { ...SB, wear: 1.3 });
+  k.add(cylAB(v3(0, BM, -0.22), v3(0, BM, -0.6), 0.008, 0.008, 10), SB);
+  // ---------------- the gloved right hand on the grip
+  const hr = addHand(k, gripFrame(false), { sleeveBone: MB.sleeve, tag: 'hand', bone: MB.root, fingerBone: MB.finger, ax: 0.0155, az: 0.024, fingers: [0.008, -0.0135, -0.034], index: IDX_LOCAL.map((p) => p.toArray()), thumb: 'grip', wristDir: v3(0.16, -0.42, 1).normalize() });
+  // occluders: the housing shades the frame / hand, the handle shades the housing top, the clamps the barrels
+  k.cap(v3(0, BM, 0.078), v3(0, BM, -0.19), 0.058, 0.5, 0.016, 'gun', ['hand', 'grip', 'gun']);
+  k.cap(v3(0, BM + 0.118, 0.012), v3(0, BM + 0.118, -0.162), 0.015, 0.45, 0.02, 'handle', ['gun']);
+  k.cap(v3(0, BM, -0.21), v3(0, BM, -0.63), 0.02, 0.4, 0.014, 'core', ['barrels']);
+  boneDefs.push({ name: 'sleeve', pos: hr.sleevePivot.toArray(), parent: 0 });
+  const { mesh, B, tris } = rig(k, boneDefs);
+  const group = new THREE.Group(); group.name = 'minigun'; group.add(mesh);
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, BM, -0.64); group.add(muzzle);
+  const port = new THREE.Object3D(); port.position.set(0.06, BM - 0.035, -0.06); group.add(port);
+  const feed = new THREE.Object3D(); feed.position.set(-0.112, BM - 0.045, -0.055); group.add(feed); // the chute stub on the feeder
+  const st = { trig: 0 };
+  return {
+    group, mesh, muzzle, port, feed, spin: B.spin, kind: 'rifle', bones: B, triangles: tris, drawCalls: 1, BM,
+    setMode(mode) { B.sleeve.scale.setScalar(mode === 'vr' ? 1e-4 : 1); },
+    animate(s) {
+      const dt = s.dt || 0.016;
+      const want = s.trigger || s.sinceShot < 0.06 ? 1 : 0;
+      st.trig += (want - st.trig) * Math.min(1, dt * 30);
+      B.trigger.rotation.x = -0.3 * st.trig;
+      B.finger.rotation.y = 0.22 * st.trig;
+      // Gun's generic recoil is a rifle's (6 cm, 10°) and a minigun re-kicks 25x a second: replace it with a
+      // steady shove and buzz; the cool-down (its 'reload') tilts the muzzle down and away
+      const rl = s.reloading ? Math.sin(s.reloadPhase * PI) : 0;
+      const buzz = s.sinceShot < 0.08 ? Math.sin(s.sinceShot * 900) * 0.0015 : 0;
+      group.position.set(buzz, -rl * 0.04 + buzz * 0.5, (s.kick || 0) * 0.012);
+      group.rotation.set((s.kickRot || 0) * 0.025 - rl * 0.3, 0, rl * 0.25);
+    },
+  };
+}
+
 // Recommended attach offsets for the WebXR targetRaySpace (Quest Touch / Touch Plus).
 // The gun origin is the centre of the gloved fist; the ray origin sits ~4 cm above and ~5–6 cm
 // ahead of the fist, so the gun drops/backs off by that much. Bore stays parallel to the ray

@@ -63,7 +63,7 @@ function lineMat() {
         } else if (vK > 4.5 && vK < 5.5) {
           // painted door jamb: olive paint, worn lighter along its edges where hands and boots rub it
           float wear = smoothstep(0.55, 0.85, cN(vObj * 11.0));
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.6 + 0.04, wear * 0.5);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.3 + 0.02, wear * 0.25);
         }
         // everything: grime and hand-worn patches, darker low down (no spotless surfaces)
         diffuseColor.rgb *= (0.94 + 0.06 * cN(vObj * 4.3)) * (0.82 + 0.18 * smoothstep(0.0, 0.6, vObj.y));`)

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { Gun, VR_HOLD } from '../../weapons.js';
+import { Gun, VR_HOLD, buildMinigun } from '../../weapons.js';
 import { clamp, damp } from '../../rng.js';
 
 // =====================================================================================
@@ -44,49 +44,6 @@ function gunMaterial(heatU) {
   return m;
 }
 
-function buildModel(mat) {
-  // hand-held (the Bay way): origin = the pistol grip in your hand, the receiver rides above and ahead
-  // of your fist, barrels along -z; a carry handle on top, a battery pack and the feed on the left
-  const body = [], spin = [];
-  const Y = 0.088, Z = -0.07; // receiver axis: above and ahead of the grip
-  // receiver housing + rear cap + motor + feeder/delinker
-  part(body, Cz(0.064, 0.27, 0, Y, Z - 0.13, 18), GUNMETAL);
-  part(body, Cz(0.068, 0.028, 0, Y, Z + 0.015, 18), WORN);
-  part(body, Cz(0.05, 0.03, 0, Y, Z + 0.04, 14), PARK);
-  part(body, B(0.068, 0.078, 0.16, 0.078, Y + 0.022, Z - 0.09), PARK);
-  part(body, Cz(0.032, 0.11, 0.078, Y + 0.022, Z - 0.19, 10), PARK);
-  part(body, B(0.09, 0.09, 0.12, -0.094, Y - 0.006, Z - 0.075), PARK);
-  part(body, B(0.05, 0.028, 0.08, -0.145, Y, Z - 0.075), WORN);
-  // pistol grip (rubber) + trigger guard + trigger, under the back of the receiver
-  part(body, B(0.034, 0.11, 0.045, 0, -0.012, 0.0).rotateX(0.22), RUB, 2);
-  part(body, B(0.04, 0.03, 0.07, 0, Y - 0.07, -0.025), PARK);
-  part(body, B(0.008, 0.035, 0.006, 0, 0.022, -0.04).rotateX(0.3), WORN);
-  part(body, new THREE.TorusGeometry(0.028, 0.0045, 6, 12, Math.PI).rotateY(Math.PI / 2).rotateX(Math.PI).translate(0, 0.03, -0.045), PARK);
-  // carry handle: two posts and a rubbered bar over the receiver
-  for (const z of [Z - 0.03, Z - 0.22]) part(body, B(0.018, 0.07, 0.02, 0, Y + 0.09, z), PARK);
-  part(body, Cz(0.016, 0.24, 0, Y + 0.13, Z - 0.125, 10), RUB, 2);
-  // battery pack slung under the receiver, a cable to the motor
-  part(body, B(0.07, 0.06, 0.15, 0.0, Y - 0.105, Z - 0.17), OD, 2);
-  part(body, Cz(0.007, 0.12, 0.05, Y - 0.06, Z - 0.17, 6), RUB, 2);
-  // ring sight on the handle
-  { const t = new THREE.TorusGeometry(0.026, 0.003, 6, 18); t.translate(0, Y + 0.18, Z - 0.2); part(body, t, WORN); part(body, B(0.005, 0.03, 0.005, 0, Y + 0.155, Z - 0.2), WORN); }
-  // stencil plate (warm accent so it isn't one black lump)
-  part(body, B(0.002, 0.03, 0.07, 0.112, Y + 0.022, Z - 0.09), [0.4, 0.3, 0.12], 2);
-  // barrel cluster (spins about z)
-  for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; part(spin, Cz(0.0095, 0.5, Math.cos(a) * 0.031, Math.sin(a) * 0.031, -0.47, 8), GUNMETAL, 1); }
-  part(spin, Cz(0.047, 0.032, 0, 0, -0.705, 14), WORN);
-  part(spin, Cz(0.045, 0.026, 0, 0, -0.46, 14), PARK);
-  part(spin, Cz(0.037, 0.045, 0, 0, -0.245, 12), PARK);
-  const group = new THREE.Group();
-  const inner = new THREE.Group(); inner.scale.setScalar(0.76); group.add(inner);
-  const bm = new THREE.Mesh(mergeGeometries(body), mat); inner.add(bm);
-  const spinG = new THREE.Group(); spinG.position.set(0, Y, Z); spinG.add(new THREE.Mesh(mergeGeometries(spin), mat)); inner.add(spinG);
-  const muzzle = new THREE.Object3D(); muzzle.position.set(0, Y, Z - 0.73); inner.add(muzzle);
-  const port = new THREE.Object3D(); port.position.set(0.05, Y - 0.06, Z - 0.12); inner.add(port);
-  const feed = new THREE.Object3D(); feed.position.set(0.09, Y - 0.06, Z - 0.02); inner.add(feed);
-  return { group, inner, spinG, muzzle, port, feed };
-}
-
 function buildCan(mat) {
   // the ammo can on the floor beside you: the belt runs up the chute to the gun in your hand
   const L = [];
@@ -97,17 +54,6 @@ function buildCan(mat) {
   return new THREE.Mesh(mergeGeometries(L), mat);
 }
 
-// a simple gloved fist for the VR right hand (the rifle model, which carries the hand, is gone)
-function buildGlove() {
-  const L = [], G = [0.07, 0.06, 0.045], D = [0.04, 0.035, 0.028];
-  part(L, B(0.085, 0.09, 0.1, 0, -0.01, 0.05), G, 2);
-  for (let k = 0; k < 4; k++) part(L, B(0.02, 0.026, 0.07, -0.03 + k * 0.021, -0.045, 0.0).rotateX(0.6), G, 2);
-  part(L, B(0.024, 0.024, 0.06, 0.045, 0.01, 0.02).rotateZ(-0.4), G, 2);
-  part(L, B(0.09, 0.07, 0.08, 0, -0.01, 0.13), D, 2);
-  const m = new THREE.Mesh(mergeGeometries(L), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
-  return m;
-}
-
 export class DoorGun {
   constructor(game, player, seat, camera) {
     this.g = game; this.player = player; this.camera = camera;
@@ -116,23 +62,17 @@ export class DoorGun {
     this.mat = mat;
     this.mount = new THREE.Group(); this.mount.position.copy(MOUNT); seat.add(this.mount);
     this.mount.add(buildCan(mat));
-    const M = buildModel(mat);
-    const model = {
-      group: M.group, muzzle: M.muzzle, port: M.port, kind: 'rifle', doorGun: true,
-      setMode() {},
-      // recoil: a heavy gun shoved back into your hand, a little muzzle climb
-      animate: (st) => { M.inner.position.set(0, 0, st.kick * 0.006); M.inner.rotation.set(st.kick * 0.01, 0, 0); },
-    };
+    // the minigun model: built with the shared weapon kit (same bake, materials and gloved hand as the launcher)
+    const M = buildMinigun();
+    const model = M;
     this.gun = new Gun(model, { rpm: 1500, mag: 320, reload: 2.4, auto: true });
-    this.M = M; this.spinG = M.spinG;
+    this.M = M; this.spinG = M.spin;
     // feed chute: segments between the feeder (in your hand) and the can (fixed), one instanced draw
     this.chuteN = 16;
     this.chute = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 0.025, 1), new THREE.MeshStandardMaterial({ color: 0x1a1c18, roughness: 0.6, metalness: 0.5 }), this.chuteN);
     this.chute.frustumCulled = false; this.mount.add(this.chute);
     this.feed = M.feed;
     this.canPt = new THREE.Vector3(0.3, -0.68, 0.62); // the can sits on the floor at your right hip, behind the gun
-    // your gloved fist on the grip (desktop and VR alike)
-    this.glove = buildGlove(); this.glove.position.set(0, -0.012, 0.012); M.group.add(this.glove);
     // spent brass piling up on the floor round the mount while you fire (one instanced draw)
     this.brassN = 420; this.brassShown = 0;
     const cg = new THREE.CylinderGeometry(0.0055, 0.0055, 0.051, 6); cg.rotateZ(Math.PI / 2);
@@ -190,7 +130,10 @@ export class DoorGun {
     this.mount.worldToLocal(a);
     const b = this.canPt;
     const m = this._m, q = new THREE.Quaternion(), p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), Z = new THREE.Vector3(0, 0, 1), dv = new THREE.Vector3();
-    const pt = (t, out) => { out.lerpVectors(a, b, t); out.y -= Math.sin(t * Math.PI) * 0.22; out.x += Math.sin(t * Math.PI) * 0.12; return out; };
+    // the belt hangs straight down from the feeder, then runs back along the floor to the can (a quadratic
+    // curve through a point under the gun): it stays under the gun instead of cutting across the view
+    const c = this._c || (this._c = new THREE.Vector3()); c.set(a.x, b.y - 0.05, a.z + 0.05);
+    const pt = (t, out) => { const u = 1 - t; return out.set(u * u * a.x + 2 * u * t * c.x + t * t * b.x, u * u * a.y + 2 * u * t * c.y + t * t * b.y, u * u * a.z + 2 * u * t * c.z + t * t * b.z); };
     for (let i = 0; i < this.chuteN; i++) {
       pt(i / this.chuteN, p0); pt((i + 1) / this.chuteN, p1);
       dv.subVectors(p1, p0); const L = dv.length(); q.setFromUnitVectors(Z, dv.normalize());
@@ -211,5 +154,5 @@ export class DoorGun {
     if (G.reloading > 0) return 'COOLING';
     return `GUN ${Math.round(this.heat * 100)}% HEAT`;
   }
-  warmMaterials() { return [this.mat, this.chute.material, this.glove.material, this.brass.material]; }
+  warmMaterials() { return [this.mat, this.chute.material, this.brass.material, this.M.mesh.material]; }
 }
