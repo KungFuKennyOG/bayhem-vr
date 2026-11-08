@@ -3,6 +3,7 @@
 BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model or texture files, and the only audio files are the driver's voiced radio lines (`public/vo/`, see `tools/vo/README.md`).
 
 ## Status
+- **Level 8, "Sand Castles" (door gunner on a helicopter on rails over a fictional Gulf megacity), is built and merged (PR #22, Nov 8, 2026) — see its section below and `src/levels/sand-castles/DESIGN.md`. Reviews plateaued at ~6.0 (Level 5 ≈ 6.8, Level 6 ≈ 6.3 on the same scale). **Needs a Quest 3 run** (test plan in its section). The grey-box prototype stays URL-only at `?level=dubai-proto`.
 - **Dubai (Level 8) prototype, merged as PR #14, URL only** (`?level=dubai-proto`, not in the menu): a grey-box tech test of the Level 8 finale with an in-VR perf panel and load flags. **Needs a Quest 3 run** — see "Dubai prototype" below for the test plan and pass/fail numbers.
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
 - **Level 7, "WHITEOUT" (on foot + cable car: a blizzard on a fictional Alpine peak, the summit observatory, an avalanche), is built** on branch `level-7-whiteout` — see its section below and `src/levels/whiteout/DESIGN.md`. Independent reviews plateaued at ~5.0 (below the other levels' 6–7.5); the section says what would move it.
@@ -23,7 +24,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 - **Locomotion for the on-foot levels:** smooth thumbstick movement with a comfort vignette while moving, plus 45° snap turn.
 - **Each new level gets its own chat.**
 - **Driver voice (Nov 2026):** every DRIVER line is voiced with local AI TTS (Chatterbox cloned onto a Kokoro male voice, both free to ship) and a baked radio filter. Kenny picked it over a calmer TTS after listening to samples. A real voice actor is still an option for a final pass. Any new or reworded driver line needs `tools/vo` re-run, or it plays silent (subtitle + squelch only).
-- **Level 8 (Dubai) runs at 72 Hz** (decided Nov 5, 2026, after the first prototype run on the headset). The level asks the XR session for 72; the other levels keep the browser's 90. Its finale is staggered: by the money shot most towers are already down behind the dust, and only the hero plus at most 2 mid towers fall at the same moment. See "Dubai prototype".
+- **Level 8 (Dubai) runs at 72 Hz** (decided Nov 5, 2026, after the first prototype run on the headset). The level asks the XR session for 72; the other levels keep the browser's 90. Its finale is staggered: by the money shot most towers are already down behind the dust, and only the hero plus at most 2 mid towers fall at the same moment. See "Dubai prototype". Level 8 itself (`sand-castles`) also flies low between the towers at rooftop height (altitude, speed and clearance are URL flags until measured on the headset), keeps a fixed cabin frame with capped banking and never moves the head from code, and uses only fictional city and building names.
 - **Engine:** stay in WebXR with three.js. Keep the art pipeline: procedural geometry and canvas/shader textures, with no screen-space post-processing. Grade, rim light and glows live in material shaders or sprites so they're free on Quest.
 
 ## Reusable modules (src/)
@@ -264,6 +265,47 @@ The cable ride's hit chance is ×0.22 (rifle) / ×0.4 (sniper laser) while ridin
 Headset checks needed: the big powder puffs at the avalanche (fill rate: `clouds` max is 200 on Quest, puffs every 0.06 s), the floor-pool and track decals (blended), the snowfall layers at eye distance, the cable ride's comfort (the view never rotates with the cabin; the sway is the cabin, not your head), the long run along the roof walk.
 Driver VO: all 38 Level 7 lines are voiced (37 new Chatterbox takes + one line shared with Levels 3/6; Whisper-checked: 3 flagged, all spelling-only after one re-roll — "1500 meters", "hall rope / breaks"; built with the new keep-old-clips `build.py`, only the 37 new .ogg files added).
 
+### Level 8: SAND CASTLES (door gunner in a helicopter on rails, a fictional Gulf megacity) — BUILT, merged (PR #22)
+Code: `src/levels/sand-castles/` — see its `DESIGN.md` (beats, modules, comfort model, every URL flag, budget notes). Branch `level-8-dubai`, PR #22. In the menu as 08; `?level=sand-castles&beat=<intro|marina|blvd|haboob|gunship|strike|spire|escape|outro>`. The grey-box prototype stays URL-only at `?level=dubai-proto` as the tech bench.
+What it is: you ride HAMMER ONE's open door with a pintle minigun (right hand; the left keeps the grenade launcher, which doubles as the laser designator) over **Al-Sarab**, a fictional city (no real towers or names). Hot late afternoon → the marina rooftops → Crescent Boulevard (HAMMER TWO is shot down) → a haboob rolls over the city → the WIDOWMAKER 4 duel inside the storm → the storm breaks into sunset, paint four flak towers for cruise-missile strikes → paint **SARAB SPIRE** (520 m + 160 m spire): floors blow out, it breaks and falls across the view, the spire tips at you, the pilot dives, its neighbour goes, the dust ring rises → limp home over the Gulf with an engine eating sand.
+Decisions applied (from the brief):
+- **72 Hz**, requested from the XR session (`&hz=`). **Staggered finale**: by the money shot the four strike targets and three escalation towers are already down behind the dust; only the Spire plus at most one neighbour fall together (escalation never lets more than two fall at once).
+- **Low route between the towers** (the prototype's route=low, rebuilt as an open Catmull-Rom path through the real city). Altitude, speed and clearance are URL flags (`&alt=150&speed=34&clear=55` defaults); the tower plan re-solves round the path every load (min clearance at defaults ≈ 64 m, route ≈ 14.9 km). Perf panel behind `&perf=1` (`window.__perf()` returns the per-beat table).
+- **Comfort**: fixed cabin frame, the rig rides the seat and code never moves the head; jerk-limited speed; yaw rate capped and further capped so v·ω ≤ 3 m/s²; bank ≤ 6°, pitch ≤ 2°; door-facing crab ≤ 50° at cruise. All tunable (`&bank &pitch &yaw &crab`).
+Reused prototype tech: hero chunk collapse (`hero.js`, now with facades, fire at the break, LED-free grimy fins), mid-tower vertex rig (`midrig.js`, on real kit towers), the far-skyline ruin swap behind the dust ring (now city-wide through a per-tower ruin-height texture), overhead dust shading (`OverDust`, imported; the level overrides `plume()` with soot), the perf panel.
+New tech worth reusing: one facade shader for every surface (fwidth-faded, no moiré) with a **city-wide 2.5D sun-shadow march** over a 1 byte = 3 m height map (the same idea as Tokyo's `sunshadow.js`, done inside the facade/ground shaders), roof contact shadows from the same map, a haboob shadow that darkens the city ahead of the front; procedural tower kit (8 plan shapes, podiums, roof features) merged into one draw; an analytic ground shader (Gulf, canal, palm island, dunes, street grid, boulevard, sand drifts); the rail with hold/hover braking.
+Shared-file changes: `src/levels/index.js` (registry), `src/player.js` (`g.autoRange` / `g.aimRange` overrides for the autopilot, defaults unchanged), `src/audio.js` (`warn_tone`, `minigun` / `minigun_spin` loops, Level 8 bake set), `src/levels/dubai-proto/debug.js` (hint text hooks), `tools/vo/gen.py` (pronunciations), `tools/vo/lines.json`, `src/vo-manifest.js` + `public/vo/` (34 new lines).
+Review status (fresh reviewer each round, same 11 Level 8 frames, calibrated against L5 quay/collapse and L6 crossing/gas):
+| Round | L8 | L5 | L6 | What changed |
+|---|---|---|---|---|
+| r1 | 5.0 | 7.1 | 6.4 | first full build |
+| r2 | 5.6 | 7.0 | 6.3 | late-afternoon light, facade grime, ambient war (distant blasts, flak, burning roofs), continuous haboob, seamless storm horizon, finale framing |
+| r3 | 5.7 | 6.8 | 6.0 | AA guns merged (185 → ~60 draws), glazing noise fixed, bigger gunship |
+| r4 | 6.0 | 7.0 | 6.3 | haboob billows + storm shadow on the city, soot smoke, fire at the Spire's break, palms, warmer light, darker gun |
+| r5 | 5.9 | 6.8 | 6.2 | own rotor disc no longer a grey arc across the sky, lobed dust ring, bevelled gun, bigger gunmen, deeper golden light |
+| r6 | 6.1 | 6.8 | 6.3 | bigger gunship, thicker tracers, banner above the kill, wind-flattened storm billows (haboob +0.4; nine frames unchanged) |
+Honest read: **procedural art has plateaued here at ~6.0 (6.0 → 5.9 → 6.1 over the last three rounds, inside reviewer noise): ~0.7 under Level 5, within ~0.2 of Level 6. It is not level with the best levels.** Every round rates the wide vistas (intro over the Gulf, the boulevard canyon, the sunset dust bank) as the best establishing shots in the game; what keeps it down is the same engine-level limit Levels 3–5 hit: puffy sprite smoke ("cotton balls"), collapses that read as boxes, and enemies that are a few pixels from a door 100 m up.
+Open issues (by impact, from rounds 4–6):
+- Combat readability: rooftop gunmen are still tiny at 100 m (now 2× scale); no frame shows the minigun firing. Ideas: a red smoke flare on each squad's roof, rim-lit gunmen, mid-fire review frames, the RPG with a thick trail.
+- The FX: haboob / collapse smoke reads as cumulus puffs; the collapse reads as box chains. The next real jump is a different smoke renderer (noise-eroded or raymarched) or authored fracture, not more tuning.
+- SARAB SPIRE needs a heroic silhouette (setbacks, a needle crown, gold glass) — it is a tapered stack of boxes up close.
+- Repetition: crowns and tower types repeat in the wide sunset shots; more silhouette types (sky-bridges, sails) and roof clutter would help.
+- The cabin is plain (no wear, no warm spill falloff).
+- Ground: the 2.5D shadows are hard-edged at 3 m per texel (they read as stains from 120 m up), and the sunset ambient gives the streets a lavender cast.
+- Sunset light reads lavender away from the sun; the afternoon still reads close to neutral at 720p.
+Driver VO: 34 new lines, Chatterbox takes Whisper-checked; five bad takes re-rolled with pronunciation fixes (`Haboob` → "Huh-boob", `SARAB SPIRE` → "Sa-rahb Spire"). Built with only the Level 8 takes and merged into the manifest (other levels' clips kept as built).
+Pre-merge sweep: all seven other levels boot from the URL with no page errors, and every Level 8 beat jumps cleanly with and without `noauto=1` (18/18; `outro` reaches done).
+Budget (desktop, per eye): ~40 draws cruising, ~60 in fights; ~300k triangles at the marina (city ~92k, low-rise ~40k, fallers + hero ~30k, skinned gunmen are the rest). `&shadows=0` is the first lever if the GPU is short.
+
+**Quest 3 test plan (Level 8).** Quest Browser; the level asks for 72 Hz (13.9 ms). Add `&perf=1` for the bulkhead panel (per-beat table: avg fps, worst ms, % frames over 20.8 ms); `window.__perf()` over remote devtools returns it as JSON.
+1. Full play-through: `?level=sand-castles&perf=1`. Photograph the panel table at the end. Pass = every beat avg ≥ 71.5 fps and < 1% misses; the heaviest beats are `strike` (towers falling + dust + flak) and `spire` (hero chunks + glass + dust ring + neighbour).
+2. If a beat fails, jump to it and isolate one flag at a time: `&beat=spire&shadows=0` (the sun-map march in every facade / ground pixel), `&dust=low`, `&fill=2`, `&glass=0`, `&traffic=0`.
+3. Route at rooftop height: try `&alt=120`, `&alt=180`, `&speed=26`, `&speed=40`, `&clear=40`, `&clear=80`. Note the panel's `clear` minimum and whether anything feels too close.
+4. Comfort: three loops of the default; then `&bank=0`, `&bank=10`, `&yaw=5`, `&yaw=12`, `&crab=0`. Note any queasiness, especially in the hover pivots (marina end, spire) and the finale dive.
+5. Door gun: does it go where your hand points, is the weight right, can you reach / see the full arc out of the door; brass pile and haptics.
+6. Designator: paint a flak tower and the Spire (left trigger held). Lock in ~1.5 s?
+7. Readability: can you see the rooftop gunmen at ~100 m? The RPG rockets coming? The waypoint?
+
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
 Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. URL only: https://kungfukennyog.github.io/bayhem-vr/?level=dubai-proto (registered with `hidden: true`, so it is not in the menu and never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.
 
@@ -310,6 +352,13 @@ The worst case (left grip, key 1, or `beat=worst`) drops all mid towers and the 
 - At 72 (13.9 ms) it already passes with everything falling at once, but the real art (window textures, emissive floors, more triangles) will eat that margin. Staggering the finale buys the rest.
 - A seated heli ride at 72 Hz is comfortable; it's the Quest's own default for most apps.
 - The prototype now asks for 72 by default (`hz=90` to compare).
+
+**Second Quest 3 run (Nov 7, orbit, 72 Hz, clean measuring):** idle, mid, hero and settle all pass: 71.9 fps avg in every row, worst frames 23–36 ms, misses 0.1–0.3%. CPU 4.0 ms, 78 draw calls, 163k triangles. The orbit holds 72 with one tower falling at a time. The screenshot was taken before the auto worst-case beat, so everything-at-once at 72 Hz is still unmeasured (it was 76 fps at 90 Hz on the first run, so it should pass).
+
+**Low route (`&route=low`, added Nov 5).** The Level 8 plan says to fly low between the towers rather than orbit, since destruction reads small from 400–600 m.
+- What it does: weaves between the mid towers at rooftop height (~150 m, 30 m/s), passing 50–70 m from tower faces. Mid towers fall away from the path, the hero falls square across the view, and the panel shows a live clearance (closest tower or chunk) and its minimum.
+- Sandbox comfort numbers: yaw ≤ 9.2°/s, lateral ≤ 4.5 m/s², smoothed jerk ≤ 2.2 m/s³. The orbit is 5.1 / 3.6 / 0.4. The weaving is the cost; still gentle by VR standards, but it needs a headset check.
+- **Next headset run:** `?level=dubai-proto&route=low`, two loops. Up close, collapses and dust fill much more of the screen, so expect this to be the expensive case.
 
 **Test plan for the Quest 3** (Quest Browser, 72 Hz, budget 13.9 ms). For each run, photograph the per-phase table on the bulkhead panel, or call `__perf()` over remote devtools.
 1. `?level=dubai-proto&beat=idle`, 30 s: the baseline (sky, ground, 6 + 1 towers, far skyline, cabin, escort). If this fails, the base scene is the problem, not the finale.

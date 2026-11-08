@@ -149,7 +149,7 @@ export class Player {
       A.err.multiplyScalar(Math.exp(-dt * 3.5));
       let dy = wantYaw - this.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
       const angErr = Math.hypot(dy, wantPitch - this.pitch);
-      fire = angErr < (A.target.tol ?? 0.035) && dist < 85 && A.target.kind !== 'look' && !A.holdFire;
+      fire = angErr < (A.target.tol ?? 0.035) && dist < (g.autoRange ?? 85) && A.target.kind !== 'look' && !A.holdFire;
       // grenades at vehicles / heli
       const isHeavy = A.target.kind === 'look' ? false : (A.target.heavy ?? (A.target.kind === 'car' || A.target.kind === 'heli' || (A.target.kind === 'gunman' && dist > 25)));
       if (isHeavy && A.grenadeT <= 0 && dist > (A.target.minNade ?? 14) && dist < 70 && angErr < 0.08) {
@@ -280,7 +280,8 @@ export class Player {
   aimAssist(origin, dir) {
     // gentle magnetism toward gunmen/rockets within ~3 degrees (VR only)
     let best = null, bestA = 0.05;
-    const tryP = (p) => { _v.subVectors(p, origin); const d = _v.length(); if (d > 90) return; _v.divideScalar(d); const a = Math.acos(Math.min(1, _v.dot(dir))); if (a < bestA) { bestA = a; best = _v.clone(); } };
+    const range = this.g.aimRange ?? 90;
+    const tryP = (p) => { _v.subVectors(p, origin); const d = _v.length(); if (d > range) return; _v.divideScalar(d); const a = Math.acos(Math.min(1, _v.dot(dir))); if (a < bestA) { bestA = a; best = _v.clone(); } };
     this.g.aimAssistPoints?.(tryP);
     if (best) dir.lerp(best, 0.6).normalize();
   }

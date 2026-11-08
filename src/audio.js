@@ -228,6 +228,8 @@ const SFX = {
   birds_flap: { n: 1, gain: 0.55, verb: 0.25, max: 1, vary: 0.05, roll: 0.5 },
   // --- Level 4 (Airport No Return)
   jet_spool: { n: 1, gain: 0.7, verb: 0.3, max: 2, vary: 0.03, roll: 0.2, hrtf: true, sub: 0.3 },
+  // --- Level 8 (Sand Castles)
+  warn_tone: { n: 1, gain: 0.3, verb: 0, max: 1, noTime: true, twoD: true, post: true },
 };
 
 const LOOPS = {
@@ -250,6 +252,9 @@ const LOOPS = {
   // --- Level 4: taxiing airliner (turbofan whine) and the four-engine cargo plane (roar), both Doppler-shifted
   jet: { gain: 0.75, roll: 0.25, hrtf: true, rate: (i) => 0.8 + 0.35 * i, lp: (i) => 2500 + 12000 * i, verb: 0.2, sub: 0.4, doppler: true, max: 3 },
   cargo: { gain: 1.0, roll: 0.18, hrtf: true, rate: (i) => 0.72 + 0.38 * i, lp: (i) => 1800 + 12000 * i, verb: 0.25, sub: 0.8, doppler: true, max: 1 },
+  // --- Level 8: the door gun (the buzz while it fires, the motor whine spinning up / down)
+  minigun: { gain: 0.8, twoD: true, rate: () => 1, lp: () => 20000, verb: 0.06 },
+  minigun_spin: { gain: 0.5, twoD: true, rate: (i) => 0.45 + 0.65 * i, lp: (i) => 1500 + 12000 * i, verb: 0 },
 };
 
 // --- Level 2 one-shot bakes (Port of Victory)
@@ -1007,6 +1012,34 @@ const L4_BAKES = {
   } },
 };
 
+// --- Level 8 bakes (Sand Castles): the minigun BRRRT, its motor whine, the cockpit caution tone
+const L8_BAKES = {
+  loop_minigun: { dur: 2.25, loop: [2, 0.25], sr: 32000, fn(b) {
+    const o = b.g(1); b.ch(o, b.sh(1.6), b.o);
+    // 50 rounds a second: a crack + a chest thump per round, slightly irregular
+    const G = [];
+    for (let t = 0.0; t < 2.24; t += 0.02) {
+      const tt = t + b.r(-0.0012, 0.0012);
+      G.push({ t: tt, k: 'bp', f: b.r(1800, 2600), Q: 0.8, peak: b.r(0.35, 0.5), a: 0.0002, tau: 0.004 });
+      G.push({ t: tt, f: b.r(90, 120), peak: b.r(0.45, 0.6), a: 0.001, tau: 0.012 });
+      G.push({ t: tt + 0.001, k: 'bp', f: b.r(5000, 7000), Q: 1.5, peak: 0.12, a: 0.0002, tau: 0.002 });
+    }
+    grains(b, o, G);
+    b.ch(b.src('brown'), b.f('lowpass', 140), b.g(0.5), o);
+    b.ch(b.osc('sawtooth', 50), b.f('lowpass', 400, 1), b.g(0.12), o);
+  } },
+  loop_minigun_spin: { dur: 2.25, loop: [2, 0.25], sr: 32000, fn(b) {
+    const o = b.o;
+    [[820, 0.05], [1640, 0.025], [410, 0.03], [2460, 0.01]].forEach(([f, g]) => b.ch(b.osc('sine', f), b.g(g), o));
+    b.ch(b.osc('sawtooth', 120), b.f('bandpass', 700, 2), b.g(0.05), o);
+    b.ch(b.src('white'), b.f('bandpass', 3500, 2), b.g(0.03), o);
+  } },
+  warn_tone: { dur: 1.4, fn(b) {
+    // two-tone caution chime, twice
+    for (const t0 of [0, 0.7]) { b.tn(b.o, { type: 'square', f: 1100, f1: 1100, fd: 0.01, peak: 0.25, a: 0.004, tau: 0.12, t: t0 }); b.tn(b.o, { type: 'square', f: 760, f1: 760, fd: 0.01, peak: 0.25, a: 0.004, tau: 0.14, t: t0 + 0.22 }); }
+  } },
+};
+
 // --- music bakes
 const CHORDS = [
   { root: 0, pad: [38, 45, 50, 53, 57], brass: [38, 45, 50, 53], choir: [57, 62, 65, 69] }, // Dm
@@ -1128,7 +1161,7 @@ export class AudioSystem {
     });
     // Level 2 + 3 sounds bake in the background after the music so they don't delay start-up; until they are in,
     // play() of those names is a silent no-op and setLoop() retries on the next call.
-    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES, L3_BAKES, L3_LOOP_BAKES, L4_BAKES))).then(() => { this._xReady = true; });
+    const xp = mp.catch(() => {}).then(() => this._bakeSet(Object.assign({}, L2_BAKES, L2_LOOP_BAKES, L3_BAKES, L3_LOOP_BAKES, L4_BAKES, L8_BAKES))).then(() => { this._xReady = true; });
     if (this._offline) { await mp; await xp; } else { mp.catch((e) => console.warn('music bake failed', e)); xp.catch((e) => console.warn('L2 bake failed', e)); }
   }
 

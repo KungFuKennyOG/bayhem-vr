@@ -20,6 +20,11 @@ SPOKEN = {
     'bonsoir': 'bon swah',
     'Peugeots': 'Pooh-zhohs',
     'Seine': 'Senn',
+    # Level 8 (Al-Sarab)
+    'Al-Sarab': 'Al Sa-rahb',
+    'Haboob': 'Huh-boob',
+    'SARAB SPIRE': 'Sa-rahb Spire',
+    'metres': 'meters',
 }
 
 def spoken(text):

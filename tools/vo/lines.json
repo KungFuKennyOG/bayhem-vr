@@ -1006,6 +1006,346 @@
   ]
  },
  {
+  "key": "a49f89c2",
+  "text": "RPG! Too close — keep their heads down!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "af2574a4",
+  "text": "We're hit — we're still flying. Keep shooting!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "ebfcf336",
+  "text": "RPG team down. Good.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "cfcf2c35",
+  "text": "You shot the flak gun off a skyscraper. With a door gun. Noted.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "3057f97d",
+  "text": "...And that was a forty-storey building. Insurance is going to love us.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "2aac1ef0",
+  "text": "Al-Sarab. Tallest skyline on Earth, and as of this morning, it's all theirs.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "34c54663",
+  "text": "That's HAMMER TWO off our door. You're on the gun. Marina first — they've got men on the roofs.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "1ace4907",
+  "text": "Pool deck on the left — gunmen. Light them up!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "7474b126",
+  "text": "Helipad — RPG! Shoot the rocket if you have to!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "321fcd07",
+  "text": "Marina clear. Moving down the boulevard.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "c8e7fec2",
+  "text": "Crescent Boulevard. Every roof on the left is shooting at us.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "2f2f8f85",
+  "text": "HAMMER TWO, tighten up on our left.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "bba840a9",
+  "text": "RPG — HAMMER TWO, BREAK—",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "a636618c",
+  "text": "HAMMER TWO is hit! He's going in — he's going in!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "cc0a54e2",
+  "text": "...No chutes. Make them pay for it.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "cc9e5868",
+  "text": "Boulevard clear. Turning south.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "cc873296",
+  "text": "Hold on. Look south. ...That's not smoke.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "91bdfc5d",
+  "text": "Haboob. A sandstorm the size of the city — and it's coming right at us.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "d4f6f2d9",
+  "text": "Contact! Gunship in the dust — WIDOWMAKER again. How many of these do they HAVE?",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "96000da5",
+  "text": "Rockets! Shoot them out of the air!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "3fce6af9",
+  "text": "He's going down — into that tower! LOOK!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "007e9454",
+  "text": "Splash! Fast movers took him. Thank you, Air Force.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "72b8553a",
+  "text": "Storm's breaking. Flak towers ahead — four of them. Laser's on your left hand: hold it on the building till it locks.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "340b6ecf",
+  "text": "They're blowing their own buildings now. Scorched earth.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "e27cf164",
+  "text": "That's all four. Now the big one.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "0c16b169",
+  "text": "Bombers have the rest. Come about — the Spire.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "d875b408",
+  "text": "SARAB SPIRE. Seven hundred metres of command post. Paint her, then hang on to something.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "250e94e1",
+  "text": "Bombers are on her. Watch the Spire!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "a198377e",
+  "text": "Here she comes...",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "6c7e22ce",
+  "text": "THE SPIRE — IT'S COMING AT US! HOLD ON!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "34067daf",
+  "text": "...She is down. Al-Sarab just lost its skyline.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "18c33d0e",
+  "text": "Master caution's lit. Number two engine's eating sand. We're going home slow.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "f8db4505",
+  "text": "Look at it. Twenty minutes ago that was a city.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "650fc09b",
+  "text": "Stay on that gun! I'm not flying home alone!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/game.js"
+  ]
+ },
+ {
   "key": "76c768b6",
   "text": "Black SUVs, six o'clock. Get on the gun!",
   "levels": [
