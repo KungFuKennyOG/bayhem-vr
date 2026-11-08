@@ -2,7 +2,7 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { terrainAt, groundAt, roadAt, roadNearest, ROAD_W, PULLOUT, CHAPEL, HUT, LEG1, LEG2, LEG3 } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, hexc, footAO } from './kit.js';
+import { Bucket, M4, mats, rbox, snowCap, hexc, footAO, lightCone } from './kit.js';
 import { signTexture } from './tex.js';
 
 // =====================================================================================
@@ -40,6 +40,10 @@ export function buildProps(ctx) {
     // hull + cab (paint blistered from red to black)
     B.paint.add(rbox(2.3, 0.8, 4.2, 0.08), M(0, 1.25, 0.1), (p, n, l) => { const t = Math.max(0, Math.sin(l.z * 1.3 + l.x) * 0.5 + 0.3); return [red[0] * t + burnt[0] * (1 - t), red[1] * t + burnt[1] * (1 - t), red[2] * t + burnt[2] * (1 - t)]; });
     B.paint.add(rbox(2.0, 1.25, 1.9, 0.07), M(0, 2.2, -0.45), charred);
+    // the sloped engine deck in front of the cab, louvres, the cab's window posts (charred), scorch up the back
+    B.paint.add(rbox(2.2, 0.5, 1.5, 0.12), M(0, 1.78, -1.95, 0.28, 0, 0), (q, n, l) => (Math.abs(l.x) < 0.7 && l.y > 0.1 && Math.floor(l.z * 10) % 2 ? [0.04, 0.035, 0.03] : charred));
+    for (const [px, pz] of [[-0.98, -1.38], [0.98, -1.38], [-0.98, 0.48], [0.98, 0.48], [-0.98, -0.45], [0.98, -0.45]]) B.dark.add(new THREE.BoxGeometry(0.1, 0.72, 0.1), M(px, 2.45, pz), [0.05, 0.045, 0.04]);
+    B.dark.add(rbox(1.9, 0.9, 0.05, 0.02), M(0, 2.3, 0.53), [0.03, 0.03, 0.03]);   // the rear window, gone too
     B.dark.add(new THREE.BoxGeometry(1.9, 0.9, 0.05), M(0, 2.3, -1.4, -0.12), [0.02, 0.02, 0.02]);   // windscreen gone: a black hole
     B.metal.add(new THREE.BoxGeometry(2.1, 0.06, 2.0), M(0, 2.86, -0.45), [0.2, 0.18, 0.16]);
     // cab detail: blown-out side windows, a door hanging open, the roof light bar, exhaust stack, tow hooks
@@ -50,9 +54,9 @@ export function buildProps(ctx) {
     B.metal.add(new THREE.CylinderGeometry(0.09, 0.09, 1.3, 8), M(0.85, 3.1, 0.4, 0, 0, 0.08), [0.1, 0.09, 0.08]);
     B.metal.add(new THREE.BoxGeometry(2.6, 0.12, 0.25), M(0, 1.0, 2.25), [0.15, 0.14, 0.13]);
     // the plough blade at the front, pushed askew
-    B.paint.add(rbox(3.9, 1.15, 0.32, 0.12, 2), M(0.2, 0.78, -2.88, -0.25, 0.12, 0.05), (q, n, l) => (l.y < -0.42 ? [0.09, 0.08, 0.07] : Math.abs(l.x) > 1.7 ? [0.2, 0.14, 0.04] : [0.34, 0.24, 0.05]));
+    B.paint.add(rbox(3.9, 1.15, 0.32, 0.12, 2), M(0.2, 0.78, -2.88, -0.25, 0.12, 0.05), (q, n, l) => (l.y < -0.42 ? [0.12, 0.11, 0.1] : Math.sin(l.x * 7.1 + l.y * 4.3) > 0.82 ? [0.18, 0.16, 0.13] : Math.abs(l.x) > 1.75 ? [0.3, 0.06, 0.04] : [0.66, 0.5, 0.07]));   // safety yellow, chipped, red-banded ends
     for (const s of [-1, 1]) B.paint.add(rbox(0.12, 1.0, 0.7, 0.03), M(0.2 + s * 1.98, 0.78, -2.65, -0.25, 0.12 + s * 0.5, 0.05), [0.26, 0.18, 0.04]);
-    for (const s of [-1, 1]) B.metal.add(new THREE.BoxGeometry(0.14, 0.14, 1.1), M(s * 0.8, 0.9, -2.3), [0.12, 0.12, 0.12]);
+    for (const s of [-1, 1]) { B.metal.add(new THREE.BoxGeometry(0.16, 0.16, 1.2), M(s * 0.8, 0.95, -2.3, 0.12, 0, 0), [0.12, 0.12, 0.12]); B.metal.add(new THREE.CylinderGeometry(0.07, 0.07, 0.9, 8).rotateX(PI / 2 - 0.5), M(s * 0.4, 1.25, -2.35), [0.5, 0.5, 0.52]); }   // push arms + the lift rams
     // tiller at the back
     B.dark.add(rbox(3.4, 0.5, 0.9, 0.12), M(0, 0.45, 2.6), burnt);
     ocol(x, y, z, 1.9, 2.8, 2.9, yaw, { kind: 'wreck', mat: 'metal' });
@@ -110,6 +114,7 @@ export function buildProps(ctx) {
     glows.push({ p: [top[0] - t.nx * 0.8, top[1] - 0.2, top[2] - t.nz * 0.8], color: [0.9, 0.55, 0.25], size: 3.2 });
     pools.push({ p: [t.x - t.nx * 7, y, t.z - t.nz * 7], c: [0.85, 0.6, 0.28], r: 9, k: 1 });
     named.lightTower = new THREE.Vector3(top[0], top[1], top[2]);
+    root.add(lightCone(new THREE.Vector3(top[0] - t.nx * 0.3, top[1], top[2] - t.nz * 0.3), new THREE.Vector3(t.x - t.nx * 8, y, t.z - t.nz * 8), { spread: 0.45, k: 0.08 }));
     ocol(t.x, y, t.z, 1.1, 0.7, 1.3, t.yaw, { kind: 'trailer', mat: 'metal' });
     // fuel drums by the trailer (explosive)
     for (let i = 0; i < 3; i++) {

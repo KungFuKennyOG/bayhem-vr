@@ -7,7 +7,7 @@ import { buildCloudSea } from './sky.js';
 import { TERR, groundAt, terrainAt, walkable, structFloor, bakeTerrain } from './layout.js';
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
-const ASSETS = import.meta.glob(['./road.js', './props.js', './flora.js', './station.js', './fortress.js', '../downtown-haven/cars.js']);
+const ASSETS = import.meta.glob(['./road.js', './props.js', './flora.js', './station.js', './fortress.js', './cliffs.js', '../downtown-haven/cars.js']);
 async function asset(name) { const l = ASSETS[name]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 const _v = new THREE.Vector3(), _d = new THREE.Vector3();
@@ -33,9 +33,9 @@ export class WhiteWorld {
   async build() {
     bakeTerrain();
     const E = this.E, ctx = { renderer: E.renderer, scene: E.scene, camera: E.camera, sun: E.sun, hemi: E.hemi, atlas: E.atlas, world: this };
-    const names = ['./road.js', './props.js', './flora.js', './station.js', './fortress.js', '../downtown-haven/cars.js'];
-    const [roadM, propsM, floraM, stationM, fortM, carMod] = await Promise.all(names.map(asset));
-    this.mods = { roadM, propsM, floraM, stationM, fortM, carMod };
+    const names = ['./road.js', './props.js', './flora.js', './station.js', './fortress.js', './cliffs.js', '../downtown-haven/cars.js'];
+    const [roadM, propsM, floraM, stationM, fortM, cliffM, carMod] = await Promise.all(names.map(asset));
+    this.mods = { roadM, propsM, floraM, stationM, fortM, cliffM, carMod };
     this.col.floorFn = groundAt;
     this._patchRays();
     const take = async (fn, label) => {
@@ -61,6 +61,7 @@ export class WhiteWorld {
     this.station = await take(stationM?.buildStation, 'station');
     this.fort = await take(fortM?.buildFortress, 'fortress');
     this.flora = await take(floraM?.buildFlora, 'flora');
+    this.cliffs = await take(cliffM?.buildCliffs, 'cliffs');
     for (const r of [this.road, this.station, this.fort, this.flora]) if (r?.finalize) { try { r.finalize(this.pools); } catch (e) { console.warn('finalize', e); } }
     // the terrain last: it bakes the warm pools of everything above into its vertices
     this.terrain = buildTerrain(ctx, { pools: this.pools });

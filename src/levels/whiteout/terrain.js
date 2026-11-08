@@ -27,11 +27,12 @@ function pathK(x, z) {
 }
 
 // shared snow / rock material (also used by the far mesh and the rocks)
-export const alpenU = { value: 0 };   // 0 in the storm → 1 when it has broken: alpenglow on the high faces
+export const alpenU = { value: 0 };
+export const scourU = { value: -1e9 };   // the avalanche's wake: snow behind its front (z < this) is scoured grey-blue   // 0 in the storm → 1 when it has broken: alpenglow on the high faces
 export function snowRockMaterial({ far = false } = {}) {
   const S = snowTextures(), R = rockTextures();
-  const m = new THREE.MeshStandardMaterial({ map: S.map, normalMap: S.normal, normalScale: new THREE.Vector2(0.55, 0.55), color: 0xffffff, roughness: 0.8, metalness: 0, vertexColors: true });
-  m.userData.u = { rockMap: { value: R.map }, rockNrm: { value: R.normal }, uSpark: { value: 1 }, uFar: { value: far ? 1 : 0 }, uAlpen: alpenU };
+  const m = new THREE.MeshStandardMaterial({ map: S.map, normalMap: S.normal, normalScale: new THREE.Vector2(0.3, 0.3), color: 0xffffff, roughness: 0.8, metalness: 0, vertexColors: true });
+  m.userData.u = { rockMap: { value: R.map }, rockNrm: { value: R.normal }, uSpark: { value: 1 }, uFar: { value: far ? 1 : 0 }, uAlpen: alpenU, uScour: scourU };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, m.userData.u);
     sh.vertexShader = sh.vertexShader
@@ -39,7 +40,7 @@ export function snowRockMaterial({ far = false } = {}) {
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal); vRock = aRock; vGlow = aGlow;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform sampler2D rockMap; uniform sampler2D rockNrm; uniform float uSpark; uniform float uFar; uniform float uAlpen;
+uniform sampler2D rockMap; uniform sampler2D rockNrm; uniform float uSpark; uniform float uFar; uniform float uAlpen; uniform float uScour;
 varying vec3 vWP; varying vec3 vWN; varying float vRock; varying vec3 vGlow;
 float rkW; float snowAmt;
 float wh3(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
@@ -48,6 +49,8 @@ vec3 triRock(vec3 p, vec3 n, float s){
   return texture2D(rockMap, p.zy * s).rgb * b.x + texture2D(rockMap, p.xz * s).rgb * b.y + texture2D(rockMap, p.xy * s).rgb * b.z;
 }`)
       .replace('#include <map_fragment>', `#include <map_fragment>
+  // the snow map is planar (xz): on steep banks it smears into streaks, so fade it to its mean there
+  diffuseColor.rgb = mix(vec3(0.9, 0.92, 0.95), diffuseColor.rgb, smoothstep(0.5, 0.82, vWN.y));
   {
     vec3 rock = triRock(vWP, vWN, uFar > 0.5 ? 0.012 : 0.22);
     vec3 rock2 = triRock(vWP + 13.0, vWN, uFar > 0.5 ? 0.0035 : 0.045);
@@ -62,9 +65,10 @@ vec3 triRock(vec3 p, vec3 n, float s){
     vec3 snowC = diffuseColor.rgb * vec3(0.84, 0.88, 0.95) * mix(1.0, 0.86, scour) + vec3(-0.02, -0.005, 0.02) * scour;
     // a value ramp on the snow: slopes turned to the sun warm off-white, slopes turned away and steep banks blue
     float lit = dot(vWN.xz, normalize(vec2(-0.8, 0.6))) + (vWN.y - 0.85) * 0.9;
-    snowC *= mix(vec3(0.76, 0.83, 0.98), vec3(1.03, 1.0, 0.96), smoothstep(-0.35, 0.3, lit));
+    snowC *= mix(vec3(0.8, 0.84, 0.93), vec3(1.0, 0.98, 0.95), smoothstep(-0.35, 0.3, lit)) * 0.88;   // headroom: lit snow is not paper white, shade a steel blue
     // alpenglow: once the storm breaks the high sunlit faces go pink-orange against the blue shade
     snowC *= mix(vec3(1.0), vec3(1.16, 0.9, 0.8), uAlpen * smoothstep(170.0, 420.0, vWP.y) * smoothstep(-0.1, 0.5, lit));
+    snowC *= mix(vec3(1.0), vec3(0.74, 0.79, 0.88), smoothstep(uScour + 12.0, uScour - 18.0, vWP.z) * step(-720.0, vWP.z) * step(vWP.y, 400.0));
     diffuseColor.rgb = mix(snowC, rock * 0.95, rkW);
   }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.72, 0.62, rkW);')
@@ -134,6 +138,8 @@ export function buildTerrain(ctx, { pools = [] } = {}) {
     if (face > 0) { const rib = ridged(x * 0.024, z * 0.006); rk = rk * (1 - face * 0.75) + face * Math.min(1, Math.max(0, (rib - 0.6) * 5)) * 0.62 * (0.7 + 0.3 * fbm2(x * 0.05, z * 0.02)); }
     // the Gazex cannons stand on dark rock outcrops (they silhouette)
     for (const [gx, gz] of GAZEX) { const dd = Math.hypot(x - gx, z - gz); if (dd < 26) rk = Math.max(rk, Math.min(1, (26 - dd) / 8) * 0.95); }
+    // the saddle north of the tower stays clean snow (its slope rock read as dirt smears from the terrace)
+    if (z > -445 && z < -395 && x > 20 && x < 240) rk *= 0.15;
     rock.push(Math.min(1, rk));
     // warm pools from lamps / fires (emissive multiplier on the lit albedo)
     let r = 0, g = 0, b = 0;

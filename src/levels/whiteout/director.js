@@ -49,7 +49,7 @@ export class Director {
       { name: 'intro', wp: null, music: 0.3, storm: 1, enter: () => {
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; g.player.autoState.holdFire = true; }
-          hud.showTitle(V(-36, 9, 106), 'WHITEOUT', 'LEVEL 7  •  GRAUHORN, 3 412 M', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(-36, 15, 106), 'WHITEOUT', 'LEVEL 7  •  GRAUHORN, 3 412 M', trailer ? 4.4 : 5.8);
           audio.startMusic();
           later(0.9, () => say('...You alive? Good. That was our snowcat. The road\'s the only way up now.', 3.4));
           later(4.6, () => say('Three hairpins to the cable car. And they know we\'re coming — see the headlamps?', 3.4));

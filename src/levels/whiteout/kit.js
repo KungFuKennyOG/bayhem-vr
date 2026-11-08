@@ -162,7 +162,9 @@ export const mats = {
   cabin: () => once('cabin', () => snowPatch(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.2, vertexColors: true }), { amt: 0.7, rime: 0.0, key: 'cb' })),
   metal: () => once('metal', () => snowPatch(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.75, vertexColors: true }), { amt: 0.7, rime: 0.5, key: 'mt' })),
   wood: () => once('wood', () => snowPatch(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0, vertexColors: true }), { amt: 1, rime: 0.35, key: 'wd' })),
-  snow: () => once('snow', () => { const t = snowTextures(); return new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(0.35, 0.35), color: 0xeef2fa, roughness: 0.8, vertexColors: true }); }),
+  snow: () => once('snow', () => { const t = snowTextures(); return new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(0.35, 0.35), color: 0xdbe1ec, roughness: 0.8, vertexColors: true }); }),
+  // wet dark gorge rock: snow only on the ledges, no rime (vertical walls must stay dark in the fog)
+  rockBare: () => once('rockBare', () => { const t = rockTextures(); return snowPatch(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(1, 1), color: 0x6e7076, roughness: 0.6, vertexColors: true }), { amt: 0.8, rime: 0.0, key: 'rkb' }); }),
   rock: () => once('rock', () => { const t = rockTextures(); return snowPatch(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(1, 1), color: 0xa2a6ae, roughness: 0.8, vertexColors: true }), { amt: 1, rime: 0.5, key: 'rk' }); }),
   // things that glow: lamp lenses, lit windows, beacons (emissive from the vertex colour)
   lamp: () => once('lamp', () => { const m = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xffffff, emissiveIntensity: 2.2, roughness: 0.4, vertexColors: true }); m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vColor.rgb;'); }; m.customProgramCacheKey = () => 'wo-lamp'; return m; }),
@@ -225,4 +227,48 @@ export function trackDecals(paths, groundFn) {
   m.customProgramCacheKey = () => 'wo-tread';
   const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 2; mesh.receiveShadow = true;
   return mesh;
+}
+
+// ---- trodden / packed patches on flat snow (grey-brown slush at doors, loading bays, round the stacks): one draw
+export function groundPatches(list) {
+  if (!_poolTex) floorPools([]);
+  const m = new THREE.MeshStandardMaterial({ color: 0x7a7468, alphaMap: _poolTex, transparent: true, opacity: 0.55, depthWrite: false, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <alphamap_fragment>', 'diffuseColor.a *= texture2D( alphaMap, vAlphaMapUv ).a;'); };
+  m.customProgramCacheKey = () => 'wo-patch';
+  const g = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const mesh = new THREE.InstancedMesh(g, m, list.length);
+  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  list.forEach((P, i) => { M.compose(new THREE.Vector3(P.x, P.y + 0.03, P.z), q.setFromEuler(e.set(0, P.yaw || 0, 0)), new THREE.Vector3(P.w, 1, P.d)); mesh.setMatrixAt(i, M); });
+  mesh.renderOrder = 2; mesh.receiveShadow = true;
+  return mesh;
+}
+
+// ---- a light cone through the falling snow (sodium floodlights, the light tower): additive, view-angle faded
+const _coneMats = {};
+export function lightCone(from, to, { color = [1.0, 0.68, 0.32], k = 0.07, spread = 0.36 } = {}) {
+  const key = color.join(',') + k;
+  const m = _coneMats[key] ||= new THREE.ShaderMaterial({
+    uniforms: { uK: { value: 1 }, uCol: { value: new THREE.Color(...color) } },
+    vertexShader: /* glsl */`varying float vT; varying vec3 vN; varying vec3 vV; void main(){ vT = uv.y; vec4 w = modelMatrix * vec4(position, 1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: /* glsl */`uniform float uK; uniform vec3 uCol; varying float vT; varying vec3 vN; varying vec3 vV;
+      void main(){ float edge = pow(abs(dot(normalize(vN), normalize(vV))), 1.4); float a = pow(vT, 1.6) * (1.0 - smoothstep(0.0, 0.25, 1.0 - vT) * 0.0) * edge * ${k.toFixed(3)} * uK; gl_FragColor = vec4(uCol * a, 0.0); }`,
+    transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, side: THREE.DoubleSide, fog: false,
+  });
+  const L = from.distanceTo(to) * 1.05;
+  const g = new THREE.ConeGeometry(L * spread, L, 18, 1, true); g.translate(0, -L / 2, 0); g.rotateX(-Math.PI / 2);
+  const mesh = new THREE.Mesh(g, m);
+  mesh.position.copy(from); mesh.lookAt(to); mesh.rotateY(Math.PI);
+  mesh.renderOrder = 22; mesh.frustumCulled = true;
+  return mesh;
+}
+export const coneMaterials = () => Object.values(_coneMats);
+
+// trodden lanes along a set of polylines: overlapping stretched patches (the grey-brown churn under the tyre tracks)
+export function lanePatches(paths, y, w = 6) {
+  const out = [];
+  for (const pts of paths) for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 5));
+    for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; out.push({ x: ax + (bx - ax) * t, y, z: az + (bz - az) * t, w: w * (0.85 + 0.3 * ((k * 7919) % 13) / 13), d: (L / n) * 1.9, yaw: Math.atan2(bx - ax, bz - az) }); }
+  }
+  return groundPatches(out);
 }

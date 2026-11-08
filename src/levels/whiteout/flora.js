@@ -167,7 +167,7 @@ export function buildFlora(ctx) {
     const big = sl > 0.9 && rng() < 0.5;
     const near = Math.abs(z - 60) < 70 && x > -120 && x < 120;
     if (z < -405) continue;   // the face stays clean (the avalanche runs over it)
-    if (big && Math.hypot(x + 93, z - 110.6) < 50) continue;   // the opening view stays open
+    if (Math.hypot(x + 93, z - 110.6) < (big ? 50 : 40)) continue;   // the opening view stays open (small dark rocks on the bank read as floating)
     if (!near && !big && rng() < 0.7) continue;
     if (near && !big && sl > 0.3 && rng() < 0.5) { addRock(x, z, 0.8 + rng() * 2.5, (rng() * 3) | 0, 0.4); continue; }
     addRock(x, z, big ? 3 + rng() * 6 : 0.6 + rng() * 2.2, big ? 0 : (rng() * 3) | 0, big ? 0.5 : 0.35);

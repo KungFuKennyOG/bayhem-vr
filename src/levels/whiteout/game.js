@@ -24,9 +24,9 @@ const C = (r, g, b) => new THREE.Color(r, g, b);
 // [clear, storm]
 const WX = {
   sun: [C(1.0, 0.7, 0.44), C(0.84, 0.89, 1.0)], sunI: [3.4, 0.7],
-  hemiSky: [C(0.42, 0.58, 0.95), C(0.64, 0.73, 0.92)], hemiGround: [C(0.62, 0.55, 0.5), C(0.4, 0.44, 0.52)], hemiI: [0.55, 0.8],
-  fog: [C(0.6, 0.67, 0.8), C(0.36, 0.41, 0.5)], fogSun: [[2.1, 1.15, 0.6], [0.44, 0.47, 0.54]], rim: [[1.5, 0.95, 0.55], [0.36, 0.42, 0.55]],
-  exposure: [0.92, 0.9], env: [0.75, 0.6], near: [200, 4], far: [3800, 105],
+  hemiSky: [C(0.5, 0.6, 0.84), C(0.64, 0.73, 0.92)], hemiGround: [C(0.62, 0.55, 0.5), C(0.4, 0.44, 0.52)], hemiI: [0.55, 0.8],
+  fog: [C(0.6, 0.67, 0.8), C(0.31, 0.36, 0.46)], fogSun: [[2.1, 1.15, 0.6], [0.44, 0.47, 0.54]], rim: [[1.5, 0.95, 0.55], [0.36, 0.42, 0.55]],
+  exposure: [0.92, 0.9], env: [0.75, 0.6], near: [200, 10], far: [3800, 110],
 };
 export function applyWeather(storm, { sun, hemi, fog, renderer, scene }, surge = 0) {
   const n = Math.min(1, Math.max(0, storm));

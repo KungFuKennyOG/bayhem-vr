@@ -2,7 +2,7 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { HALL, HALL_WALK, DOCK, COURT, BLOCK, TOWER, STAIR_A, LAND_A, STAIR_B, LAND_B, GALLERY, RAILCAR, TRACK_X, SUMMIT_Y, terrainAt, groundAt, lineY } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, floorPools, trackDecals } from './kit.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, floorPools, trackDecals, groundPatches, lightCone, lanePatches } from './kit.js';
 import { signTexture } from './tex.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
 
@@ -112,6 +112,9 @@ export function buildFortress(ctx) {
     { const fx0 = 120, fz0 = -338; B.metal.add(new THREE.CylinderGeometry(0.14, 0.2, 10, 8).rotateZ(PI / 2), M4(fx0, Y + 0.25, fz0, 0, 0.5, 0), [0.45, 0.45, 0.47]); const hx = fx0 + Math.cos(0.5) * 5.2, hz = fz0 - Math.sin(0.5) * 5.2; B.metal.add(rbox(0.5, 1.2, 1.2, 0.04), M4(hx, Y + 0.6, hz, 0, 0.5, 0.3), [0.18, 0.18, 0.18]); B.lamp.add(new THREE.BoxGeometry(0.05, 0.9, 0.9), M4(hx + Math.cos(0.5) * 0.27, Y + 0.6, hz - Math.sin(0.5) * 0.27, 0, 0.5, 0.3), [1.6, 1.15, 0.6]); glows.push({ p: [hx + 0.6, Y + 0.7, hz - 0.3], color: SODIUM, size: 1.8 }); pools.push({ p: [hx + 4, Y, hz - 2], c: [0.6, 0.42, 0.18], r: 7, k: 1 }); col(fx0 - 5, Y, fz0 - 3, fx0 + 5, Y + 0.5, fz0 + 3, { kind: 'pipe', mat: 'metal', noBullet: true }); }
     // burning barrels by the sandbag nests (warm points to fight between)
     for (const [bx, bz] of [[82, -338], [118, -370], [64, -356]]) { B.metal.add(new THREE.CylinderGeometry(0.32, 0.3, 0.95, 12, 1, true), M4(bx, Y + 0.47, bz), [0.16, 0.1, 0.07]); named.barrels = named.barrels || []; named.barrels.push(new THREE.Vector3(bx, Y + 1.0, bz)); pools.push({ p: [bx, Y, bz], c: [0.75, 0.4, 0.14], r: 6, k: 1 }); col(bx - 0.35, Y, bz - 0.35, bx + 0.35, Y + 0.95, bz + 0.35, { kind: 'drum', mat: 'metal' }); }
+    // packed slush at the hall doors, the block doors, round the stacks and the bowser
+    root.add(groundPatches([{ x: 87, y: Y, z: -328, w: 22, d: 8 }, { x: 90, y: Y, z: -378, w: 6, d: 6 }, { x: 110, y: Y, z: -378, w: 6, d: 6 }, { x: 140, y: Y, z: -340, w: 7, d: 10 }, { x: 70, y: Y, z: -348, w: 8, d: 6 }, { x: 112, y: Y, z: -347, w: 8, d: 6 }, { x: 128, y: Y, z: -364, w: 8, d: 6 }, { x: 96, y: Y, z: -366, w: 10, d: 8 }, { x: 115, y: Y, z: -378, w: 10, d: 5 }]));
+    root.add(lanePatches([[[72, -327], [80, -338], [90, -352], [95, -364], [96, -368]], [[60, -330], [84, -334], [110, -340], [130, -346], [140, -344]], [[146, -372], [126, -366], [104, -360], [86, -360], [70, -366], [60, -362]], [[90, -326], [92, -334], [100, -346], [112, -354], [118, -366], [116, -376]]], Y, 6));
     // tracks: the snowcat's belts, the bowser's tyres, a vehicle loop round the helipad
     root.add(trackDecals([
       { pts: [[72, -327], [80, -338], [90, -352], [95, -364], [96, -368]], w: 3.8 },
@@ -127,6 +130,7 @@ export function buildFortress(ctx) {
       glows.push({ p: [mx + Math.sin(dir) * 0.5, Y + 10.8, mz + Math.cos(dir) * 0.5], color: SODIUM, size: 2.0 });
       glows.push({ p: [mx + Math.sin(dir) * 1.2, Y + 10.6, mz + Math.cos(dir) * 1.2], color: [0.8, 0.45, 0.18], size: 4.5 });
       pools.push({ p: [mx + Math.sin(dir) * 14, Y, mz + Math.cos(dir) * 14], c: [0.62, 0.45, 0.22], r: 13, k: 1 });
+      root.add(lightCone(new THREE.Vector3(mx + Math.sin(dir) * 0.6, Y + 10.8, mz + Math.cos(dir) * 0.6), new THREE.Vector3(mx + Math.sin(dir) * 14, Y, mz + Math.cos(dir) * 14)));
       col(mx - 0.25, Y, mz - 0.25, mx + 0.25, Y + 11, mz + 0.25, { mat: 'metal' });
     }
     // the enemy snowcat parked by the block (cover)
@@ -161,11 +165,11 @@ export function buildFortress(ctx) {
     for (let x = x0 + 1; x < x1; x += 2) B.metal.add(new THREE.BoxGeometry(0.06, 1.1, 0.06), M4(x, roofY + 0.55, z0 + 0.3), [0.4, 0.4, 0.42]);
     B.metal.add(new THREE.BoxGeometry(x1 - x0, 0.06, 0.06), M4((x0 + x1) / 2, roofY + 1.1, z0 + 0.3), [0.4, 0.4, 0.42]);
     col(x0, roofY, z0, x1, roofY + 1.1, z0 + 0.4, { kind: 'rail', noBullet: true });
-    for (const [vx, vz, w, d, h] of [[82, -391, 2.4, 1.6, 1.3], [98, -393, 1.8, 1.8, 1.0], [114, -390, 2.6, 1.4, 1.4]]) { B.metal.add(rbox(w, h, d, 0.04), M4(vx, roofY + h / 2, vz), (p) => (Math.floor((p.y - roofY) * 7) % 2 ? [0.3, 0.31, 0.32] : [0.19, 0.2, 0.21])); B.metal.add(rbox(w + 0.3, 0.12, d + 0.3, 0.03), M4(vx, roofY + h + 0.02, vz), [0.36, 0.37, 0.38]); B.concrete.add(new THREE.BoxGeometry(w + 0.4, 0.2, d + 0.4), M4(vx, roofY + 0.1, vz), [0.5, 0.49, 0.47]); B.snow.add(snowCap(w, d, 0.2, vx, 3, 2), M4(vx, roofY + h + 0.1, vz), [0.95, 0.97, 1]); col(vx - w / 2, roofY, vz - d / 2, vx + w / 2, roofY + h, vz + d / 2, { kind: 'vent', mat: 'metal' }); }
+    for (const [vx, vz, w, d, h] of [[82, -391, 2.4, 1.6, 1.3], [98, -393, 1.8, 1.8, 1.0], [114, -390, 2.6, 1.4, 1.4]]) { B.paintIn.add(rbox(w, h, d, 0.04), M4(vx, roofY + h / 2, vz), (p) => (Math.floor((p.y - roofY) * 7) % 2 ? [0.26, 0.27, 0.28] : [0.14, 0.15, 0.16]));   /* louvres */ B.metal.add(rbox(w + 0.3, 0.12, d + 0.3, 0.03), M4(vx, roofY + h + 0.02, vz), [0.36, 0.37, 0.38]); B.concrete.add(new THREE.BoxGeometry(w + 0.4, 0.2, d + 0.4), M4(vx, roofY + 0.1, vz), [0.5, 0.49, 0.47]); B.snow.add(snowCap(w, d, 0.2, vx, 3, 2), M4(vx, roofY + h + 0.1, vz), [0.95, 0.97, 1]); col(vx - w / 2, roofY, vz - d / 2, vx + w / 2, roofY + h, vz + d / 2, { kind: 'vent', mat: 'metal' }); }
     // sandbag nests on the roof edge (they fire down from these)
     for (const sx of [80, 96, 112]) { for (let i = 0; i < 5; i++) B.wood.add(rbox(0.6, 0.24, 0.38, 0.09), M4(sx - 1.2 + i * 0.6, roofY + 1.17, z1 - 0.35, 0, (rng() - 0.5) * 0.2, 0), () => { const k = 0.32 + rng() * 0.08; return [k * 1.05, k, k * 0.82]; }); }
     // the radome at the east end of the roof (north half: the walk passes south of it)
-    { const rx = 132, rz = -392.5; B.concrete.add(new THREE.CylinderGeometry(2.6, 2.9, 1.6, 16), M4(rx, roofY + 0.8, rz), [0.6, 0.6, 0.6], { uvScale: 2 }); const dome = new THREE.SphereGeometry(3.6, 36, 16, 0, PI * 2, 0, PI * 0.62); B.paintIn.add(dome, M4(rx, roofY + 2.2, rz), (p) => { const a = Math.atan2(p.z - rz, p.x - rx), row = Math.floor((p.y - roofY - 2.2) / 0.9); const col_ = Math.floor(a / (PI / 9) + row * 0.5); const k = (col_ + row) % 2 ? 0.84 : 0.74; const st = (row + 9) % 3 === 0 ? 0.92 : 1; return [k * st, k * st, k * st * 1.02]; }); col(rx - 3.4, roofY, rz - 3.4, rx + 3.4, roofY + 5, rz + 3.4, { kind: 'radome' }); glows.push({ p: [rx, roofY + 6.2, rz], color: RED, size: 1.2, blink: true, rate: 2.0, far: true }); B.metal.add(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6), M4(rx, roofY + 5.7, rz), [0.3, 0.3, 0.3]); named.radome = new THREE.Vector3(rx, roofY + 2.5, rz); }
+    { const rx = 132, rz = -392.5; B.concrete.add(new THREE.CylinderGeometry(2.6, 2.9, 1.6, 16), M4(rx, roofY + 0.8, rz), [0.6, 0.6, 0.6], { uvScale: 2 }); const dome = new THREE.SphereGeometry(3.6, 36, 16, 0, PI * 2, 0, PI * 0.62); B.paintIn.add(dome, M4(rx, roofY + 2.2, rz), (p) => { const a = Math.atan2(p.z - rz, p.x - rx), row = Math.floor((p.y - roofY - 2.2) / 0.9); const col_ = Math.floor(a / (PI / 9) + row * 0.5); const k = (col_ + row) % 2 ? 0.84 : 0.74; const st = (row + 9) % 3 === 0 ? 0.92 : 1; return [k * st, k * st, k * st * 1.02]; }); col(rx - 3.4, roofY, rz - 3.4, rx + 3.4, roofY + 5, rz + 3.4, { kind: 'radome' }); for (const th of [0.22, 0.38, 0.52]) B.metal.add(new THREE.TorusGeometry(3.6 * Math.sin(th * PI) + 0.02, 0.045, 4, 40).rotateX(PI / 2), M4(rx, roofY + 2.2 + 3.6 * Math.cos(th * PI), rz), [0.3, 0.31, 0.33]); for (let k = 0; k < 10; k++) B.metal.add(new THREE.TorusGeometry(3.62, 0.04, 4, 20, 0.62 * PI).rotateZ(-0.12 * PI), M4(rx, roofY + 2.2, rz, 0, k * PI / 5, 0), [0.3, 0.31, 0.33]);   /* the panel lattice */ B.snow.add(new THREE.SphereGeometry(2.1, 18, 6, 0, PI * 2, 0, PI * 0.42), M4(rx, roofY + 4.05, rz, 0, 0, 0, 1, 0.55, 1), [0.95, 0.97, 1]); B.concrete.add(rbox(2.9, 0.5, 2.9, 0.04).translate(0, 0, 0), M4(rx, roofY + 0.25, rz), [0.38, 0.38, 0.4]); B.paint.add(new THREE.BoxGeometry(0.9, 1.3, 0.08), M4(rx, roofY + 0.75, rz + 2.85), [0.22, 0.25, 0.22]); B.lamp.add(new THREE.BoxGeometry(0.14, 0.14, 0.06), M4(rx + 0.6, roofY + 1.55, rz + 2.9), [1.8, 0.4, 0.1]); glows.push({ p: [rx, roofY + 6.2, rz], color: RED, size: 1.2, blink: true, rate: 2.0, far: true }); B.metal.add(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6), M4(rx, roofY + 5.7, rz), [0.3, 0.3, 0.3]); named.radome = new THREE.Vector3(rx, roofY + 2.5, rz); }
     icicles(x0, z1 + 0.6, x1, z1 + 0.6, roofY - 0.4, 50, 1.2);
     roofs.push([x0, z0, x1, z1, roofY - 0.5]);
   }
@@ -248,7 +252,8 @@ export function buildFortress(ctx) {
     // floor slab, the rack railway (two rails + the toothed rack), sleepers
     B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 + 4, 0.4, z1 - z0), M4((x0 + x1) / 2 + 2, gy - 0.2, (z0 + z1) / 2), [0.6, 0.59, 0.57], { uvScale: 3 });
     const rz = -391.5;
-    for (let x = x0 + 2; x < x1 + 12; x += 0.7) B.paintIn.add(new THREE.BoxGeometry(0.22, 0.12, 2.4), M4(x, gy + 0.06, rz), [0.2, 0.15, 0.11]);
+    B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 + 12, 0.08, 3.2), M4((x0 + x1) / 2 + 6, gy + 0.02, rz), [0.3, 0.3, 0.31], { uvScale: 1.2 });   // the ballast bed
+    for (let x = x0 + 2; x < x1 + 12; x += 0.7) B.paintIn.add(new THREE.BoxGeometry(0.22, 0.12, 2.4), M4(x, gy + 0.08, rz), () => { const k = 0.1 + rng() * 0.025; return [k * 1.2, k, k * 0.85]; });
     for (const s of [-0.5, 0.5]) B.metal.add(new THREE.BoxGeometry(x1 - x0 + 14, 0.14, 0.08), M4((x0 + x1) / 2 + 6, gy + 0.19, rz + s), [0.35, 0.33, 0.32]);
     B.metal.add(new THREE.BoxGeometry(x1 - x0 + 14, 0.18, 0.12), M4((x0 + x1) / 2 + 6, gy + 0.22, rz), (p) => (Math.floor(p.x * 6) % 2 ? [0.3, 0.28, 0.26] : [0.18, 0.17, 0.16]));
     // the back (mountain) wall: dressed stone
@@ -272,7 +277,7 @@ export function buildFortress(ctx) {
     // the tunnel portal: an arched concrete face into the rock, black inside
     const px = GALLERY.portal;
     B.concrete.add(rbox(1.5, roofY - gy + 3, z1 - z0 + 4, 0.05), M4(px + 0.75, (gy + roofY + 3) / 2, (z0 + z1) / 2), cA(gy), { uvScale: 3 });
-    B.paintIn.add(new THREE.BoxGeometry(40, roofY - gy - 0.6, 7.4), M4(px + 20.5, gy - 0.05 + (roofY - gy - 0.6) / 2, rz, 0, 0, 0, -1, 1, 1), [0.02, 0.02, 0.025]);   // the dark beyond: mirrored, so its faces point inward (you ride into it)
+    { const tb = new THREE.Mesh(new THREE.BoxGeometry(40, roofY - gy - 0.6, 7.4), new THREE.MeshBasicMaterial({ color: 0x050607, side: THREE.DoubleSide, fog: false })); tb.position.set(px + 20.5, gy - 0.05 + (roofY - gy - 0.6) / 2, rz); root.add(tb); }   // the dark beyond: double-sided, black from the gallery AND from inside when you ride in
     const portal = signTexture([['GRAUHORN-TUNNEL', 64], ['ZAHNRADBAHN  •  1912', 40]], { w: 512, h: 192, bg: '#bdb6a8', fg: '#2a2622', border: '#2a2622', seed: 51, age: 0.8 });
     const pm = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.9), new THREE.MeshStandardMaterial({ map: portal, roughness: 0.8 }));
     pm.position.set(px - 0.02, roofY - 0.9, rz); pm.rotation.y = -PI / 2; root.add(pm);
