@@ -124,6 +124,7 @@ attribute float iRot;
 attribute vec2 iFrame;   // frame index, next frame blend
 attribute vec4 iColor;   // rgb mult, alpha
 attribute vec3 iVel;
+attribute float iGround; // ground height under this sprite (soft fade), 0 = the old road plane
 uniform float stretchMode;
 varying vec2 vUv0; varying vec2 vUv1; varying float vBlend;
 varying vec4 vColor; varying float vFogDepth; varying vec3 vFogViewPos; varying float vGroundY; varying float vSoft;
@@ -154,8 +155,8 @@ void main(){
   float bigS = max(iSize.x, iSize.y);
   if (bigS > 1.5) vColor.a *= smoothstep(bigS * 0.35, bigS * 1.3, -mv.z);
   vFogDepth = -mv.z; vFogViewPos = mv.xyz;
-  // world height of this vertex (soft intersection with the road plane y=0, no depth buffer needed)
-  vGroundY = (inverse(viewMatrix) * vec4(mv.xyz, 1.0)).y;
+  // height of this vertex above the ground under the sprite (soft intersection, no depth buffer needed)
+  vGroundY = (inverse(viewMatrix) * vec4(mv.xyz, 1.0)).y - iGround;
   vSoft = max(0.05, min(iSize.x, iSize.y) * 0.22);
   gl_Position = projectionMatrix * mv;
   if (iColor.a <= 0.0 || iSize.x <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -185,8 +186,9 @@ void main(){
 }`;
 
 export class BillboardBatch {
-  constructor(max, atlas, { stretch = false, boost = 1, renderOrder = 10, fog } = {}) {
+  constructor(max, atlas, { stretch = false, boost = 1, renderOrder = 10, fog, ground = 0 } = {}) {
     this.max = max;
+    this.ground = ground; // default soft-fade floor for set() calls that pass none
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
     g.setIndex([0, 1, 2, 0, 2, 3]);
@@ -196,8 +198,9 @@ export class BillboardBatch {
     this.aFrame = new THREE.InstancedBufferAttribute(new Float32Array(max * 2), 2).setUsage(THREE.DynamicDrawUsage);
     this.aColor = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
     this.aVel = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3).setUsage(THREE.DynamicDrawUsage);
+    this.aGround = new THREE.InstancedBufferAttribute(new Float32Array(max).fill(ground), 1).setUsage(THREE.DynamicDrawUsage);
     g.setAttribute('iPos', this.aPos); g.setAttribute('iSize', this.aSize); g.setAttribute('iRot', this.aRot);
-    g.setAttribute('iFrame', this.aFrame); g.setAttribute('iColor', this.aColor); g.setAttribute('iVel', this.aVel);
+    g.setAttribute('iFrame', this.aFrame); g.setAttribute('iColor', this.aColor); g.setAttribute('iVel', this.aVel); g.setAttribute('iGround', this.aGround);
     g.instanceCount = max;
     this.material = new THREE.ShaderMaterial({
       uniforms: {
@@ -215,7 +218,7 @@ export class BillboardBatch {
     this.mesh.renderOrder = renderOrder;
     this.geometry = g;
   }
-  set(i, x, y, z, w, h, rot, frame, next, r, gg, b, a, vx = 0, vy = 0, vz = 0) {
+  set(i, x, y, z, w, h, rot, frame, next, r, gg, b, a, vx = 0, vy = 0, vz = 0, gy = this.ground) {
     const p = this.aPos.array, s = this.aSize.array, f = this.aFrame.array, c = this.aColor.array, v = this.aVel.array;
     p[i * 3] = x; p[i * 3 + 1] = y; p[i * 3 + 2] = z;
     s[i * 2] = w; s[i * 2 + 1] = h;
@@ -223,10 +226,11 @@ export class BillboardBatch {
     f[i * 2] = frame; f[i * 2 + 1] = next;
     c[i * 4] = r; c[i * 4 + 1] = gg; c[i * 4 + 2] = b; c[i * 4 + 3] = a;
     v[i * 3] = vx; v[i * 3 + 1] = vy; v[i * 3 + 2] = vz;
+    this.aGround.array[i] = gy;
   }
   hide(i) { this.aColor.array[i * 4 + 3] = 0; }
   commit(count = this.max) {
-    for (const a of [this.aPos, this.aSize, this.aRot, this.aFrame, this.aColor, this.aVel]) {
+    for (const a of [this.aPos, this.aSize, this.aRot, this.aFrame, this.aColor, this.aVel, this.aGround]) {
       a.clearUpdateRanges(); a.addUpdateRange(0, count * a.itemSize); a.needsUpdate = true;
     }
     this.geometry.instanceCount = count;
@@ -303,13 +307,16 @@ export class ParticleSystem {
       let frame = q.f0, next = 0;
       if (q.fk === 1) { const k = t * 63; const k0 = Math.floor(k); frame = fireFrame(k0) + (k - k0); next = (k0 % 8 === 7) ? 9 : 1; if (k0 >= 63) next = 0; }
       else if (q.fk === 2) { const k = q.f0 + t * q.fn; const k0 = Math.floor(k) % 64; frame = smokeFrame(k0) + (k - Math.floor(k)); next = (k0 % 8 === 7) ? 9 : 1; if (k0 >= 63) next = 0; }
+      // soft-fade floor: the real ground where it dips below the old y = 0 road plane (Level 5's lower quays sit at
+      // -5.6 and every sprite there faded to nothing); min(…, 0) keeps levels with ground >= 0 bit-identical
+      const sg = gy < 0 ? gy : 0;
       const cr = q.r + (q.r1 - q.r) * t, cg = q.g + (q.g1 - q.g) * t, cb = q.b + (q.b1 - q.b) * t;
       if (this.stretch) {
         const sp = Math.hypot(q.vx, q.vy, q.vz);
         const L = q.len > 0 ? q.len : Math.max(size, sp * 0.03);
-        b.set(i, q.x, q.y, q.z, q.w * (size / (q.s0 || 1)), L, 0, frame, 0, cr, cg, cb, a, q.vx, q.vy, q.vz);
+        b.set(i, q.x, q.y, q.z, q.w * (size / (q.s0 || 1)), L, 0, frame, 0, cr, cg, cb, a, q.vx, q.vy, q.vz, sg);
       } else {
-        b.set(i, q.x, q.y, q.z, size, size * q.asp, q.rot, frame, next, cr, cg, cb, a);
+        b.set(i, q.x, q.y, q.z, size, size * q.asp, q.rot, frame, next, cr, cg, cb, a, 0, 0, 0, sg);
       }
     }
     b.commit(this.high);

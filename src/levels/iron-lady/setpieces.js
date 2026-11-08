@@ -92,7 +92,7 @@ export class SetPieces {
     this.boat = null; this.fall = null; this.wall = null; this.escape = null;
     this.girders = new Girders(game);
     this.clouds = game.clouds;
-    this.glowB = new BillboardBatch(24, game.E.atlas, { boost: 1, renderOrder: 19, fog: game.scene.fog });
+    this.glowB = new BillboardBatch(24, game.E.atlas, { boost: 1, renderOrder: 19, fog: game.scene.fog, ground: -20 });
     game.scene.add(this.glowB.mesh);
     const g = game;
     this.heliTarget = {
