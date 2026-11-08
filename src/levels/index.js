@@ -34,6 +34,11 @@ const ALL = [
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Watch the billboard catwalks for red dots — and look up at the decks.',
   },
   {
+    id: 'sand-castles', num: '08', title: 'SAND CASTLES', tagline: 'SUPERTALLS. SANDSTORM. ONE DOOR GUN.',
+    blurb: 'Door gunner over Al-Sarab: rooftop fights, a gunship duel inside a haboob, a laser designator — and the tallest tower in the Gulf.',
+    help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: grenade launcher, and later the laser designator (hold on a target).',
+  },
+  {
     id: 'dubai-proto', num: '08', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true, hidden: true,
     blurb: 'Door-gunner heli loop around a collapsing grey-box skyline. Measures the Level 8 finale on the headset.',
     help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',

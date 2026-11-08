@@ -144,10 +144,11 @@ export class PerfPanel {
       if (y > H - 30) break;
     }
     x.fillStyle = '#6f8590'; x.font = '17px monospace';
-    x.fillText('L-grip WORST  R-grip RESET  A mid  B hero', 16, H - 30);
-    x.fillText('X dust lvl  Y panel  | desktop: 1 0 2 3 4 5', 16, H - 10);
+    const hint = this.hint || ['L-grip WORST  R-grip RESET  A mid  B hero', 'X dust lvl  Y panel  | desktop: 1 0 2 3 4 5'];
+    x.fillText(hint[0], 16, H - 30);
+    x.fillText(hint[1], 16, H - 10);
     this.tex.needsUpdate = true;
-    if (this.dom.isConnected) this.dom.textContent = [`${this.fps.toFixed(1)} fps  ${this.ms.toFixed(1)} ms  worst ${this.worst2s.toFixed(0)}`, ...L, '', ...[...this.phases].map(([k, P]) => `${k.padEnd(9)} ${(1000 / (P.sum / Math.max(1, P.n))).toFixed(1)} fps  worst ${P.worst.toFixed(0)} ms  miss ${((100 * P.miss) / Math.max(1, P.n)).toFixed(1)}%`), '', 'keys: 1 worst  0 reset  2 mid  3 hero  4 dust  5 panel'].join('\n');
+    if (this.dom.isConnected) this.dom.textContent = [`${this.fps.toFixed(1)} fps  ${this.ms.toFixed(1)} ms  worst ${this.worst2s.toFixed(0)}`, ...L, '', ...[...this.phases].map(([k, P]) => `${k.padEnd(9)} ${(1000 / (P.sum / Math.max(1, P.n))).toFixed(1)} fps  worst ${P.worst.toFixed(0)} ms  miss ${((100 * P.miss) / Math.max(1, P.n)).toFixed(1)}%`), '', this.hintKeys || 'keys: 1 worst  0 reset  2 mid  3 hero  4 dust  5 panel'].join('\n');
   }
   // one line per phase, for copying off the headset (window.__perf() in remote devtools)
   summary() { return [...this.phases].map(([k, P]) => ({ phase: k, avgFps: +(1000 / (P.sum / Math.max(1, P.n))).toFixed(1), worstMs: +P.worst.toFixed(1), missPct: +((100 * P.miss) / Math.max(1, P.n)).toFixed(2), frames: P.n })); }
