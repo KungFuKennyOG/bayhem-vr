@@ -5,6 +5,7 @@ BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite.
 ## Status
 - **Dubai (Level 8) prototype, merged as PR #14, URL only** (`?level=dubai-proto`, not in the menu): a grey-box tech test of the Level 8 finale with an in-VR perf panel and load flags. **Needs a Quest 3 run** — see "Dubai prototype" below for the test plan and pass/fail numbers.
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
+- **Level 7, "WHITEOUT" (on foot + cable car: a blizzard on a fictional Alpine peak, the summit observatory, an avalanche), is built** on branch `level-7-whiteout` — see its section below and `src/levels/whiteout/DESIGN.md`. Independent reviews plateaued at ~5.0 (below the other levels' 6–7.5); the section says what would move it.
 - **Level 6, "Tokyo Scramble" (on foot, Shibuya/Shinjuku stand-in on a hard-sun afternoon), is built and merged** (PR #19; polish pass in PR #21, `level-6-polish`) — see its section below and `src/levels/tokyo-scramble/DESIGN.md`.
 - **Level 5, "The Iron Lady" (on foot, Paris at blue hour, a fictional lattice tower falls across the Seine), is built** on branch `level-5-iron-lady` — see its section below and `src/levels/iron-lady/DESIGN.md`.
 - **Level 4, "Airport No Return" (on foot, ends in a jeep chase), is done** — see its section below.
@@ -208,6 +209,60 @@ Open issues (round 4, by impact):
 - HUD: the objective, a callout and a radio line can stack at once at the crossing.
 Driver VO: all 32 Level 6 lines are voiced (31 new Chatterbox takes, the emergency-stair line added Nov 7; Whisper-checked, 0 flagged; built with only the Tokyo takes and merged into `src/vo-manifest.js`, because the other levels' raw takes aren't kept in git and `build.py` rewrites the manifest from whatever raw takes exist — rebuild the full set only on a machine that has them all). Pre-merge sweep: every beat jumps cleanly with and without `noauto=1` (22/22, no page errors); the autopilot finishes the level from `beat=xway` (done at the outro).
 Headset checks needed: the 2.5D sun-shadow march cost on Quest (16 texture taps on every static fragment facing the sun; drop to 10 steps or bake the ground into a map if it's heavy), the deck layering (walking up the open stairs, perch gunmen above you), the crowd at the start, and the fleeing crowd's comfort (none should run through the player).
+
+### Level 7: WHITEOUT (on foot + cable car, a mountain comes down) — BUILT, in review (branch `level-7-whiteout`)
+Code: `src/levels/whiteout/` — see its `DESIGN.md` (beats, world frame, rendering modules). `layout.js` (every number:
+the road polyline, the switchback legs and hairpins, the stations, the cable line `lineY(z)`, the summit fortress,
+the face; the analytic mountain baked to a 1 m heightfield; `structFloor` + `groundAt` + the walk mask `walkable`),
+`terrain.js` (chunked LOD heightfield + far peaks + the snow / rock shader), `kit.js` (merge bucket + `snowPatch`:
+snow on every up-facing surface, rime on the windward side), `snow.js` (wind, gusts, whiteout surges, GPU snowfall,
+spindrift), `sky.js` (storm ↔ clear sky, env re-bake, cloud sea), `road.js`, `props.js`, `flora.js`, `station.js`,
+`fortress.js`, `cabin.js`, `avalanche.js`, `world.js`, `game.js`, `ai.js`, `traffic.js`, `setpieces.js`,
+`director.js`, `auto.js`.
+Beats: intro (the burning snowcat, title over the slope) → road1 (leg 1: roadblock; gunmen on the road above fire
+down) → road2 (leg 2: a laser sniper on the rib; flankers come up the road below; the Berghaus and its propane tank)
+→ road3 → yard (Mittelstation yard, the fuel tank, a shed sniper) → board → cable (the ride across the gorge; cabin 2
+drops into the gorge; the haul rope snaps 42 m out, the brakes scream it into the dock) → hall (your cabin rolls back
+down into the pylon) → court (they fire down from the roof walk) → roof (you fire down into the courtyard) → summit
+(the terrace: the storm breaks, the face, the convoy, the Gazex cannons) → avalanche (the slab breaks, the front comes
+down the face, look-gated) → run (east along the roof walk; the front is rubber-banded) → gallery (it goes over the
+gallery roof and pours past the pillars) → outro (the railcar). `?level=whiteout&beat=<name>`.
+New tech:
+- **Heightfield world with a walk mask**: the mountain is an analytic function (road shelves carved with retaining
+  steps, plateaus flattened) baked at 1 m; struct floors (roofs, stairs, landings) never overlap in xz so ground is one
+  2D function; the locomotion sees no ground outside `walkable()`; `col.raycast` / `col.visible` also march the
+  heightfield, so bullets and line of sight stop at the hill; the nav grid tests colliders against the local floor.
+- **`snowPatch`** (kit.js): one onBeforeCompile patch that settles noisy snow on every up-facing surface and feathers
+  rime on the windward side, chained onto any MeshStandardMaterial.
+- **Weather**: gusts and surges drive the fog (whiteout), GPU snowfall streaks along screen-space velocity, masked under
+  roofs (and inside the moving cabin), catching the nearest fire.
+- **The avalanche front** (avalanche.js): a terrain-hugging rolling band (toe → nose → crest → back) with vertex lumps
+  from 3D noise rolling along the profile, fragment billows via a surface-gradient bump, gold sun on the front, AO in
+  the folds, an eroded crest, smooth analytic normals; it rides over the station roofs and stops at the gallery's edge
+  once you're inside. The powder cloud is big two-tone sprites in the shared `clouds` batch plus a dust skirt ahead of
+  the toe (the blended plume band is built but off: it read as glacier ice); slab blocks; the crown crack; the curtain.
+- **Set dressing helpers** (kit.js): `floorPools` (additive light-pool decals on floors that aren't terrain: the
+  terrain bakes its own), `trackDecals` (tyre / track marks following a polyline on flat snow).
+Shared-engine changes: `src/characters.js` (`alpine` palette outfit: dark cold-weather kit, amber goggles, orange
+hi-vis bands — palette only, default untouched), `src/levels/index.js` (registry).
+Review status (fresh reviewer each round; the same 10 fixed angles in `review.sh` order; calibration frames L2 maze1b, L3 avenue, L5 quay, L6 crossing, which reviewers scored 6.0–7.5 every round):
+- Round 1: 4.5. The climax read as beige lumps (the front) and a white wall; the face was noise with dark stripes; Gazex unreadable; empty yard / courtyard floors; the cabin a box of planes; a primitive snowcat. The Berghaus frame was best (6.0).
+- Round 2: 5.0. The powder cloud (sprites), the face side-lit (sun swung to WSW), ribbed rock, bigger gunmetal Gazex on rock outcrops, courtyard cover clusters, burning barrels, tyre tracks, the snowcat rebuilt, the gallery whiteout blue-grey (the pour reads), floor light pools, window streaks / lintels / icicles.
+- Round 3: 5.0. Snow value ramp (sun-facing warm, shade blue), alpine kit with orange hi-vis bands, layered snowfall (big soft near flakes, varied streak length), storm thinned over the gorge, scour patches softened.
+- Round 4: 5.0. Alpenglow, the plume band dropped for a denser two-tone powder cloud, plough berms, marker poles, finer far mesh. **Honest plateau at ~5.0**, about 1.5 below Levels 2/3/5/6 on the same calibration scale. Every round the blizzard road (01–03) scores 5.5–6.5 and the Berghaus is the best frame; the spectacle half (cable car, avalanche, gallery) scores 4–5.5.
+What would move it (beyond more polish passes):
+- **The avalanche** needs a real volumetric look: a dense flipbook-lit billow sheet that hugs the slope (self-shadowed undersides, speed streaks, debris, pylons going down), filling half the frame in the run. Sprite puffs on a mesh front read as "fair-weather cumulus" to every reviewer. This is engine-FX work in `particles.js` (a lit billow cell with a normal-mapped flipbook), the same limit Levels 3/5 hit.
+- **The face terrain** reads as "crumpled paper": an analytic heightfield at 2–8 m can't carve couloirs, aretes, cornices and rock buttresses. It needs authored cliff meshes (rock buttresses with snow on the top faces) placed along the ribs, or a much finer bake under the face.
+- **The cable car** (reviewers' "should be the money shot"): the gorge walls are terrain far away in fog. It needs close set-dressing: cliff meshes beside the line, a second pylon passing close, the haul rope visible from inside, a textured cabin interior.
+- **Ground planes**: more value zones (packed grey-brown at doors, dirty plough banks), AO strips at every wall base.
+Open issues (round 4, by impact): the avalanche (above); the face (above); the cable car (above); flat yard and courtyard ground; uniform snow streaks (still read as "scratches on the lens" to some reviewers: thin them further after the storm breaks); no key-light direction in the blizzard (a warm glow behind the cloud deck); the snowcat still blocky; the radome plain; hard blue blob shadows on the face (low 7° sun, the shadow map's terrain bumps); stray debris cards in the gallery.
+Gameplay checks: every beat jumps cleanly with and without `noauto=1` (30/30, no page errors); the other six levels boot. The full autopilot runs found real-play blockers, all fixed:
+- the walk mask had thin seams the locomotion treats as ledges: the Mittelstation doorway (the hall stopped at z 7, the yard started at 8 — you could not walk into the station), the foot of stair A, the landing onto the terrace, the roof walk into the gallery (`walkable` now has explicit joins; a node scan of the mask for 1 m seams is worth repeating after layout edits);
+- after the cable car docked it rolled back once a head-in-cabin test (wrong frame) said you were out, and `riding` stayed true while it rolled — it carried you back down the line and parked you in mid-air at the pylon. `inCabin` now works in the cabin's own frame, the roll-back waits until you're really out, and `riding` is only true while it is carrying you;
+- the autopilot wedged itself into prop pockets (the leg-1 van against the roadblock — moved; a crate on leg 3); nav cells now need the whole body on the walk mask; the autopilot side-steps / skips a goal when pinned, and its summit / run routes cross the landing instead of the terrace railing.
+The cable ride's hit chance is ×0.22 (rifle) / ×0.4 (sniper laser) while riding.
+Headset checks needed: the big powder puffs at the avalanche (fill rate: `clouds` max is 200 on Quest, puffs every 0.06 s), the floor-pool and track decals (blended), the snowfall layers at eye distance, the cable ride's comfort (the view never rotates with the cabin; the sway is the cabin, not your head), the long run along the roof walk.
+Driver VO: all 38 Level 7 lines are voiced (37 new Chatterbox takes + one line shared with Levels 3/6; Whisper-checked: 3 flagged, all spelling-only after one re-roll — "1500 meters", "hall rope / breaks"; built with the new keep-old-clips `build.py`, only the 37 new .ogg files added).
 
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
 Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. URL only: https://kungfukennyog.github.io/bayhem-vr/?level=dubai-proto (registered with `hidden: true`, so it is not in the menu and never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.
