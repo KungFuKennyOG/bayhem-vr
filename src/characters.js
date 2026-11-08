@@ -979,6 +979,18 @@ const PAL_PORT = {
   cap: hexes(['#ff6a18', '#f2c018', '#c02c1c', '#2e4c8c', '#ece6d8']),
   refl: hexes(['#e8ece8', '#dfe4e2']),
 };
+// 'alpine' outfit (Level 7 mountain troops): dark cold-weather kit (charcoal / slate / black parkas), dark grey
+// carriers, black or snow-grey helmets, amber / orange goggle lenses -> dark silhouettes that read against snow,
+// with a warm accent at the face. Palette only: it uses the default templates.
+const PAL_ALPINE = {
+  fat: [['#2c2f35', '#3a3e46'], ['#24272b', '#30343a'], ['#33363a', '#41454b'], ['#2a2e36', '#363c48'], ['#2f2c2a', '#3d3935']].map(hexes),
+  vest: hexes(['#3a3d42', '#45474a', '#34383d', '#4a4640']),
+  helm: hexes(['#24262a', '#2e3034', '#4a4e52', '#3a3d40']),
+  cap: hexes(['#1f2124', '#3a1e1c', '#2a2c30']),
+  lensG: hexes(['#e08a2a', '#f0a030', '#c86a22', '#d8b040']),
+  mask: hexes(['#1e1f22', '#26272a', '#2c2c30']),
+  band: hexes(['#c8601a', '#d07020', '#b85818']),   // hi-vis orange bands: they read against the snow and the dark kit
+};
 function makePalette(seed, kind, outfit) {
   const r = makeRng((seed * 2654435761) >>> 0 ^ 0x5bd1e995);
   const pick = (a) => a[Math.floor(r() * a.length) % a.length];
@@ -1011,6 +1023,15 @@ function makePalette(seed, kind, outfit) {
     set(S.HAT, kind === 1 ? pk(PAL_PORT.cap) : pk(PAL_PORT.helm));
     set(S.REFLF, rf); set(S.REFLV, rf);
     set(S.MASK, _col.copy(pf).multiplyScalar(0.85));
+  }
+  if (outfit === 'alpine') {
+    const ra = makeRng((seed * 3266489917) >>> 0 ^ 0x165667b1), pk = (a) => a[Math.floor(ra() * a.length) % a.length];
+    const [af, ac] = pk(PAL_ALPINE.fat), av = pk(PAL_ALPINE.vest);
+    set(S.FAT, af); set(S.FAT2, af, 0.8); set(S.CAMO, ac);
+    set(S.VEST, av); _col.copy(av).multiplyScalar(0.8).lerp(af, 0.15); set(S.VEST2, _col); set(S.BELT, av, 0.6); set(S.KNEE, af, 0.9);
+    set(S.HAT, kind === 1 ? pk(PAL_ALPINE.cap) : pk(PAL_ALPINE.helm));
+    set(S.LENS, pk(PAL_ALPINE.lensG)); set(S.MASK, pk(PAL_ALPINE.mask));
+    set(S.REFLF, af); set(S.REFLV, pk(PAL_ALPINE.band));
   }
   return pal;
 }

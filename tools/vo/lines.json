@@ -521,12 +521,14 @@
   "levels": [
    "downtown-haven",
    "iron-lady",
-   "tokyo-scramble"
+   "tokyo-scramble",
+   "whiteout"
   ],
   "files": [
    "src/levels/downtown-haven/game.js",
    "src/levels/iron-lady/game.js",
-   "src/levels/tokyo-scramble/game.js"
+   "src/levels/tokyo-scramble/game.js",
+   "src/levels/whiteout/game.js"
   ]
  },
  {
@@ -1791,6 +1793,376 @@
   ],
   "files": [
    "src/levels/tokyo-scramble/game.js"
+  ]
+ },
+ {
+  "key": "10d09faf",
+  "text": "Sniper! Follow the laser back to him — and keep moving!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "19dd3f75",
+  "text": "Red dot! Somewhere high — don't let it settle on you!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "151e4ea1",
+  "text": "Good. Anything with a fuel tank is a bomb up here. Use that.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "ff7aea0d",
+  "text": "...There goes the fondue.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "0c7d40cd",
+  "text": "Sniper down! Long way to the bottom, buddy.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "12844056",
+  "text": "...You alive? Good. That was our snowcat. The road's the only way up now.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "eea2baff",
+  "text": "Three hairpins to the cable car. And they know we're coming — see the headlamps?",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "cff220b3",
+  "text": "Barricade on the road — and more above you on the next leg. Look UP.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "a3e16cac",
+  "text": "They're shooting down from the road above! Over the wall — UP!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "632ba720",
+  "text": "Laser — up on the rocks, above the next road! See it?",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "db11ce49",
+  "text": "Behind you — DOWN on the road! They're coming up after you!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "6a8355bf",
+  "text": "The Berghaus! Propane tank on the terrace — you know what to do.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "7e322757",
+  "text": "Last leg. The station's at the top — I'll meet you there. I know a way round.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "6875eaef",
+  "text": "Fuel tank on the left of the yard. Just saying.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "ae72b02d",
+  "text": "I'm in the control room. Get in the cabin — number ONE. I'll run you up.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "7c9ed4e1",
+  "text": "Hold on. Fifteen hundred metres of nothing under you, and it's all downhill.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "71f5c30e",
+  "text": "Cabin two coming down the other side — and it is FULL of them. Shoot the carriage!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "60aafe48",
+  "text": "...That one's going to leave a mark.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "05b4d726",
+  "text": "Didn't even need a ticket.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "6a2470bc",
+  "text": "That's the HAUL ROPE! Brakes — come on, come ON—",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "ee28e4bf",
+  "text": "...We're in. Out — OUT, the brakes won't hold it!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "33464e76",
+  "text": "There goes the cabin. Don't look— okay, look. That was pretty good.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "d2e94615",
+  "text": "On the ROOF! They've got the high ground — sandbags up there!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "3d493ed1",
+  "text": "More of them in the courtyard below you. Shoot down — they can't hide from up here.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "ec1b641d",
+  "text": "...Would you look at that. The storm's breaking.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "3d22a7dc",
+  "text": "Bad news: snowcats on the face. A whole convoy, coming down on top of us.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "d016bdbb",
+  "text": "Good news: see those red tubes on the ridge? Avalanche cannons. Gas.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "6e607a79",
+  "text": "Light them up. Bring the mountain down on them.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "def3d610",
+  "text": "Fine — I'll do it. Watch the ridge.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "8e29bde6",
+  "text": "...Uh-oh.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "e582587b",
+  "text": "IT'S ALL COMING DOWN!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "b6b1838e",
+  "text": "RUN! The railway gallery — along the roof, EAST! GO GO GO!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "8408f168",
+  "text": "Keep going! Deeper! Get away from the openings!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "9512156f",
+  "text": "...Hey. HEY! Still with me? Lights — in the tunnel. That's me.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "1ee950f7",
+  "text": "Next stop: the valley. I'll put the heating on.",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/director.js"
+  ]
+ },
+ {
+  "key": "2ab65f8d",
+  "text": "Get up! You can freeze to death later!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/game.js"
+  ]
+ },
+ {
+  "key": "4013fa0d",
+  "text": "Don't you dare die on my mountain!",
+  "levels": [
+   "whiteout"
+  ],
+  "files": [
+   "src/levels/whiteout/game.js"
   ]
  }
 ]

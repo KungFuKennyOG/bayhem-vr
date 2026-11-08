@@ -34,6 +34,11 @@ const ALL = [
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Watch the billboard catwalks for red dots — and look up at the decks.',
   },
   {
+    id: 'whiteout', num: '07', title: 'WHITEOUT', tagline: 'ONE STORM. ONE CABLE CAR. ONE VERY BIG MOUNTAIN.',
+    blurb: 'Fight up the switchbacks in a blizzard, ride the cable car across the gorge, take the summit station — then the storm breaks.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. In the cable car: just shoot. Look up the slope — they shoot down from the road above.',
+  },
+  {
     id: 'sand-castles', num: '08', title: 'SAND CASTLES', tagline: 'SUPERTALLS. SANDSTORM. ONE DOOR GUN.',
     blurb: 'Door gunner over Al-Sarab: rooftop fights, a gunship duel inside a haboob, a laser designator — and the tallest tower in the Gulf.',
     help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: grenade launcher, and later the laser designator (hold on a target).',
