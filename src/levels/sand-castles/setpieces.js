@@ -30,7 +30,7 @@ export class SetPieces {
     // smoke here is soot, not dust: dark plumes start bigger (no small black spots inside the tan ones) and age to a
     // grey-brown so a column reads as one dark core thinning out, not a leopard print
     { const D = this.dust, base = D.plume.bind(D);
-      D.plume = (x, y, z, vx = 0, vz = 0, s = 1, dark = false) => !dark ? base(x, y, z, vx, vz, s, false) : D.spawn({ x, y, z, vx: vx + range(-3, 3), vy: range(2, 6), vz: vz + range(-3, 3), drag: 0.35, buoy: 0.5, s0: range(36, 50) * s, s1: range(115, 155) * s, life: range(13, 17), a: 0.9, fadeIn: 0.06, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.16, g: 0.14, b: 0.13, r1: 0.42, g1: 0.38, b1: 0.34, glow: 0.6, glowFade: 2.5 }); }
+      D.plume = (x, y, z, vx = 0, vz = 0, s = 1, dark = false) => !dark ? base(x, y, z, vx, vz, s, false) : D.spawn({ x, y, z, vx: vx + range(-3, 3), vy: range(2, 6), vz: vz + range(-3, 3), drag: 0.35, buoy: 0.5, s0: range(44, 60) * s, s1: range(125, 165) * s, life: range(13, 17), a: 0.9, fadeIn: 0.06, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.27, g: 0.24, b: 0.21, r1: 0.44, g1: 0.4, b1: 0.35 }); }
     const special = W.plan.towers.filter(t => t.role === 'target' || t.role === 'crash' || t.role === 'mid');
     this.mids = new MidRig(scene, special, W.city.sun);
     W.city.sun.commit();

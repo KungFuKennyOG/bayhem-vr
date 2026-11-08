@@ -28,20 +28,23 @@ uniform float uH; uniform float uOp; uniform float uT; uniform float uEro; unifo
 uniform vec3 uSun; uniform vec3 uSunCol; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar;
 varying vec3 vW; varying float vD;
 ${NOISE}
-float crest(float az){ float x = az * 6.0; return 1.0 - uEro * (0.65 * n1(x + uT * 0.05) + 0.35 * n1(x * 2.3 - uT * 0.06)); }
+float crest(float az){ float x = az * 6.0; return 1.0 - uEro * (0.5 * n1(x + uT * 0.05) + 0.3 * n1(x * 2.3 - uT * 0.06) + 0.2 * n1(x * 7.0 + uT * 0.1)); }
 void main(){
   vec2 r = vW.xz - uC;
-  float az = atan(r.y, r.x);
+  float az = atan(r.y, r.x), R = length(r);
   float top = uH * crest(az);
-  vec2 q = vec2(az * 60.0, vW.y / 38.0 - uT * 0.08);
-  float b = n2(q) * 0.6 + n2(q * 2.3 + 7.0) * 0.4;
-  float a = uOp * (1.0 - smoothstep(top - 70.0 - 25.0 * b, top + 5.0, vW.y));
+  // rolling lobes, embossed (lit where the density thins upward), not streaks
+  vec2 q0 = vec2(az * R / 230.0, vW.y / 170.0 - uT * 0.03);
+  float L0 = fb(q0), L1 = fb(q0 + vec2(0.0, 0.07));
+  float emb = clamp((L0 - L1) * 7.0 + 0.5, 0.0, 1.0);
+  // a ragged crest: the soft band is wide and lumpy (hides() allows for it)
+  float a = uOp * (1.0 - smoothstep(top - 130.0 - 60.0 * L0, top + 5.0, vW.y));
   if (a < 0.004) discard;
   vec3 n = normalize(vec3(r.x, 0.0, r.y));
   float sunSide = 0.5 + 0.5 * dot(-n, normalize(vec3(uSun.x, 0.0, uSun.z)));
   float hk = clamp(vW.y / max(1.0, uH), 0.0, 1.0);
   vec3 base = vec3(0.55, 0.43, 0.31);
-  vec3 col = base * (0.35 + 0.55 * hk) * (0.75 + 0.35 * b) + uSunCol * base * 0.35 * sunSide * hk;
+  vec3 col = base * mix(0.28, 0.95, smoothstep(0.0, 0.85, hk)) * mix(0.65, 1.2, emb) * (0.8 + 0.3 * L0) + uSunCol * base * 0.22 * sunSide * hk * hk * emb;
   col = mix(col, fogColor, smoothstep(fogNear, fogFar, vD) * 0.6);
   gl_FragColor = vec4(col * a, a);
   #include <tonemapping_fragment>
@@ -80,7 +83,7 @@ export class HorizonWallC {
     const a = dx * dx + dz * dz, b = 2 * (ex * dx + ez * dz), c = ex * ex + ez * ez - R * R;
     const s = (-b + Math.sqrt(Math.max(0, b * b - 4 * a * c))) / (2 * a);
     const y = eye.y + (P.y - eye.y) * s;
-    const top = S.H * (1 - this.u.uEro.value) - 75;
+    const top = S.H * (1 - this.u.uEro.value) - 200; // the shader's soft band (130 + 60) + margin
     return y > 0 && y < top;
   }
 }

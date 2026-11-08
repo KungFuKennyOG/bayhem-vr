@@ -151,12 +151,11 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     o.c *= mix(0.68, 1.0, smoothstep(0.0, 90.0, v));
     o.c = mix(o.c, vec3(0.5, 0.41, 0.3), 0.22 * (1.0 - smoothstep(0.0, 25.0, v)));
     o.r = mix(o.r, 0.8, 0.35 * streak);
-    // the Spire (S.w = -1): vertical fins with LED strips running its whole height, lit as the sun goes
+    // the Spire (S.w = -1): dark vertical mullion fins and heavier grime down its face
     if (S.w < -0.5) {
       float fin = edgeLine(fract(u / 10.5), 0.05, du / 10.5);
-      o.c = mix(o.c, vec3(0.5, 0.5, 0.52), fin * 0.8); o.m = mix(o.m, 0.7, fin);
-      float led = edgeLine(fract(u / 10.5), 0.012, du / 10.5) * clamp(1.0 - du * 0.6, 0.0, 1.0);
-      o.e += vec3(1.0, 0.82, 0.6) * led * (0.25 + 2.6 * uNight);
+      o.c *= 1.0 - 0.35 * fin;
+      o.c *= 1.0 - 0.18 * fvn(vec2(u * 0.35, v * 0.01 + seed * 9.0));
     }
   } else if (kind < 2.5) {
     // roof: concrete / gravel with expansion joints and stains
@@ -176,9 +175,9 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     o.r = 0.55; o.m = 0.55;
   } else if (kind < 4.5) {
     // crown fins: brushed metal; an LED line near the top that comes on at dusk
-    o.c = vec3(0.24, 0.24, 0.25) * (0.8 + 0.3 * seed); o.r = 0.5; o.m = 0.6;
-    float led = edgeLine(fract(v / 6.0), 0.06, dv / 6.0);
-    o.e = mix(vec3(1.0, 0.75, 0.45), vec3(0.5, 0.75, 1.0), step(0.6, seed)) * led * uNight * 2.2;
+    o.c = vec3(0.11, 0.11, 0.115) * (0.8 + 0.3 * seed); o.r = 0.6; o.m = 0.5;
+    float led = edgeLine(fract(v / 9.0), 0.03, dv / 9.0) * clamp(1.0 - dv * 0.5, 0.0, 1.0);
+    o.e = vec3(1.0, 0.62, 0.3) * led * uNight * 1.2;
   } else if (kind < 5.5) {
     // helipad: dark pad, yellow perimeter, white circle, the H
     float r = length(F.xy);
@@ -203,7 +202,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     // podium: stone with a dark shopfront band at street level
     float shop = step(v, 6.0);
     float bx = fract(u / 5.0);
-    o.c = mix(vec3(0.33, 0.3, 0.26) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
+    o.c = mix(vec3(0.24, 0.22, 0.19) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
     o.r = mix(0.8, 0.15, shop); o.m = mix(0.0, 0.7, shop);
     o.e = vec3(1.0, 0.75, 0.45) * shop * uNight * 0.6;
   } else {

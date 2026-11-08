@@ -152,7 +152,7 @@ Gr ground(vec3 wp){
 export class Ground {
   constructor(scene, F) {
     this.tex = buildMap();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, envMapIntensity: 0.55 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, envMapIntensity: 0.32 });
     const U = { tMap: { value: this.tex }, uMapB: { value: new THREE.Vector4(GMAP.x0, GMAP.z0, 1 / GMAP.size, 1 / GMAP.size) }, uGrid: { value: new THREE.Vector4(GRID.x0, GRID.z0, GRID.pitch, GRID.road) }, uBlvd: { value: new THREE.Vector3(BLVD.z, BLVD.w, BLVD.x0) } };
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, FAC, U);

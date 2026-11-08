@@ -228,7 +228,7 @@ export class HeroTower {
       b.v.y -= 9.8 * 0.85 * dt;
       b.p.addScaledVector(b.v, dt);
       const wl = b.w.length(); if (wl > 1e-4) { _q.setFromAxisAngle(_v.copy(b.w).divideScalar(wl), wl * dt); b.q.premultiply(_q); }
-      this.g.fx.trailEmit(b, _v.set(0, HERO.spire * 0.5, 0).applyQuaternion(b.q).add(b.p), 7, (q) => this.dust.plume(q.x, q.y, q.z, 0, 0, 0.75), 0);
+      this.g.fx.trailEmit(b, _v.set(0, HERO.spire * 0.5, 0).applyQuaternion(b.q).add(b.p), 5, (q) => this.dust.plume(q.x, q.y, q.z, 0, 0, 1.0), 0);
       if (b.p.y < 6) { b.landed = true; this.dust.impact(b.p.x, b.p.z, 40, 1); this.g.audio.play('collapse_impact', { x: b.p.x, y: 2, z: b.p.z, volume: 1 }); }
     } else if (b.p.y > -HERO.spire) b.p.y -= dt * 3;
   }
@@ -238,7 +238,7 @@ export class HeroTower {
     c.p.addScaledVector(c.v, dt);
     const wl = c.w.length(); if (wl > 1e-4) { _q.setFromAxisAngle(_v.copy(c.w).divideScalar(wl), wl * dt); c.q.premultiply(_q); }
     // dust shroud off the big pieces (trailEmit spaces it along the path: no string of pearls)
-    if (c.kind === 'core' || c.i % 3 === 0) this.g.fx.trailEmit(c, c.p, 12 / Math.max(0.3, this.dust.rate), (q) => this.dust.plume(q.x, q.y, q.z, c.v.x * 0.3, c.v.z * 0.3, 0.9), 0);
+    if (c.kind === 'core' || c.i % 3 === 0) this.g.fx.trailEmit(c, c.p, 9 / Math.max(0.3, this.dust.rate), (q) => this.dust.plume(q.x, q.y, q.z, c.v.x * 0.3, c.v.z * 0.3, 1.1), 0);
     // lowest corner vs the ground
     _m.makeRotationFromQuaternion(c.q); const e = _m.elements;
     const lo = c.p.y - (Math.abs(e[1]) * c.h.x + Math.abs(e[5]) * c.h.y + Math.abs(e[9]) * c.h.z);

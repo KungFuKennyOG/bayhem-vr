@@ -186,6 +186,7 @@ export class Cabin {
   constructor(scene) {
     this.mats = heliMaterials();
     this.hammer = buildHammer(this.mats, { wings: false }); // no stub wings on ours: the gunner's view stays clear
+    this.hammer.amtK = 0.3; // seen from under it, a blur disc is barely there (it read as a grey plate across the sky)
     this.root = this.hammer.root;
     this.lineMat = lineMat();
     this.lining = new THREE.Mesh(buildLining(), this.lineMat);

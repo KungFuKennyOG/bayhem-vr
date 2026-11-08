@@ -201,7 +201,7 @@ export class Director {
             g.events.push({ type: 'heroFall' });
             later(1.0, () => say('Here she comes...', 1.8));
             later(5.0, () => { say("THE SPIRE — IT'S COMING AT US! HOLD ON!", 2.4); rail.dive(-48); });
-            later(6.0, () => { this.sp.wall.start(1050, 1500, 620); });
+            later(6.0, () => { this.sp.wall.start(1050, 1500, 740); });
             later(7.5, () => this.sp.fallTower('N1', g.headPos, { x: 0.3, z: 1 }));
             later(13, () => { rail.dive(-20); say('...She is down. Al-Sarab just lost its skyline.', 3); });
             if (this.auto) { g.cinematicLook = V(HERO.x + 60, 260, HERO.z); g.cinematicW = 1.2; }
@@ -249,7 +249,7 @@ export class Director {
     if (ji > idx('blvd')) { this.wingDown = true; }
     if (ji > idx('haboob')) { sp.storm = 1; sp.haboob.start(rail.pos.z - 500, 32); }
     if (ji > idx('gunship')) { this.crashDone = true; sp.setFallen('C1', g.headPos); sp.storm = 0.6; this.stormFade = true; }
-    if (ji > idx('strike')) { for (const id of ['T1', 'T2', 'T3', 'T4', 'E1', 'E2', 'E3']) sp.setFallen(id, g.headPos); for (const a of g.aas) { a.alive = false; a.root.visible = false; } sp.storm = 0; g.sunsetTarget = 0.85; g.sunset = 0.8; sp.wall.start(1050, 1500, 620); sp.wall.state.t = 30; }
+    if (ji > idx('strike')) { for (const id of ['T1', 'T2', 'T3', 'T4', 'E1', 'E2', 'E3']) sp.setFallen(id, g.headPos); for (const a of g.aas) { a.alive = false; a.root.visible = false; } sp.storm = 0; g.sunsetTarget = 0.85; g.sunset = 0.8; sp.wall.start(1050, 1500, 740); sp.wall.state.t = 30; }
     if (ji > idx('spire')) { sp.heroDown = true; sp.hero.fallDir = new THREE.Vector3(1, 0, 0.25).normalize(); sp.hero.start(g.headPos); this.heroGo = true; for (let i = 0; i < 1200; i++) sp.hero.update(1 / 30); sp.setFallen('N1', g.headPos); g.sunsetTarget = 1; g.sunset = 1; g.slowT = 0; }
     g.score = [0, 0, 2400, 6200, 7000, 15000, 26000, 40000, 46000][ji] || 0;
     for (const c of this.hud.callouts) this.hud.scene.remove(c.s); this.hud.callouts.length = 0;

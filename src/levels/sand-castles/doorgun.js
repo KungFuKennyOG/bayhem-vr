@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Gun } from '../../weapons.js';
 import { clamp, damp } from '../../rng.js';
 
@@ -24,7 +25,8 @@ function part(list, geo, col, k = 0) {
   if (g.attributes.uv) g.deleteAttribute('uv');
   list.push(g);
 }
-const B = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
+// bevelled boxes: a hard box edge at arm's length aliases and reads as Lego
+const B = (w, h, d, x, y, z) => new RoundedBoxGeometry(w, h, d, 2, Math.min(w, h, d) * 0.22).translate(x, y, z);
 const Cz = (r, len, x, y, z, seg = 12, r2 = r) => new THREE.CylinderGeometry(r2, r, len, seg).rotateX(Math.PI / 2).translate(x, y, z);
 
 const GUNMETAL = [0.045, 0.048, 0.055], PARK = [0.055, 0.058, 0.062], WORN = [0.085, 0.088, 0.095], RUB = [0.02, 0.02, 0.02], OD = [0.12, 0.13, 0.08], REDB = [0.5, 0.05, 0.03], BRASS = [0.55, 0.38, 0.12];

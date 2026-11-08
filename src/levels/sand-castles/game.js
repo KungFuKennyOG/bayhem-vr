@@ -221,7 +221,7 @@ export class SandGame {
     for (let i = 0; i < n; i++) {
       const role = i < rpg ? 'rpg' : 'rifle';
       const gm = new Gunman({ pose: 'ground', seed: SEED++, outfit: 'port' });
-      gm.root.scale.setScalar(1.6); // ~100 m away: a touch bigger reads, and nobody can tell
+      gm.root.scale.setScalar(2.0); // ~100 m below the door: bigger reads in VR, and nobody can tell from up here
       this.scene.add(gm.root);
       const a = (i / Math.max(1, n)) * Math.PI * 1.3 + range(-0.2, 0.2);
       const m = { gm, role, tower, alive: true, hp: 70, delay: (opts.delay ?? 0) + i * 0.6, a, r: inner * 0.42, pos: new THREE.Vector3(), fireT: range(1.2, 3.5), burst: 0, suppress: 0, rpgT: role === 'rpg' ? range(2.5, 5) : 99, crouch: rand() < 0.4 };

@@ -25,7 +25,7 @@ vec3 skyAt(vec3 d){
   vec3 L = normalize(sunDir); float sa = max(dot(d, L), 0.0);
   float az = max(0.0, dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(L.x, 0.0, L.z))));
   // ---- afternoon: milky, dusty blue; a wide white-gold glare round the sun; a beige haze band at the horizon
-  vec3 zen = vec3(0.09, 0.2, 0.42), mid = vec3(0.38, 0.45, 0.58), hor = mix(vec3(0.9, 0.72, 0.52), vec3(1.35, 0.82, 0.44), pow(az, 2.0));
+  vec3 zen = vec3(0.05, 0.14, 0.38), mid = vec3(0.28, 0.38, 0.56), hor = mix(vec3(0.9, 0.72, 0.52), vec3(1.35, 0.82, 0.44), pow(az, 2.0));
   vec3 cD = mix(hor, mid, smoothstep(0.0, 0.22, pow(hh, 0.8))); cD = mix(cD, zen, smoothstep(0.22, 0.9, hh));
   cD += vec3(1.0, 0.75, 0.45) * pow(sa, 5.0) * 0.55 + vec3(1.0, 0.85, 0.6) * pow(sa, 60.0) * 1.2;
   // ---- sunset over the Gulf: orange at the sun, rose and violet away from it, deep blue overhead
@@ -99,7 +99,7 @@ export function bakeEnv(renderer, storm, sunset) {
 
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const LOOKS = {
-  day: { sun: C(1.0, 0.72, 0.45), sunI: 4.9, hs: C(0.52, 0.5, 0.54), hg: C(0.62, 0.45, 0.3), hI: 0.42, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.5, 0.9, 0.48], rim: [1.0, 0.7, 0.42], exp: 0.8, env: 0.65 },
+  day: { sun: C(1.0, 0.64, 0.36), sunI: 5.3, hs: C(0.52, 0.5, 0.54), hg: C(0.62, 0.45, 0.3), hI: 0.42, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.6, 0.88, 0.42], rim: [1.0, 0.66, 0.38], exp: 0.76, env: 0.55 },
   sunset: { sun: C(1.0, 0.52, 0.22), sunI: 4.0, hs: C(0.5, 0.42, 0.56), hg: C(0.55, 0.32, 0.2), hI: 0.62, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
   storm: { sun: C(1.0, 0.62, 0.32), sunI: 1.3, hs: C(0.78, 0.55, 0.34), hg: C(0.55, 0.36, 0.2), hI: 1.0, fog: C(0.6, 0.4, 0.22), near: 30, far: 820, fogSun: [0.95, 0.5, 0.2], rim: [0.6, 0.38, 0.2], exp: 1.0, env: 0.55 },
 };

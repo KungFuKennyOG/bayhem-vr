@@ -164,7 +164,7 @@ export function heliMaterials() {
       void main(){ float r = length(vP) / 8.1; if (r > 1.0 || r < 0.06) discard;
         float a = atan(vP.y, vP.x);
         float bl = pow(max(0.0, cos(2.0 * (a - uPhase))), 14.0);
-        float al = (0.07 + 0.2 * bl) * smoothstep(1.0, 0.92, r) * smoothstep(0.06, 0.2, r) * uAmt;
+        float al = (0.07 + 0.2 * bl) * smoothstep(1.0, 0.6, r) * smoothstep(0.06, 0.2, r) * uAmt;
         gl_FragColor = vec4(vec3(0.03) * al, al);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -192,13 +192,13 @@ export function buildHammer(mats = heliMaterials(), { wings = true } = {}) {
   const tailRotor = new THREE.Group(); tailRotor.position.set(0.32, 2.6, 10.6); tailRotor.add(new THREE.Mesh(G.tailRotorG, mats.rotor)); root.add(tailRotor);
   let ph = 0;
   return {
-    root, rotor, tailRotor, blur, body, glass,
+    root, rotor, tailRotor, blur, body, glass, amtK: 1,
     // spin: the blades vanish into the disc (VR-safe: no strobing blade at 72 Hz)
     update(dt, spin = 1) {
       ph += dt * 27 * spin;
       rotor.children[0].visible = spin < 0.4;
       rotor.children[0].rotation.y = ph;
-      blurM.uniforms.uPhase.value = ph * 0.13; blurM.uniforms.uAmt.value = Math.min(1, spin * 1.5);
+      blurM.uniforms.uPhase.value = ph * 0.13; blurM.uniforms.uAmt.value = Math.min(1, spin * 1.5) * this.amtK;
       tailRotor.rotation.x += dt * 80 * spin;
     },
   };
