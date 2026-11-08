@@ -31,21 +31,21 @@ varying float vFogDepth; varying vec3 vFogViewPos;
 float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y); }
-float fbm(vec2 p){ return vn(p) * 0.55 + vn(p * 2.13 + 7.1) * 0.3 + vn(p * 4.71 + 3.3) * 0.15; }
+float fbm(vec2 p){ return vn(p) * 0.5 + vn(p * 2.13 + 7.1) * 0.27 + vn(p * 4.71 + 3.3) * 0.15 + vn(p * 9.7 + 1.9) * 0.08; }
 // density of the puff at sprite-local L (-1..1)
 float dens(vec2 L){
   float n = fbm(L * 1.25 + vSeed + vec2(0.0, uT * 0.035));
   float r2 = dot(L, L);
   // big noise lobes eat into a soft sphere: ragged silhouettes, never a clean ball
   // (the hard radial falloff keeps the noise from reaching the quad's corners: no straight edges)
-  return clamp((1.0 - r2) * 1.15 + (n - 0.5) * 2.7 - 0.22, 0.0, 1.0) * smoothstep(1.0, 0.72, sqrt(r2));
+  return clamp((1.0 - r2) * 1.15 + (n - 0.5) * 2.9 - 0.36, 0.0, 1.0) * smoothstep(1.0, 0.72, sqrt(r2));
 }
 void main(){
   // sprite-local coordinates (the quad rotates with the puff: undo it so the volume turns with it)
   vec2 L = vec2(vCS.x * vQ.x + vCS.y * vQ.y, -vCS.y * vQ.x + vCS.x * vQ.y);
   L.x *= vFlip;
   float d = dens(L);
-  float al = pow(d, 1.35) * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY);
+  float al = pow(d, 1.35) * 0.9 * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY);
   if (al < 0.004) discard;
   // the sun in sprite space (screen-aligned billboard: the view-space xy of the sun direction)
   vec2 sS = fogSunDir.xy; float sl = length(sS); sS = sl > 1e-3 ? sS / sl : vec2(0.0, 1.0);
