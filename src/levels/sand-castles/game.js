@@ -5,6 +5,7 @@ import { buildHeli } from '../../heli.js';
 import { CollisionWorld } from '../../collision.js';
 import { RigidBox } from '../../physics.js';
 import { CELL } from '../../particles.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildHammer, heliMaterials } from './helimodel.js';
 import { HERO } from './layout.js';
 
@@ -614,20 +615,24 @@ export class SandGame {
   }
 }
 
-// a twin 23 mm-style AA cannon on a turntable, sandbagged
+// a twin 23 mm-style AA cannon on a turntable, sandbagged — 4 draws: sandbags, base, turntable, cradle
 function buildAAGun() {
   const g = new THREE.Group();
   const dark = new THREE.MeshStandardMaterial({ color: 0x2c2f26, roughness: 0.6, metalness: 0.5 });
   const sand = new THREE.MeshStandardMaterial({ color: 0x7a6a4c, roughness: 0.95 });
-  // sandbag ring
-  for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.55, 0.7), sand); b.position.set(Math.cos(a) * 3.4, 0.3, Math.sin(a) * 3.4); b.rotation.y = -a; g.add(b); const b2 = b.clone(); b2.position.y = 0.82; b2.rotation.y = -a + 0.2; g.add(b2); }
+  const bags = [];
+  for (let i = 0; i < 14; i++) for (const [y, r0] of [[0.3, 0], [0.82, 0.2]]) { const a = (i / 14) * Math.PI * 2; const b = new THREE.BoxGeometry(1.4, 0.55, 0.7); b.rotateY(-a + r0); b.translate(Math.cos(a) * 3.4, y, Math.sin(a) * 3.4); bags.push(b); }
+  g.add(new THREE.Mesh(mergeGeometries(bags), sand));
   const base = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 0.5, 12), dark); base.position.y = 0.25; g.add(base);
   const turn = new THREE.Group(); turn.name = 'aaGun'; turn.position.y = 0.6; g.add(turn);
   const cradle = new THREE.Group(); cradle.position.y = 0.9; turn.add(cradle);
-  const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 1.6), dark); cradle.add(box);
-  for (const sx of [-0.35, 0.35]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.0, 8).rotateX(Math.PI / 2), dark); b.position.set(sx, 0.15, -2.0); cradle.add(b); }
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), dark); seat.position.set(0.9, 0.2, 0.6); turn.add(seat);
-  const shield = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 0.08), dark); shield.position.set(0, 0.7, -0.9); turn.add(shield);
+  const cp = [new THREE.BoxGeometry(1.4, 0.7, 1.6)];
+  for (const sx of [-0.35, 0.35]) cp.push(new THREE.CylinderGeometry(0.07, 0.09, 3.0, 8).rotateX(Math.PI / 2).translate(sx, 0.15, -2.0));
+  cradle.add(new THREE.Mesh(mergeGeometries(cp.map(x => x.index ? x.toNonIndexed() : x)), dark));
+  const tp = [new THREE.BoxGeometry(0.5, 0.5, 0.5).translate(0.9, 0.2, 0.6), new THREE.BoxGeometry(1.8, 0.9, 0.08).translate(0, 0.7, -0.9)];
+  turn.add(new THREE.Mesh(mergeGeometries(tp), dark));
+  turn.children.reverse(); // children[0] stays the cradle (the director pitches it)
+  turn.children.sort((a, b) => (a === cradle ? -1 : b === cradle ? 1 : 0));
   g.scale.setScalar(1.6);
   return g;
 }
