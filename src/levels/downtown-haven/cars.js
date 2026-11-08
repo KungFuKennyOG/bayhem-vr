@@ -9,15 +9,18 @@ import { blobShadowTexture } from '../../textures.js';
 //  all opaque parts in ONE mesh (shared material: atlas map × vertex colour, per-vertex roughness /
 //  metalness / emission in a `rm` attribute), glass in a second, contact shadow in a third → 3 draws.
 //  Model space: forward = -z, wheels on y = 0, left (driver) = -x.
-//  opts.city = 'paris' (Level 5): French liveries + long EU plates, its own atlas / body material; the default
-//  (no city) path is untouched.
+//  opts.city = 'paris' (Level 5): French liveries + long EU plates, its own atlas / body material.
+//  opts.city = 'tokyo' (Level 6): its own atlas / body material — Japanese plates, the JPN-taxi andon + door, a patrol car,
+//  a courier box truck, a city bus — plus dark taxis and all-red police light bars.
+//  The default (no city) path is untouched.
 // =====================================================================================
 
 const AW = 2048;                                  // atlas size (px)
 const SIDE_ROW = { sedan: 0, taxi: 1, police: 2, suv: 3, van: 4, bus: 5 }; // 256 px rows of side livery
 const R = {};                                     // named atlas rects [x, y, w, h] in px
 let ATLAS = null, MAT = null, THIN = null;           // THIN: antenna / mirrors (kept out of the cover bounds)
-let PARIS = false, MAT_P = null;                     // PARIS: the car being built uses the Paris liveries
+let PARIS = false, MAT_P = null, MAT_T = null;                     // PARIS: the car being built uses the Paris liveries
+let TOKYO = false;                                   // TOKYO (Level 6): dark taxis, all-red police light bars (default atlas)
 
 // ---------------------------------------------------------------------- small math
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -116,7 +119,15 @@ const C = { black: [0.035, 0.035, 0.038], under: [0.07, 0.065, 0.06], well: [0.0
 const hex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };   // linear
 
 // ---------------------------------------------------------------------- materials (shared by every car)
-function materials(paris = false) {
+function materials(paris = false, tokyo = false) {
+  if (tokyo) {   // Level 6: Japanese plates, JPN-taxi / patrol-car / courier / city-bus liveries (same regions)
+    if (MAT_T) return MAT_T;
+    const base = materials();
+    const body = rmMaterial(buildAtlas(false, true), { envMapIntensity: 1.25, coat: true });
+    body.userData.duskEmissive = 1.4;
+    MAT_T = { ...base, body };
+    return MAT_T;
+  }
   if (paris) {
     if (MAT_P) return MAT_P;
     const base = materials();
@@ -420,7 +431,7 @@ function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.
 }
 
 // ---------------------------------------------------------------------- atlas
-function buildAtlas(paris = false) {
+function buildAtlas(paris = false, tokyo = false) {
   const c = document.createElement('canvas'); c.width = c.height = AW;
   const g = c.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, AW, AW);
@@ -432,6 +443,7 @@ function buildAtlas(paris = false) {
   R.platesFR = [0, 1, 2, 3].map((k) => [256, 1536 + k * 64, 256, 56]);
   const pr = makeRng(8128);
   if (paris) parisPlates(g, FONT, FONT2);
+  else if (tokyo) tokyoPlates(g, pr);
   else for (let k = 0; k < 8; k++) {
     const x = 256 + (k % 2) * 128, y = 1536 + Math.floor(k / 2) * 64;
     g.fillStyle = '#e9ecef'; g.fillRect(x, y, 128, 64);
@@ -491,6 +503,7 @@ function buildAtlas(paris = false) {
   R.taxiSign = [1280, 1536, 256, 96]; R.taxiDoor = [1280, 1648, 256, 80]; R.taxiNum = [1280, 1736, 128, 48];
   R.taxiSignFR = [1280, 1536, 256, 64];
   if (paris) parisTaxi(g, FONT, FONT2);
+  else if (tokyo) tokyoTaxi(g, FONT, FONT2);
   else {
     let [x, y, w, h] = R.taxiSign; g.fillStyle = '#ffe9a8'; g.fillRect(x, y, w, h);
     g.fillStyle = '#141414'; g.fillRect(x, y, w, 6); g.fillRect(x, y + h - 6, w, 6);
@@ -504,6 +517,7 @@ function buildAtlas(paris = false) {
   // police door + rear quarter + roof number
   R.pdDoor = [1536, 1536, 256, 128]; R.pdQuarter = [1536, 1664, 128, 64]; R.pdRoof = [1664, 1664, 128, 64];
   if (paris) parisPolice(g, FONT, FONT2);
+  else if (tokyo) tokyoPolice(g, FONT, FONT2);
   else {
     let [x, y, w, h] = R.pdDoor; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     // badge star
@@ -519,6 +533,7 @@ function buildAtlas(paris = false) {
   // van logo (fictional courier)
   R.vanLogo = [0, 1792, 512, 256];
   if (paris) parisVanLogo(g, FONT, FONT2);
+  else if (tokyo) tokyoVanLogo(g, FONT, FONT2);
   else {
     const [x, y, w, h] = R.vanLogo; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     g.fillStyle = '#d2461c'; g.beginPath(); g.moveTo(x + 20, y + 150); g.quadraticCurveTo(x + 250, y + 40, x + 500, y + 70); g.lineTo(x + 500, y + 95); g.quadraticCurveTo(x + 250, y + 70, x + 20, y + 175); g.fill();
@@ -530,6 +545,7 @@ function buildAtlas(paris = false) {
   // bus destination LED + side lettering
   R.busDest = [512, 1792, 512, 64]; R.busSide = [512, 1856, 1024, 128]; R.busRoute = [1024, 1792, 128, 64];
   if (paris) parisBus(g, FONT, FONT2);
+  else if (tokyo) tokyoBus(g, FONT, FONT2);
   else {
     let [x, y, w, h] = R.busDest; g.fillStyle = '#050505'; g.fillRect(x, y, w, h);
     g.fillStyle = '#ffb21e'; g.font = `400 40px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('42', x + 16, y + 33);
@@ -542,6 +558,7 @@ function buildAtlas(paris = false) {
   }
   R.vanRear = [1792, 1536, 256, 256]; R.chevron = [1536, 1856, 512, 32];
   if (paris) parisVanRear(g, FONT, FONT2, pr);
+  else if (tokyo) tokyoVanRear(g, FONT, FONT2, pr);
   else {
     const [x, y, w, h] = R.vanRear;
     g.fillStyle = '#eceae4'; g.fillRect(x, y, w, h);
@@ -573,7 +590,7 @@ function buildAtlas(paris = false) {
   R.reflector = [1152, 1792, 128, 64];
   { const [x, y, w, h] = R.reflector; const lg = g.createLinearGradient(x, y, x, y + h); lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.5, '#9aa0a8'); lg.addColorStop(1, '#f0f0f0'); g.fillStyle = lg; g.fillRect(x, y, w, h); g.strokeStyle = 'rgba(0,0,0,0.25)'; for (let k = 0; k < w; k += 8) { g.beginPath(); g.moveTo(x + k, y); g.lineTo(x + k, y + h); g.stroke(); } }
   // side livery rows
-  for (const [kind, row] of Object.entries(SIDE_ROW)) drawSide(g, kind, row, paris);
+  for (const [kind, row] of Object.entries(SIDE_ROW)) drawSide(g, kind, row, paris, tokyo);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
@@ -662,7 +679,7 @@ function sideMap(kind) {
   const z0 = S.zMin ?? S.zF, z1 = S.zMax ?? S.zR, row = SIDE_ROW[kind];
   return { S, X: (z) => (z - z0) / (z1 - z0) * AW, Y: (y) => row * 256 + 4 + (1 - Math.min(1, Math.max(0, y / S.H))) * 248, z0, z1, row };
 }
-function drawSide(g, kind, row, paris = false) {
+function drawSide(g, kind, row, paris = false, tokyo = false) {
   const sm2 = sideMap(kind), { S, X, Y } = sm2;
   const top = row * 256, r = makeRng(row * 77 + 5);
   g.save(); g.beginPath(); g.rect(0, top, AW, 256); g.clip();
@@ -681,7 +698,15 @@ function drawSide(g, kind, row, paris = false) {
     for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
     for (let z = -1.15; z < 3.4; z += 0.05) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X(z), Y(3.0), 2, 2); g.fillRect(X(z), Y(0.72), 2, 2); }
   }
-  if (paris && (kind === 'police' || kind === 'taxi' || kind === 'van')) { /* French liveries above */ }
+  if (tokyo && kind === 'police') {   // Japanese patrol car: white upper body and roof, black below the belt
+    g.fillStyle = '#0b0b0c'; g.fillRect(0, Y(0.74), AW, Y(0) - Y(0.74));
+  } else if (tokyo && kind === 'van') {   // courier box truck: white, a green band, the dove mark
+    g.fillStyle = '#1f7a3e'; g.fillRect(X(-1.2), Y(0.95), X(3.4) - X(-1.2), 10);
+    for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
+  } else if (tokyo && kind === 'taxi') {   // JPN-taxi: a thin gold pinstripe, the company kanji on the rear door
+    g.fillStyle = '#c9a23a'; g.fillRect(0, Y(0.66), AW, 3);
+  }
+  if ((paris || tokyo) && (kind === 'police' || kind === 'taxi' || kind === 'van')) { /* French / Japanese liveries above */ }
   else if (kind === 'police') {   // black fenders/trunk, white doors and roof
     g.fillStyle = '#0b0b0c';
     g.fillRect(0, Y(1.02), X(S.doors[0][0] - 0.01), Y(0) - Y(1.02));
@@ -689,12 +714,17 @@ function drawSide(g, kind, row, paris = false) {
     g.fillRect(0, Y(0.42), AW, Y(0) - Y(0.42));    // black rockers
     g.fillStyle = '#1b2c55'; g.fillRect(X(S.doors[0][0]), Y(0.47), X(S.doors[1][1]) - X(S.doors[0][0]), 4);
   }
-  if (kind === 'taxi' && !paris) {     // checker band along the doors
+  if (kind === 'taxi' && !paris && !tokyo) {     // checker band along the doors
     const y0 = 0.6, y1 = 0.68, n = 2, cw = (Y(y0) - Y(y1)) / n;
     for (let zz = X(S.doors[0][0] + 0.06), k = 0; zz < X(S.doors[1][1] - 0.06); zz += cw, k++) for (let j = 0; j < n; j++) if ((k + j) % 2 === 0) { g.fillStyle = '#0c0c0c'; g.fillRect(zz, Y(y1) + j * cw, cw, cw); }
   }
   if (kind === 'suv') { g.fillStyle = '#d0d0d0'; g.fillRect(0, Y(1.0), AW, Y(0.6) - Y(1.0)); g.fillStyle = '#fff'; }
-  if (kind === 'bus') {
+  if (kind === 'bus' && tokyo) {   // city bus: white, a red skirt band, a thin green line, grey roof band
+    g.fillStyle = '#c4222a'; g.fillRect(0, Y(0.62), AW, Y(0) - Y(0.62));
+    g.fillStyle = '#1f7a3e'; g.fillRect(0, Y(0.7), AW, Y(0.66) - Y(0.7));
+    g.fillStyle = '#8a9096'; g.fillRect(0, Y(3.3), AW, Y(2.95) - Y(3.3));
+    for (let z = -5.3; z < 5.8; z += 1.32) line([[z, 0.4], [z, 1.12]], 2, 0.5);
+  } else if (kind === 'bus') {
     g.fillStyle = '#0f5a6e'; g.fillRect(0, Y(0.52), AW, Y(0) - Y(0.52));
     g.fillStyle = '#e0a21a'; g.fillRect(0, Y(0.58), AW, Y(0.535) - Y(0.58));
     g.fillStyle = '#0f5a6e'; g.fillRect(0, Y(3.3), AW, Y(2.72) - Y(3.3));
@@ -705,7 +735,7 @@ function drawSide(g, kind, row, paris = false) {
     // engine louvres at the rear
     for (let k = 0; k < 9; k++) line([[4.6, 0.55 + k * 0.05], [5.6, 0.55 + k * 0.05]], 3, 0.7);
   }
-  if (kind === 'van' && !paris) {
+  if (kind === 'van' && !paris && !tokyo) {
     g.fillStyle = '#d2461c'; g.fillRect(X(-1.2), Y(0.95), X(3.4) - X(-1.2), 6);
     g.fillStyle = '#1d2f4f'; g.fillRect(X(-1.2), Y(0.86), X(3.4) - X(-1.2), 10);
     for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
@@ -1281,9 +1311,10 @@ function policeKit(bk, S, lights) {
   pushGeo(bk, RBOX(1.36, 0.06, 0.3, 0.02, 1), M4(0, y + 0.02, z), C.black, RM.satin);
   for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
     const x = s * (0.13 + k * 0.19);
-    const col = s < 0 && !PARIS ? [0.8, 0.03, 0.02] : [0.03, 0.12, 0.9];
+    const red = TOKYO || (s < 0 && !PARIS);
+    const col = red ? [0.8, 0.03, 0.02] : [0.03, 0.12, 0.9];
     pushGeo(bk, RBOX(0.17, 0.085, 0.24, 0.03, 1), M4(x, y + 0.095, z), col, [0.06, 0.1, 0.5]);
-    if (k !== 1) lights.push({ p: [x, y + 0.1, z], kind: s < 0 && !PARIS ? 'red' : 'blue' });
+    if (k !== 1) lights.push({ p: [x, y + 0.1, z], kind: red ? 'red' : 'blue' });
   }
   pushGeo(bk, RBOX(0.1, 0.08, 0.24, 0.03, 1), M4(0, y + 0.09, z), [1, 1, 1], [0.06, 0.1, 0.4]);
   if (PARIS) {   // no push bar / A-pillar spot: two blue strobes in the grille instead
@@ -1329,8 +1360,8 @@ function suvKit(bk, S) {
 
 // ---------------------------------------------------------------------- public API
 export function buildCar(type, opts = {}) {
-  PARIS = opts.city === 'paris';
-  const M = materials(PARIS);
+  PARIS = opts.city === 'paris'; TOKYO = opts.city === 'tokyo';
+  const M = materials(PARIS, TOKYO);
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
   const out = { body: new Bucket(), glass: new Bucket(), glassW: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
@@ -1342,7 +1373,7 @@ export function buildCar(type, opts = {}) {
   const kind = wreck ? 'sedan' : type;
   let S;
   let paint = hex(opts.paint ?? (type === 'taxi' ? 0xf2b705 : type === 'police' ? 0xf4f4f2 : type === 'suv' ? 0x0d0e10 : type === 'van' ? 0xe8e6e0 : 0x6f7378));
-  if (type === 'taxi') paint = PARIS ? hex([0x17181b, 0x24262a, 0x101113, 0x2e3034][seed & 3]) : hex(0xf2b705);
+  if (type === 'taxi') paint = PARIS ? hex([0x17181b, 0x24262a, 0x101113, 0x2e3034][seed & 3]) : TOKYO ? hex([0x161c34, 0x101113, 0x173a2a, 0x161c34, 0x5a1a1e, 0x1b2342][seed % 6]) : hex(0xf2b705);
   if (type === 'police') paint = hex(0xf4f4f2);
   if (type === 'bus') S = buildBus(out, rng, lights);
   else {
@@ -1469,4 +1500,79 @@ export function buildCar(type, opts = {}) {
   };
   return res;
 }
-export function carMaterials(city) { return materials(city === 'paris'); }
+export function carMaterials(city) { return materials(city === 'paris', city === 'tokyo'); }
+
+// ---------------------------------------------------------------------- Tokyo atlas content (Level 6)
+const JPF = '"Noto Sans CJK JP","Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
+// Japanese plates (same 128×64 slots): white, green lettering, region + class number on top, kana + number below
+function tokyoPlates(g, pr) {
+  const KANA = 'さすせそたちつてとなにぬねのはひふほまみむめもやゆよらりるれろわ';
+  const REG = ['黒金', '品川', '練馬', '足立', '多摩', '世田谷', '杉並', '品川'];
+  R.plates = [];
+  for (let k = 0; k < 8; k++) {
+    const x = 256 + (k % 2) * 128, y = 1536 + Math.floor(k / 2) * 64;
+    g.fillStyle = '#f2f2ec'; g.fillRect(x, y, 128, 64);
+    g.strokeStyle = '#2c6a3a'; g.lineWidth = 3; g.strokeRect(x + 2, y + 2, 124, 60);
+    g.fillStyle = '#1d5a2e'; g.textBaseline = 'middle'; g.textAlign = 'center';
+    g.font = `700 15px ${JPF}`; g.fillText(`${REG[k]} ${300 + (pr() * 299 | 0)}`, x + 64, y + 15);
+    g.font = `700 15px ${JPF}`; g.fillText(KANA[pr() * KANA.length | 0], x + 14, y + 42);
+    const n = 1000 + (pr() * 8999 | 0);
+    g.font = '400 34px "Anton", Impact, sans-serif'; g.fillText(`${String(n).slice(0, 2)}-${String(n).slice(2)}`, x + 72, y + 43);
+    R.plates.push([x + 2, y + 2, 124, 60]);
+  }
+}
+// the andon (roof lamp, the company mark) + door lettering + the car number
+function tokyoTaxi(g, FONT, FONT2) {
+  let [x, y, w, h] = R.taxiSign;
+  g.fillStyle = '#f4efe2'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#b3242c'; g.fillRect(x, y + h - 14, w, 14); g.fillStyle = '#1b2342'; g.fillRect(x, y, w, 8);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#1b2342'; g.font = `900 46px ${JPF}`; g.fillText('黒金交通', x + w / 2, y + 44);
+  [x, y, w, h] = R.taxiDoor; g.fillStyle = '#1b2342'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#e8d8a8'; g.font = `700 34px ${JPF}`; g.fillText('黒金交通', x + w / 2, y + 30);
+  g.font = `600 15px ${FONT2}`; g.fillText('KUROGANE TAXI  •  個人', x + w / 2, y + 62);
+  [x, y, w, h] = R.taxiNum; g.fillStyle = '#1b2342'; g.fillRect(x, y, w, h); g.fillStyle = '#e8d8a8'; g.font = `400 30px ${FONT}`; g.fillText('2783', x + w / 2, y + h / 2 + 2);
+}
+function tokyoPolice(g, FONT, FONT2) {
+  let [x, y, w, h] = R.pdDoor; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#0d0d0f'; g.font = `900 64px ${JPF}`; g.fillText('黒金警察', x + w / 2, y + 54);
+  g.fillStyle = '#1b2c55'; g.font = `600 16px ${FONT2}`; g.fillText('KUROGANE POLICE', x + w / 2, y + 104);
+  [x, y, w, h] = R.pdQuarter; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillStyle = '#111'; g.font = `400 40px ${FONT}`; g.fillText('110', x + w / 2, y + h / 2 + 2);
+  [x, y, w, h] = R.pdRoof; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillStyle = '#111'; g.font = `700 34px ${JPF}`; g.fillText('黒 7', x + w / 2, y + h / 2 + 2);
+}
+// fictional courier: はと急便 HATO EXPRESS (a white box truck, green lettering, a dove)
+function tokyoVanLogo(g, FONT, FONT2) {
+  const [x, y, w, h] = R.vanLogo;
+  g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#1f7a3e';
+  g.beginPath(); g.ellipse(x + 70, y + 110, 46, 30, -0.3, 0, 7); g.fill();
+  g.beginPath(); g.moveTo(x + 60, y + 100); g.quadraticCurveTo(x + 100, y + 30, x + 150, y + 60); g.quadraticCurveTo(x + 110, y + 80, x + 90, y + 110); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 96, y + 100, 5, 0, 7); g.fill();
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#1f7a3e';
+  g.font = `900 78px ${JPF}`; g.fillText('はと急便', x + 160, y + 96);
+  g.font = `600 26px ${FONT2}`; g.fillText('HATO EXPRESS  •  宅配便', x + 166, y + 168);
+  g.font = `700 22px ${JPF}`; g.fillStyle = '#333'; g.fillText('お届けは、まごころと一緒に。', x + 166, y + 214);
+}
+function tokyoBus(g, FONT, FONT2) {
+  let [x, y, w, h] = R.busDest; g.fillStyle = '#050505'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#ff9a1e'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `700 36px ${JPF}`; g.fillText('黒01', x + 14, y + 33);
+  g.font = `700 34px ${JPF}`; g.fillText('黒金駅東口  経由  霞台', x + 110, y + 33);
+  g.fillStyle = 'rgba(0,0,0,0.55)'; for (let k = 0; k < w; k += 3) g.fillRect(x + k, y, 1, h); for (let k = 0; k < h; k += 3) g.fillRect(x, y + k, w, 1);
+  [x, y, w, h] = R.busSide; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#c4222a'; g.font = `900 70px ${JPF}`; g.fillText('黒金バス', x + 24, y + 62);
+  g.fillStyle = '#1f7a3e'; g.font = `600 30px ${FONT2}`; g.fillText('KUROGANE BUS  •  ノンステップバス', x + 380, y + 66);
+  [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ff9a1e'; g.font = `700 36px ${JPF}`; g.textAlign = 'center'; g.fillText('黒01', x + w / 2, y + h / 2 + 2);
+}
+function tokyoVanRear(g, FONT, FONT2, pr) {
+  const [x, y, w, h] = R.vanRear;
+  g.fillStyle = '#f0eee8'; g.fillRect(x, y, w, h);
+  const gr = g.createLinearGradient(0, y + h * 0.55, 0, y + h); gr.addColorStop(0, 'rgba(110,92,74,0)'); gr.addColorStop(1, 'rgba(96,80,64,0.55)'); g.fillStyle = gr; g.fillRect(x, y, w, h);
+  g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillRect(x + w / 2 - 1.5, y, 3, h);
+  g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2;
+  for (const x0 of [x + 8, x + w / 2 + 8]) g.strokeRect(x0, y + 10, w / 2 - 16, h - 20);
+  g.fillStyle = '#1f7a3e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 30px ${JPF}`; g.fillText('はと急便', x + w / 2, y + 52);
+  g.fillStyle = '#fff'; g.fillRect(x + 24, y + h - 110, 80, 30); g.strokeStyle = '#c4222a'; g.strokeRect(x + 24, y + h - 110, 80, 30);
+  g.fillStyle = '#c4222a'; g.font = `700 15px ${JPF}`; g.fillText('安全運転', x + 64, y + h - 95);
+  g.fillStyle = '#c9a02a'; g.fillRect(x + w / 2 + 20, y + h - 110, 90, 30); g.fillStyle = '#111'; g.font = `700 13px ${JPF}`; g.fillText('左折注意', x + w / 2 + 65, y + h - 95);
+  const tape = (tx, ty, tw, th) => { for (let k = 0; k * 12 < tw; k++) { g.fillStyle = k % 2 ? '#c41a12' : '#f4f2ee'; g.fillRect(tx + k * 12, ty, Math.min(12, tw - k * 12), th); } };
+  tape(x + 6, y + h - 26, w - 12, 10);
+}
