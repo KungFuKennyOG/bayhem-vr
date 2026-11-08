@@ -104,14 +104,14 @@ Gr ground(vec3 wp){
   lc = mix(lc, lot, urban);
   rough = mix(rough, 0.85, urban);
   // roads: asphalt, kerbs, a dashed centre line
-  vec3 asph = vec3(0.13, 0.13, 0.135) * (0.85 + 0.3 * fvn(wp.xz * 0.15));
+  vec3 asph = vec3(0.13, 0.13, 0.135) * (0.8 + 0.25 * fvn(wp.xz * 0.15) + 0.2 * fvn(wp.xz * 0.012));
   float centre = max(gaa(fe.x, 0.004, fw) * step(0.5, fract(wp.z / 9.0)) * step(fe.y, 0.5 - roadHalf), gaa(fe.y, 0.004, fw) * step(0.5, fract(wp.x / 9.0)) * step(fe.x, 0.5 - roadHalf));
   vec3 rc = mix(asph, vec3(0.75, 0.72, 0.6), centre * clamp(1.0 - fwx * 0.5, 0.0, 1.0));
   float kerb = max(gaa(fe.x - roadHalf, 0.12 / uGrid.z, fw), gaa(fe.y - roadHalf, 0.12 / uGrid.z, fw)) * step(0.5, urban);
   lc = mix(lc, rc, road);
   lc = mix(lc, vec3(0.62, 0.6, 0.55), kerb * 0.7);
   // green: parks, golf, gardens (irrigated: deep green, mown stripes)
-  vec3 gc = mix(vec3(0.07, 0.16, 0.05), vec3(0.12, 0.24, 0.07), step(0.5, fract(wp.x / 14.0)) * 0.6 + fvn(wp.xz * 0.05) * 0.4);
+  vec3 gc = mix(vec3(0.12, 0.15, 0.07), vec3(0.17, 0.2, 0.1), step(0.5, fract(wp.x / 14.0)) * 0.6 + fvn(wp.xz * 0.05) * 0.4);
   lc = mix(lc, gc, green * (1.0 - road));
   // the boulevard: 7 + 7 lanes, a planted median with the metro viaduct footprint, hard shoulders
   float bz = wp.z - uBlvd.x, bh = uBlvd.y * 0.5;
@@ -251,7 +251,7 @@ function buildPalms(scene) {
   const geo = mergeGeometries([cg, tg]);
   const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }), pts.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3();
-  pts.forEach(([x, z], i) => { if (isWater(x, z) && !onPalm(x, z)) { m.makeScale(0, 0, 0); im.setMatrixAt(i, m); return; } q.setFromAxisAngle(Y, rng() * 6.28); const k = 0.8 + rng() * 0.5; m.compose(new THREE.Vector3(x, 0, z), q, s.set(k, k, k)); im.setMatrixAt(i, m); });
+  pts.forEach(([x, z], i) => { if (isWater(x, z) && !onPalm(x, z)) { m.makeScale(0, 0, 0); im.setMatrixAt(i, m); return; } q.setFromAxisAngle(Y, rng() * 6.28); const k = 1.05 + rng() * 0.45; m.compose(new THREE.Vector3(x, 0, z), q, s.set(k, k, k)); im.setMatrixAt(i, m); });
   im.frustumCulled = false; scene.add(im);
   return im;
 }

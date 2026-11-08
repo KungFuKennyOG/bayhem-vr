@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GeoBuilder, buildTower } from './towerkit.js';
 import { facadeMaterial, FAC, SunMap } from './facade.js';
 import { GRID, BLVD, isWater, canalDist, CANAL_W, district, onPalm, PALM, COAST_Z } from './layout.js';
@@ -56,6 +57,8 @@ export class City {
     this.mesh = new THREE.Mesh(gb.geometry(), mat);
     this.mesh.frustumCulled = false; this.mesh.name = 'city';
     scene.add(this.mesh);
+    // ---- tower cranes on a few towers still going up
+    this.cranes = buildCranes(scene, statics.filter(t => t.role === 'static' && t.roof === 'mech' && t.h > 140 && t.h < 300).filter((t, i) => i % 9 === 0).slice(0, 7));
     // ---- low-rise fabric: blocks on the grid, shorter inside the towers' districts (podium streets)
     this.lowrise = this._lowrise(plan, rng);
     // ---- far ring
@@ -199,4 +202,30 @@ export function buildBeacons(scene, towers, extra = []) {
   const p = new THREE.Points(g, m); p.frustumCulled = false; p.renderOrder = 6;
   scene.add(p);
   return p;
+}
+
+// ---------------------------------------------------------------------------- tower cranes
+function buildCranes(scene, list) {
+  const parts = [], rng = makeRng(606);
+  const add = (w, h, d, x, y, z, ry, col, t) => {
+    const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z); g.rotateY(ry); g.translate(t.x, t.h, t.z);
+    const n = g.attributes.position.count, c = new Float32Array(n * 3); for (let i = 0; i < n; i++) c.set(col, i * 3);
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.deleteAttribute('uv'); parts.push(g);
+  };
+  const Y = [0.62, 0.45, 0.06], W = [0.7, 0.68, 0.64], D = [0.16, 0.16, 0.16];
+  for (const t of list) {
+    const ry = rng() * Math.PI * 2, mh = 32 + rng() * 18;
+    add(2.2, mh, 2.2, 0, mh / 2, 0, ry, Y, t);                        // mast
+    for (let y = 4; y < mh; y += 4) add(2.5, 0.25, 2.5, 0, y, 0, ry, D, t); // lattice rings (the mast's rhythm)
+    add(1.4, 1.4, 52, 0, mh + 1.5, -18, ry, Y, t);                   // jib
+    add(1.6, 1.6, 16, 0, mh + 1.5, 13, ry, Y, t);                    // counter-jib
+    add(3.2, 3.0, 4, 0, mh + 2.5, 22, ry, D, t);                     // counterweight
+    add(2.4, 2.4, 2.6, 1.8, mh - 1, 0, ry, W, t);                    // cab
+    add(0.6, 7, 0.6, 0, mh + 5, 0, ry, Y, t);                        // apex
+    add(0.12, 30, 0.12, 0, mh - 14, -30, ry, D, t);                  // hook line
+  }
+  if (!parts.length) return null;
+  const m = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.3 }));
+  m.frustumCulled = false; scene.add(m);
+  return m;
 }

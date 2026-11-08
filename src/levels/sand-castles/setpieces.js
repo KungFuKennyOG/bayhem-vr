@@ -7,6 +7,7 @@ import { HeroTower } from './hero.js';
 import { HorizonWallC, Haboob, SandStreaks } from './storm.js';
 import { Strikes } from './strikes.js';
 import { HERO } from './layout.js';
+import { glowTexture } from '../../textures.js';
 
 // =====================================================================================
 //  SET PIECES — everything that comes down, and the weather:
@@ -49,6 +50,17 @@ export class SetPieces {
       return { t: t0, tower: this.heroTarget };
     };
     this.heroTarget = { id: 'HERO', x: HERO.x, z: HERO.z, h: HERO.h, w: HERO.w0, d: HERO.w0 };
+    // the Spire's aviation light (rides the spire tip, even as it falls)
+    this.heroBeacon = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xff2010, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    this.heroBeacon.scale.setScalar(14); scene.add(this.heroBeacon);
+    // the city is already at war when you arrive: fires and black smoke columns across the skyline
+    for (const [x, z] of [[-620, -420], [380, 520], [1150, -80], [-1050, 380], [700, -1350], [-260, 1150], [1700, 420]]) this.column(x, z, 1e9, 0.4);
+    // burning roofs: a few towers already hit, fire glowing under their smoke
+    this.roofFires = W.plan.towers.filter(t => t.role === 'static' && t.h > 110 && t.h < 260 && t.roof !== 'pool').filter((t, i) => i % 23 === 5).slice(0, 7);
+    for (const t of this.roofFires) this.column(t.x, t.z, 1e9, 0.35, t.h);
+    // the city fights back far away: tracer fire arcing up from a few distant roofs
+    this.flakRoofs = W.plan.towers.filter(t => t.role === 'static' && t.h > 120).filter((t, i) => i % 31 === 7).slice(0, 8).map(t => ({ t, burst: 0, wait: range(0, 4) }));
+    this.ambT = 2; this.war = 1;
   }
   tower(id) { return this.byId[id]; }
   // the direction a tower falls: across the view from the heli, a little away from it
@@ -69,7 +81,7 @@ export class SetPieces {
   }
   setFallen(id, eye) { const T = this.byId[id]; if (!T) return; this.mids.setFallen(T.rigIdx, this.awayDir(T, eye)); this.column(T.x, T.z, 9999, 0.5); }
   falling() { return this.mids.falling(); }
-  column(x, z, life = 60, rate = 0.8) { this.columns.push({ x, z, t: 0, life, rate, acc: 0 }); }
+  column(x, z, life = 60, rate = 0.8, y0 = 0) { this.columns.push({ x, z, y0, t: 0, life, rate, acc: 0 }); }
   _strikeHit(tower, P, k) {
     const g = this.g;
     if (tower === this.heroTarget) { if (k === 2) this.g.events.push({ type: 'heroStruck' }); return; }
@@ -82,6 +94,8 @@ export class SetPieces {
     this.mids.update(dt, this.dust, (T, x, z) => { this.column(x, z, 70, 0.7); g.audio.play('collapse_impact', { x, y: 5, z, volume: 1 }); g.lastExplosionT = g.time; g.lastExplosionShake = 0.3; g.events.push({ type: 'towerLanded', T }); });
     if (this.mids.falling() === 0 && this._sunDirty) { this.W.city.sun.commit(); this._sunDirty = false; }
     this.hero.update(dt);
+    { const H = this.hero, B = H.spireBody; const top = B ? _v.set(0, HERO.spire, 0).applyQuaternion(B.q).add(B.p) : _v.set(0, HERO.spire, 0).applyQuaternion(H.nodes[H.B].q).add(H.nodes[H.B].p);
+      this.heroBeacon.position.copy(top); this.heroBeacon.material.opacity = (Math.sin(this.g.time * 3.4) > 0 ? 1 : 0.15) * (B && B.landed ? 0 : 1); }
     this.wall.update(dt, SUN_DIR);
     this.haboob.update(dt, eye, SUN_DIR, g.scene.fog);
     this.strikes.update(dt, rdt);
@@ -89,11 +103,39 @@ export class SetPieces {
     for (const c of this.columns) {
       c.t += dt; if (c.t > c.life) continue;
       c.acc += dt * c.rate * this.dust.rate;
-      while (c.acc >= 1) { c.acc -= 1; this.dust.plume(c.x + range(-12, 12), range(8, 30), c.z + range(-12, 12), 3, -1.5, 1.15, true); }
+      while (c.acc >= 1) { c.acc -= 1; this.dust.plume(c.x + range(-12, 12), c.y0 + range(4, 20), c.z + range(-12, 12), 3, -1.5, 1.15, true); }
     }
     this.columns = this.columns.filter(c => c.t < c.life);
+    this._ambient(dt, eye);
     this.dust.update(dt, eye, g.camera);
     this.streaks.update(rdt, eye, this.storm);
+  }
+  // the war going on round you: distant explosions on the skyline, tracer streams arcing into the sky,
+  // flames on the burning roofs (all far: cheap, but there's always something happening out of the door)
+  _ambient(dt, eye) {
+    const g = this.g; if (!this.war) return;
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(g.rig.quaternion); fwd.y = 0; fwd.normalize();
+    this.ambT -= dt;
+    if (this.ambT <= 0) {
+      this.ambT = range(2.2, 4.5) / this.war;
+      const a = Math.atan2(fwd.z, fwd.x) + range(-0.9, 0.9), r = range(450, 1300);
+      const P = new THREE.Vector3(eye.x + Math.cos(a) * r, 0, eye.z + Math.sin(a) * r);
+      const roof = g.W.plan.towers.find(t => !t.gone && Math.hypot(t.x - P.x, t.z - P.z) < 60);
+      P.y = roof ? roof.h + 2 : 4;
+      g.fx.explosion(P, 1.8); g.fx.light(P, 1500, 0.4, 0xff8a3a, false, 400);
+      this.dust.plume(P.x, P.y + 10, P.z, 0, 0, 1.4, true);
+      g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 0.5, pitch: range(0.6, 0.8) });
+    }
+    for (const f of this.flakRoofs) {
+      f.wait -= dt; if (f.wait > 0) continue;
+      const t = f.t, mz = new THREE.Vector3(t.x, t.h + 3, t.z);
+      if (mz.distanceTo(eye) > 1800 || mz.distanceTo(eye) < 250) { f.wait = 2; continue; }
+      if (f.burst <= 0) { f.burst = 8; f.dir = new THREE.Vector3(range(-0.5, 0.5), 1, range(-0.5, 0.5)).normalize(); }
+      f.burst--; f.wait = f.burst > 0 ? 0.14 : range(2, 5);
+      const to = mz.clone().addScaledVector(f.dir, 900).add(new THREE.Vector3(range(-30, 30), 0, range(-30, 30)));
+      g.fx.tracer(mz, to, { speed: 380, width: 1.1, len: 45, color: [2.2, 0.6, 0.18] });
+    }
+    for (const t of this.roofFires) if (rand() < dt * 3 && Math.hypot(t.x - eye.x, t.z - eye.z) < 1400) g.fx.flame(new THREE.Vector3(t.x + range(-8, 8), t.h + 2, t.z + range(-8, 8)), 6);
   }
   get falls() { return this.mids.falling() + (this.hero.S && !this.hero.done() ? 1 : 0); }
 }

@@ -45,16 +45,16 @@ export class Director {
       // 1 ---- title over the Gulf, the palm island below, the skyline ahead
       { name: 'intro', music: 0.25, enter: () => {
           hud.black.material.opacity = 1;
-          speed(1.15);
+          speed(0.85);
           this.cityP = V(-1350, 160, -1350);
           rail.face(this.cityP);
-          g.fx.later(0.05, () => hud.showTitle(g.headPos.clone().add(this._outF().multiplyScalar(26)).add(V(0, 3, 0)), 'SAND CASTLES', 'LEVEL 8  •  AL-SARAB, 15:40', T * 6));
+          g.fx.later(0.05, () => hud.showTitle(g.headPos.clone().add(this._outF().multiplyScalar(26)).add(V(0, 3, 0)), 'SAND CASTLES', 'LEVEL 8  •  AL-SARAB, 16:50', T * 6));
           audio.startMusic();
           g.spawnWing();
           g.idleLook = this.cityP;
           later(1.2, () => say("Al-Sarab. Tallest skyline on Earth, and as of this morning, it's all theirs.", 3.6));
-          later(5.6, () => say("HAMMER TWO on our right. You're on the door gun. Marina first — they've got men on the roofs.", 3.8));
-        }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 2.2); },
+          later(5.6, () => say("That's HAMMER TWO off our door. You're on the gun. Marina first — they've got men on the roofs.", 3.8));
+        }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 2.2); if (t > 9 && first('introGo')) speed(1.25); },
         until: (t) => rail.s > S('coast') - 120 || t > 60 },
       // 2 ---- the marina: three roofs on the canal (pools, a pad, a deck)
       { name: 'marina', music: 0.6, wp: () => roofP(0), enter: () => {
@@ -87,7 +87,6 @@ export class Director {
           const w = g.wing;
           if (w && w.phase === 'fly' && rail.s > S('blvd2') - 120 && !this.wingArmed) {
             this.wingArmed = true; this.wingT = 0;
-            w.side = 1; // the pilot pulls him onto the door side first ("HAMMER TWO, tighten up")
             say('HAMMER TWO, tighten up on our left.', 2.2);
           }
           if (this.wingArmed && !this.wingShot) {
@@ -209,8 +208,10 @@ export class Director {
         }, until: (t) => this.heroGo && this.sp.hero.done() && t > 20 },
       // 8 ---- out over the dust sea to the Gulf at sunset, limping
       { name: 'escape', music: 0.5, enter: () => {
-          rail.release(); speed(0.85); rail.face(null);
-          g.cinematicLook = null; g.idleLook = V(HERO.x - 200, 120, HERO.z + 300);
+          rail.release(); speed(0.85);
+          // the pilot keeps the door on the wreck as we limp away (crab), you look out over the dust sea
+          this.wreckP = V(HERO.x + 150, 60, HERO.z); rail.face(this.wreckP);
+          g.cinematicLook = null; g.idleLook = null;
           this.W.cabin.U.uWarn.value = 0.6; audio.play('warn_tone', {});
           later(1.2, () => say("Master caution's lit. Number two engine's eating sand. We're going home slow.", 3.6));
           later(8, () => say('Look at it. Twenty minutes ago that was a city.', 2.8));

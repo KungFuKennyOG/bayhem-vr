@@ -12,10 +12,10 @@ import { SUN_AZ } from './layout.js';
 //  baked at load (day, storm, sunset) and swapped when the screen is busy (dust / fire).
 // =====================================================================================
 
-export const SKY = { storm: { value: 0 }, sunset: { value: 0 }, glow: { value: 0 } };
+export const SKY = { storm: { value: 0 }, sunset: { value: 0 }, glow: { value: 0 }, fogC: { value: new THREE.Color() } };
 
 const GLSL = /* glsl */`
-uniform vec3 sunDir; uniform float time; uniform float storm; uniform float sunset; uniform float glow;
+uniform vec3 sunDir; uniform float time; uniform float storm; uniform float sunset; uniform float glow; uniform vec3 fogC;
 float sh21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
 float svn(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.-2.*f);
   return mix(mix(sh21(i),sh21(i+vec2(1,0)),u.x), mix(sh21(i+vec2(0,1)),sh21(i+vec2(1,1)),u.x), u.y); }
@@ -25,9 +25,9 @@ vec3 skyAt(vec3 d){
   vec3 L = normalize(sunDir); float sa = max(dot(d, L), 0.0);
   float az = max(0.0, dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(L.x, 0.0, L.z))));
   // ---- afternoon: milky, dusty blue; a wide white-gold glare round the sun; a beige haze band at the horizon
-  vec3 zen = vec3(0.09, 0.22, 0.48), mid = vec3(0.32, 0.47, 0.68), hor = vec3(0.78, 0.74, 0.66);
+  vec3 zen = vec3(0.07, 0.19, 0.45), mid = vec3(0.3, 0.42, 0.62), hor = mix(vec3(0.82, 0.7, 0.56), vec3(1.25, 0.82, 0.48), pow(az, 2.0));
   vec3 cD = mix(hor, mid, smoothstep(0.0, 0.22, pow(hh, 0.8))); cD = mix(cD, zen, smoothstep(0.22, 0.9, hh));
-  cD += vec3(1.0, 0.9, 0.7) * pow(sa, 6.0) * 0.45 + vec3(1.0, 0.95, 0.85) * pow(sa, 60.0) * 1.2;
+  cD += vec3(1.0, 0.75, 0.45) * pow(sa, 5.0) * 0.55 + vec3(1.0, 0.85, 0.6) * pow(sa, 60.0) * 1.2;
   // ---- sunset over the Gulf: orange at the sun, rose and violet away from it, deep blue overhead
   vec3 zS = vec3(0.04, 0.09, 0.22), mS = vec3(0.24, 0.24, 0.42), hA = vec3(0.86, 0.48, 0.38), hS = vec3(2.3, 0.95, 0.36);
   vec3 horS = mix(hA, hS, pow(az, 3.0) * smoothstep(0.0, 0.0, 1.0));
@@ -47,6 +47,8 @@ vec3 skyAt(vec3 d){
   float sn = sfbm(d.xz / (h + 0.25) * 2.0 + vec2(time * 0.05, time * 0.02));
   vec3 cB = mix(vec3(0.62, 0.42, 0.24), vec3(0.32, 0.2, 0.11), smoothstep(-0.05, 0.6, h)) * (0.85 + 0.3 * sn);
   cB += vec3(1.2, 0.5, 0.15) * pow(sa, 12.0) * 0.6 + vec3(1.6, 0.6, 0.2) * smoothstep(0.9993, 0.9997, sa) * 0.8;
+  // inside the storm the sky near the horizon IS the fog: no seam where the geometry ends
+  cB = mix(cB, fogC, 1.0 - smoothstep(0.0, 0.45, abs(h)));
   c = mix(c, cB, storm);
   // below the horizon (seen only past the ground's edge): haze
   if (h < 0.0) c = mix(c, mix(vec3(0.7, 0.66, 0.6), vec3(0.62, 0.42, 0.24), storm), smoothstep(0.0, -0.1, h));
@@ -56,7 +58,7 @@ vec3 skyAt(vec3 d){
 
 export function createSky() {
   return new THREE.ShaderMaterial({
-    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 }, storm: SKY.storm, sunset: SKY.sunset, glow: SKY.glow },
+    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 }, storm: SKY.storm, sunset: SKY.sunset, glow: SKY.glow, fogC: SKY.fogC },
     vertexShader: /* glsl */`varying vec3 vDir; void main(){ vDir = normalize((modelMatrix * vec4(position,1.0)).xyz - cameraPosition); vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }`,
     fragmentShader: GLSL + /* glsl */`varying vec3 vDir; void main(){ gl_FragColor = vec4(skyAt(normalize(vDir)), 1.0);
       #include <tonemapping_fragment>
@@ -70,7 +72,7 @@ export function createSky() {
 export function bakeEnv(renderer, storm, sunset) {
   const s = new THREE.Scene();
   const mat = new THREE.ShaderMaterial({
-    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 }, storm: { value: storm }, sunset: { value: sunset }, glow: { value: 0 } },
+    uniforms: { sunDir: { value: SUN_DIR.clone() }, time: { value: 0 }, storm: { value: storm }, sunset: { value: sunset }, glow: { value: 0 }, fogC: { value: new THREE.Color(0.6, 0.4, 0.22) } },
     vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
     fragmentShader: GLSL + `varying vec3 vDir; void main(){ vec3 d = normalize(vDir); vec3 c = skyAt(d);
       float az = atan(d.x, d.z);
@@ -97,7 +99,7 @@ export function bakeEnv(renderer, storm, sunset) {
 
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const LOOKS = {
-  day: { sun: C(1.0, 0.9, 0.76), sunI: 4.8, hs: C(0.6, 0.7, 0.86), hg: C(0.62, 0.5, 0.38), hI: 0.62, fog: C(0.7, 0.7, 0.69), near: 700, far: 9500, fogSun: [0.75, 0.62, 0.42], rim: [0.55, 0.5, 0.42], exp: 0.86, env: 0.7 },
+  day: { sun: C(1.0, 0.78, 0.55), sunI: 4.6, hs: C(0.5, 0.6, 0.82), hg: C(0.6, 0.45, 0.32), hI: 0.55, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.5, 0.9, 0.48], rim: [1.0, 0.7, 0.42], exp: 0.8, env: 0.65 },
   sunset: { sun: C(1.0, 0.56, 0.26), sunI: 3.6, hs: C(0.45, 0.48, 0.72), hg: C(0.52, 0.32, 0.22), hI: 0.72, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
   storm: { sun: C(1.0, 0.62, 0.32), sunI: 1.3, hs: C(0.78, 0.55, 0.34), hg: C(0.55, 0.36, 0.2), hI: 1.0, fog: C(0.6, 0.4, 0.22), near: 30, far: 820, fogSun: [0.95, 0.5, 0.2], rim: [0.6, 0.38, 0.2], exp: 1.0, env: 0.55 },
 };
@@ -123,7 +125,7 @@ export function applyLook(E, sunset, storm, elev) {
   rimShared.color.r = m(A.rim[0], B.rim[0], S.rim[0]); rimShared.color.g = m(A.rim[1], B.rim[1], S.rim[1]); rimShared.color.b = m(A.rim[2], B.rim[2], S.rim[2]);
   renderer.toneMappingExposure = m(A.exp, B.exp, S.exp);
   scene.environmentIntensity = m(A.env, B.env, S.env);
-  SKY.storm.value = storm; SKY.sunset.value = sunset;
+  SKY.storm.value = storm; SKY.sunset.value = sunset; SKY.fogC.value.copy(scene.fog.color);
   FAC.uNight.value = Math.max(0, (sunset - 0.55) / 0.45) * 0.9 + storm * 0.25;
   FAC.uDust.value = Math.max(FAC.uDust.value * 0.999, storm * 0.8);
   FAC.uSunL.value.copy(SUN_DIR);

@@ -56,7 +56,15 @@ function lineMat() {
           diffuseColor.rgb *= mix(0.96, 0.9 + 0.25 * d, fq);
         }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        if (vK > 2.5 && vK < 3.5) totalEmissiveRadiance += vColor.rgb * 2.2;                                   // displays / indicator lamps
+        if (vK > 2.5 && vK < 3.5) {
+          // displays: a dark bezel, scan lines, a moving horizon / bar graph so they read as instruments
+          vec2 q = fract(vObj.xy * vec2(3.3, 3.8));
+          float bez = step(0.08, q.x) * step(q.x, 0.92) * step(0.1, q.y) * step(q.y, 0.9);
+          float hz = 1.0 - smoothstep(0.0, 0.03, abs(q.y - 0.5 - 0.15 * sin(uTime * 0.7 + vObj.x * 3.0) * (q.x - 0.5)));
+          float bars = step(q.y, 0.25 + 0.5 * fract(sin(floor(q.x * 8.0) * 12.9) * 43.7)) * step(0.55, q.x);
+          float scan = 0.8 + 0.2 * sin(vObj.y * 900.0);
+          totalEmissiveRadiance += vColor.rgb * (0.25 + 1.8 * max(hz, bars * 0.6)) * bez * scan;
+        }
         if (vK > 3.5 && vK < 4.5) totalEmissiveRadiance += vec3(1.0, 0.08, 0.04) * (uRed * 2.0 + uWarn * (0.5 + 0.5 * sin(uTime * 9.0)) * 4.0); // red cabin light / warning
         `)
       .replace('#include <lights_fragment_begin>', `float dSun = doorSun(vObj);\n${begin}`)
@@ -65,6 +73,8 @@ function lineMat() {
         float near = 1.0 - smoothstep(0.2, 2.3, vObj.x - ${DOOR.x.toFixed(2)});
         float into = 1.0 - smoothstep(0.3, 1.6, max(${DOOR.z0.toFixed(2)} - vObj.z, vObj.z - ${DOOR.z1.toFixed(2)}));
         float fill = 0.32 + 0.68 * near * mix(0.55, 1.0, into);
+        float cao = smoothstep(0.0, 0.35, vObj.y) * smoothstep(0.0, 0.3, 2.28 - vObj.y) * smoothstep(0.0, 0.3, 1.25 - vObj.x) * smoothstep(0.0, 0.3, 1.95 - vObj.z);
+        fill *= 0.55 + 0.45 * cao; reflectedLight.directDiffuse *= 0.7 + 0.3 * cao;
         reflectedLight.indirectDiffuse *= fill; reflectedLight.indirectSpecular *= fill;
         reflectedLight.indirectDiffuse += diffuseColor.rgb * vec3(0.5, 0.04, 0.02) * (uRed * 0.35 + uWarn * 0.5) * smoothstep(1.6, 2.1, 2.1 - abs(vObj.z) * 0.3);`);
   };
@@ -127,7 +137,7 @@ function buildLining() {
   for (const y of [0.55, 1.35]) piece(L, 0.04, 0.04, z1 - z0, x1 - 0.03, y, (z0 + z1) / 2, RIB);
   // grab bar over the door + a handle on each post
   cyl(L, 0.016, DOOR.z1 - DOOR.z0 - 0.2, x0 + 0.42, h - 0.1, (DOOR.z0 + DOOR.z1) / 2, STEEL, 0, Math.PI / 2);
-  for (const z of [DOOR.z0 - 0.12, DOOR.z1 + 0.12]) cyl(L, 0.016, 0.5, x0 + 0.08, 1.2, z, YEL);
+  for (const z of [DOOR.z0 - 0.12, DOOR.z1 + 0.12]) cyl(L, 0.016, 0.5, x0 + 0.08, 1.2, z, [0.38, 0.3, 0.1]);
   // troop seats on the far wall: tube frames + red webbing backs, folded pans
   for (const z of [-1.3, -0.65, 0.0, 0.65, 1.3]) {
     piece(L, 0.06, 0.6, 0.5, x1 - 0.1, 0.95, z, RED, 0); // webbing back
@@ -137,10 +147,10 @@ function buildLining() {
     cyl(L, 0.015, 0.42, x1 - 0.3, 0.47, z - 0.23, STEEL, 0, 0, Math.PI / 2); cyl(L, 0.015, 0.42, x1 - 0.3, 0.47, z + 0.23, STEEL, 0, 0, Math.PI / 2);
   }
   // cargo net on the rear bulkhead
-  for (let x = -1.0; x <= 1.0; x += 0.18) piece(L, 0.012, 1.6, 0.012, x, 0.95, z1 - 0.06, [0.2, 0.2, 0.14]);
-  for (let y = 0.25; y <= 1.7; y += 0.18) piece(L, 2.1, 0.012, 0.012, 0, y, z1 - 0.06, [0.2, 0.2, 0.14]);
+  for (let x = -1.0; x <= 1.0; x += 0.25) piece(L, 0.035, 1.6, 0.02, x, 0.95, z1 - 0.06, [0.08, 0.085, 0.06]);
+  for (let y = 0.25; y <= 1.7; y += 0.25) piece(L, 2.1, 0.035, 0.02, 0, y, z1 - 0.07, [0.08, 0.085, 0.06]);
   // extinguisher, first-aid box, stencilled panel, the red cabin light, cable runs overhead
-  cyl(L, 0.07, 0.42, -0.95, 1.25, z1 - 0.12, [0.55, 0.06, 0.04]); cyl(L, 0.03, 0.08, -0.95, 1.5, z1 - 0.12, DARK);
+  cyl(L, 0.07, 0.42, -0.95, 1.25, z1 - 0.12, [0.2, 0.06, 0.045]); cyl(L, 0.03, 0.08, -0.95, 1.5, z1 - 0.12, DARK);
   piece(L, 0.32, 0.22, 0.1, 0.7, 1.55, z1 - 0.1, [0.5, 0.48, 0.42]); piece(L, 0.08, 0.16, 0.02, 0.7, 1.55, z1 - 0.16, [0.55, 0.06, 0.04]); piece(L, 0.16, 0.08, 0.02, 0.7, 1.55, z1 - 0.165, [0.55, 0.06, 0.04]);
   piece(L, 0.18, 0.06, 0.18, 0.3, h - 0.04, 0.2, [1, 0.3, 0.2], 4);
   piece(L, 0.18, 0.06, 0.18, 0.3, h - 0.04, -1.1, [1, 0.3, 0.2], 4);
@@ -184,8 +194,25 @@ export class Cabin {
     // the open sliding door, parked back along the outside of the fuselage
     const dg = new THREE.BoxGeometry(0.06, 1.85, 2.0); dg.translate(-1.42, 0.98, 2.05);
     const door = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ color: 0x5c4c36, roughness: 0.7, metalness: 0.1 })); this.root.add(door);
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 3.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.5, metalness: 0.6 })); rail.position.set(-1.38, 2.0, 0.55); this.root.add(rail);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 3.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.5, metalness: 0.6 })); rail.position.set(-1.38, DOOR.y1 + 0.1, 0.55); this.root.add(rail);
     const rail2 = rail.clone(); rail2.position.y = -0.04; this.root.add(rail2);
+    // stencils: worn military markings on the bulkheads and the door post (one canvas, a few quads)
+    { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d');
+      x.fillStyle = 'rgba(0,0,0,0)'; x.fillRect(0, 0, 512, 256);
+      x.font = 'bold 44px Oswald, Impact, sans-serif'; x.fillStyle = '#c9b46a'; x.fillText('HAMMER 1', 18, 56);
+      x.font = 'bold 26px Oswald, Impact, sans-serif'; x.fillStyle = '#bba760'; x.fillText('SECURE ALL CARGO', 18, 100); x.fillText('BEFORE FLIGHT', 18, 130);
+      x.fillStyle = '#b8382a'; x.fillRect(300, 20, 190, 70); x.fillStyle = '#1b1b18'; x.font = 'bold 30px Oswald, Impact, sans-serif'; x.fillText('FIRE EXT.', 318, 66);
+      x.fillStyle = '#c9b46a'; x.font = 'bold 34px Oswald, Impact, sans-serif'; x.fillText('NO STEP', 300, 150);
+      x.fillStyle = '#d0b040'; for (let i = 0; i < 8; i++) { x.save(); x.translate(18 + i * 60, 190); x.transform(1, 0, -0.6, 1, 0, 0); x.fillRect(0, 0, 30, 46); x.restore(); }
+      // wear: knock pixels out
+      const id = x.getImageData(0, 0, 512, 256); let r = 7; for (let i = 3; i < id.data.length; i += 4) { r = (r * 16807) % 2147483647; if (r % 100 < 22) id.data[i] *= 0.3; } x.putImageData(id, 0, 0);
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+      const quad = (u0, v0, u1, v1, w, h, pos, ry) => { const g = new THREE.PlaneGeometry(w, h); const uv = g.attributes.uv; for (let i = 0; i < 4; i++) uv.setXY(i, u0 + (u1 - u0) * uv.getX(i), v0 + (v1 - v0) * uv.getY(i)); const m = new THREE.Mesh(g, mat); m.position.set(...pos); m.rotation.y = ry; m.renderOrder = 1; this.root.add(m); };
+      quad(0, 0.5, 0.5, 1, 0.9, 0.45, [0.1, 1.72, CAB.z1 - 0.03], Math.PI);           // HAMMER 1 / SECURE ALL CARGO
+      quad(0.58, 0.64, 0.97, 0.93, 0.36, 0.13, [-0.95, 1.58, CAB.z1 - 0.03], Math.PI); // FIRE EXT.
+      quad(0, 0, 1, 0.28, 1.2, 0.17, [CAB.x1 - 0.04, 0.12, 0.2], -Math.PI / 2);       // hazard stripes on the far wall's foot
+      }
     // our own skin: back faces cull away from inside; the lining is what we see
     scene.add(this.root);
     this.seat = new THREE.Object3D(); this.seat.position.set(-0.42, 0, -0.1); this.seat.rotation.y = Math.PI / 2;

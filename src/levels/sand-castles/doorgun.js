@@ -13,7 +13,7 @@ import { clamp, damp } from '../../rng.js';
 //  Mount frame = the rig (your seat): -z out of the door, +x toward the nose, +y up.
 // =====================================================================================
 
-export const MOUNT = new THREE.Vector3(0.32, 1.1, -0.66); // pivot, rig-local
+export const MOUNT = new THREE.Vector3(0.38, 1.14, -0.66); // pivot, rig-local
 const LIM = { yaw: 1.25, up: 0.42, down: -1.05 };
 
 function part(list, geo, col, k = 0) {
@@ -27,7 +27,7 @@ function part(list, geo, col, k = 0) {
 const B = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
 const Cz = (r, len, x, y, z, seg = 12, r2 = r) => new THREE.CylinderGeometry(r2, r, len, seg).rotateX(Math.PI / 2).translate(x, y, z);
 
-const GUNMETAL = [0.05, 0.052, 0.056], PARK = [0.07, 0.072, 0.07], WORN = [0.16, 0.16, 0.165], RUB = [0.02, 0.02, 0.02], OD = [0.12, 0.13, 0.08], REDB = [0.5, 0.05, 0.03], BRASS = [0.55, 0.38, 0.12];
+const GUNMETAL = [0.07, 0.072, 0.078], PARK = [0.1, 0.1, 0.095], WORN = [0.22, 0.22, 0.22], RUB = [0.02, 0.02, 0.02], OD = [0.12, 0.13, 0.08], REDB = [0.5, 0.05, 0.03], BRASS = [0.55, 0.38, 0.12];
 
 function gunMaterial(heatU) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.75 });
@@ -61,7 +61,7 @@ function buildModel(mat) {
   for (const sx of [-1, 1]) {
     part(body, new THREE.CylinderGeometry(0.019, 0.019, 0.15, 10).translate(sx * 0.115, -0.01, 0.16), RUB, 2);
     part(body, B(0.03, 0.02, 0.05, sx * 0.115, 0.075, 0.15), PARK);
-    part(body, B(0.02, 0.018, 0.02, sx * 0.1, 0.078, 0.13), REDB, 2);
+    part(body, B(0.012, 0.01, 0.012, sx * 0.1, 0.078, 0.13), [0.45, 0.25, 0.04], 2);
   }
   part(body, B(0.03, 0.03, 0.14, 0, -0.04, 0.08), PARK);
   // ring sight
@@ -139,6 +139,19 @@ export class DoorGun {
     this.feed = new THREE.Object3D(); this.feed.position.set(-0.16, 0.0, -0.075); M.group.add(this.feed);
     this.canPt = new THREE.Vector3(-0.36, -0.7, 0.18);
     this.glove = buildGlove();
+    // spent brass piling up on the floor round the mount while you fire (one instanced draw)
+    this.brassN = 420; this.brassShown = 0;
+    const cg = new THREE.CylinderGeometry(0.0055, 0.0055, 0.051, 6); cg.rotateZ(Math.PI / 2);
+    this.brass = new THREE.InstancedMesh(cg, new THREE.MeshStandardMaterial({ color: 0xb08a3c, roughness: 0.35, metalness: 0.9 }), this.brassN);
+    this.brass.count = 0; this.brass.frustumCulled = false;
+    { const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), r = (a) => (Math.sin(a * 12.9898) * 43758.5453) % 1;
+      for (let i = 0; i < this.brassN; i++) {
+        const a = Math.abs(r(i + 1)) * Math.PI * 2, rr = Math.sqrt(Math.abs(r(i + 7))) * 0.55;
+        e.set(0, Math.abs(r(i + 3)) * 6.28, 0); q.setFromEuler(e);
+        m.compose(new THREE.Vector3(0.05 + Math.cos(a) * rr * 0.8, -MOUNT.y + 0.006 + (i > 200 ? 0.01 * Math.abs(r(i + 11)) : 0), 0.15 + Math.sin(a) * rr), q, new THREE.Vector3(1, 1, 1));
+        this.brass.setMatrixAt(i, m);
+      } }
+    this.mount.add(this.brass);
     // aim state
     this.yaw = 0; this.pitch = -0.25; this.spin = 0; this.heat = 0; this.cooling = false;
     this._v = new THREE.Vector3(); this._q = new THREE.Quaternion(); this._m = new THREE.Matrix4();
@@ -191,7 +204,7 @@ export class DoorGun {
     if (trig && this.spin < 0.55) G.cool = Math.max(G.cool, 0.03);
     this.spinG.rotation.z += rdt * this.spin * 95;
     // heat: rises with each round, the belt runs out = forced cool-down
-    if (G.sinceShot < 0.001) this.heat = Math.min(1, this.heat + 1 / 300);
+    if (G.sinceShot < 0.001) { this.heat = Math.min(1, this.heat + 1 / 300); this.fired = (this.fired || 0) + 1; this.brass.count = Math.min(this.brassN, Math.floor(this.fired / 3)); }
     this.heat = Math.max(0, this.heat - rdt * (G.reloading > 0 ? 0.42 : 0.12));
     this.cooling = G.reloading > 0;
     this.heatU.value = this.heat;
@@ -222,5 +235,5 @@ export class DoorGun {
     if (G.reloading > 0) return 'COOLING';
     return `GUN ${Math.round(this.heat * 100)}% HEAT`;
   }
-  warmMaterials() { return [this.mat, this.chute.material, this.glove.material]; }
+  warmMaterials() { return [this.mat, this.chute.material, this.glove.material, this.brass.material]; }
 }

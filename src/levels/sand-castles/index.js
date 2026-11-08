@@ -15,6 +15,7 @@ import { Player } from '../../player.js';
 import { warmupGunmen, Gunman, setGunmanLook } from '../../characters.js';
 import { buildHeli } from '../../heli.js';
 import { damp } from '../../rng.js';
+import { CELL } from '../../particles.js';
 
 // =====================================================================================
 //  LEVEL 8 — "SAND CASTLES": door gunner on HAMMER ONE over Al-Sarab, a fictional Gulf
@@ -36,11 +37,13 @@ export async function create(E) {
   renderer.shadowMap.enabled = false;
   fx.fireHue = 1; fx.heat = 0.9;
   fx.groundAt = () => 0;
-  setGunmanLook({ lift: 0.1, band: 0.45 });
+  setGunmanLook({ lift: 0.22, band: 0.8 });
   // fire sprites: orange cores, near-black soot (the Level 5/6 level-local clamp)
   { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.3; o.g = (o.g ?? 0.5) * 0.97; o.b = (o.b ?? 0.5) * 0.6; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; } return spawn(o); }; }
+  // the door gun's muzzle flash is a metre from your eye: hot orange, not a white disc
+  { const n = fx.near, sp = n.spawn.bind(n); n.spawn = (o) => { if (o.frame === CELL.STAR || o.frame === CELL.STAR2 || o.frame === CELL.GLOW) { o.r *= 0.85; o.g *= 0.6; o.b *= 0.3; o.s0 *= 1.3; o.s1 *= 1.3; } return sp(o); }; }
   const look = { sunset: 0, storm: 0 };
-  applyLook(E, 0, 0, 30);
+  applyLook(E, 0, 0, 12);
   const city = new City(scene, plan, F);
   const ground = new Ground(scene, F);
   buildBeacons(scene, city.statics);
@@ -109,7 +112,7 @@ export async function create(E) {
       // time of day: the director's sunset target, the storm from the set pieces
       game.sunset = damp(game.sunset, game.sunsetTarget, 0.25, sdt);
       look.sunset = game.sunset; look.storm = setp.storm;
-      applyLook(E, look.sunset, look.storm, 30 - 26.5 * look.sunset);
+      applyLook(E, look.sunset, look.storm, 12 - 8.5 * look.sunset);
       const k = look.storm > 0.45 ? 'storm' : look.sunset > 0.55 ? 'sunset' : 'day';
       if (k !== envKey && envs[k]) { envKey = k; scene.environment = envs[k]; }
       gun.aim(sdt);
@@ -117,6 +120,8 @@ export async function create(E) {
       if (flags.AUTO && setp.strikes.on && game.paintTarget) { const A = player.autoState; setp.strikes.autoHeld = !!A.target && A.target.kind === 'paint' && Math.hypot(A.err.x, A.err.y) < 0.05; } else setp.strikes.autoHeld = false;
       player.update(sdt, started ? dt : 0);
       gun.update(sdt, dt);
+      // desktop: the launcher viewmodel sits lower and further out (it hid the middle of the view)
+      if (player.mode === 'desktop') player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02));
       setp.update(dt, sdt, game.headPos);
       // limping home: number two engine trails smoke past the door
       if (director && (director.cur?.name === 'escape' || director.cur?.name === 'outro')) { cabin.root.localToWorld(_ex.set(0.85, 2.7, 2.4)); fx.trailEmit(cabin, _ex, 2.4, (q) => fx.smoke(q, 1.4, 0.12, 4, 0.5, 0.7), 0); }

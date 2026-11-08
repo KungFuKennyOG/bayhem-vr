@@ -151,7 +151,7 @@ export class SandGame {
     for (const r of this.rockets) { if (r.dead) continue; const t = raySphere(origin, dir, r.pos, 2.2 + r.pos.distanceTo(origin) * 0.006); if (t > 0 && t < best.t) best = { t, kind: 'rocket', r }; }
     for (const a of this.aas) { if (!a.alive) continue; const t = raySphere(origin, dir, a.center, 3.2); if (t > 0 && t < best.t) best = { t, kind: 'aa', a }; }
     const g = this.gunship;
-    if (g && g.phase !== 'gone' && g.phase !== 'enter') { const n = new THREE.Vector3(); g.m.root.updateMatrixWorld(); _m.compose(g.pos, g.m.root.quaternion, _v2.set(1.2, 1.2, 1.2)); const t = rayOBB(origin, dir, _m.multiply(new THREE.Matrix4().makeTranslation(0, 0.05, 0.6)), _v3.set(2.4, 1.6, 6.5), n); if (t > 0 && t < best.t) best = { t, kind: 'gunship', n: n.clone() }; }
+    if (g && g.phase !== 'gone' && g.phase !== 'enter') { const n = new THREE.Vector3(); g.m.root.updateMatrixWorld(); _m.compose(g.pos, g.m.root.quaternion, _v2.set(1.6, 1.6, 1.6)); const t = rayOBB(origin, dir, _m.multiply(new THREE.Matrix4().makeTranslation(0, 0.05, 0.6)), _v3.set(2.4, 1.6, 6.5), n); if (t > 0 && t < best.t) best = { t, kind: 'gunship', n: n.clone() }; }
     const tw = this.towerRay(origin, dir, best.t);
     if (tw && tw.t < best.t) best = { t: tw.t, kind: 'tower', tower: tw.tower, n: tw.n };
     if (dir.y < 0) { const t = -origin.y / dir.y; if (t < best.t) best = { t, kind: 'ground' }; }
@@ -162,7 +162,7 @@ export class SandGame {
     const hit = this.fireRay(origin, dir);
     const P = hit.point, dist = hit.t;
     // tracers every round, fattened with range so they read at 200 m
-    this.fx.tracer(origin, P, { speed: 900, width: 0.05 + Math.min(0.5, dist * 0.0018), len: 9 + dist * 0.02, color: [1.8, 0.9, 0.35] });
+    this.fx.tracer(origin, P, { speed: 700, width: 0.06 + Math.min(0.45, dist * 0.0016), len: 5 + dist * 0.012, color: [2.0, 0.75, 0.25] });
     switch (hit.kind) {
       case 'head': case 'body': {
         const m = hit.m;
@@ -220,7 +220,7 @@ export class SandGame {
     for (let i = 0; i < n; i++) {
       const role = i < rpg ? 'rpg' : 'rifle';
       const gm = new Gunman({ pose: 'ground', seed: SEED++, outfit: 'port' });
-      gm.root.scale.setScalar(1.25); // ~100 m away: a touch bigger reads, and nobody can tell
+      gm.root.scale.setScalar(1.6); // ~100 m away: a touch bigger reads, and nobody can tell
       this.scene.add(gm.root);
       const a = (i / Math.max(1, n)) * Math.PI * 1.3 + range(-0.2, 0.2);
       const m = { gm, role, tower, alive: true, hp: 70, delay: (opts.delay ?? 0) + i * 0.6, a, r: inner * 0.42, pos: new THREE.Vector3(), fireT: range(1.2, 3.5), burst: 0, suppress: 0, rpgT: role === 'rpg' ? range(2.5, 5) : 99, crouch: rand() < 0.4 };
@@ -385,11 +385,11 @@ export class SandGame {
       a.gun.children[0].rotation.x = Math.atan2(dy, Math.hypot(dx, dz));
       a.fireT -= dt;
       if (a.fireT <= 0 && !this.ceasefire) {
-        a.fireT = 0.09; a.burst = (a.burst ?? 0) + 1;
-        if (a.burst > 10) { a.burst = 0; a.fireT = range(1.2, 2.4); }
+        a.fireT = 0.2; a.burst = (a.burst ?? 0) + 1;
+        if (a.burst > 6) { a.burst = 0; a.fireT = range(1.2, 2.4); }
         const mz = a.center.clone().add(_v.set(0, 1.6, 0));
         const aim = H.clone().add(_v2.set(range(-30, 30), range(8, 60), range(-30, 30)));
-        this.fx.tracer(mz, aim.clone().addScaledVector(_v3.subVectors(aim, mz).normalize(), 200), { speed: 700, width: 0.35, len: 16, color: [2.2, 0.75, 0.25] });
+        this.fx.tracer(mz, aim.clone().addScaledVector(_v3.subVectors(aim, mz).normalize(), 200), { speed: 520, width: 0.7, len: 34, color: [2.0, 0.6, 0.18] });
         if (a.burst % 3 === 0) this.audio.play('enemy_gun', { x: mz.x, y: mz.y, z: mz.z, volume: 1, pitch: 0.55 });
       }
       a.flakT -= dt;
@@ -412,7 +412,7 @@ export class SandGame {
   // ------------------------------------------------------------------ WIDOWMAKER 4
   spawnGunship() {
     const m = buildHeli();
-    m.root.scale.setScalar(1.25);
+    m.root.scale.setScalar(1.6);
     this.scene.add(m.root);
     const H = this.heliPos, f = this._frame();
     const pos = H.clone().addScaledVector(f.fwd, 420).addScaledVector(f.left, 260).add(_v.set(0, 40, 0));
@@ -443,7 +443,7 @@ export class SandGame {
     if (g.phase === 'enter' || g.phase === 'fight') {
       // duel: hold a station off the door side, changing it every few seconds (ahead / abeam / above)
       g.offT -= dt;
-      if (g.offT <= 0) { g.offT = range(4, 7); g.off.set(range(-60, 170), range(-10, 45), range(150, 230)); }
+      if (g.offT <= 0) { g.offT = range(4, 7); g.off.set(range(-30, 110), range(-5, 30), range(75, 125)); }
       const want = H.clone().addScaledVector(f.fwd, g.off.x).addScaledVector(f.left, g.off.z).add(_v.set(0, g.off.y, 0));
       const acc = _v2.subVectors(want, g.pos).multiplyScalar(0.35).sub(_v3.copy(g.vel).multiplyScalar(0.9));
       if (acc.length() > 9) acc.setLength(9);
@@ -466,7 +466,7 @@ export class SandGame {
           const mz = m.gun.getWorldPosition(new THREE.Vector3());
           const hit = rand() < 0.08 * this.enemyAcc;
           const aim = _v.copy(this.headPos).add(_v2.set(range(-1, 1), range(-1, 1), range(-1, 1)).multiplyScalar(hit ? 0.5 : range(3, 9)));
-          this.fx.tracer(mz, aim.clone().addScaledVector(_v3.subVectors(aim, mz).normalize(), hit ? 0 : 60), { speed: 600, width: 0.18, len: 10, color: [2.0, 0.6, 0.25] });
+          this.fx.tracer(mz, aim.clone().addScaledVector(_v3.subVectors(aim, mz).normalize(), hit ? 0 : 60), { speed: 450, width: 0.28, len: 7, color: [2.0, 0.55, 0.18] });
           this.fx.muzzle(mz, _v3.subVectors(aim, mz).normalize(), 'rifle', false);
           if (g.burst % 2 === 0) this.audio.play('enemy_gun', { x: mz.x, y: mz.y, z: mz.z, volume: 1, pitch: 0.75 });
           if (hit) { this.hurt(3, mz); }
@@ -505,7 +505,8 @@ export class SandGame {
 
   // ------------------------------------------------------------------ HAMMER TWO (wingman)
   spawnWing() {
-    this.wing = { m: buildHammer(this.W.cabin.mats), phase: 'fly', t: 0, pos: new THREE.Vector3(), vel: new THREE.Vector3(), yaw: 0, spin: 0, side: -1, ds: -70 };
+    // on the door side, a little ahead: you see your wingman out of the door
+    this.wing = { m: buildHammer(this.W.cabin.mats), phase: 'fly', t: 0, pos: new THREE.Vector3(), vel: new THREE.Vector3(), yaw: 0, spin: 0, side: 1, ds: 45 };
     this.scene.add(this.wing.m.root);
     return this.wing;
   }

@@ -52,7 +52,7 @@ export class HeroTower {
       this.chunks.forEach(c => {
         const y = c.kind === 'spire' ? HERO.h + c.c.y : c.b * HERO.band + c.c.y;
         org.set([0, y, c.kind === 'face' && c.b >= this.B - 3 ? 1 : 0, c.kind === 'face' ? (c.n[0] + 2 * c.n[2]) * 37 : 0], c.i * 4);
-        st.set(c.kind === 'core' ? [5, 0.4, 4, 1] : c.kind === 'spire' ? [1, 0.7, 4, 0] : [5, 0.6, 4.0, 0], c.i * 4);
+        st.set(c.kind === 'core' ? [5, 0.4, 4, 1] : c.kind === 'spire' ? [1, 0.9, 4, 0] : [1, 0.55, 4.2, 0], c.i * 4);
       });
       geo.setAttribute('aOrg', new THREE.InstancedBufferAttribute(org, 4)); geo.setAttribute('aSt', new THREE.InstancedBufferAttribute(st, 4)); }
     this.mesh.frustumCulled = false;
@@ -113,12 +113,12 @@ export class HeroTower {
         const side = _v2.set(-n[2], 0, n[0]).applyQuaternion(node.q);
         for (let k = -1; k <= 1; k++) g.fx.later(Math.abs(k) * 0.05, () => g.fx.explosion(P.clone().addScaledVector(side, k * w * 0.3), 1.8, { noRing: true }));
         g.fx.light(P, 900, 0.6, 0xff9040, false, 260);
-        for (let k = 0; k < 3; k++) dust.plume(P.x + side.x * (k - 1) * w * 0.3, P.y, P.z + side.z * (k - 1) * w * 0.3, n[0] * 16, n[2] * 16, 1.1, true);
+        if (b % 2 === 0) dust.plume(P.x + side.x * (rand() - 0.5) * w * 0.5, P.y, P.z + side.z * (rand() - 0.5) * w * 0.5, n[0] * 16, n[2] * 16, 1.4, true);
         if (this.glass) {
           const dir = _v2.set(n[0], -0.35, n[2]);
           this.glass.burst(P, dir, 45, { spread: w * 0.4, speed: 9, size: 3.2, life: 14, plane: _v.set(n[0], 0, n[2]) }); // 3 m sheets: 1 m shards are sub-pixel from the heli
         }
-        for (let k = dust.emitN(14, 0.16); k > 0; k--) dust.plume(P.x, P.y, P.z, n[0] * 10, n[2] * 10, 0.8, rand() < 0.5);
+        if (b % 3 === 0) dust.plume(P.x, P.y, P.z, n[0] * 10, n[2] * 10, 1.3, true);
         if (b % 3 === 0) g.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 0.9, pitch: range(0.7, 0.9) });
         g.lastExplosionT = g.time; g.lastExplosionShake = 0.25;
       }

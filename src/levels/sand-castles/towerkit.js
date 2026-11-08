@@ -194,7 +194,7 @@ export function buildTower(gb, t, opts = {}) {
     if (roof === 'pool') gb.box(-W * 0.32, h + 0.25, -D * 0.22, W * 0.32, h + 0.3, D * 0.22, K.POOL, TT);
     // cabanas / a bar
     gb.box(-W / 2 + 1, h + 0.25, D / 2 - 6, -W / 2 + 9, h + 3.4, D / 2 - 1, K.MECH, TT);
-  } else if (roof === 'crown' || (roof !== 'aa' && h > 220 && rng() < 0.4)) {
+  } else if (roof === 'crown') {
     // fins rising round the perimeter: the crown reads the skyline from kilometres away
     const fh = 16 + rng() * 22, nf = Math.max(8, Math.round((rw + rd) * 2 / 6));
     for (let i = 0; i < nf; i++) {
@@ -204,7 +204,7 @@ export function buildTower(gb, t, opts = {}) {
       const cc = Math.cos(rr), ss = Math.sin(rr);
       const F3 = (p) => TT([p[0] * cc - p[2] * ss + px, p[1], p[0] * ss + p[2] * cc + pz]);
       F3.n = (q) => TT.n([q[0] * cc - q[2] * ss, q[1], q[0] * ss + q[2] * cc]);
-      gb.box(-1.6, h, -0.35, 1.6, h + fh * (0.8 + 0.2 * Math.cos(a * 2)), 0.35, K.FIN, F3, i * 4);
+      gb.box(-2.2, h, -0.6, 2.2, h + fh * (0.8 + 0.2 * Math.cos(a * 2)), 0.6, K.FIN, F3, i * 4);
     }
     // a slim spire on the tallest
     if (h > 260) gb.box(-1.2, h, -1.2, 1.2, h + fh + 30 + rng() * 40, 1.2, K.FIN, TT);
@@ -218,6 +218,13 @@ export function buildTower(gb, t, opts = {}) {
       if (roof === 'aa' && Math.hypot(px, pz) < 9) continue;
       gb.box(px - bw / 2, h, pz - bd / 2, px + bw / 2, h + bh, pz + bd / 2, K.MECH, TT);
     }
+  }
+  // AC units / water tanks: small clutter on every roof (reads 'lived-in' from above)
+  if (roof !== 'pad' && roof !== 'pool') for (let i = 0; i < 4; i++) {
+    const px = (rng() - 0.5) * inner * 0.75, pz = (rng() - 0.5) * inner * 0.75;
+    if (roof === 'aa' && Math.hypot(px, pz) < 10) continue;
+    const a = 1.2 + rng() * 1.6;
+    gb.box(px - a, h, pz - a * 0.7, px + a, h + 1.2 + rng() * 1.2, pz + a * 0.7, K.MECH, TT);
   }
   // masts on some
   if (rng() < 0.3 && roof !== 'pad' && roof !== 'aa') { const px = (rng() - 0.5) * inner * 0.5, pz = (rng() - 0.5) * inner * 0.5, mh = 12 + rng() * 26; gb.box(px - 0.5, h, pz - 0.5, px + 0.5, h + mh, pz + 0.5, K.MECH, TT); }

@@ -28,14 +28,14 @@ uniform float uH; uniform float uOp; uniform float uT; uniform float uEro; unifo
 uniform vec3 uSun; uniform vec3 uSunCol; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar;
 varying vec3 vW; varying float vD;
 ${NOISE}
-float crest(float az){ float x = az * 9.0; return 1.0 - uEro * (0.55 * n1(x + uT * 0.05) + 0.3 * n1(x * 2.7 - uT * 0.08) + 0.15 * n1(x * 7.1)); }
+float crest(float az){ float x = az * 6.0; return 1.0 - uEro * (0.65 * n1(x + uT * 0.05) + 0.35 * n1(x * 2.3 - uT * 0.06)); }
 void main(){
   vec2 r = vW.xz - uC;
   float az = atan(r.y, r.x);
   float top = uH * crest(az);
   vec2 q = vec2(az * 60.0, vW.y / 38.0 - uT * 0.08);
   float b = n2(q) * 0.6 + n2(q * 2.3 + 7.0) * 0.4;
-  float a = uOp * (1.0 - smoothstep(top - 45.0 - 25.0 * b, top, vW.y));
+  float a = uOp * (1.0 - smoothstep(top - 70.0 - 25.0 * b, top + 5.0, vW.y));
   if (a < 0.004) discard;
   vec3 n = normalize(vec3(r.x, 0.0, r.y));
   float sunSide = 0.5 + 0.5 * dot(-n, normalize(vec3(uSun.x, 0.0, uSun.z)));
@@ -99,16 +99,16 @@ void main(){
   float top = uH * (0.62 + 0.38 * lob);
   vec2 q = vec2(x / 85.0, vW.y / 70.0 - uT * 0.06);
   float b = fb(q), b2 = fb(q * 2.6 + vec2(uT * 0.02, 0.0));
-  float a = uOp * (1.0 - smoothstep(top - 90.0 - 60.0 * b, top + 10.0 * b2, vW.y));
+  float a = uOp * (1.0 - smoothstep(top - 160.0 - 80.0 * b, top + 20.0 * b2, vW.y));
   if (a < 0.004) discard;
   float hk = clamp(vW.y / max(1.0, uH), 0.0, 1.0);
-  vec3 base = vec3(0.6, 0.43, 0.27);
+  vec3 base = mix(vec3(0.3, 0.17, 0.08), vec3(0.66, 0.46, 0.26), smoothstep(0.0, 0.75, hk));
   // billow shading: each lobe lit on top (sun from above-behind the wall), shadowed in its folds
   float fold = smoothstep(0.25, 0.75, b) * 0.6 + smoothstep(0.3, 0.8, b2) * 0.4;
-  vec3 col = base * (0.28 + 0.6 * hk) * (0.55 + 0.6 * fold);
-  col += uSunCol * base * 0.55 * pow(hk, 1.5) * fold;
+  vec3 col = base * (0.45 + 0.55 * hk) * (0.6 + 0.5 * fold);
+  col += uSunCol * base * 0.45 * pow(hk, 2.0) * fold;
   // the foot: dark, churning, where it swallows the streets
-  col *= mix(0.55, 1.0, smoothstep(0.0, 120.0, vW.y));
+  col *= mix(0.45, 1.0, smoothstep(0.0, 220.0, vW.y));
   col = mix(col, fogColor, clamp(vD / 9000.0, 0.0, 0.5));
   gl_FragColor = vec4(col * a, a);
   #include <tonemapping_fragment>
@@ -140,9 +140,9 @@ export class Haboob {
     if (ahead > -200 && ahead < 2600) {
       S.puffT -= dt;
       if (S.puffT <= 0) {
-        S.puffT = 0.35;
-        const x = eye.x + range(-1400, 1400), y = range(120, 650);
-        this.dust.spawn({ x, y, z: S.z + range(-40, 80), vx: range(-3, 3), vy: range(4, 9), vz: -S.v * range(0.95, 1.08), drag: 0.02, buoy: 0.1, s0: range(160, 240), s1: range(280, 380), life: range(14, 20), a: 0.95, fadeIn: 0.15, fadeOut: 0.35, vrot: range(-0.03, 0.03), r: 0.56, g: 0.41, b: 0.26, r1: 0.62, g1: 0.46, b1: 0.3 });
+        S.puffT = 0.45;
+        const x = eye.x + range(-1400, 1400), y = range(520, 820);
+        this.dust.spawn({ x, y, z: S.z + range(-40, 80), vx: range(-3, 3), vy: range(4, 9), vz: -S.v * range(0.95, 1.08), drag: 0.02, buoy: 0.1, s0: range(160, 240), s1: range(280, 380), life: range(14, 20), a: 0.95, fadeIn: 0.15, fadeOut: 0.35, vrot: range(-0.03, 0.03), r: 0.52, g: 0.35, b: 0.2, r1: 0.6, g1: 0.43, b1: 0.27 });
       }
     }
   }

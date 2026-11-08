@@ -90,7 +90,7 @@ export class Rail {
       if (_v.lengthSq() > 25) {
         _v.normalize();
         const want = Math.atan2(_v.z, -_v.x);
-        const max = (this.v < 6 ? 115 : this.v < 15 ? 75 : 50) * Math.PI / 180 * F.crab;
+        const max = (this.v < 6 ? 115 : this.v < 20 ? 85 : this.v < 32 ? 70 : 50) * Math.PI / 180 * F.crab;
         crabT = clamp(wrap(want - pathYaw), -max, max);
       }
     }

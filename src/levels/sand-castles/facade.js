@@ -73,13 +73,13 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
   float du = max(fwidth(u), 1e-4), dv = max(fwidth(v), 1e-4);
   if (kind < 1.5) {
     // ---------------------------------------------------------------- walls
-    float bw = st < 1.5 ? 1.5 : st < 2.5 ? 1.2 : st == 3.0 ? 3.6 : st == 7.0 ? 3.2 : 1.8;
+    float bw = st < 1.5 ? 1.8 : st < 2.5 ? 1.6 : st == 3.0 ? 2.4 : st == 7.0 ? 3.0 : 2.0;
     float bi = floor(u / bw), bx = fract(u / bw);
     float fl = floor(v / fhgt), fy = fract(v / fhgt);
     float wU = du / bw, wV = dv / fhgt;
-    float fine = clamp(1.0 - max(wU, wV) * 1.4, 0.0, 1.0);           // 1 = cells resolved, 0 = sub-pixel
-    float pane = 0.25 * fh2(vec2(bi + seed * 91.0, fl * 1.7 + seed * 13.0)) + 0.75 * fvn(vec2(u * 0.035, v * 0.02) + seed * 9.0);
-    vec3 gt = glassTint(st) * (0.82 + 0.36 * seed);
+    float fine = clamp(1.0 - max(wU, wV) * 2.6, 0.0, 1.0);           // 1 = cells resolved, 0 = sub-pixel
+    float pane = 0.1 * fh2(vec2(bi + seed * 91.0, fl * 1.7 + seed * 13.0)) + 0.9 * fvn(vec2(u * 0.035, v * 0.02) + seed * 9.0);
+    vec3 gt = glassTint(st) * (0.75 + 0.5 * seed) * mix(vec3(1.0), vec3(1.08, 0.98, 0.9), fh1(seed * 77.0));
     // spandrel band (floor slab) and mullion lines
     float span = st == 1.0 || st == 6.0 ? 0.1 : st == 4.0 ? 0.42 : st == 2.0 ? 0.16 : 0.24;
     float spand = smoothstep(span + wV, span - wV, fy);
@@ -88,16 +88,23 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     if (st == 3.0 || st == 7.0 || kind > 0.5) {
       // clad residential: stone wall with punched windows (+ balconies on style 3, arches on 7)
       vec3 clad = cladTint(st, seed);
-      float wx = smoothstep(0.18 - wU, 0.18 + wU, bx) * smoothstep(0.82 + wU, 0.82 - wU, bx);
-      float wy = smoothstep(0.2 - wV, 0.2 + wV, fy) * smoothstep(0.86 + wV, 0.86 - wV, fy);
+      // style 3: balcony ribbons (wide glazing behind white slab edges, a fin every third bay);
+      // 7: stone with arched windows; clad kinds: punched windows
+      bool ribbon = st == 3.0;
+      float wx = ribbon ? smoothstep(0.03 - wU, 0.03 + wU, bx) * smoothstep(0.97 + wU, 0.97 - wU, bx) * (1.0 - edgeLine(fract(bi / 3.0), 0.04, wU / 3.0))
+                        : smoothstep(0.18 - wU, 0.18 + wU, bx) * smoothstep(0.82 + wU, 0.82 - wU, bx);
+      float wy = ribbon ? smoothstep(0.24 - wV, 0.24 + wV, fy) * smoothstep(0.97 + wV, 0.97 - wV, fy)
+                        : smoothstep(0.2 - wV, 0.2 + wV, fy) * smoothstep(0.86 + wV, 0.86 - wV, fy);
       if (st == 7.0) { vec2 q = vec2((bx - 0.5) / 0.32, (fy - 0.86) / 0.22); wy *= step(length(max(q, vec2(-9.0, 0.0))), 1.0 + wV * 4.0); }
       float win = wx * wy;
       vec3 glass = gt * (0.7 + 0.6 * pane);
       // balcony slab shadow under each floor on style 3
-      float bal = st == 3.0 ? smoothstep(0.08 + wV, 0.0, fy) * 0.45 : 0.0;
-      vec3 c = mix(clad * (1.0 - bal), glass, win);
-      float avg = 0.38;
-      o.c = mix(mix(clad, gt, avg) * 0.92, c, fine);
+      // the slab edge is bright; the glazing just under the next slab sits in its shadow
+      float bal = ribbon ? smoothstep(0.86 - wV, 0.97, fy) * 0.5 : 0.0;
+      vec3 slab = ribbon ? vec3(0.78, 0.77, 0.74) : clad;
+      vec3 c = mix(slab, glass * (1.0 - bal) * 0.85, win);
+      float avg = ribbon ? 0.62 : 0.38;
+      o.c = mix(mix(slab, gt, avg) * 0.92, c, fine);
       o.r = mix(0.75, mix(0.8, 0.12 + 0.12 * pane, win), fine);
       o.m = mix(0.2, mix(0.0, 0.75, win), fine);
       // lit windows at dusk
@@ -110,6 +117,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
       // interior: blinds / dark rooms / lit core per pane
       float blind = step(0.82, pane) * 0.6;
       vec3 glass = gt * (0.92 + 0.3 * pane) + vec3(0.05, 0.045, 0.04) * blind;
+      glass *= 1.0 - 0.25 * smoothstep(0.55, 0.8, fvn(vec2(u * 0.05, v * 0.03) + seed * 21.0));  // dark rooms, in soft clusters
       vec3 c = glass;
       c = mix(c, spandC, spand);
       c = mix(c, frameC, max(mull, sill * 0.6));
@@ -129,15 +137,17 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     float louv = 0.75 + 0.25 * edgeLine(fract(v / 0.5), 0.3, dv / 0.5) * fine;
     o.c = mix(o.c, vec3(0.2, 0.2, 0.21) * louv, mband * 0.9);
     o.r = mix(o.r, 0.55, mband); o.m = mix(o.m, 0.5, mband); o.e *= 1.0 - mband;
-    // weathering: a darker, dustier base and faint vertical streaks under the sills
-    float streak = fvn(vec2(u * 0.35 + seed * 40.0, v * 0.02)) * 0.12 * fine;
-    o.c *= (1.0 - streak) * mix(0.82, 1.0, smoothstep(0.0, 30.0, v));
-    o.c = mix(o.c, vec3(0.55, 0.46, 0.34), 0.12 * (1.0 - smoothstep(0.0, 18.0, v)));
+    // weathering: rain / dust streaks under the ledges, a dirtier, darker lower third, sand at the base
+    float streak = fvn(vec2(u * 0.6 + seed * 40.0, v * 0.012)) * fvn(vec2(u * 0.13, v * 0.05 + seed));
+    o.c *= 1.0 - (kind > 0.5 || st == 3.0 || st == 7.0 ? 0.32 : 0.12) * streak;
+    o.c *= mix(0.68, 1.0, smoothstep(0.0, 90.0, v));
+    o.c = mix(o.c, vec3(0.5, 0.41, 0.3), 0.22 * (1.0 - smoothstep(0.0, 25.0, v)));
+    o.r = mix(o.r, 0.8, 0.35 * streak);
   } else if (kind < 2.5) {
     // roof: concrete / gravel with expansion joints and stains
     float n = fvn(wp.xz * 0.15) * 0.6 + fvn(wp.xz * 0.9) * 0.4;
     float jt = max(edgeLine(fract(wp.x / 6.0), 0.02, du / 6.0), edgeLine(fract(wp.z / 6.0), 0.02, du / 6.0));
-    o.c = vec3(0.5, 0.47, 0.42) * (0.8 + 0.3 * n) * (1.0 - 0.25 * jt);
+    o.c = vec3(0.32, 0.3, 0.27) * (0.7 + 0.45 * n) * (1.0 - 0.25 * jt) * mix(0.75, 1.0, fvn(wp.xz * 0.04 + 3.0));
     o.r = 0.9; o.m = 0.0;
   } else if (kind < 3.5) {
     // mechanical: louvred metal
@@ -146,7 +156,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     o.r = 0.55; o.m = 0.55;
   } else if (kind < 4.5) {
     // crown fins: brushed metal; an LED line near the top that comes on at dusk
-    o.c = vec3(0.4, 0.4, 0.41) * (0.85 + 0.2 * seed); o.r = 0.45; o.m = 0.7;
+    o.c = vec3(0.24, 0.24, 0.25) * (0.8 + 0.3 * seed); o.r = 0.5; o.m = 0.6;
     float led = edgeLine(fract(v / 6.0), 0.06, dv / 6.0);
     o.e = mix(vec3(1.0, 0.75, 0.45), vec3(0.5, 0.75, 1.0), step(0.6, seed)) * led * uNight * 2.2;
   } else if (kind < 5.5) {
@@ -173,7 +183,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     // podium: stone with a dark shopfront band at street level
     float shop = step(v, 6.0);
     float bx = fract(u / 5.0);
-    o.c = mix(vec3(0.6, 0.54, 0.46) * (0.9 + 0.15 * seed), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
+    o.c = mix(vec3(0.42, 0.38, 0.32) * (0.85 + 0.25 * seed) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
     o.r = mix(0.8, 0.15, shop); o.m = mix(0.0, 0.7, shop);
     o.e = vec3(1.0, 0.75, 0.45) * shop * uNight * 0.6;
   } else {
