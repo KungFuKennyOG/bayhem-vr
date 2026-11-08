@@ -130,13 +130,15 @@ export class Director {
             if (e.type === 'spanDown') later(1.4, () => say('...You dropped a piece of expressway on a street. In Tokyo. They will never let me drive here again.', 4));
           }
         }, until: (t) => (this.sp.span?.phase === 'down' && this.sp.span.t > 2.2) || t > 60 },
-      // 7 ---- down the off-ramp into Center-gai (spectacle first: the objective comes after)
-      { name: 'offramp', wp: V(10, 2, -135), hunt: true, music: 0.8, enter: () => {
-          g.cinematicLook = null;
-          later(1.2, () => hud.objective('The off-ramp — down into Center-gai'));
-          S({ x: 46, z: -135, delay: 1.5 }); S({ x: 26, z: -135, delay: 2.5 }); S({ x: 3, z: -118, delay: 3.5 });
-          A?.go([go(86, -136, { slow: 0.8 }), go(60, -135, { slow: 0.6 }), go(34, -135, { slow: 0.55 }), go(12, -135, { slow: 0.6 })]);
-        }, until: (t) => (px() < 15 && py() < 1.2 && t > 2) || t > 90 * T },
+      // 7 ---- down the emergency stair (right by the jam's west end) onto the off-ramp, into Center-gai
+      { name: 'offramp', wp: V(25, 4, -137), hunt: true, music: 0.8, enter: () => {
+          g.cinematicLook = null; this._downStair = false;
+          later(0.8, () => say('Emergency stairs, right there on the south side! Down, down, down — into Center-gai.', 3.2));
+          later(1.4, () => hud.objective('The emergency stairs — down to Center-gai'));
+          S({ x: 34, z: -133, delay: 1.5 }); S({ x: 20, z: -134, delay: 2.5 }); S({ x: 3, z: -118, delay: 3.5 });
+          A?.go([{ p: V(41, 0, -142.5), nav: null, slow: 0.7 }, { p: V(41.2, 0, -137), nav: null, slow: 0.6 }, { p: V(24.2, 0, -137), nav: null, slow: 0.6 }, go(12, -135, { slow: 0.6 })]);
+        }, update: () => { if (!this._downStair && pz() > -139 && py() < XWAY.y - 3) { this._downStair = true; hud.setWaypoint(V(10, 2, -135)); } },
+        until: (t) => (px() < 15 && py() < 1.2 && t > 2) || t > 90 * T },
       // 8 ---- south down Center-gai
       { name: 'center', wp: V(0, 2, -74), hunt: true, arrive: true, music: 0.85, enter: () => {
           hud.objective('South down Center-gai, back to the crossing');
@@ -197,7 +199,7 @@ export class Director {
       g.quietScore = true; g.fx.later(3, () => { g.quietScore = false; });
       if (ji > idx('crossing')) screens(true);
       if (ji > idx('tanker')) { setp.tankerArmed = true; setp.blowTanker(); setp.spanDownNow(); g.slowT = 0; }
-      if (ji > idx('gas')) { setp.startGas(); setp.gas.F = DIVE_Z - 6; for (const S_ of setp.shops) S_.done = true; g.slowT = 0; }
+      if (ji > idx('gas')) { setp.startGas(); setp.gas.F = DIVE_Z - 6; for (const S_ of setp.shops) S_.done = true; setp.ruinAll(); g.slowT = 0; }
       if (jump === 'gas' || jump === 'dive' || jump === 'outro') g.dusk = 0.6;
       g.score = [0, 0, 1800, 3600, 5600, 7400, 11000, 15500, 17200, 20400, 24200, 26800, 26800][ji] || 0;
       for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
