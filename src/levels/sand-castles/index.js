@@ -41,7 +41,10 @@ export async function create(E) {
   fx.groundAt = () => 0;
   setGunmanLook({ lift: 0.22, band: 0.8 });
   // fire sprites: orange cores, near-black soot (the Level 5/6 level-local clamp)
-  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.3; o.g = (o.g ?? 0.5) * 0.97; o.b = (o.b ?? 0.5) * 0.6; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; } return spawn(o); }; }
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.3; o.g = (o.g ?? 0.5) * 0.97; o.b = (o.b ?? 0.5) * 0.6; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; }
+    // no white blow-outs: any near-white hot sprite (flash, glow) is pushed to a yellow-orange core
+    else if (o.frameKind !== 2 && (o.r ?? 0) > 1.2 && (o.g ?? 0) > 0.9 && (o.b ?? 0) > 0.6) { o.r = Math.min(o.r, 2.2); o.g = o.r * 0.6; o.b = o.r * 0.2; }
+    return spawn(o); }; }
   // the door gun's muzzle flash is a metre from your eye: hot orange, not a white disc
   { const n = fx.near, sp = n.spawn.bind(n); n.spawn = (o) => { if (o.frame === CELL.STAR || o.frame === CELL.STAR2 || o.frame === CELL.GLOW) { o.r *= 0.85; o.g *= 0.6; o.b *= 0.3; o.s0 *= 1.3; o.s1 *= 1.3; } return sp(o); }; }
   const look = { sunset: 0, storm: 0 };

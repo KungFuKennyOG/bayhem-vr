@@ -61,11 +61,9 @@ function lineMat() {
           // boot-worn path down the middle, dust in the corners
           diffuseColor.rgb *= mix(1.0, 1.35, smoothstep(0.5, 0.0, abs(vObj.x + 0.3)) * (0.5 + 0.5 * cN(vObj * 6.0)));
         } else if (vK > 4.5 && vK < 5.5) {
-          // painted door jamb: olive paint chipped to bare metal at the edges, a rivet row, scuffs
-          float chip = smoothstep(0.62, 0.7, cN(vObj * 38.0) * 0.6 + cN(vObj * 9.0) * 0.4);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.34, 0.33, 0.31), chip);
-          float rv = smoothstep(0.012, 0.006, length(vec2(fract(vObj.y / 0.07 + vObj.z / 0.07) - 0.5, 0.0)) * 0.07) * step(abs(fract(vObj.x * 20.0) - 0.5), 0.2);
-          diffuseColor.rgb *= 1.0 - 0.3 * rv;
+          // painted door jamb: olive paint, worn lighter along its edges where hands and boots rub it
+          float wear = smoothstep(0.55, 0.85, cN(vObj * 11.0));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.6 + 0.04, wear * 0.5);
         }
         // everything: grime and hand-worn patches, darker low down (no spotless surfaces)
         diffuseColor.rgb *= (0.94 + 0.06 * cN(vObj * 4.3)) * (0.82 + 0.18 * smoothstep(0.0, 0.6, vObj.y));`)
@@ -139,9 +137,9 @@ function buildLining() {
   piece(L, T, h, z1 - DOOR.z1, x0 - T / 2, h / 2, (DOOR.z1 + z1) / 2, QUILT, 1);
   piece(L, T, h - DOOR.y1, DOOR.z1 - DOOR.z0, x0 - T / 2, (h + DOOR.y1) / 2, (DOOR.z0 + DOOR.z1) / 2, QUILT, 1);
   // door frame: a thick painted jamb all round the opening (the skin is ~12 cm deep here)
-  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z0 - 0.035, [0.17, 0.18, 0.12], 5);
-  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z1 + 0.035, [0.17, 0.18, 0.12], 5);
-  piece(L, 0.16, 0.07, DOOR.z1 - DOOR.z0 + 0.14, x0 - 0.05, DOOR.y1 + 0.035, (DOOR.z0 + DOOR.z1) / 2, [0.17, 0.18, 0.12], 5);
+  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z0 - 0.035, [0.24, 0.25, 0.18], 5);
+  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z1 + 0.035, [0.24, 0.25, 0.18], 5);
+  piece(L, 0.16, 0.07, DOOR.z1 - DOOR.z0 + 0.14, x0 - 0.05, DOOR.y1 + 0.035, (DOOR.z0 + DOOR.z1) / 2, [0.24, 0.25, 0.18], 5);
   for (const z of [DOOR.z0 - 0.075, DOOR.z1 + 0.075]) for (let y = 0.1; y < 0.6; y += 0.16) piece(L, 0.01, 0.07, 0.075, x0 + 0.035, y, z, YEL, 0, 0.5);
   // frame ribs (vertical) and stringers
   for (let z = z0 + 0.3; z < z1; z += 0.55) {

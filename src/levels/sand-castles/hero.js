@@ -53,7 +53,7 @@ export class HeroTower {
       this.chunks.forEach(c => {
         const y = c.kind === 'spire' ? HERO.h + c.c.y : c.b * HERO.band + c.c.y;
         org.set([0, y, c.kind === 'face' && c.b >= this.B - 3 ? 1 : 0, c.kind === 'face' ? (c.n[0] + 2 * c.n[2]) * 37 : 0], c.i * 4);
-        st.set(c.kind === 'core' ? [5, 0.4, 4, 1] : c.kind === 'spire' ? [1, 0.9, 4, 0] : [2, 0.55, 4.2, 0], c.i * 4); // gold glass: the one tower that catches the sunset
+        st.set(c.kind === 'core' ? [5, 0.4, 4, 1] : c.kind === 'spire' ? [1, 0.9, 4, 0] : [5, 0.55, 4.2, 0], c.i * 4); // dark glass, white mullions: crisp against the sunset (the gold grid read as brick)
       });
       geo.setAttribute('aOrg', new THREE.InstancedBufferAttribute(org, 4)); geo.setAttribute('aSt', new THREE.InstancedBufferAttribute(st, 4)); }
     this.mesh.frustumCulled = false;

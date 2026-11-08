@@ -203,7 +203,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     // podium: stone with a dark shopfront band at street level
     float shop = step(v, 6.0);
     float bx = fract(u / 5.0);
-    o.c = mix(vec3(0.24, 0.22, 0.19) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
+    o.c = mix(vec3(0.17, 0.155, 0.135) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
     o.r = mix(0.8, 0.15, shop); o.m = mix(0.0, 0.7, shop);
     o.e = vec3(1.0, 0.75, 0.45) * shop * uNight * 0.6;
   } else {
@@ -214,6 +214,9 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
   // the storm leaves a coat of sand on everything facing up
   o.c = mix(o.c, vec3(0.6, 0.48, 0.34), uDust * 0.35);
   o.r = mix(o.r, 0.9, uDust * 0.4);
+  // every building is dirtier near the street: darker, sand-blown base (no spotless plinths)
+  float baseK = 1.0 - smoothstep(0.0, 36.0, wp.y);
+  o.c = mix(o.c * (1.0 - 0.3 * baseK), vec3(0.42, 0.34, 0.24) * 0.6, 0.22 * baseK);
   o.c = stormShade(o.c, wp);
   return o;
 }
