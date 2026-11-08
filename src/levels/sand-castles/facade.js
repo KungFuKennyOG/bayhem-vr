@@ -157,8 +157,9 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
       // the Spire: a champagne mirror curtain wall between bright mullion fins: it reflects the sunset sky
       // (metal F0 tint + low roughness), so it is the one tower that glows warm against the dusk
       float fin = edgeLine(fract(u / 10.5), 0.06, du / 10.5);
-      o.c = mix(vec3(0.62, 0.5, 0.36) * (0.9 + 0.2 * pane), vec3(0.72, 0.7, 0.66), fin);
-      o.m = mix(0.92, 0.6, fin); o.r = mix(0.1 + 0.08 * pane, 0.35, fin);
+      // (no pane / floor checkerboard: one continuous mirror skin, so it reads as a single supertall surface)
+      o.c = mix(vec3(0.62, 0.5, 0.36) * (0.92 + 0.12 * fvn(vec2(u * 0.02, v * 0.004) + seed)), vec3(0.72, 0.7, 0.66), fin);
+      o.m = mix(0.92, 0.6, fin); o.r = mix(0.12, 0.35, fin);
       o.c *= 1.0 - 0.12 * fvn(vec2(u * 0.35, v * 0.01 + seed * 9.0));
     }
   } else if (kind < 2.5) {

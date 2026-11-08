@@ -38,7 +38,8 @@ export class SetPieces {
     // smoke here is soot, not dust: dark plumes start bigger (no small black spots inside the tan ones) and age to a
     // grey-brown so a column reads as one dark core thinning out, not a leopard print
     { const D = this.dust, base = D.plume.bind(D);
-      D.plume = (x, y, z, vx = 0, vz = 0, s = 1, dark = false) => !dark ? base(x, y, z, vx, vz, s, false) : D.spawn({ x, y, z, vx: vx + range(-3, 3), vy: range(2, 6), vz: vz + range(-3, 3), drag: 0.35, buoy: 0.5, s0: range(44, 60) * s, s1: range(125, 165) * s, life: range(13, 17), a: 0.9, fadeIn: 0.06, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.27, g: 0.24, b: 0.21, r1: 0.44, g1: 0.4, b1: 0.35 }); }
+      // light plumes are pulverised concrete: ochre-grey, a touch darker, never cotton white
+      D.plume = (x, y, z, vx = 0, vz = 0, s = 1, dark = false) => !dark ? D.spawn({ x, y, z, vx: vx + range(-3, 3), vy: range(1, 5), vz: vz + range(-3, 3), drag: 0.35, buoy: 0.4, s0: range(22, 40) * s, s1: range(80, 140) * s, life: range(12, 16), a: 0.95, fadeIn: 0.05, fadeOut: 0.4, vrot: range(-0.06, 0.06), r: 0.4, g: 0.36, b: 0.3, r1: 0.5, g1: 0.45, b1: 0.37 }) : D.spawn({ x, y, z, vx: vx + range(-3, 3), vy: range(2, 6), vz: vz + range(-3, 3), drag: 0.35, buoy: 0.5, s0: range(44, 60) * s, s1: range(125, 165) * s, life: range(13, 17), a: 0.9, fadeIn: 0.06, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.27, g: 0.24, b: 0.21, r1: 0.44, g1: 0.4, b1: 0.35 }); }
     const special = W.plan.towers.filter(t => t.role === 'target' || t.role === 'crash' || t.role === 'mid');
     this.mids = new MidRig(scene, special, W.city.sun);
     W.city.sun.commit();

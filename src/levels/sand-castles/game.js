@@ -255,7 +255,7 @@ export class SandGame {
         const T = m.tower; if (Math.hypot(T.x - H.x, T.z - H.z) > 900) continue;
         const ang = Math.atan2(H.z - T.z, H.x - T.x) + 0.9, r = m.r * 0.9;
         const x = T.x + Math.cos(ang) * r, z = T.z + Math.sin(ang) * r, y = T.h + 0.5;
-        this.fx.main.spawn({ x, y, z, vx: range(-0.6, 0.6) + 1.2, vy: range(4, 6.5), vz: range(-0.6, 0.6), drag: 0.3, frameKind: 2, frame: rand() * 40, frames: 16, s0: 2.5, s1: 20, ease: 0.6, life: range(5, 7), rot: rand() * 6.28, vrot: range(-0.3, 0.3), r: 0.42, g: 0.11, b: 0.09, a: 0.62, fadeIn: 0.05, fadeOut: 0.5 });
+        this.fx.main.spawn({ x, y, z, vx: range(-0.6, 0.6) + 1.2, vy: range(4, 6.5), vz: range(-0.6, 0.6), drag: 0.3, frameKind: 2, frame: rand() * 40, frames: 16, s0: 2, s1: 26, ease: 0.8, life: range(6, 8), rot: rand() * 6.28, vrot: range(-0.3, 0.3), r: 0.34, g: 0.13, b: 0.1, a: 0.5, fadeIn: 0.05, fadeOut: 0.5 });
         if (rand() < 0.6) this.fx.flame(_v.set(x, y, z), 1.6);
       }
     }
