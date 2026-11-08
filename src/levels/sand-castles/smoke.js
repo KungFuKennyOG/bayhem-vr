@@ -37,7 +37,8 @@ float dens(vec2 L){
   float n = fbm(L * 1.25 + vSeed + vec2(0.0, uT * 0.035));
   float r2 = dot(L, L);
   // big noise lobes eat into a soft sphere: ragged silhouettes, never a clean ball
-  return clamp((1.0 - r2) * 1.15 + (n - 0.5) * 2.7 - 0.22, 0.0, 1.0);
+  // (the hard radial falloff keeps the noise from reaching the quad's corners: no straight edges)
+  return clamp((1.0 - r2) * 1.15 + (n - 0.5) * 2.7 - 0.22, 0.0, 1.0) * smoothstep(1.0, 0.72, sqrt(r2));
 }
 void main(){
   // sprite-local coordinates (the quad rotates with the puff: undo it so the volume turns with it)
@@ -60,10 +61,10 @@ void main(){
   float deck = clamp((vWorldY - groundY) / uDeckH, 0.0, 1.0);
   float deckK = mix(0.5, 1.05, deck * deck * (3.0 - 2.0 * deck));
   vec3 shadowC = base * vec3(0.3, 0.3, 0.35) * (0.5 + 0.5 * up);          // cool, sooty core
-  vec3 litC = base * (0.75 + 0.25 * up) + base * fogColorSun * 0.5 * light;  // warm sunlit shoulder
+  vec3 litC = base * (0.75 + 0.25 * up) + base * fogColorSun * 0.3 * light;  // warm sunlit shoulder
   vec3 col = mix(shadowC, litC, light) * deckK;
   // thin edges let the sun through (forward scatter when you look toward it)
-  col += fogColorSun * (base + 0.05) * (1.0 - d) * toward * 0.35;
+  col += fogColorSun * (base + 0.05) * (1.0 - d) * toward * 0.14;
   // fire glow from below (burning columns): stronger in the dense, unlit core
   col += vec3(1.5, 0.58, 0.2) * vC.a * (1.0 - up) * (1.0 - up) * (0.4 + 0.6 * d);
   col *= 1.0 - 0.4 * uDim;

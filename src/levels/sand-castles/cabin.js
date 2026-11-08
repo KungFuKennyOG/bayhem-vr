@@ -84,7 +84,7 @@ function lineMat() {
         // fill dims away from the door; the red cabin light spills a little
         float near = 1.0 - smoothstep(0.2, 2.3, vObj.x - ${DOOR.x.toFixed(2)});
         float into = 1.0 - smoothstep(0.3, 1.6, max(${DOOR.z0.toFixed(2)} - vObj.z, vObj.z - ${DOOR.z1.toFixed(2)}));
-        float fill = 0.32 + 0.68 * near * mix(0.55, 1.0, into);
+        float fill = 0.45 + 0.55 * near * mix(0.55, 1.0, into); // never a black hole when you turn round into the cabin
         float cao = smoothstep(0.0, 0.35, vObj.y) * smoothstep(0.0, 0.3, 2.28 - vObj.y) * smoothstep(0.0, 0.3, 1.25 - vObj.x) * smoothstep(0.0, 0.3, 1.95 - vObj.z);
         fill *= 0.55 + 0.45 * cao; reflectedLight.directDiffuse *= 0.7 + 0.3 * cao;
         reflectedLight.indirectDiffuse *= fill; reflectedLight.indirectSpecular *= fill;
