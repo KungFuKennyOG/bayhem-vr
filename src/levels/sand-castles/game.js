@@ -479,7 +479,7 @@ export class SandGame {
       }
       g.hit *= Math.exp(-dt * 6);
       m.setDamage?.(clamp(1 - g.hp / g.maxHp, 0, 0.85));
-      if (g.hp < g.maxHp * 0.5) this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v), 2.2, (q) => this.fx.smoke(q, 1.6, 0.18, 3, 1.5, 0.6), 0);
+      if (g.hp < g.maxHp * 0.5) this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v), 0.7, (q) => this.fx.smoke(q, 2.4, 0.18, 3, 1.5, 0.45), 0); // tight spacing: no string of pearls behind a fast gunship
     } else if (g.phase === 'dying') {
       // spins down into the crash tower (setpieces sets g.crashAt)
       const T = g.crashAt || g.pos.clone().setY(0);
@@ -489,7 +489,7 @@ export class SandGame {
       g.pos.addScaledVector(g.vel, dt);
       g.spin = Math.min(5, g.spin + dt * 2.2); g.yaw += g.spin * dt;
       m.root.position.copy(g.pos); m.root.rotation.set(0.25, g.yaw, 0.35 * Math.sin(g.t * 3), 'YXZ');
-      this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v2), 1.6, (q) => { this.fx.smoke(q, 2.2, 0.1, 4, 1, 0.8); this.fx.flame(q, 1.2); }, 0);
+      this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v2), 0.8, (q) => { this.fx.smoke(q, 2.2, 0.1, 4, 1, 0.8); this.fx.flame(q, 1.2); }, 0);
       this.audio.setLoop('heli:enemy', { x: g.pos.x, y: g.pos.y, z: g.pos.z, volume: 0.9, intensity: 1 });
       if (dist < 8 || g.t > 9) {
         g.phase = 'gone'; m.root.visible = false;
