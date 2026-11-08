@@ -6,9 +6,10 @@ import { MidRig } from './midrig.js';
 import { HeroTower } from './hero.js';
 import { HorizonWallC, Haboob, SandStreaks } from './storm.js';
 import { Strikes } from './strikes.js';
-import { HERO } from './layout.js';
+import { HERO, GRID, isWater } from './layout.js';
 import { glowTexture } from '../../textures.js';
 import { FAC } from './facade.js';
+import { installSmoke } from './smoke.js';
 import { TOD } from './sky.js';
 
 // =====================================================================================
@@ -20,21 +21,15 @@ import { TOD } from './sky.js';
 //   - the designator strikes.
 // =====================================================================================
 
-const _v = new THREE.Vector3();
+const _v = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
 export class SetPieces {
   constructor(game, W, F, player) {
     this.g = game; this.W = W; this.F = F;
     const scene = game.scene;
     this.dust = new OverDust(scene, scene.fog, { dust: F.dust, occl: F.occl, fill: F.fill, isQuest: F.isQuest });
-    // no cotton balls: erode every puff's edge with noise (wisps instead of a clean round outline) and shade
-    // the puffs flatter so neighbours merge into one mass instead of reading as stacked spheres
-    { const m = this.dust.clouds.mesh.material;
-      m.fragmentShader = m.fragmentShader
-        .replace('void main(){', 'float sdN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5); float b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(127.1, 311.7))) * 43758.5); float c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(127.1, 311.7))) * 43758.5); float d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(127.1, 311.7))) * 43758.5); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }\nvoid main(){')
-        .replace('if (al < 0.003) discard;', 'vec2 eq = vUv * 4.0 + vCS * 9.0; float en = sdN(eq) * 0.5 + sdN(eq * 2.7 + 4.0) * 0.32 + sdN(eq * 6.1 + 9.0) * 0.18;\n  al *= smoothstep(0.04, 0.6, t.a * 1.3 - (en - 0.42) * 1.05);\n  if (al < 0.003) discard;')
-        .replace('vec3 Ns = vec3(vQ * 0.9, sqrt(max(0.05, 1.0 - dot(vQ, vQ) * 0.81)));', 'vec3 Ns = vec3(vQ * 0.55, sqrt(max(0.05, 1.0 - dot(vQ, vQ) * 0.3)));');
-      m.needsUpdate = true; }
+    // no cotton balls: every puff is a self-shadowed noise volume (smoke.js); &smoke=atlas keeps the old atlas puffs
+    this.smokeT = F.smoke !== 'atlas' ? installSmoke(this.dust.clouds.mesh.material) : null;
     // smoke here is soot, not dust: dark plumes start bigger (no small black spots inside the tan ones) and age to a
     // grey-brown so a column reads as one dark core thinning out, not a leopard print
     { const D = this.dust, base = D.plume.bind(D);
@@ -76,6 +71,19 @@ export class SetPieces {
     // the city fights back far away: tracer fire arcing up from a few distant roofs
     this.flakRoofs = W.plan.towers.filter(t => t.role === 'static' && t.h > 120).filter((t, i) => i % 31 === 7).slice(0, 8).map(t => ({ t, burst: 0, wait: range(0, 4) }));
     this.ambT = 2; this.war = 1;
+    // burnt-out and burning wrecks on the streets (one instanced draw): the city's been fought over all day
+    { const n = 46, geo = new THREE.BoxGeometry(4.6, 1.45, 2.0); geo.translate(0, 0.72, 0);
+      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0x17140f, roughness: 0.95 }), n);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(); this.wrecks = [];
+      for (let i = 0, tries = 0; i < n && tries < 2000; tries++) {
+        const alongX = rand() < 0.5, k = Math.floor(range(0, 40)), t = range(GRID.x0, GRID.x1);
+        const x = alongX ? t : GRID.x0 + k * GRID.pitch + range(-6, 6), z = alongX ? GRID.z0 + k * GRID.pitch + range(-6, 6) : range(GRID.z0, GRID.z1);
+        if (z > GRID.z1 || x > GRID.x1 || isWater(x, z) || Math.hypot(x - HERO.x, z - HERO.z) < 120) continue;
+        q.setFromAxisAngle(_up, (alongX ? 0 : Math.PI / 2) + range(-0.5, 0.5));
+        m4.compose(new THREE.Vector3(x, 0, z), q, new THREE.Vector3(1, 1, 1)); mesh.setMatrixAt(i, m4);
+        this.wrecks.push({ x, z, burning: i % 3 === 0 }); i++;
+      }
+      mesh.count = this.wrecks.length; scene.add(mesh); this.wreckMesh = mesh; }
   }
   tower(id) { return this.byId[id]; }
   // the direction a tower falls: across the view from the heli, a little away from it
@@ -127,6 +135,7 @@ export class SetPieces {
     }
     this.columns = this.columns.filter(c => c.t < c.life);
     this._ambient(dt, eye);
+    if (this.smokeT) this.smokeT.value += dt;
     this.dust.update(dt, eye, g.camera);
     this.streaks.update(rdt, eye, this.storm);
   }
@@ -155,6 +164,8 @@ export class SetPieces {
       const to = mz.clone().addScaledVector(f.dir, 900).add(new THREE.Vector3(range(-30, 30), 0, range(-30, 30)));
       g.fx.tracer(mz, to, { speed: 380, width: 1.1, len: 45, color: [2.2, 0.6, 0.18] });
     }
+    // the burning wrecks: low flames and a thin smoke trail from the near ones
+    for (const w of this.wrecks) if (w.burning) { const d = Math.hypot(w.x - eye.x, w.z - eye.z); if (d < 1300 && rand() < dt * 2.5) { g.fx.flame(_v.set(w.x + range(-1.5, 1.5), 1.2, w.z + range(-1, 1)), 2.2 + d * 0.002); if (rand() < 0.5) g.fx.smoke(_v.set(w.x, 3, w.z), 3 + d * 0.004, 0.12, 5, 3, 0.6); } }
     for (const t of this.roofFires) if (rand() < dt * 3 && Math.hypot(t.x - eye.x, t.z - eye.z) < 1400) g.fx.flame(new THREE.Vector3(t.x + range(-8, 8), t.h + 2, t.z + range(-8, 8)), 6);
   }
   get falls() { return this.mids.falling() + (this.hero.S && !this.hero.done() ? 1 : 0); }

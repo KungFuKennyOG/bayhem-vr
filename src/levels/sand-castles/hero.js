@@ -29,7 +29,7 @@ export class HeroTower {
     const B = Math.round(HERO.h / HERO.band);
     this.B = B;
     // four setbacks up to the needle (a stepped silhouette, not one fat stack)
-    const widthAt = (b) => (b < 9 ? HERO.w0 : b < 17 ? lerp(HERO.w0, HERO.w1, 0.5) : b < 25 ? HERO.w1 : HERO.w1 * 0.74);
+    const widthAt = (b) => { const t = Math.floor(b / 4) * 4 / B; return HERO.w0 * (1 - 0.8 * Math.pow(t, 0.85)); }; // a setback every 4 bands: a long, stepped taper up to the needle
     this.widthAt = widthAt;
     // chunk list: band b, local centre (relative to node b at the band floor), half extents, colour
     const C = [];

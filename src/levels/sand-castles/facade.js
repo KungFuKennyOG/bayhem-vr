@@ -89,6 +89,11 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     float fine = clamp(1.0 - max(wU, wV) * 2.6, 0.0, 1.0);           // 1 = cells resolved, 0 = sub-pixel
     float pane = 0.1 * fh2(vec2(bi + seed * 91.0, fl * 1.7 + seed * 13.0)) + 0.9 * fvn(vec2(u * 0.035, v * 0.02) + seed * 9.0);
     vec3 gt = glassTint(st) * (0.75 + 0.5 * seed) * mix(vec3(1.0), vec3(1.08, 0.98, 0.9), fh1(seed * 77.0));
+    // palette: a quarter less saturated, and a per-tower family (cool / bronze / smoked / neutral) so a row of
+    // towers isn't three colours repeated
+    { float fam = fh1(seed * 31.0 + 5.0);
+      gt = mix(gt, vec3(dot(gt, vec3(0.33))), 0.25);
+      gt *= fam < 0.25 ? vec3(0.9, 1.0, 1.12) : fam < 0.5 ? vec3(1.12, 1.0, 0.85) : fam < 0.75 ? vec3(0.78) : vec3(1.0); }
     // spandrel band (floor slab) and mullion lines
     float span = st == 1.0 || st == 6.0 ? 0.1 : st == 4.0 ? 0.42 : st == 2.0 ? 0.16 : 0.24;
     float spand = smoothstep(span + wV, span - wV, fy);

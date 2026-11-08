@@ -105,6 +105,12 @@ Gr ground(vec3 wp){
   // blown sand: drifts across lots and kerbs, thicker toward the desert edge of each block
   float drift = smoothstep(0.5, 0.82, fvn(wp.xz * 0.018 + 5.0) * 0.7 + fvn(wp.xz * 0.11) * 0.3);
   lc = mix(lc, sand * 0.92, drift * 0.55 * urban);
+  // the war on the streets: scorch marks (burnt-out wrecks, blast craters) scattered across the city
+  { vec2 sc = floor(wp.xz / 64.0); float shh = fract(sin(dot(sc, vec2(41.3, 289.1))) * 43758.5);
+    if (shh > 0.8) { vec2 cc = (sc + 0.5 + (vec2(fract(shh * 13.1), fract(shh * 7.7)) - 0.5) * 0.6) * 64.0;
+      float rr = length(wp.xz - cc) / (7.0 + 11.0 * fract(shh * 3.3));
+      float sco = (1.0 - smoothstep(0.25, 1.0, rr + (fvn(wp.xz * 0.15) - 0.5) * 0.5)) * urban;
+      lc *= 1.0 - 0.78 * sco; } }
   rough = mix(rough, 0.85, urban);
   // roads: asphalt, kerbs, a dashed centre line
   vec3 asph = vec3(0.13, 0.13, 0.135) * (0.8 + 0.25 * fvn(wp.xz * 0.15) + 0.2 * fvn(wp.xz * 0.012));
