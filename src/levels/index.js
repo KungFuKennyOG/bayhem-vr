@@ -26,22 +26,22 @@ const ALL = [
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. In the jeep: just shoot. When it says JUMP: grip / A (VR) or Space.',
   },
   {
-    id: 'iron-lady', game: 2, num: '01', title: 'THE IRON LADY', tagline: 'PARIS AFTER RAIN. 7,300 TONNES OF STEEL.',
+    id: 'iron-lady', game: 2, num: '01', code: 'PAR', loc: 'PARIS', time: '21:00', title: 'THE IRON LADY', tagline: 'PARIS AFTER RAIN. 7,300 TONNES OF STEEL.',
     blurb: 'Fight down the Seine quays at night, cross the bridge, bring down a gunship among the lattice — then watch her fall.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. At the end, run onto the boat.',
   },
   {
-    id: 'tokyo-scramble', game: 2, num: '02', title: 'TOKYO SCRAMBLE', tagline: 'HARD SUN. ONE CROSSING. ONE GAS MAIN.',
+    id: 'tokyo-scramble', game: 2, num: '02', code: 'TYO', loc: 'KUROGANE, TOKYO', time: '15:40', title: 'TOKYO SCRAMBLE', tagline: 'HARD SUN. ONE CROSSING. ONE GAS MAIN.',
     blurb: 'Down into the scramble crossing under the giant screens, up through the station decks onto the expressway — then run from the street itself.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Watch the billboard catwalks for red dots — and look up at the decks.',
   },
   {
-    id: 'whiteout', game: 2, num: '03', title: 'WHITEOUT', tagline: 'ONE STORM. ONE CABLE CAR. ONE VERY BIG MOUNTAIN.',
+    id: 'whiteout', game: 2, num: '03', code: 'GRH', loc: 'GRAUHORN, ALPS', time: '3 412 M', title: 'WHITEOUT', tagline: 'ONE STORM. ONE CABLE CAR. ONE VERY BIG MOUNTAIN.',
     blurb: 'Fight up the switchbacks in a blizzard, ride the cable car across the gorge, take the summit station — then the storm breaks.',
     help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. In the cable car: just shoot. Look up the slope — they shoot down from the road above.',
   },
   {
-    id: 'sand-castles', game: 2, num: '04', title: 'SAND CASTLES', tagline: 'SUPERTALLS. SANDSTORM. ONE DOOR GUN.',
+    id: 'sand-castles', game: 2, num: '04', code: 'SRB', loc: 'AL-SARAB, GULF', time: '16:50', title: 'SAND CASTLES', tagline: 'SUPERTALLS. SANDSTORM. ONE DOOR GUN.',
     blurb: 'Door gunner over Al-Sarab: rooftop fights, a gunship duel inside a haboob, a laser designator — and the tallest tower in the Gulf.',
     help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: grenade launcher, and later the laser designator (hold on a target).',
   },
@@ -51,6 +51,17 @@ const ALL = [
     help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',
   },
 ];
+
+// announced but not built yet: shown in their game's menu as a locked card (and on BAYHEM 2's route line), never
+// loadable and never offered as the next level. When a level gets built, move it into ALL with the same fields.
+export const SOON = [
+  {
+    id: 'chongqing', game: 2, num: '05', code: 'CKG', loc: 'CHONGQING', time: 'DUSK \u2192 NIGHT', title: 'CHONGQING', final: true,
+    tagline: 'THE LAST JUMP.',
+    blurb: 'A city stacked on cliffs over a fogged gorge. Fight up and down through it as the lights go out \u2014 then the only way out is down.',
+  },
+];
+export const soonOf = (game) => SOON.filter(l => l.game === game);
 
 // the menu and the level order (both games, in play order)
 export const LEVELS = ALL.filter(l => !l.hidden);

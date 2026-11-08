@@ -10,7 +10,7 @@ import { SoundBus } from './soundbus.js';
 import { attachVoice } from './vo.js';
 import { seed } from './rng.js';
 import { settings, setSetting } from './settings.js';
-import { LEVELS, levelsOf, levelById, findLevel, loadLevel, nextLevel } from './levels/index.js';
+import { LEVELS, levelsOf, soonOf, levelById, findLevel, loadLevel, nextLevel } from './levels/index.js';
 import { PAGE_GAME, GAMES, gameUrl } from './game.js';
 
 // =====================================================================================
@@ -171,8 +171,9 @@ async function boot() {
 
 // ---------------- menus ----------------
 const MENU_CSS = `
-  #bay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  #bay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:16px;
     background:radial-gradient(ellipse at 50% 70%, rgba(255,120,30,0.16), rgba(10,4,2,0.82) 72%);z-index:10;text-align:center;padding:16px;overflow:auto}
+  #bay > :first-child{margin-top:auto} #bay > :last-child{margin-bottom:auto}
   #bay h1{font:400 clamp(60px,12vw,170px)/0.9 Anton,Impact,sans-serif;margin:0;letter-spacing:0.02em;
     background:linear-gradient(#fff 0%,#ffe2b4 42%,#6a4a2c 50%,#ffc46b 58%,#fff2d6 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
     filter:drop-shadow(0 0 24px rgba(255,110,10,0.7)) drop-shadow(0 4px 0 #1a0d04)}
@@ -192,25 +193,74 @@ const MENU_CSS = `
   #bay button.alt{background:rgba(20,10,4,0.6)}
   #bay button.opt{all:unset;cursor:pointer;font:700 14px Oswald,sans-serif;letter-spacing:0.18em;color:#d9b99a;padding:8px 16px;border-radius:4px;border:1px solid rgba(255,179,90,0.3);background:rgba(20,10,4,0.5)}
   #bay button.opt.on{color:#ffd9a8;border-color:rgba(255,179,90,0.7)}
-  #bay .two{font:400 1.05em/0.9 Anton,Impact,sans-serif;margin-left:0.06em;
-    background:linear-gradient(#fff6e8 0%,#ff9a4a 40%,#5a1206 50%,#ff3c12 60%,#ffd2a0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
-  #bay .sub{font:700 clamp(13px,1.6vw,18px) Oswald,sans-serif;letter-spacing:0.5em;color:#ffb35a;margin:-6px 0 4px;padding-left:0.5em}
-  #bay.g2{background:radial-gradient(ellipse at 50% 70%, rgba(255,70,20,0.18), rgba(10,3,2,0.84) 72%)}
-  #bay .lv .n .of{color:#8a6a4c;letter-spacing:0.14em}
   #bay a.xg{font:700 14px Oswald,sans-serif;letter-spacing:0.22em;color:#ffd9a8;text-decoration:none;padding:8px 16px;border-radius:4px;border:1px solid rgba(255,179,90,0.45);background:rgba(20,10,4,0.5)}
   #bay a.xg:hover{border-color:#ffb35a;color:#fff3df}
   #bay small{font:500 13px Oswald,sans-serif;color:#d9b99a;letter-spacing:0.08em;max-width:620px;line-height:1.6}`;
+
+// BAYHEM 2: night-blue steel instead of sunset brass, a molten 2, mission-dossier cards, the route across the top
+const MENU_CSS_G2 = `
+  #bay.g2{background:
+      linear-gradient(rgba(120,180,255,0.05) 1px, transparent 1px) 0 0/100% 48px,
+      linear-gradient(90deg, rgba(120,180,255,0.05) 1px, transparent 1px) 0 0/48px 100%,
+      radial-gradient(ellipse at 50% 35%, rgba(40,90,160,0.30), rgba(3,7,14,0.90) 70%);gap:14px}
+  #bay.g2 h1{letter-spacing:0.05em;font-size:clamp(56px,10vw,140px);padding-top:0.08em;
+    background:linear-gradient(#ffffff 0%,#dfeaf7 38%,#3b4d63 50%,#9fb6cf 56%,#eef5ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 22px rgba(90,160,255,0.45)) drop-shadow(0 4px 0 #04080f)}
+  #bay.g2 h1 .two{display:inline-block;margin:-0.08em -0.06em 0 0.02em;padding:0.08em 0.16em 0.02em 0.08em;font-style:italic;transform:skewX(-6deg) scale(1.08);transform-origin:50% 90%;
+    background:linear-gradient(#fff4d6 0%,#ffb14a 30%,#ff5a14 55%,#9e1606 78%,#ff7a2a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 18px rgba(255,90,20,0.85)) drop-shadow(0 0 46px rgba(255,60,10,0.45))}
+  #bay.g2 .sub{display:flex;align-items:center;gap:18px;font:700 clamp(12px,1.5vw,17px) Oswald,sans-serif;letter-spacing:0.55em;color:#cfe0f4;margin:-4px 0 0;padding-left:0.55em}
+  #bay.g2 .sub::before,#bay.g2 .sub::after{content:'';width:clamp(30px,8vw,110px);height:1px;background:linear-gradient(90deg,transparent,#7fa6cf)}
+  #bay.g2 .sub::after{background:linear-gradient(90deg,#7fa6cf,transparent)}
+  #bay.g2 .route{display:flex;align-items:center;gap:0;font:700 12px Oswald,sans-serif;letter-spacing:0.24em;color:#8fb0d4;margin:2px 0 6px;flex-wrap:wrap;justify-content:center}
+  #bay.g2 .route .stop{display:flex;align-items:center;gap:8px;padding:0 4px}
+  #bay.g2 .route .stop i{width:9px;height:9px;border-radius:50%;border:2px solid #7fa6cf;box-sizing:border-box}
+  #bay.g2 .route .stop.sel{color:#ffb35a}
+  #bay.g2 .route .stop.sel i{border-color:#ff7a2a;background:#ff7a2a;box-shadow:0 0 10px #ff6a1a}
+  #bay.g2 .route .leg{width:clamp(18px,5vw,64px);height:0;border-top:2px dashed rgba(127,166,207,0.55);margin:0 6px}
+  #bay.g2 .lv{padding:12px 18px;border:1px solid rgba(140,180,225,0.30);border-left:4px solid rgba(140,180,225,0.35);border-radius:0;
+    clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%);
+    background:linear-gradient(160deg,rgba(18,30,48,0.86),rgba(6,10,18,0.86))}
+  #bay.g2 .lv:hover{border-color:rgba(170,205,245,0.75)}
+  #bay.g2 .lv.sel{border-color:rgba(170,205,245,0.6);border-left-color:#ff7a2a;box-shadow:inset 0 0 50px rgba(80,140,220,0.12)}
+  #bay.g2 .lv .dz{display:flex;justify-content:space-between;gap:10px;font:700 11px Oswald,sans-serif;letter-spacing:0.22em;color:#7f9cbc;
+    border-bottom:1px solid rgba(140,180,225,0.18);padding-bottom:6px;margin-bottom:6px}
+  #bay.g2 .lv .dz b{color:#cfe0f4;font-weight:700}
+  #bay.g2 .lv.sel .dz b{color:#ffb35a}
+  #bay.g2 .lv .n{color:#8fb0d4}
+  #bay.g2 .lv.sel .n{color:#ff8a2a}
+  #bay.g2 .lv .t{color:#f2f7ff}
+  #bay.g2 .lv .g{color:#b9cde4}
+  #bay.g2 .lv .b{color:#93a8c0}
+  #bay .lv.soon{cursor:default;position:relative;overflow:hidden}
+  #bay .lv.soon:hover{transform:none}
+  #bay.g2 .lv.soon{border-style:dashed;border-left-style:solid;border-left-color:rgba(140,180,225,0.2);
+    background:repeating-linear-gradient(135deg,rgba(14,22,36,0.88) 0 14px,rgba(10,16,26,0.88) 14px 28px)}
+  #bay.g2 .lv.soon .t{color:#9fb2c8}
+  #bay.g2 .lv.soon .b,#bay.g2 .lv.soon .g,#bay.g2 .lv.soon .dz{opacity:0.75}
+  #bay .lv.soon .stamp{position:absolute;right:16px;top:44px;transform:rotate(-10deg);
+    font:400 26px Anton,Impact,sans-serif;letter-spacing:0.12em;color:rgba(255,122,42,0.9);border:3px solid rgba(255,122,42,0.8);padding:2px 12px;
+    box-shadow:0 0 18px rgba(255,90,20,0.25);pointer-events:none}
+  #bay.g2 .route .stop.soon{color:#5f7894}
+  #bay.g2 .route .stop.soon i{border-style:dashed;border-color:#5f7894}
+  #bay.g2 button.alt{background:rgba(8,14,24,0.7);border-color:#7fa6cf;box-shadow:0 0 18px rgba(80,140,220,0.25)}
+  #bay.g2 button.opt,#bay.g2 a.xg{color:#b9cde4;border-color:rgba(140,180,225,0.4);background:rgba(8,14,24,0.6)}
+  #bay.g2 button.opt.on{color:#e6f0fc;border-color:rgba(170,205,245,0.75)}
+  #bay.g2 small{color:#93a8c0}`;
 
 function buildStartScreen() {
   const d = document.createElement('div');
   const lv = levelById(LEVEL_ID), G = GAMES[GAME], other = GAME === 2 ? 1 : 2;
   const list = levelsOf(GAME);
   if (lv.hidden) list.push(lv); // a URL-only prototype still shows as the selected card
-  d.innerHTML = `<style>${MENU_CSS}</style>
+  const soon = soonOf(GAME);
+  const route = [...list, ...soon].filter(l => l.code && !l.hidden);
+  d.innerHTML = `<style>${MENU_CSS}${GAME === 2 ? MENU_CSS_G2 : ''}</style>
   <div id="bay" class="g${GAME}">
     <h1>${G.title}${G.two ? `<span class="two">${G.two}</span>` : ''}</h1>
     ${G.sub ? `<div class="sub">${G.sub}</div>` : ''}
-    <div class="levels">${list.map(l => `<button class="lv${l.id === lv.id ? ' sel' : ''}" data-id="${l.id}"><div class="n">LEVEL ${l.num}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div></button>`).join('')}</div>
+    ${route.length ? `<div class="route">${route.map((l, i) => `${i ? '<span class="leg"></span>' : ''}<span class="stop${l.id === lv.id ? ' sel' : ''}${l.final ? ' soon' : ''}"><i></i>${l.code}</span>`).join('')}</div>` : ''}
+    <div class="levels">${list.map(l => `<button class="lv${l.id === lv.id ? ' sel' : ''}" data-id="${l.id}">${l.loc ? `<div class="dz"><b>${l.loc}</b><span>${l.time}</span></div>` : ''}<div class="n">LEVEL ${l.num}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div></button>`).join('')}${soon.map(l => `<div class="lv soon">${l.loc ? `<div class="dz"><b>${l.loc}</b><span>${l.time}</span></div>` : ''}<div class="n">LEVEL ${l.num}${l.final ? ' \u00b7 FINAL' : ''}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div><div class="stamp">COMING SOON</div></div>`).join('')}</div>
     <div class="row"><button id="vr" class="go" disabled>LOADING…</button><button id="play" class="go alt" disabled>LOADING…</button></div>
     <div class="row"><button id="comfort" class="opt"></button><a class="xg" href="${gameUrl(other, null, false)}">${other === 2 ? 'BAYHEM 2: ABROAD →' : '← BAYHEM: HAVEN CITY'}</a></div>
     <small>${lv.help}<br>VR: right trigger = rifle, left trigger = grenade launcher, A/X = reload, click the right stick = comfort vignette on/off.<br>Desktop: mouse to aim, left click = rifle, right click = launcher, R = reload.</small>
