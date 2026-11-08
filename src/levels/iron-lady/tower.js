@@ -512,7 +512,7 @@ export async function buildTower(ctx = {}) {
   // ---------------- lights: sparkle, aviation, beacon ----------------
   const atlas = ctx.atlas || buildAtlas(ctx.renderer);
   const fog = ctx.scene?.fog || { color: new THREE.Color(0.2, 0.17, 0.3), near: 60, far: 1400 };
-  const glow = new BillboardBatch(900, atlas, { boost: 1, renderOrder: 19, fog });
+  const glow = new BillboardBatch(900, atlas, { boost: 1, renderOrder: 19, fog, ground: -20 });
   glow.mesh.name = 'towerGlows';
   // sparkle points: random spots along random girders
   const sparkle = [];
