@@ -113,16 +113,19 @@ export function buildXway(ctx = {}) {
     const n = Math.ceil((Y - yb) / 0.18), run = (E.x1 - E.x0) / n;
     for (let i = 0; i < n; i++) {
       const xa = E.x0 + i * run, xb = xa + run, yt = yAt(xb) - 0.01;
-      A.set({ col: hex(i % 2 ? 0x6a756e : 0x66716a), rm: [0.55, 0.5, 0] }); A.box(xa, yt - 0.06, E.z0 + 0.1, xb, yt, E.z1 - 0.1, { faces: 'Y' });
-      A.set({ col: dark, rm: [0.6, 0.5, 0] }); A.box(xa, yAt(xa) - 0.2, E.z0 + 0.1, xb, yt - 0.06, E.z1 - 0.1, { faces: 'xy' });
-      A.set({ col: hex(0xd8b21a), rm: [0.6, 0.2, 0] }); A.box(xb - 0.05, yt, E.z0 + 0.3, xb, yt + 0.004, E.z1 - 0.3, { faces: 'Y' });
+      // (the stair falls toward -x: each tread's front edge, the one you step off going down, is xa)
+      A.set({ col: hex(i % 2 ? 0x6e7972 : 0x5c665f), rm: [0.55, 0.5, 0] }); A.box(xa, yt - 0.06, E.z0 + 0.1, xb, yt, E.z1 - 0.1, { faces: 'YzZ' });
+      A.set({ col: hex(0x262e2a), rm: [0.6, 0.5, 0] }); A.box(xa, yAt(xa) - 0.2, E.z0 + 0.1, xb, yt - 0.06, E.z1 - 0.1, { faces: 'xyzZ' });
+      A.set({ col: hex(0xc8a218), rm: [0.6, 0.2, 0] }); A.box(xa, yt, E.z0 + 0.15, xa + 0.035, yt + 0.004, E.z1 - 0.15, { faces: 'Y' });
+      A.set({ col: hex(0x1c2220), rm: [0.7, 0.3, 0] }); A.box(xb - 0.06, yt, E.z0 + 0.1, xb, yt + 0.003, E.z1 - 0.1, { faces: 'Y' });   // the shadow line at the back of each step
     }
     // stringers (deep steel channels), handrails, posts every 3 m down onto the off-ramp
     for (const z of [E.z0, E.z1]) {
       const zi = z === E.z0 ? z + 0.1 : z - 0.1, so = z === E.z0 ? -1 : 1;
       A.set({ col: steel, rm: [0.5, 0.6, 0] });
-      A.quad([E.x0, yb - 0.35, z], [E.x1, Y - 0.35, z], [E.x1, Y + 0.15, z], [E.x0, yb + 0.15, z]);
-      A.quad([E.x1, Y - 0.35, z], [E.x0, yb - 0.35, z], [E.x0, yb + 0.15, z], [E.x1, Y + 0.15, z]);
+      // a low channel stringer: the sawtooth of the steps stands up above it, so it reads as a stair from the side
+      A.quad([E.x0, yb - 0.4, z], [E.x1, Y - 0.4, z], [E.x1, Y - 0.04, z], [E.x0, yb - 0.04, z]);
+      A.quad([E.x1, Y - 0.4, z], [E.x0, yb - 0.4, z], [E.x0, yb - 0.04, z], [E.x1, Y - 0.04, z]);
       A.tube([E.x0, yb + 1.0, zi], [E.x1, Y + 1.0, zi], 0.035, 6);
       A.tube([E.x0, yb + 0.55, zi], [E.x1, Y + 0.55, zi], 0.025, 5);
       for (let x = E.x0 + 0.2; x < E.x1; x += 1.5) A.box(x - 0.03, yAt(x), zi - 0.03, x + 0.03, yAt(x) + 1.0, zi + 0.03, { faces: 'xXzZ' });
@@ -140,9 +143,16 @@ export function buildXway(ctx = {}) {
     sg.lineWidth = 12; sg.strokeStyle = '#1f8a4a'; sg.lineCap = 'round';
     sg.beginPath(); sg.moveTo(60, 46); sg.lineTo(50, 78); sg.lineTo(30, 100); sg.moveTo(50, 78); sg.lineTo(72, 92); sg.lineTo(80, 112); sg.moveTo(58, 52); sg.lineTo(86, 64); sg.moveTo(58, 52); sg.lineTo(36, 62); sg.stroke();
     sg.fillStyle = '#fff'; sg.font = '900 40px "Noto Sans CJK JP","Noto Sans JP",sans-serif'; sg.textAlign = 'center'; sg.textBaseline = 'middle'; sg.fillText('非常口', 188, 52); sg.font = '400 18px Anton, sans-serif'; sg.fillText('EMERGENCY EXIT', 188, 96);
-    const sm = new THREE.MeshStandardMaterial({ map: canvasTex(sc, { repeat: false }), emissive: 0xffffff, emissiveMap: canvasTex(sc, { repeat: false }), emissiveIntensity: 0.6, roughness: 0.5 });
-    for (const [x, ry] of [[T.x0 - 0.6, 0], [T.x0 - 0.6, Math.PI]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), sm); m.position.set(x, Y + 1.75, -140.4 + (ry ? -0.03 : 0.03)); m.rotation.y = ry; root.add(m); }
-    A.set({ col: dark, rm: [0.5, 0.6, 0] }); A.box(T.x0 - 0.65, Y + XWAY.barrier, -140.45, T.x0 - 0.55, Y + 2.1, -140.35);
+    const sm = new THREE.MeshStandardMaterial({ map: canvasTex(sc, { repeat: false }), emissive: 0xffffff, emissiveMap: canvasTex(sc, { repeat: false }), emissiveIntensity: 1.1, roughness: 0.5 });
+    for (const [x, ry] of [[T.x0 - 1.0, 0], [T.x0 - 1.0, Math.PI]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.95), sm); m.position.set(x, Y + 2.05, -140.4 + (ry ? -0.03 : 0.03)); m.rotation.y = ry; root.add(m); }
+    A.set({ col: dark, rm: [0.5, 0.6, 0] }); A.box(T.x0 - 1.05, Y + XWAY.barrier, -140.45, T.x0 - 0.95, Y + 2.55, -140.35);
+    // green chevrons painted across the carriageway, pointing at the gap
+    A.set({ col: hex(0x2fa85a), rm: [0.7, 0, 0.15] });
+    for (let k = 0; k < 3; k++) {
+      const zc = -147 + k * 1.9, cx = (T.x0 + T.x1) / 2, w = 1.3, d = 0.7, t = 0.32, y = Y + 0.012;
+      A.quad([cx, y, zc + d], [cx + 0.0, y, zc + d - t * 0.4], [cx - w + t, y, zc - 0.05], [cx - w, y, zc]);   // (wound to face up)
+      A.quad([cx + w, y, zc], [cx + w - t, y, zc - 0.05], [cx, y, zc + d - t * 0.4], [cx, y, zc + d]);
+    }
     root.add(A.mesh(rmMat({}), { shadow: true }));
   }
   // ---- sound walls on the north side: translucent grey-green acrylic panels on H-posts above the parapet

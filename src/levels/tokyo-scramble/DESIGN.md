@@ -32,12 +32,15 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
 6. **xway** — west through the jam (both carriageways), a sniper on a roof north of the road.
 7. **tanker** — shoot the tanker (it leaks, catches, blows). VR rule: if you don't, it goes once you're looking at it
    (or after 22 s). The fireball climbs and leans north (the follow-up blasts go off higher, the shared fireball
-   smoke is thinned to 40 % and replaced by a column that rises off fast) so the deck stays in view. Its east pier
+   smoke is thinned to 15 % and replaced by a column that rises off fast; no enemy grenades for 9 s) so the deck
+   stays in view. Its east pier
    topples over sideways and slams down in the street (dust, chunks); the span **sags** on its torn west hinge for
    1.2 s (jolts, sparks, concrete raining off, groaning), then lets go and hinges down into the cross street
-   (slow-mo), still burning. Objective only after the money shot.
+   (slow-mo), still burning; a beige concrete-dust surge boils up where it lands. Objective only after the money shot.
 8. **offramp** — down the **emergency stair** (the yellow-nosed steel stair with the green 非常口 sign, right behind
-   you at x 39.6–42.8 on the south parapet, landing → flight down onto the off-ramp at x 24, y ≈ 1.8), then the last
+   you at x 39.6–42.8 on the south parapet, green chevrons painted across the carriageway point at the gap; dark
+   risers, yellow nosings and a low stringer so the sawtooth reads; landing → flight down onto the off-ramp at x 24,
+   y ≈ 1.8), then the last
    few metres of the off-ramp into the north end of Center-gai. (It used to send you 50 m back east to the gore and
    down the whole ramp, which felt like backtracking.)
 9. **center** — fight south down Center-gai (shops, bars, crates, the takoyaki stall, bikes, garbage piles).
@@ -47,7 +50,7 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
     is a big one (a bigger blast, a second one up the floors, more debris). **What it leaves stays** (`ruin.js`):
     each blown shopfront becomes a gutted, ember-lit hole, soot climbs the facade over its fascia sign, the fascia /
     shutter / awning frame and ~40 chunks of rubble fan out across the paving, two scorch marks spread over the
-    street and two heaps keep burning in it; the big ones also tear a burning hole through a floor above. Every
+    street and two heaps (on the biggest lumps) keep burning in it, a black smoke column rises off every gutted front; the big ones also tear a burning hole through a floor above. Every
     manhole leaves a burnt crater with a low fire in it. Fires keep burning in the gutted shops (only those within
     ~75 m of you spawn particles) for the rest of the level; jumping past the chain (`?beat=dive|outro`) starts with
     the street already wrecked (`SetPieces.ruinAll`).

@@ -89,7 +89,7 @@ export class SetPieces {
     T.state = 'boom';
     const P = T.center.clone();
     // less of the shared fireball smoke (the column below replaces it, higher up and leaning north)
-    const lean = (fn) => () => { const m = g.fx.smokeMul; g.fx.smokeMul = m * 0.4; fn(); g.fx.smokeMul = m; };
+    const lean = (fn) => () => { const m = g.fx.smokeMul; g.fx.smokeMul = m * 0.15; fn(); g.fx.smokeMul = m; };
     lean(() => g.boom(P, 2.6, { radius: 14, dmg: 40, shake: 1.6, lift: 1 }))();
     // the follow-ups climb (and lean away from you, north): the fireball lifts off the deck instead of
     // parking a wall of smoke over it, so you get to watch the span go
@@ -99,11 +99,12 @@ export class SetPieces {
     this.audio.play('braaam', { volume: 0.7 });
     g.slowmo(2.6, 0.3, true);
     g.callout('TANKER!', P.clone().setY(P.y + 8), 'big', '+2000');
+    g.nadeCool = Math.max(g.nadeCool || 0, 9);   // nobody lobs a grenade at you through the money shot
     g.addScore(2000, null);
     g.dusk = Math.max(g.dusk, 0.35);
     for (const m of [T.m, ...this.spanCars]) { if (m.setBurnt) m.setBurnt(); else if (Array.isArray(m.mesh?.material)) m.mesh.material = m.mesh.material.map(() => MAT.charred); else if (m.mesh) m.mesh.material = MAT.charred; }
     // the big column of black smoke (fire-lit from below)
-    for (let i = 0; i < 6; i++) g.fx.later(1.1 + i * 0.3, () => { const s0 = range(2, 3); g.clouds.spawn({ x: P.x + range(-3, 3), y: P.y + range(8, 12), z: P.z - 8 + range(-2, 2), vx: range(-1, 1), vy: range(10, 13), vz: range(-4.5, -2.5), drag: 0.3, buoy: 0.5, s0, s1: s0 * range(3.5, 4.5), life: range(8, 11), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, r: 0.07, g: 0.055, b: 0.045, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.6, glowFade: 3 }); });
+    for (let i = 0; i < 6; i++) g.fx.later(1.1 + i * 0.3, () => { const s0 = range(2, 3); g.clouds.spawn({ x: P.x + range(-3, 3), y: P.y + range(12, 16), z: P.z - 9 + range(-2, 2), vx: range(-1, 1), vy: range(10, 13), vz: range(-4.5, -2.5), drag: 0.3, buoy: 0.5, s0, s1: s0 * range(3.5, 4.5), life: range(8, 11), a: 0.85, fadeIn: 0.05, fadeOut: 0.55, r: 0.07, g: 0.055, b: 0.045, r1: 0.14, g1: 0.12, b1: 0.1, glow: 1.6, glowFade: 3 }); });
     // the east pier goes: concrete chunks, dust, it shears and drops
     g.fx.later(0.35, () => this._pierFails());
     // then the span: it sags on the torn hinge first (groaning, shedding chunks), THEN it lets go
@@ -188,7 +189,8 @@ export class SetPieces {
     g.lastExplosionT = g.time; g.lastExplosionShake = 1.3;
     g.haptic(1, 300);
     // dust + sparks + a fireball where the fuel lands, the street's glass goes
-    for (let i = 0; i < 7; i++) { const s0 = range(3, 5); g.clouds.spawn({ x: P.x + range(-12, 4), y: range(1, 3), z: -150 + range(-9, 9), vx: range(-5, 5), vy: range(0.5, 2.5), vz: range(-6, 6), drag: 0.9, buoy: 0.08, s0, s1: s0 * 2.2, life: range(4, 6), a: 0.6, fadeIn: 0.04, fadeOut: 0.55, r: 0.3, g: 0.27, b: 0.24, r1: 0.2, g1: 0.18, b1: 0.16, glow: 0.6, glowFade: 2 }); }
+    // a beige concrete-dust surge boils up out of the street under the edge (dust, not fire smoke)
+    for (let i = 0; i < 12; i++) { const s0 = range(3, 5); g.clouds.spawn({ x: P.x + range(-14, 4), y: range(1, 4), z: -150 + range(-9, 9), vx: range(-5, 5), vy: range(2, 6), vz: range(-6, 6), drag: 0.9, buoy: 0.12, s0, s1: s0 * 2.8, life: range(5, 7), a: 0.7, fadeIn: 0.04, fadeOut: 0.55, r: 0.6, g: 0.55, b: 0.46, r1: 0.48, g1: 0.44, b1: 0.38, glow: 0.3, glowFade: 2 }); }
     g.boom(P.clone(), 2.2, { radius: 12, dmg: 0, player: false });
     for (let i = 0; i < 40; i++) g.fx.sparks.spawn({ x: P.x + range(-14, 2), y: range(0.5, 4), z: -150 + range(-9, 9), vx: range(-6, 6), vy: range(2, 9), vz: range(-6, 6), grav: 9.8, drag: 0.2, frame: CELL.SPARK, s0: 1, w: 0.05, len: 0.12, life: range(0.8, 2), r: 2.8, g: 1.8, b: 0.8, a: 1, fadeOut: 0.4 });
     for (let i = 0; i < 10; i++) g.fx.spawnDebris(P.clone().add(_v.set(range(-10, 2), 1, range(-8, 8))), range(-7, 7), range(4, 10), range(-7, 7), range(0.3, 0.8), chance(0.5));

@@ -27,8 +27,8 @@ function gutTex() {
     let L = 0.05 + 0.06 * f;
     L *= 0.55 + 0.45 * Math.min(1, v * 2.2);                // the ceiling is blackest
     for (const [sx, sw, sh] of shelves) if (x > sx && x < sx + sw && y > H - sh - 10 && y < H - 10 && ((y + Math.floor(sx)) % 9 < 2 || x < sx + 2 || x > sx + sw - 2)) L *= 0.35;
-    const ember = Math.pow(Math.max(0, v - 0.62) / 0.38, 1.6) * (0.5 + 0.9 * f2);   // the floor glows
-    const lick = Math.max(0, f2 - 0.6) * 3 * Math.max(0, v - 0.25);                   // flames up the back
+    const ember = Math.pow(Math.max(0, v - 0.45) / 0.55, 1.4) * (0.5 + 0.9 * f2);   // the floor glows
+    const lick = Math.max(0, f2 - 0.52) * 3.4 * Math.max(0, v - 0.1);                 // flames up the back
     const e = Math.min(1, ember + lick * 0.6);
     const R = L + e * 1.0, G = L * 0.95 + e * 0.42, B = L * 0.9 + e * 0.1;
     const i = (y * W + x) * 4;
@@ -49,19 +49,19 @@ function sootTex() {
     let a = Math.max(0, 1 - Math.pow(r, 2.2)) * (1 - Math.pow(v, 1.3)) * (0.75 + 0.5 * f2);
     a *= Math.min(1, v * 10 + 0.4);
     const i = (y * W + x) * 4;
-    img.data[i] = 14; img.data[i + 1] = 11; img.data[i + 2] = 9; img.data[i + 3] = Math.min(255, a * 1.25 * 255);
+    img.data[i] = 14; img.data[i + 1] = 11; img.data[i + 2] = 9; img.data[i + 3] = Math.min(255, a * 1.05 * 255);
   }
   g.putImageData(img, 0, 0);
   return (_soot = canvasTex(cv, { repeat: false }));
 }
 
-const RUBBLE_COLS = [0x2a2826, 0x3a3734, 0x56524c, 0x7a766e, 0x1a1918, 0x8a8478, 0x6a3a2a, 0xb8a040, 0x9a2a20];
+const RUBBLE_COLS = [0x4a4642, 0x6a665e, 0x8a857c, 0xa09a8e, 0x2e2b28, 0xb4ad9e, 0x7a4a36, 0xc8a83a, 0x9a2a20, 0x5a5650];   // concrete, tile, a few charred, sign bits
 export function buildRuin(scene, shops) {
   const rng = makeRng(4242), R = (a, b) => a + (b - a) * rng();
   const nS = shops.length, nM = MANHOLES.length;
   const PER = 40;                                             // rubble chunks per shop (+ 3 slabs)
   const plane = new THREE.PlaneGeometry(1, 1);
-  const gutMat = new THREE.MeshBasicMaterial({ map: gutTex(), color: new THREE.Color(1.5, 1.5, 1.5) });
+  const gutMat = new THREE.MeshBasicMaterial({ map: gutTex(), color: new THREE.Color(1.9, 1.9, 1.9) });
   const sootMat = new THREE.MeshBasicMaterial({ map: sootTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const scorchMat = new THREE.MeshBasicMaterial({ map: scorchTexture(), transparent: true, depthWrite: false, opacity: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const rubMat = patchSun(new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0.05 }));
@@ -94,7 +94,7 @@ export function buildRuin(scene, shops) {
     pieces.push({ p: [fx - sd * 2.4, CURB + 0.08, S.z + R(-1.5, 1.5)], s: [1.6, 0.05, Math.min(L, 4) * 0.7], r: [R(-0.15, 0.15), R(-0.5, 0.5), R(-0.12, 0.12)] });
     pieces.push({ p: [fx - sd * 0.9, CURB + 0.9, S.z + R(-L / 3, L / 3)], s: [0.1, 0.1, Math.min(L, 4.5)], r: [R(0.2, 0.5), R(-0.3, 0.3), sd * R(0.6, 0.9)] });
     // the heaps that keep burning out in the street
-    const heaps = [0, 1].map(() => [fx - sd * R(1.8, 4.8), S.z + R(-S.len / 2, S.len / 2)]);
+    const heaps = [0, 1].map(j => [pieces[j].p[0], pieces[j].p[2]]);   // on the two biggest lumps
     return { S, sd, fx, yaw, L, pieces, heaps, k, on: false, big: false };
   });
   const manPlans = MANHOLES.map(() => ({ on: false }));
@@ -143,7 +143,8 @@ export function buildRuin(scene, shops) {
       if (P.big && rng() < dt * 0.35 * k) { const s0 = R(2, 3); g.clouds.spawn({ x: P.fx - P.sd * 1.2, y: P.hy + 1.5, z: P.hz, vx: -P.sd * R(0.3, 0.8), vy: R(2.5, 3.5), vz: R(-0.4, 0.4), drag: 0.35, buoy: 0.35, s0, s1: s0 * 4.5, life: R(7, 10), a: 0.8, fadeIn: 0.1, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: 1.0, glowFade: 2 }); }
       // flames curling out over the top of the opening, up the soot
       if (rng() < dt * 2.2 * k) g.fx.flame(_p.set(P.fx - P.sd * 0.3, CURB + R(2.6, 3.0), S.z + R(-P.L / 3, P.L / 3)), R(0.8, 1.3), _w.set(-P.sd * 0.6, 0.5, 0));
-      if (rng() < dt * 0.45 * k) { const s0 = R(1.6, 2.4); g.clouds.spawn({ x: P.fx - P.sd * 1.0, y: CURB + 3.2, z: S.z + R(-1.5, 1.5), vx: -P.sd * R(0.3, 0.8), vy: R(2.2, 3.4), vz: R(-0.4, 0.4), drag: 0.35, buoy: 0.35, s0, s1: s0 * R(3.5, 4.5), life: R(6, 9), a: 0.75, fadeIn: 0.12, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: 0.9, glowFade: 2 }); }
+      // a black column off every gutted front: on a sunny afternoon the smoke is what says "wrecked" from afar
+      if (rng() < dt * 0.8 * k) { const s0 = R(1.6, 2.4); g.clouds.spawn({ x: P.fx - P.sd * 1.0, y: CURB + 3.2, z: S.z + R(-1.5, 1.5), vx: -P.sd * R(0.3, 0.8), vy: R(3, 4.2), vz: R(-0.4, 0.4), drag: 0.3, buoy: 0.4, s0, s1: s0 * R(4.5, 5.5), life: R(6, 8), a: 0.75, fadeIn: 0.12, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.12, g1: 0.1, b1: 0.09, glow: 0.9, glowFade: 2 }); }
     }
     for (let i = 0; i < MANHOLES.length; i++) {
       const M = MANHOLES[i]; if (!manPlans[i].on || (M.jetT ?? 0) > 0.3) continue;
