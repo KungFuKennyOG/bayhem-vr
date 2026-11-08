@@ -4,7 +4,7 @@ import { makeCanvas, canvasTex } from '../../textures.js';
 import { Acc, rmMat, hex } from './kit.js';
 import { JP } from './signs.js';
 import { asphaltTex } from './street.js';
-import { XWAY, XWAY_IN, SPAN, GORE, OFFRAMP, LANE, CROSS_ST, CURB, groundAt, XWAY_BLOCK } from './layout.js';
+import { XWAY, XWAY_IN, SPAN, GORE, OFFRAMP, LANE, CROSS_ST, CURB, groundAt, XWAY_BLOCK, ESTAIR, offrampY } from './layout.js';
 
 // =====================================================================================
 //  The elevated expressway (Shuto-style): a concrete box-girder deck at y 12 on T piers every 32 m,
@@ -22,7 +22,7 @@ export function buildXway(ctx = {}) {
   const main = mkSet(), span = mkSet(), pierS = new Acc({ rm: true });
   const RS = 8;
   // ---- one stretch of deck between xa and xb (into set S, in local coords relative to `ox`)
-  const deckStretch = (S, xa, xb, ox = 0, oy = 0, gap = null) => {
+  const deckStretch = (S, xa, xb, ox = 0, oy = 0, gaps = null) => {
     const z0 = XWAY.z0, z1 = XWAY.z1, a = xa - ox, b = xb - ox;
     S.road.quad([a, Y - oy, z1], [b, Y - oy, z1], [b, Y - oy, z0], [a, Y - oy, z0], [xa / RS, -z1 / RS, xb / RS, -z0 / RS]);
     S.con.set({ col: hex(0x8a8780), rm: [0.85, 0, 0] });
@@ -33,8 +33,7 @@ export function buildXway(ctx = {}) {
     // parapets + rail
     S.con.set({ col: hex(0x7c7972), rm: [0.85, 0, 0] });
     S.con.box(a, Y - oy, z0, b, Y + XWAY.barrier - oy, XWAY_IN.z0, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 });
-    if (gap) { S.con.box(a, Y - oy, XWAY_IN.z1, gap[0] - ox, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 }); S.con.box(gap[1] - ox, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 }); }
-    else S.con.box(a, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 });
+    { let c = a; for (const [g0, g1] of [...(gaps || [])].sort((p, q) => p[0] - q[0])) { S.con.box(c, Y - oy, XWAY_IN.z1, g0 - ox, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 }); c = g1 - ox; } S.con.box(c, Y - oy, XWAY_IN.z1, b, Y + XWAY.barrier - oy, z1, { faces: 'zZYxX', bottomDark: 0.35, uvScale: 2.1 }); }
     S.con.set({ col: hex(0x58595c), rm: [0.4, 0.7, 0] });
     S.con.tube([a, Y + XWAY.barrier + 0.25 - oy, XWAY_IN.z0 - 0.3], [b, Y + XWAY.barrier + 0.25 - oy, XWAY_IN.z0 - 0.3], 0.05, 5);
     // median: a low concrete divider with orange reflectors
@@ -47,7 +46,7 @@ export function buildXway(ctx = {}) {
   };
   // the main deck, split around the collapse span
   deckStretch(main, XWAY.x0, SPAN.x0);
-  deckStretch(main, SPAN.x1, XWAY.x1, 0, 0, [OFFRAMP.x1 - 2, GORE.x1]);
+  deckStretch(main, SPAN.x1, XWAY.x1, 0, 0, [[OFFRAMP.x1 - 2, GORE.x1], [ESTAIR.top.x0, ESTAIR.top.x1]]);
   // the span (local: x relative to its hinge at SPAN.x0, y relative to the deck top)
   deckStretch(span, SPAN.x0, SPAN.x1, SPAN.x0, Y);
   // ---- piers: T columns every 32 m (the span's east pier is separate)
@@ -95,6 +94,57 @@ export function buildXway(ctx = {}) {
   // ramp edge lines
   const ramp = (x0, z0, x1, z1) => { main.paint.quad([x0, oy(x0 + 0.01) + 0.015, z1], [x1, oy(x1 - 0.01) + 0.015, z1], [x1, oy(x1 - 0.01) + 0.015, z0], [x0, oy(x0 + 0.01) + 0.015, z0]); };
   for (let x = ox0; x < ox1; x += 4) { ramp(x, oz0 + 0.5, x + 4, oz0 + 0.65); ramp(x, oz1 - 0.65, x + 4, oz1 - 0.5); }
+  // ---- the emergency stair: grey-green painted steel, a landing through the parapet, open grating treads,
+  // channel stringers, handrails, posts down onto the off-ramp, the green running-man sign
+  const walks = [];
+  {
+    const E = ESTAIR, T = E.top, yb = offrampY(E.x0), A = new Acc({ rm: true });
+    const yAt = (x) => yb + (Y - yb) * (x - E.x0) / (E.x1 - E.x0);
+    walks.push({ type: 'box', x0: T.x0, x1: T.x1, z0: T.z0, z1: T.z1, y: Y });
+    walks.push({ type: 'ramp', x0: E.x0, x1: E.x1, y0: yb, y1: Y, z0: E.z0, z1: E.z1 });
+    const steel = hex(0x55665e), dark = hex(0x34403a);
+    // landing: a grating deck on a steel frame, a toe board and rail round its open sides
+    A.set({ col: steel, rm: [0.5, 0.6, 0] }); A.box(T.x0, Y - 0.25, T.z0, T.x1, Y - 0.01, T.z1, { faces: 'xXzZy' });
+    A.set({ col: hex(0x6a756e), rm: [0.6, 0.5, 0] }); A.box(T.x0, Y - 0.01, T.z0, T.x1, Y, T.z1, { faces: 'Y' });
+    A.set({ col: steel, rm: [0.5, 0.6, 0] });
+    for (const [x0, z0, x1, z1] of [[T.x1 - 0.06, T.z0, T.x1, T.z1], [T.x0, T.z1 - 0.06, T.x1, T.z1]]) { A.box(x0, Y, z0, x1, Y + 0.12, z1); A.box(x0, Y + 1.04, z0, x1, Y + 1.1, z1); A.box(x0, Y + 0.55, z0, x1, Y + 0.6, z1); }
+    for (const [px, pz] of [[T.x0, T.z1], [T.x1, T.z1], [T.x1, T.z0 + 0.5], [T.x1, (T.z0 + T.z1) / 2]]) A.box(px - 0.05, Math.max(0, offrampY(px) - 0.1), pz - 0.05, px + 0.05, Y + 1.1, pz + 0.05);
+    // treads: solid checker-plate steps (no see-through), each down to the stringer line
+    const n = Math.ceil((Y - yb) / 0.18), run = (E.x1 - E.x0) / n;
+    for (let i = 0; i < n; i++) {
+      const xa = E.x0 + i * run, xb = xa + run, yt = yAt(xb) - 0.01;
+      A.set({ col: hex(i % 2 ? 0x6a756e : 0x66716a), rm: [0.55, 0.5, 0] }); A.box(xa, yt - 0.06, E.z0 + 0.1, xb, yt, E.z1 - 0.1, { faces: 'Y' });
+      A.set({ col: dark, rm: [0.6, 0.5, 0] }); A.box(xa, yAt(xa) - 0.2, E.z0 + 0.1, xb, yt - 0.06, E.z1 - 0.1, { faces: 'xy' });
+      A.set({ col: hex(0xd8b21a), rm: [0.6, 0.2, 0] }); A.box(xb - 0.05, yt, E.z0 + 0.3, xb, yt + 0.004, E.z1 - 0.3, { faces: 'Y' });
+    }
+    // stringers (deep steel channels), handrails, posts every 3 m down onto the off-ramp
+    for (const z of [E.z0, E.z1]) {
+      const zi = z === E.z0 ? z + 0.1 : z - 0.1, so = z === E.z0 ? -1 : 1;
+      A.set({ col: steel, rm: [0.5, 0.6, 0] });
+      A.quad([E.x0, yb - 0.35, z], [E.x1, Y - 0.35, z], [E.x1, Y + 0.15, z], [E.x0, yb + 0.15, z]);
+      A.quad([E.x1, Y - 0.35, z], [E.x0, yb - 0.35, z], [E.x0, yb + 0.15, z], [E.x1, Y + 0.15, z]);
+      A.tube([E.x0, yb + 1.0, zi], [E.x1, Y + 1.0, zi], 0.035, 6);
+      A.tube([E.x0, yb + 0.55, zi], [E.x1, Y + 0.55, zi], 0.025, 5);
+      for (let x = E.x0 + 0.2; x < E.x1; x += 1.5) A.box(x - 0.03, yAt(x), zi - 0.03, x + 0.03, yAt(x) + 1.0, zi + 0.03, { faces: 'xXzZ' });
+      for (let x = E.x0 + 3; x < E.x1; x += 4) { A.set({ col: dark, rm: [0.6, 0.5, 0] }); A.box(x - 0.1, offrampY(x), z + so * 0.05 - 0.1, x + 0.1, yAt(x) - 0.3, z + so * 0.05 + 0.1); }
+      for (let x = E.x0; x < E.x1 - 0.01; x += 2) { const y0 = yAt(x), y1 = yAt(x + 2); colliders.push({ min: [x, y0 - 0.5, z - 0.12], max: [x + 2, y1 + 1.05, z + 0.12], data: { mat: 'metal', kind: 'rail', layer: 'deck' } }); }
+    }
+    colliders.push({ min: [T.x1 - 0.1, Y - 0.3, T.z0], max: [T.x1 + 0.1, Y + 1.1, T.z1], data: { mat: 'metal', kind: 'rail', layer: 'deck' } });
+    colliders.push({ min: [T.x0 - 0.1, Y - 0.3, T.z0], max: [T.x0 + 0.1, Y + 1.1, E.z0], data: { mat: 'metal', kind: 'rail', layer: 'deck' } });
+    A.set({ col: steel, rm: [0.5, 0.6, 0] }); A.box(T.x0 - 0.03, Y, T.z0, T.x0 + 0.03, Y + 0.12, E.z0); A.box(T.x0 - 0.03, Y + 1.04, T.z0, T.x0 + 0.03, Y + 1.1, E.z0); A.box(T.x0 - 0.03, Y + 0.55, T.z0, T.x0 + 0.03, Y + 0.6, E.z0);
+    colliders.push({ min: [T.x0, Y - 0.3, T.z1 - 0.1], max: [T.x1, Y + 1.1, T.z1 + 0.1], data: { mat: 'metal', kind: 'rail', layer: 'deck' } });
+    // the green emergency-exit sign (running man) on the parapet beside the opening, both faces
+    const sc = makeCanvas(256, 128), sg = sc.getContext('2d');
+    sg.fillStyle = '#1f8a4a'; sg.fillRect(0, 0, 256, 128); sg.fillStyle = '#fff'; sg.fillRect(10, 10, 108, 108);
+    sg.fillStyle = '#1f8a4a'; sg.beginPath(); sg.arc(66, 30, 11, 0, 7); sg.fill();
+    sg.lineWidth = 12; sg.strokeStyle = '#1f8a4a'; sg.lineCap = 'round';
+    sg.beginPath(); sg.moveTo(60, 46); sg.lineTo(50, 78); sg.lineTo(30, 100); sg.moveTo(50, 78); sg.lineTo(72, 92); sg.lineTo(80, 112); sg.moveTo(58, 52); sg.lineTo(86, 64); sg.moveTo(58, 52); sg.lineTo(36, 62); sg.stroke();
+    sg.fillStyle = '#fff'; sg.font = '900 40px "Noto Sans CJK JP","Noto Sans JP",sans-serif'; sg.textAlign = 'center'; sg.textBaseline = 'middle'; sg.fillText('非常口', 188, 52); sg.font = '400 18px Anton, sans-serif'; sg.fillText('EMERGENCY EXIT', 188, 96);
+    const sm = new THREE.MeshStandardMaterial({ map: canvasTex(sc, { repeat: false }), emissive: 0xffffff, emissiveMap: canvasTex(sc, { repeat: false }), emissiveIntensity: 0.6, roughness: 0.5 });
+    for (const [x, ry] of [[T.x0 - 0.6, 0], [T.x0 - 0.6, Math.PI]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), sm); m.position.set(x, Y + 1.75, -140.4 + (ry ? -0.03 : 0.03)); m.rotation.y = ry; root.add(m); }
+    A.set({ col: dark, rm: [0.5, 0.6, 0] }); A.box(T.x0 - 0.65, Y + XWAY.barrier, -140.45, T.x0 - 0.55, Y + 2.1, -140.35);
+    root.add(A.mesh(rmMat({}), { shadow: true }));
+  }
   // ---- sound walls on the north side: translucent grey-green acrylic panels on H-posts above the parapet
   {
     const SW = new Acc({ rm: true });
@@ -144,7 +194,9 @@ export function buildXway(ctx = {}) {
   spanG.position.set(SPAN.x0, Y, 0);
   spanG.add(span.road.mesh(roadMat)); spanG.add(span.paint.mesh(paintMat)); spanG.add(span.con.mesh(conMat, { shadow: true }));
   root.add(spanG);
-  const pierMesh = pierS.mesh(conMat, { shadow: true }); root.add(pierMesh);
+  // the span's east pier in a group pivoting at its foot, so it can topple over when it's blown
+  const pierGeoMesh = pierS.mesh(conMat, { shadow: true }); pierGeoMesh.geometry.translate(-SPAN.x1, 0, 150);
+  const pierMesh = new THREE.Group(); pierMesh.position.set(SPAN.x1, 0, -150); pierMesh.add(pierGeoMesh); root.add(pierMesh);
   roadMat.userData.noAO = paintMat.userData.noAO = true;
   // ---- the torn ends (hidden until the span goes): broken concrete teeth + bent rebar on the fixed deck's
   // west face at x = SPAN.x1, and on the span's free end (rides with the span group)
@@ -161,7 +213,7 @@ export function buildXway(ctx = {}) {
   };
   const breakFixed = tear(SPAN.x1, -1, 71); breakFixed.position.y = Y; root.add(breakFixed);
   const breakSpan = tear(SPAN.x1 - SPAN.x0, 1, 72); spanG.add(breakSpan);
-  return { root, colliders, groundMats: [roadMat, paintMat], anchors: { glows, lights }, span: spanG, spanPier: pierMesh, spanBox, spanGlows: glows.filter(g => g.onSpan), breakFixed, breakSpan };
+  return { root, colliders, walks, groundMats: [roadMat, paintMat], anchors: { glows, lights }, span: spanG, spanPier: pierMesh, spanBox, spanGlows: glows.filter(g => g.onSpan), breakFixed, breakSpan };
 }
 function gantrySign(back = false) {
   const W = 1024, H = 384, c = makeCanvas(W, H), g = c.getContext('2d');
