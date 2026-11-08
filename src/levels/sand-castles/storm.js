@@ -34,9 +34,10 @@ void main(){
   float az = atan(r.y, r.x), R = length(r);
   float top = uH * crest(az);
   // rolling lobes, embossed (lit where the density thins upward), not streaks
-  vec2 q0 = vec2(az * R / 230.0, vW.y / 170.0 - uT * 0.03);
-  float L0 = fb(q0), L1 = fb(q0 + vec2(0.0, 0.07));
-  float emb = clamp((L0 - L1) * 7.0 + 0.5, 0.0, 1.0);
+  // (rotated domain + a wide emboss step: value noise on an axis-aligned grid embosses into visible squares)
+  vec2 q0 = mat2(0.8, -0.6, 0.6, 0.8) * vec2(az * R / 230.0, vW.y / 170.0 - uT * 0.03);
+  float L0 = fb(q0), L1 = fb(q0 + vec2(0.09, 0.12));
+  float emb = smoothstep(0.0, 1.0, clamp((L0 - L1) * 4.5 + 0.5, 0.0, 1.0));
   // a ragged crest: the soft band is wide and lumpy (hides() allows for it)
   float a = uOp * (1.0 - smoothstep(top - 130.0 - 60.0 * L0, top + 5.0, vW.y));
   if (a < 0.004) discard;
