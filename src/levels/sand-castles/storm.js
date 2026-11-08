@@ -105,7 +105,11 @@ void main(){
   vec3 base = mix(vec3(0.3, 0.17, 0.08), vec3(0.66, 0.46, 0.26), smoothstep(0.0, 0.75, hk));
   // billow shading: each lobe lit on top (sun from above-behind the wall), shadowed in its folds
   float fold = smoothstep(0.25, 0.75, b) * 0.6 + smoothstep(0.3, 0.8, b2) * 0.4;
-  vec3 col = base * (0.45 + 0.55 * hk) * (0.6 + 0.5 * fold);
+  // big rolling lobes (embossed: lit where the density thins upward, dark in the folds beneath)
+  vec2 q0 = vec2(x / 260.0, vW.y / 200.0 - uT * 0.035);
+  float L0 = fb(q0), L1 = fb(q0 + vec2(0.0, 0.07));
+  float emb = clamp((L0 - L1) * 8.0 + 0.5, 0.0, 1.0);
+  vec3 col = base * (0.45 + 0.55 * hk) * (0.65 + 0.4 * fold) * mix(0.55, 1.3, emb) * (0.7 + 0.45 * L0);
   col += uSunCol * base * 0.45 * pow(hk, 2.0) * fold;
   // the foot: dark, churning, where it swallows the streets
   col *= mix(0.45, 1.0, smoothstep(0.0, 220.0, vW.y));
@@ -133,7 +137,7 @@ export class Haboob {
     const S = this.state; if (!S) return;
     S.t += dt; S.z -= S.v * dt;
     this.mesh.position.set(eye.x, 0, S.z);
-    this.u.uT.value += dt; this.u.uOp.value = clamp(S.t / 3, 0, 1);
+    this.u.uT.value += dt; this.u.uOp.value = clamp(S.t / 3, 0, 1) * (1 - 0.9 * clamp((eye.z - S.z) / 500, 0, 1) * (this.stormK ?? 0));
     this.u.uSun.value.copy(sun); this.u.fogColor.value.copy(fog.color);
     // puffs ride the crest near you (the volume the sheet can't give), a few a second
     const ahead = S.z - eye.z;
@@ -143,6 +147,13 @@ export class Haboob {
         S.puffT = 0.45;
         const x = eye.x + range(-1400, 1400), y = range(520, 820);
         this.dust.spawn({ x, y, z: S.z + range(-40, 80), vx: range(-3, 3), vy: range(4, 9), vz: -S.v * range(0.95, 1.08), drag: 0.02, buoy: 0.1, s0: range(160, 240), s1: range(280, 380), life: range(14, 20), a: 0.95, fadeIn: 0.15, fadeOut: 0.35, vrot: range(-0.03, 0.03), r: 0.52, g: 0.35, b: 0.2, r1: 0.6, g1: 0.43, b1: 0.27 });
+      }
+      // billows rolling out ahead of the face, low over the roofs: the depth the sheet can't give up close
+      S.lowT = (S.lowT ?? 0) - dt;
+      if (ahead < 1500 && S.lowT <= 0) {
+        S.lowT = 0.35;
+        const x = eye.x + range(-700, 700), y = range(60, 420);
+        this.dust.spawn({ x, y, z: S.z - range(10, 140), vx: range(-4, 4), vy: range(2, 6), vz: -S.v * range(1.0, 1.15), drag: 0.02, buoy: 0.08, s0: range(120, 190), s1: range(240, 330), life: range(12, 16), a: 0.96, fadeIn: 0.2, fadeOut: 0.3, vrot: range(-0.04, 0.04), r: 0.42, g: 0.27, b: 0.15, r1: 0.56, g1: 0.39, b1: 0.24 });
       }
     }
   }

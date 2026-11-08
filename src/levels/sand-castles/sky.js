@@ -25,11 +25,11 @@ vec3 skyAt(vec3 d){
   vec3 L = normalize(sunDir); float sa = max(dot(d, L), 0.0);
   float az = max(0.0, dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(L.x, 0.0, L.z))));
   // ---- afternoon: milky, dusty blue; a wide white-gold glare round the sun; a beige haze band at the horizon
-  vec3 zen = vec3(0.07, 0.19, 0.45), mid = vec3(0.3, 0.42, 0.62), hor = mix(vec3(0.82, 0.7, 0.56), vec3(1.25, 0.82, 0.48), pow(az, 2.0));
+  vec3 zen = vec3(0.09, 0.2, 0.42), mid = vec3(0.38, 0.45, 0.58), hor = mix(vec3(0.9, 0.72, 0.52), vec3(1.35, 0.82, 0.44), pow(az, 2.0));
   vec3 cD = mix(hor, mid, smoothstep(0.0, 0.22, pow(hh, 0.8))); cD = mix(cD, zen, smoothstep(0.22, 0.9, hh));
   cD += vec3(1.0, 0.75, 0.45) * pow(sa, 5.0) * 0.55 + vec3(1.0, 0.85, 0.6) * pow(sa, 60.0) * 1.2;
   // ---- sunset over the Gulf: orange at the sun, rose and violet away from it, deep blue overhead
-  vec3 zS = vec3(0.04, 0.09, 0.22), mS = vec3(0.24, 0.24, 0.42), hA = vec3(0.86, 0.48, 0.38), hS = vec3(2.3, 0.95, 0.36);
+  vec3 zS = vec3(0.06, 0.1, 0.24), mS = vec3(0.38, 0.3, 0.38), hA = vec3(1.08, 0.58, 0.34), hS = vec3(2.4, 0.95, 0.32);
   vec3 horS = mix(hA, hS, pow(az, 3.0) * smoothstep(0.0, 0.0, 1.0));
   vec3 cS = mix(mix(hA, hS, pow(sa, 2.5)), mix(mS, zS, smoothstep(0.15, 0.7, hh)), smoothstep(0.0, 0.3, pow(hh, 0.7)));
   cS += vec3(1.3, 0.55, 0.16) * pow(sa, 3.0) * (1.0 - smoothstep(0.0, 0.5, hh)) + vec3(1.6, 0.8, 0.35) * pow(sa, 40.0);
@@ -99,8 +99,8 @@ export function bakeEnv(renderer, storm, sunset) {
 
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const LOOKS = {
-  day: { sun: C(1.0, 0.78, 0.55), sunI: 4.6, hs: C(0.5, 0.6, 0.82), hg: C(0.6, 0.45, 0.32), hI: 0.55, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.5, 0.9, 0.48], rim: [1.0, 0.7, 0.42], exp: 0.8, env: 0.65 },
-  sunset: { sun: C(1.0, 0.56, 0.26), sunI: 3.6, hs: C(0.45, 0.48, 0.72), hg: C(0.52, 0.32, 0.22), hI: 0.72, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
+  day: { sun: C(1.0, 0.72, 0.45), sunI: 4.9, hs: C(0.52, 0.5, 0.54), hg: C(0.62, 0.45, 0.3), hI: 0.42, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.5, 0.9, 0.48], rim: [1.0, 0.7, 0.42], exp: 0.8, env: 0.65 },
+  sunset: { sun: C(1.0, 0.52, 0.22), sunI: 4.0, hs: C(0.5, 0.42, 0.56), hg: C(0.55, 0.32, 0.2), hI: 0.62, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
   storm: { sun: C(1.0, 0.62, 0.32), sunI: 1.3, hs: C(0.78, 0.55, 0.34), hg: C(0.55, 0.36, 0.2), hI: 1.0, fog: C(0.6, 0.4, 0.22), near: 30, far: 820, fogSun: [0.95, 0.5, 0.2], rim: [0.6, 0.38, 0.2], exp: 1.0, env: 0.55 },
 };
 const _c = new THREE.Color();

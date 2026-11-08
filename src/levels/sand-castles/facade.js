@@ -25,11 +25,13 @@ export const FAC = {
   uShadow: { value: 1 },
   // ruin swap: per-tower ruin height (metres) in a float texture row (static city only)
   tRuin: { value: null }, uRuinN: { value: 1 },
+  // the haboob's shadow on the city ahead of it: (front z, strength)
+  uStormF: { value: new THREE.Vector2(1e6, 0) },
 };
 
 export const FAC_GLSL = /* glsl */`
 uniform float uNight; uniform float uDust; uniform float uTime;
-uniform sampler2D tSunH; uniform vec4 uSunHB; uniform vec3 uSunL; uniform float uShadow;
+uniform sampler2D tSunH; uniform vec4 uSunHB; uniform vec3 uSunL; uniform float uShadow; uniform vec2 uStormF;
 varying vec3 vF; varying vec4 vS; varying vec3 vWP; varying float vRuin;
 float fh1(float n){ return fract(sin(n) * 43758.5453); }
 float fh2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -37,6 +39,12 @@ float fvn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(fh2(i), fh2(i + vec2(1.0, 0.0)), f.x), mix(fh2(i + vec2(0.0, 1.0)), fh2(i + vec2(1.0, 1.0)), f.x), f.y); }
 // thin line at the edges of a unit cell, anti-aliased by its footprint w (in cell units)
 float edgeLine(float x, float t, float w){ float d = min(x, 1.0 - x); return 1.0 - smoothstep(t - w, t + w, d); }
+// under the haboob (and the shadow it throws ahead of itself): darker, desaturated, browner
+vec3 stormShade(vec3 c, vec3 wp){
+  float s = smoothstep(uStormF.x - 700.0, uStormF.x + 60.0, wp.z) * uStormF.y;
+  float l = dot(c, vec3(0.3, 0.55, 0.15));
+  return mix(c, vec3(l) * vec3(1.08, 0.94, 0.76), 0.55 * s) * (1.0 - 0.55 * s);
+}
 float sunVis(vec3 p, vec3 n){
   if (uShadow < 0.5 || dot(n, uSunL) <= 0.0) return 1.0;
   float hl = max(length(uSunL.xz), 1e-3);
@@ -143,11 +151,23 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     o.c *= mix(0.68, 1.0, smoothstep(0.0, 90.0, v));
     o.c = mix(o.c, vec3(0.5, 0.41, 0.3), 0.22 * (1.0 - smoothstep(0.0, 25.0, v)));
     o.r = mix(o.r, 0.8, 0.35 * streak);
+    // the Spire (S.w = -1): vertical fins with LED strips running its whole height, lit as the sun goes
+    if (S.w < -0.5) {
+      float fin = edgeLine(fract(u / 10.5), 0.05, du / 10.5);
+      o.c = mix(o.c, vec3(0.5, 0.5, 0.52), fin * 0.8); o.m = mix(o.m, 0.7, fin);
+      float led = edgeLine(fract(u / 10.5), 0.012, du / 10.5) * clamp(1.0 - du * 0.6, 0.0, 1.0);
+      o.e += vec3(1.0, 0.82, 0.6) * led * (0.25 + 2.6 * uNight);
+    }
   } else if (kind < 2.5) {
     // roof: concrete / gravel with expansion joints and stains
     float n = fvn(wp.xz * 0.15) * 0.6 + fvn(wp.xz * 0.9) * 0.4;
     float jt = max(edgeLine(fract(wp.x / 6.0), 0.02, du / 6.0), edgeLine(fract(wp.z / 6.0), 0.02, du / 6.0));
-    o.c = vec3(0.32, 0.3, 0.27) * (0.7 + 0.45 * n) * (1.0 - 0.25 * jt) * mix(0.75, 1.0, fvn(wp.xz * 0.04 + 3.0));
+    o.c = vec3(0.25, 0.235, 0.215) * (0.7 + 0.45 * n) * (1.0 - 0.25 * jt) * mix(0.75, 1.0, fvn(wp.xz * 0.04 + 3.0));
+    // contact shadow where a roof / podium deck meets a taller wall (the height map a few metres out)
+    vec2 hb = (wp.xz - uSunHB.xy) * uSunHB.zw; float hx = 7.0 * uSunHB.z;
+    float hm = max(max(texture2D(tSunH, hb + vec2(hx, 0.0)).r, texture2D(tSunH, hb - vec2(hx, 0.0)).r), max(texture2D(tSunH, hb + vec2(0.0, hx)).r, texture2D(tSunH, hb - vec2(0.0, hx)).r)) * 765.0;
+    o.c *= 1.0 - 0.45 * smoothstep(4.0, 24.0, hm - wp.y);
+    o.ao = 1.0 - 0.5 * smoothstep(4.0, 24.0, hm - wp.y);
     o.r = 0.9; o.m = 0.0;
   } else if (kind < 3.5) {
     // mechanical: louvred metal
@@ -183,7 +203,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     // podium: stone with a dark shopfront band at street level
     float shop = step(v, 6.0);
     float bx = fract(u / 5.0);
-    o.c = mix(vec3(0.42, 0.38, 0.32) * (0.85 + 0.25 * seed) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
+    o.c = mix(vec3(0.33, 0.3, 0.26) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
     o.r = mix(0.8, 0.15, shop); o.m = mix(0.0, 0.7, shop);
     o.e = vec3(1.0, 0.75, 0.45) * shop * uNight * 0.6;
   } else {
@@ -194,6 +214,7 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
   // the storm leaves a coat of sand on everything facing up
   o.c = mix(o.c, vec3(0.6, 0.48, 0.34), uDust * 0.35);
   o.r = mix(o.r, 0.9, uDust * 0.4);
+  o.c = stormShade(o.c, wp);
   return o;
 }
 `;

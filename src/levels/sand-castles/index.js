@@ -124,7 +124,7 @@ export async function create(E) {
       if (player.mode === 'desktop') player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02));
       setp.update(dt, sdt, game.headPos);
       // limping home: number two engine trails smoke past the door
-      if (director && (director.cur?.name === 'escape' || director.cur?.name === 'outro')) { cabin.root.localToWorld(_ex.set(0.85, 2.7, 2.4)); fx.trailEmit(cabin, _ex, 2.4, (q) => fx.smoke(q, 1.4, 0.12, 4, 0.5, 0.7), 0); }
+      if (director && (director.cur?.name === 'escape' || director.cur?.name === 'outro')) { cabin.root.localToWorld(_ex.set(0.85, 2.7, 2.4)); fx.trailEmit(cabin, _ex, 0.7, (q) => fx.smoke(q, 2.2, 0.17, 3.5, 0.6, 0.5), 0); }
       ground.update(dt);
       fx.update(dt, 0, ctx);
       fogU ||= fogged();
@@ -136,6 +136,8 @@ export async function create(E) {
       const t0 = performance.now();
       tryHz();
       city.far.update(head, setp.wall);
+      // inside the haboob the far ring would poke out of the murk as flat cut-outs: the storm hides it
+      city.far.intact.visible = city.far.ruined.visible = look.storm < 0.35;
       // the ruin swap for the whole city: static towers past the dust ring go to stumps once hidden
       if (F.swap && setp.wall.state) { swapStatics(city, setp.wall, head); }
       if (started) audio.setLoop('heli', { x: head.x, y: head.y + 2.4, z: head.z, volume: 0.5, intensity: 0.75 });

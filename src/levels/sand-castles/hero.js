@@ -47,7 +47,7 @@ export class HeroTower {
     const seg = (n) => Math.max(1, Math.round(n * F.detail));
     const geo = new THREE.BoxGeometry(2, 2, 2, seg(2), seg(3), seg(2)); // unit half-extent box, scaled per instance
     // (the facade shader reads its pattern from the instance scale: lp = position * scale)
-    this.mesh = new THREE.InstancedMesh(geo, facadeMaterial({ inst: true, key: 'hero' }), C.length);
+    this.mesh = new THREE.InstancedMesh(geo, facadeMaterial({ inst: true, key: 'hero', vertexTail: 'if (vF.z > 1.5 && vF.z < 2.5) vF.z = 9.0; vS.w = -1.0;' }), C.length);
     { const org = new Float32Array(C.length * 4), st = new Float32Array(C.length * 4);
       this.chunks.forEach(c => {
         const y = c.kind === 'spire' ? HERO.h + c.c.y : c.b * HERO.band + c.c.y;
@@ -131,6 +131,18 @@ export class HeroTower {
       const nb = this.nodes[K].p;
       for (let k = 0; k < 4; k++) g.fx.later(k * 0.12, () => g.fx.explosion(new THREE.Vector3(HERO.x + range(-25, 25), nb.y + range(-4, 4), HERO.z + range(-25, 25)), 2.4, { noRing: true }));
       for (let k = 0; k < Math.round(10 * dust.rate); k++) dust.plume(HERO.x + range(-30, 30), nb.y + range(-8, 8), HERO.z + range(-30, 30), range(-8, 8), range(-8, 8), 1.3, k % 2 === 0);
+      // the break burns: a long orange light that washes the neighbours, fire pouring out of the torn floors
+      g.fx.light(nb.clone(), 5200, 9, 0xff6a20, false, 650);
+      S.fireT = 9;
+    }
+    if (S.fireT > 0) {
+      S.fireT -= dt;
+      const nb = this.nodes[K].p, w = this.widthAt(K) * 0.5;
+      for (let k = Math.round(dt * 26 * clamp(S.fireT / 3, 0.2, 1) + rand()); k > 0; k--) {
+        const a = rand() * Math.PI * 2;
+        g.fx.flame(_v.set(HERO.x + Math.cos(a) * w * range(0.5, 1.05), nb.y + range(-6, 10), HERO.z + Math.sin(a) * w * range(0.5, 1.05)), range(8, 14));
+      }
+      if (rand() < dt * 6) dust.plume(HERO.x + range(-w, w), nb.y + 12, HERO.z + range(-w, w), range(-4, 4), range(-4, 4), 1.1, true);
     }
     if (S.phase === 'fall' || S.phase === 'down') {
       // the upper section leans over about the break (Level 3), the stump pancakes after a beat
@@ -216,7 +228,7 @@ export class HeroTower {
       b.v.y -= 9.8 * 0.85 * dt;
       b.p.addScaledVector(b.v, dt);
       const wl = b.w.length(); if (wl > 1e-4) { _q.setFromAxisAngle(_v.copy(b.w).divideScalar(wl), wl * dt); b.q.premultiply(_q); }
-      this.g.fx.trailEmit(b, _v.set(0, HERO.spire * 0.5, 0).applyQuaternion(b.q).add(b.p), 12, (q) => this.dust.plume(q.x, q.y, q.z, 0, 0, 0.5), 0);
+      this.g.fx.trailEmit(b, _v.set(0, HERO.spire * 0.5, 0).applyQuaternion(b.q).add(b.p), 7, (q) => this.dust.plume(q.x, q.y, q.z, 0, 0, 0.75), 0);
       if (b.p.y < 6) { b.landed = true; this.dust.impact(b.p.x, b.p.z, 40, 1); this.g.audio.play('collapse_impact', { x: b.p.x, y: 2, z: b.p.z, volume: 1 }); }
     } else if (b.p.y > -HERO.spire) b.p.y -= dt * 3;
   }
@@ -226,7 +238,7 @@ export class HeroTower {
     c.p.addScaledVector(c.v, dt);
     const wl = c.w.length(); if (wl > 1e-4) { _q.setFromAxisAngle(_v.copy(c.w).divideScalar(wl), wl * dt); c.q.premultiply(_q); }
     // dust shroud off the big pieces (trailEmit spaces it along the path: no string of pearls)
-    if (c.kind === 'core' || c.i % 3 === 0) this.g.fx.trailEmit(c, c.p, 22 / Math.max(0.3, this.dust.rate), (q) => this.dust.plume(q.x, q.y, q.z, c.v.x * 0.3, c.v.z * 0.3, 0.7), 0);
+    if (c.kind === 'core' || c.i % 3 === 0) this.g.fx.trailEmit(c, c.p, 12 / Math.max(0.3, this.dust.rate), (q) => this.dust.plume(q.x, q.y, q.z, c.v.x * 0.3, c.v.z * 0.3, 0.9), 0);
     // lowest corner vs the ground
     _m.makeRotationFromQuaternion(c.q); const e = _m.elements;
     const lo = c.p.y - (Math.abs(e[1]) * c.h.x + Math.abs(e[5]) * c.h.y + Math.abs(e[9]) * c.h.z);

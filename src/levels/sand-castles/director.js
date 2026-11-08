@@ -51,7 +51,8 @@ export class Director {
           g.fx.later(0.05, () => hud.showTitle(g.headPos.clone().add(this._outF().multiplyScalar(26)).add(V(0, 3, 0)), 'SAND CASTLES', 'LEVEL 8  •  AL-SARAB, 16:50', T * 6));
           audio.startMusic();
           g.spawnWing();
-          g.idleLook = this.cityP;
+          // the title is out of the door: look there first, the skyline once the pilot has crabbed the door round to it
+          g.idleLook = null; later(6, () => { if (this.cur?.name === 'intro') g.idleLook = this.cityP; });
           later(1.2, () => say("Al-Sarab. Tallest skyline on Earth, and as of this morning, it's all theirs.", 3.6));
           later(5.6, () => say("That's HAMMER TWO off our door. You're on the gun. Marina first — they've got men on the roofs.", 3.8));
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 2.2); if (t > 9 && first('introGo')) speed(1.25); },

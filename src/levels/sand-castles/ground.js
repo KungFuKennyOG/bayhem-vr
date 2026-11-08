@@ -102,12 +102,16 @@ Gr ground(vec3 wp){
   if (lotH > 0.35 && lotH < 0.6) { float stall = gaa(fract((wp.x) / 2.7) - 0.5, 0.04, fwx / 2.7) * step(0.15, fract(gp.y * 4.0)); lot = mix(lot, vec3(0.7), stall * clamp(1.0 - fwx * 0.8, 0.0, 1.0) * 0.6); }
   lot *= 0.85 + 0.3 * fvn(wp.xz * 0.06);
   lc = mix(lc, lot, urban);
+  // blown sand: drifts across lots and kerbs, thicker toward the desert edge of each block
+  float drift = smoothstep(0.5, 0.82, fvn(wp.xz * 0.018 + 5.0) * 0.7 + fvn(wp.xz * 0.11) * 0.3);
+  lc = mix(lc, sand * 0.92, drift * 0.55 * urban);
   rough = mix(rough, 0.85, urban);
   // roads: asphalt, kerbs, a dashed centre line
   vec3 asph = vec3(0.13, 0.13, 0.135) * (0.8 + 0.25 * fvn(wp.xz * 0.15) + 0.2 * fvn(wp.xz * 0.012));
   float centre = max(gaa(fe.x, 0.004, fw) * step(0.5, fract(wp.z / 9.0)) * step(fe.y, 0.5 - roadHalf), gaa(fe.y, 0.004, fw) * step(0.5, fract(wp.x / 9.0)) * step(fe.x, 0.5 - roadHalf));
   vec3 rc = mix(asph, vec3(0.75, 0.72, 0.6), centre * clamp(1.0 - fwx * 0.5, 0.0, 1.0));
   float kerb = max(gaa(fe.x - roadHalf, 0.12 / uGrid.z, fw), gaa(fe.y - roadHalf, 0.12 / uGrid.z, fw)) * step(0.5, urban);
+  rc = mix(rc, sand * 0.8, drift * 0.3 * (1.0 - centre));
   lc = mix(lc, rc, road);
   lc = mix(lc, vec3(0.62, 0.6, 0.55), kerb * 0.7);
   // green: parks, golf, gardens (irrigated: deep green, mown stripes)
@@ -139,7 +143,7 @@ Gr ground(vec3 wp){
   float occ2 = max(max(texture2D(tSunH, hb + vec2(hx, hx) * 2.2).r, texture2D(tSunH, hb - vec2(hx, hx) * 2.2).r), max(texture2D(tSunH, hb + vec2(hx, -hx) * 2.2).r, texture2D(tSunH, hb - vec2(hx, -hx) * 2.2).r));
   lc *= 1.0 - 0.38 * smoothstep(0.01, 0.06, occ) - 0.16 * smoothstep(0.01, 0.06, occ2);
   g.tilt = mix(dtilt * (1.0 - urban), wt, g.water);
-  g.c = mix(lc, wc, g.water);
+  g.c = stormShade(mix(lc, wc, g.water), wp);
   g.r = mix(rough, 0.035 + 0.05 * w3, g.water);
   g.m = 0.0;
   return g;
@@ -148,7 +152,7 @@ Gr ground(vec3 wp){
 export class Ground {
   constructor(scene, F) {
     this.tex = buildMap();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, envMapIntensity: 1 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0, envMapIntensity: 0.55 });
     const U = { tMap: { value: this.tex }, uMapB: { value: new THREE.Vector4(GMAP.x0, GMAP.z0, 1 / GMAP.size, 1 / GMAP.size) }, uGrid: { value: new THREE.Vector4(GRID.x0, GRID.z0, GRID.pitch, GRID.road) }, uBlvd: { value: new THREE.Vector3(BLVD.z, BLVD.w, BLVD.x0) } };
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, FAC, U);
@@ -243,13 +247,22 @@ function buildPalms(scene) {
   // the palm island's fronds
   for (let i = 0; i < 3000 && pts.length < 3600; i++) { const x = PALM.x + (rng() - 0.5) * 2200, z = PALM.z + (rng() - 0.5) * 2200; if (onPalm(x, z) && rng() < 0.7) pts.push([x, z]); }
   // a crown: a flattened low-poly sphere on a thin trunk (1-2 px from the heli, the shape doesn't matter, the dark dot does)
-  const crown = new THREE.IcosahedronGeometry(3.2, 0); crown.scale(1, 0.45, 1); crown.translate(0, 9, 0);
+  // a crown of drooping fronds (a star of ridged blades: a palm silhouette from above, not a lollipop)
+  const fp = [];
+  for (let k = 0; k < 7; k++) {
+    const a = k / 7 * Math.PI * 2 + (k % 2) * 0.2, r = 3.6 + (k % 3) * 0.5, ca = Math.cos(a), sa = Math.sin(a), px = -sa, pz = ca;
+    const tip = [ca * r, 7.4 - (k % 2) * 0.6, sa * r], mid = [ca * r * 0.5, 9.3, sa * r * 0.5], base = [0, 9.1, 0];
+    const L = [mid[0] + px * 0.75, mid[1] - 0.2, mid[2] + pz * 0.75], R = [mid[0] - px * 0.75, mid[1] - 0.2, mid[2] - pz * 0.75];
+    fp.push(...base, ...L, ...mid, ...base, ...mid, ...R, ...L, ...tip, ...mid, ...mid, ...tip, ...R);
+  }
+  const crown = new THREE.BufferGeometry(); crown.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); crown.computeVertexNormals();
   const trunk = new THREE.CylinderGeometry(0.25, 0.35, 9, 4); trunk.translate(0, 4.5, 0);
-  const cg = crown.toNonIndexed(), tg = trunk.toNonIndexed();
+  const cg = crown, tg = trunk.toNonIndexed();
+  cg.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(fp.length / 3 * 2), 2));
   const col = (g, c) => { const n = g.attributes.position.count, a = new Float32Array(n * 3); for (let k = 0; k < n; k++) a.set(c, k * 3); g.setAttribute('color', new THREE.BufferAttribute(a, 3)); g.deleteAttribute('uv'); };
-  col(cg, [0.09, 0.17, 0.05]); col(tg, [0.32, 0.25, 0.17]);
+  col(cg, [0.1, 0.12, 0.05]); col(tg, [0.3, 0.24, 0.17]);
   const geo = mergeGeometries([cg, tg]);
-  const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }), pts.length);
+  const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide, envMapIntensity: 0.4 }), pts.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3();
   pts.forEach(([x, z], i) => { if (isWater(x, z) && !onPalm(x, z)) { m.makeScale(0, 0, 0); im.setMatrixAt(i, m); return; } q.setFromAxisAngle(Y, rng() * 6.28); const k = 1.05 + rng() * 0.45; m.compose(new THREE.Vector3(x, 0, z), q, s.set(k, k, k)); im.setMatrixAt(i, m); });
   im.frustumCulled = false; scene.add(im);

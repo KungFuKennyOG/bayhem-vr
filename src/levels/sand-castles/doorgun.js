@@ -13,7 +13,7 @@ import { clamp, damp } from '../../rng.js';
 //  Mount frame = the rig (your seat): -z out of the door, +x toward the nose, +y up.
 // =====================================================================================
 
-export const MOUNT = new THREE.Vector3(0.38, 1.14, -0.66); // pivot, rig-local
+export const MOUNT = new THREE.Vector3(0.38, 1.08, -0.66); // pivot, rig-local
 const LIM = { yaw: 1.25, up: 0.42, down: -1.05 };
 
 function part(list, geo, col, k = 0) {
@@ -27,10 +27,10 @@ function part(list, geo, col, k = 0) {
 const B = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
 const Cz = (r, len, x, y, z, seg = 12, r2 = r) => new THREE.CylinderGeometry(r2, r, len, seg).rotateX(Math.PI / 2).translate(x, y, z);
 
-const GUNMETAL = [0.07, 0.072, 0.078], PARK = [0.1, 0.1, 0.095], WORN = [0.22, 0.22, 0.22], RUB = [0.02, 0.02, 0.02], OD = [0.12, 0.13, 0.08], REDB = [0.5, 0.05, 0.03], BRASS = [0.55, 0.38, 0.12];
+const GUNMETAL = [0.045, 0.048, 0.055], PARK = [0.055, 0.058, 0.062], WORN = [0.085, 0.088, 0.095], RUB = [0.02, 0.02, 0.02], OD = [0.12, 0.13, 0.08], REDB = [0.5, 0.05, 0.03], BRASS = [0.55, 0.38, 0.12];
 
 function gunMaterial(heatU) {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.75 });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.58, metalness: 0.5, envMapIntensity: 0.4 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uHeat = heatU;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aK; varying float vK; varying vec3 vObj;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvK = aK; vObj = position;');
@@ -57,7 +57,7 @@ function buildModel(mat) {
   // cradle / yoke (trunnion plates) — moves with pitch
   for (const sx of [-1, 1]) { part(body, B(0.018, 0.1, 0.14, sx * 0.095, -0.01, 0.02), PARK); part(body, Cz(0.022, 0.03, sx * 0.105, 0, 0.0, 8).rotateY(Math.PI / 2), WORN); }
   // spade grips + thumb triggers at the back
-  part(body, B(0.24, 0.035, 0.03, 0, 0.0, 0.14), PARK);
+  part(body, new THREE.CylinderGeometry(0.016, 0.016, 0.24, 10).rotateZ(Math.PI / 2).translate(0, 0.0, 0.14), PARK);
   for (const sx of [-1, 1]) {
     part(body, new THREE.CylinderGeometry(0.019, 0.019, 0.15, 10).translate(sx * 0.115, -0.01, 0.16), RUB, 2);
     part(body, B(0.03, 0.02, 0.05, sx * 0.115, 0.075, 0.15), PARK);
@@ -82,8 +82,8 @@ function buildModel(mat) {
 function buildYoke(mat) {
   // yaw frame: the pintle post + the U that carries the trunnions
   const L = [];
-  part(L, new THREE.CylinderGeometry(0.03, 0.035, 0.42, 10).translate(0, -0.27, 0.0), PARK);
-  part(L, B(0.22, 0.03, 0.06, 0, -0.065, 0.0), PARK);
+  part(L, new THREE.CylinderGeometry(0.03, 0.035, 0.52, 10).translate(0, -0.32, 0.0), PARK);
+  part(L, new THREE.CylinderGeometry(0.022, 0.022, 0.22, 10).rotateZ(Math.PI / 2).translate(0, -0.065, 0.0), PARK);
   for (const sx of [-1, 1]) part(L, B(0.02, 0.07, 0.05, sx * 0.115, -0.03, 0.0), PARK);
   return new THREE.Mesh(mergeGeometries(L), mat);
 }
@@ -119,7 +119,7 @@ export class DoorGun {
     this.mat = mat;
     this.mount = new THREE.Group(); this.mount.position.copy(MOUNT); seat.add(this.mount);
     this.mount.add(buildArm(mat));
-    this.yawG = new THREE.Group(); this.mount.add(this.yawG);
+    this.yawG = new THREE.Group(); this.yawG.scale.setScalar(0.88); this.mount.add(this.yawG);
     this.yawG.add(buildYoke(mat));
     this.pitchG = new THREE.Group(); this.yawG.add(this.pitchG);
     const M = buildModel(mat);

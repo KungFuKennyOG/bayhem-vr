@@ -8,6 +8,8 @@ import { HorizonWallC, Haboob, SandStreaks } from './storm.js';
 import { Strikes } from './strikes.js';
 import { HERO } from './layout.js';
 import { glowTexture } from '../../textures.js';
+import { FAC } from './facade.js';
+import { TOD } from './sky.js';
 
 // =====================================================================================
 //  SET PIECES — everything that comes down, and the weather:
@@ -25,6 +27,10 @@ export class SetPieces {
     this.g = game; this.W = W; this.F = F;
     const scene = game.scene;
     this.dust = new OverDust(scene, scene.fog, { dust: F.dust, occl: F.occl, fill: F.fill, isQuest: F.isQuest });
+    // smoke here is soot, not dust: dark plumes start bigger (no small black spots inside the tan ones) and age to a
+    // grey-brown so a column reads as one dark core thinning out, not a leopard print
+    { const D = this.dust, base = D.plume.bind(D);
+      D.plume = (x, y, z, vx = 0, vz = 0, s = 1, dark = false) => !dark ? base(x, y, z, vx, vz, s, false) : D.spawn({ x, y, z, vx: vx + range(-3, 3), vy: range(2, 6), vz: vz + range(-3, 3), drag: 0.35, buoy: 0.5, s0: range(36, 50) * s, s1: range(115, 155) * s, life: range(13, 17), a: 0.9, fadeIn: 0.06, fadeOut: 0.45, vrot: range(-0.06, 0.06), r: 0.16, g: 0.14, b: 0.13, r1: 0.42, g1: 0.38, b1: 0.34, glow: 0.6, glowFade: 2.5 }); }
     const special = W.plan.towers.filter(t => t.role === 'target' || t.role === 'crash' || t.role === 'mid');
     this.mids = new MidRig(scene, special, W.city.sun);
     W.city.sun.commit();
@@ -54,7 +60,7 @@ export class SetPieces {
     this.heroBeacon = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xff2010, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
     this.heroBeacon.scale.setScalar(14); scene.add(this.heroBeacon);
     // the city is already at war when you arrive: fires and black smoke columns across the skyline
-    for (const [x, z] of [[-620, -420], [380, 520], [1150, -80], [-1050, 380], [700, -1350], [-260, 1150], [1700, 420]]) this.column(x, z, 1e9, 0.4);
+    for (const [x, z] of [[-620, -420], [380, 520], [1150, -80], [-1050, 380], [700, -1350], [-260, 1150], [1700, 420]]) this.column(x, z, 1e9, 0.55);
     // burning roofs: a few towers already hit, fire glowing under their smoke
     this.roofFires = W.plan.towers.filter(t => t.role === 'static' && t.h > 110 && t.h < 260 && t.roof !== 'pool').filter((t, i) => i % 23 === 5).slice(0, 7);
     for (const t of this.roofFires) this.column(t.x, t.z, 1e9, 0.35, t.h);
@@ -87,7 +93,7 @@ export class SetPieces {
     if (tower === this.heroTarget) { if (k === 2) this.g.events.push({ type: 'heroStruck' }); return; }
     for (const a of g.aas) if (a.tower === tower && a.alive) g.killAA(a, 'strike');
     for (let i = 0; i < 6; i++) this.dust.plume(P.x + range(-10, 10), P.y + range(-8, 8), P.z + range(-10, 10), range(-6, 6), range(-6, 6), 1.1, rand() < 0.6);
-    if (k === 2) g.fx.later(0.7, () => { if (this.fallTower(tower.id, g.headPos)) { g.addScore(2500, 'TOWER DOWN', P.clone().setY(P.y + 30), 'huge'); g.slowmoReq(1.6, 0.4); } });
+    if (k === 2) g.fx.later(0.7, () => { if (this.fallTower(tower.id, g.headPos)) { g.addScore(2500, 'TOWER DOWN', g.calloutAt(P.clone().setY(P.y + 30)), 'huge'); g.slowmoReq(1.6, 0.4); } });
   }
   update(dt, rdt, eye) {
     const g = this.g;
@@ -97,13 +103,18 @@ export class SetPieces {
     { const H = this.hero, B = H.spireBody; const top = B ? _v.set(0, HERO.spire, 0).applyQuaternion(B.q).add(B.p) : _v.set(0, HERO.spire, 0).applyQuaternion(H.nodes[H.B].q).add(H.nodes[H.B].p);
       this.heroBeacon.position.copy(top); this.heroBeacon.material.opacity = (Math.sin(this.g.time * 3.4) > 0 ? 1 : 0.15) * (B && B.landed ? 0 : 1); }
     this.wall.update(dt, SUN_DIR);
+    this.haboob.stormK = TOD.storm;
     this.haboob.update(dt, eye, SUN_DIR, g.scene.fog);
+    // the storm's shadow on the city ahead of the front (until you're inside it and the whole look goes to storm)
+    if (this.haboob.state) FAC.uStormF.value.set(this.haboob.state.z, clamp(1 - this.haboob.inside(eye) / 300, 0, 1) * (1 - TOD.storm)); else FAC.uStormF.value.set(1e6, 0);
     this.strikes.update(dt, rdt);
     // burning columns: dark plumes with a fire glow at the base, drifting with the wind
     for (const c of this.columns) {
       c.t += dt; if (c.t > c.life) continue;
       c.acc += dt * c.rate * this.dust.rate;
-      while (c.acc >= 1) { c.acc -= 1; this.dust.plume(c.x + range(-12, 12), c.y0 + range(4, 20), c.z + range(-12, 12), 3, -1.5, 1.15, true); }
+      while (c.acc >= 1) { c.acc -= 1; this.dust.plume(c.x + range(-7, 7), c.y0 + range(4, 16), c.z + range(-7, 7), 3, -1.5, 1.15, true); }
+      // fire at the foot of the near ones
+      { const d = Math.hypot(c.x - eye.x, c.z - eye.z); if (d < 1500 && rand() < dt * 5) g.fx.flame(_v.set(c.x + range(-9, 9), c.y0 + 2, c.z + range(-9, 9)), 5 + d * 0.006); }
     }
     this.columns = this.columns.filter(c => c.t < c.life);
     this._ambient(dt, eye);

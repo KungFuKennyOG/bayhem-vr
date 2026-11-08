@@ -425,6 +425,8 @@ export class SandGame {
     const rail = this.W.rail, y = rail.pathYaw(rail.s + 40);
     return { fwd: new THREE.Vector3(-Math.sin(y), 0, -Math.cos(y)), left: new THREE.Vector3(-Math.cos(y), 0, Math.sin(y)) };
   }
+  // a set-piece callout toward P but no further than 60 m (past that the storm / haze washes it out)
+  calloutAt(P) { const h = this.headPos, d = P.distanceTo(h), Q = h.clone().lerp(P, Math.min(1, 60 / Math.max(1, d))); Q.y = clamp(Q.y, h.y - 8, h.y + 6); return Q; }
   killGunship() {
     const g = this.gunship; if (!g || g.phase === 'dying' || g.phase === 'gone') return;
     g.phase = 'dying'; g.t = 0; g.spin = 0.6;
@@ -432,7 +434,7 @@ export class SandGame {
     g.m.setDamage?.(0.9);
     this.fx.explosion(g.pos.clone(), 1.5, { noRing: true });
     this.slowmoReq(2.4, 0.25, true);
-    this.addScore(5000, 'BIRD DOWN!', g.pos.clone().setY(g.pos.y + 6), 'huge');
+    this.addScore(5000, 'BIRD DOWN!', this.calloutAt(g.pos), 'huge');
     this.audio.play('metal_crash', { x: g.pos.x, y: g.pos.y, z: g.pos.z });
     this.events.push({ type: 'gunshipDying' });
   }
