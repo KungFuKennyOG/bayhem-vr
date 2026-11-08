@@ -44,7 +44,7 @@ export class Director {
       { name: 'intro', wp: null, music: 0.3, enter: () => {
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; }
-          hud.showTitle(V(-30, 24, 0), 'TOKYO SCRAMBLE', 'LEVEL 6  •  KUROGANE, 15:40', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(-30, 24, 0), 'TOKYO SCRAMBLE', 'LEVEL 2  •  KUROGANE, 15:40', trailer ? 4.4 : 5.8);
           audio.startMusic();
           this.snipers = [sniper('c1', { delay: 1.2, lockTime: 2.6 }), sniper('c2', { delay: 2.4, lockTime: 2.8 })];
           for (const s of this.snipers) s.holdFire = true;

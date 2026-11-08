@@ -2,6 +2,7 @@
 // is also spoken over the radio. Lines are matched by their exact subtitle text, so level code keeps calling
 // hud.subtitle('DRIVER', text) and nothing else changes. Lines with no clip still get the radio squelch.
 // To add or change lines: edit the text in the level, then run tools/vo (see tools/vo/README.md).
+import { rootUrl } from './game.js';
 import MANIFEST from './vo-manifest.js';
 
 export function voKey(s) { // FNV-1a, same as tools/vo/key.cjs
@@ -10,7 +11,7 @@ export function voKey(s) { // FNV-1a, same as tools/vo/key.cjs
   return h.toString(16).padStart(8, '0');
 }
 
-const url = (k) => `${import.meta.env.BASE_URL}vo/${k}.ogg`;
+const url = (k) => rootUrl(`vo/${k}.ogg`); // from the site root, so /2/ (BAYHEM 2) finds the same clips
 
 export function attachVoice(hud, audio, levelId) {
   // Download this level's clips right away (no user gesture needed), decode them once the AudioContext exists.

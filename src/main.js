@@ -10,12 +10,14 @@ import { SoundBus } from './soundbus.js';
 import { attachVoice } from './vo.js';
 import { seed } from './rng.js';
 import { settings, setSetting } from './settings.js';
-import { LEVELS, levelById, loadLevel, nextLevel } from './levels/index.js';
+import { LEVELS, levelsOf, levelById, findLevel, loadLevel, nextLevel } from './levels/index.js';
+import { PAGE_GAME, GAMES, gameUrl } from './game.js';
 
 // =====================================================================================
 //  BAYHEM boot: shared engine (renderer, atmosphere, FX, HUD, audio) + one level module.
 //  ?level=<id> picks the level (capture runs default to level 1); the menu reloads the page
-//  with that parameter so every level boots into a clean engine.
+//  with that parameter so every level boots into a clean engine. Two pages share this file:
+//  BAYHEM (/, Levels 1–4) and BAYHEM 2 (/2/, abroad); see src/game.js.
 // =====================================================================================
 patchFog();
 const params = new URLSearchParams(location.search);
@@ -25,7 +27,15 @@ const SANDBOX = params.has('sandbox');
 const AUTO = !SANDBOX && !params.has('noauto') && (CAPTURE || params.has('demo') || TRAILER); // noauto: capture without the autopilot (test real-play beats)
 const flags = { CAPTURE, TRAILER, SANDBOX, AUTO };
 seed(parseInt(params.get('seed') || '1337', 10));
-const LEVEL_ID = levelById(params.get('level') || (CAPTURE ? null : safeGet('bayhem.level')) || LEVELS[0].id).id;
+// the level: ?level= wins; otherwise the last one played in this game, otherwise the game's first level
+const asked = findLevel(params.get('level'));
+const stored = CAPTURE ? null : findLevel(safeGet(GAMES[PAGE_GAME].store));
+const LEVEL_ID = (asked || (stored && stored.game === PAGE_GAME && !stored.hidden ? stored : null) || levelsOf(PAGE_GAME)[0] || LEVELS[0]).id;
+// a level from the other game asked on this page: move to that game's page (captures stay put so tools/ keep working)
+const MOVED = !CAPTURE && asked && asked.game !== PAGE_GAME;
+if (MOVED) location.replace(gameUrl(asked.game, asked.id));
+const GAME = levelById(LEVEL_ID).game;
+document.title = GAME === 2 ? 'BAYHEM 2' : 'BAYHEM';
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
 
@@ -182,17 +192,27 @@ const MENU_CSS = `
   #bay button.alt{background:rgba(20,10,4,0.6)}
   #bay button.opt{all:unset;cursor:pointer;font:700 14px Oswald,sans-serif;letter-spacing:0.18em;color:#d9b99a;padding:8px 16px;border-radius:4px;border:1px solid rgba(255,179,90,0.3);background:rgba(20,10,4,0.5)}
   #bay button.opt.on{color:#ffd9a8;border-color:rgba(255,179,90,0.7)}
+  #bay .two{font:400 1.05em/0.9 Anton,Impact,sans-serif;margin-left:0.06em;
+    background:linear-gradient(#fff6e8 0%,#ff9a4a 40%,#5a1206 50%,#ff3c12 60%,#ffd2a0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #bay .sub{font:700 clamp(13px,1.6vw,18px) Oswald,sans-serif;letter-spacing:0.5em;color:#ffb35a;margin:-6px 0 4px;padding-left:0.5em}
+  #bay.g2{background:radial-gradient(ellipse at 50% 70%, rgba(255,70,20,0.18), rgba(10,3,2,0.84) 72%)}
+  #bay .lv .n .of{color:#8a6a4c;letter-spacing:0.14em}
+  #bay a.xg{font:700 14px Oswald,sans-serif;letter-spacing:0.22em;color:#ffd9a8;text-decoration:none;padding:8px 16px;border-radius:4px;border:1px solid rgba(255,179,90,0.45);background:rgba(20,10,4,0.5)}
+  #bay a.xg:hover{border-color:#ffb35a;color:#fff3df}
   #bay small{font:500 13px Oswald,sans-serif;color:#d9b99a;letter-spacing:0.08em;max-width:620px;line-height:1.6}`;
 
 function buildStartScreen() {
   const d = document.createElement('div');
-  const lv = levelById(LEVEL_ID);
+  const lv = levelById(LEVEL_ID), G = GAMES[GAME], other = GAME === 2 ? 1 : 2;
+  const list = levelsOf(GAME);
+  if (lv.hidden) list.push(lv); // a URL-only prototype still shows as the selected card
   d.innerHTML = `<style>${MENU_CSS}</style>
-  <div id="bay">
-    <h1>BAYHEM</h1>
-    <div class="levels">${LEVELS.map(l => `<button class="lv${l.id === lv.id ? ' sel' : ''}" data-id="${l.id}"><div class="n">LEVEL ${l.num}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div></button>`).join('')}</div>
+  <div id="bay" class="g${GAME}">
+    <h1>${G.title}${G.two ? `<span class="two">${G.two}</span>` : ''}</h1>
+    ${G.sub ? `<div class="sub">${G.sub}</div>` : ''}
+    <div class="levels">${list.map(l => `<button class="lv${l.id === lv.id ? ' sel' : ''}" data-id="${l.id}"><div class="n">LEVEL ${l.num}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div></button>`).join('')}</div>
     <div class="row"><button id="vr" class="go" disabled>LOADING…</button><button id="play" class="go alt" disabled>LOADING…</button></div>
-    <button id="comfort" class="opt"></button>
+    <div class="row"><button id="comfort" class="opt"></button><a class="xg" href="${gameUrl(other, null, false)}">${other === 2 ? 'BAYHEM 2: ABROAD →' : '← BAYHEM: HAVEN CITY'}</a></div>
     <small>${lv.help}<br>VR: right trigger = rifle, left trigger = grenade launcher, A/X = reload, click the right stick = comfort vignette on/off.<br>Desktop: mouse to aim, left click = rifle, right click = launcher, R = reload.</small>
   </div>`;
   document.body.appendChild(d);
@@ -202,7 +222,7 @@ function buildStartScreen() {
   cb.title = 'Darkens the edges of your view while you move on foot in VR (reduces motion sickness)';
   for (const b of d.querySelectorAll('.lv')) b.onclick = () => {
     if (b.dataset.id === lv.id) return;
-    safeSet('bayhem.level', b.dataset.id);
+    safeSet(G.store, b.dataset.id);
     const u = new URL(location.href); u.searchParams.set('level', b.dataset.id); location.href = u.toString();
   };
   d.ready = (go) => {
@@ -219,14 +239,17 @@ function showEndScreen(renderer, hud) {
   const s = renderer.xr.getSession?.(); if (s) s.end().catch(() => {});
   document.exitPointerLock?.();
   const nx = nextLevel(LEVEL_ID);
+  // the last level of BAYHEM hands over to BAYHEM 2
+  const sequel = !nx && GAME === 1 && levelById(LEVEL_ID).id === levelsOf(1).at(-1).id ? levelsOf(2)[0] : null;
   const d = document.createElement('div');
   d.innerHTML = `<style>${MENU_CSS} #bay{background:radial-gradient(ellipse at 50% 70%, rgba(255,120,30,0.10), rgba(10,4,2,0.55) 72%)}</style>
-  <div id="bay"><div class="row">${nx ? `<button class="go" id="next">NEXT: ${nx.title}</button>` : ''}<button class="go alt" id="again">PLAY AGAIN</button><button class="go alt" id="menu">LEVEL SELECT</button></div></div>`;
+  <div id="bay"><div class="row">${nx ? `<button class="go" id="next">NEXT: ${nx.title}</button>` : ''}${sequel ? `<button class="go" id="sequel">PLAY BAYHEM 2</button>` : ''}<button class="go alt" id="again">PLAY AGAIN</button><button class="go alt" id="menu">LEVEL SELECT</button></div></div>`;
   document.body.appendChild(d);
-  const nav = (id) => { const u = new URL(location.href); u.searchParams.set('level', id); safeSet('bayhem.level', id); location.href = u.toString(); };
+  const nav = (id) => { const u = new URL(location.href); u.searchParams.set('level', id); safeSet(GAMES[GAME].store, id); location.href = u.toString(); };
   d.querySelector('#next')?.addEventListener('click', () => nav(nx.id));
+  d.querySelector('#sequel')?.addEventListener('click', () => { safeSet(GAMES[2].store, sequel.id); location.href = gameUrl(2, sequel.id, false); });
   d.querySelector('#again').onclick = () => nav(LEVEL_ID);
   d.querySelector('#menu').onclick = () => { const u = new URL(location.href); u.searchParams.delete('level'); location.href = u.toString(); };
 }
 
-boot();
+if (!MOVED) boot();
