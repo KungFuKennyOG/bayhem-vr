@@ -153,7 +153,7 @@ const MATS = {};
 const once = (k, fn) => MATS[k] || (MATS[k] = fn());
 export const mats = {
   stone: () => once('stone', () => { const t = stoneTextures(); return snowPatch(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(0.9, 0.9), color: 0xe4ddd2, roughness: 0.88, vertexColors: true }), { amt: 1, rime: 0.4, key: 'st' }); }),
-  concrete: () => once('concrete', () => { const t = concreteTextures(); return snowPatch(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xbab6b0, roughness: 0.9, vertexColors: true }), { amt: 1, rime: 0.3, key: 'cc' }); }),
+  concrete: () => once('concrete', () => { const t = concreteTextures(); return snowPatch(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xdcd8d0, roughness: 0.9, vertexColors: true }), { amt: 1, rime: 0.3, key: 'cc' }); }),   // lighter: the shaded faces read black in the storm
   // indoors: no snow on the floors
   concreteIn: () => once('concreteIn', () => { const t = concreteTextures(); const m = new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normal, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xbab6b0, roughness: 0.75, vertexColors: true }); return m; }),
   paintIn: () => once('paintIn', () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.35, vertexColors: true })),
@@ -190,6 +190,8 @@ export function floorPools(list) {
   mesh.renderOrder = 3; mesh.castShadow = false; mesh.receiveShadow = false;
   return mesh;
 }
+// blue-grey contact shadow bands where walls, tanks and vehicles meet the snow: a soft strip (half under the wall)
+export const aoStrips = (list) => groundPatches(list, { color: 0x3c4658, opacity: 0.5 });
 
 // ---- tyre / track marks on flat snow: strips that follow a polyline on the ground (two ruts with tread), one draw
 let _treadTex = null;
@@ -230,9 +232,9 @@ export function trackDecals(paths, groundFn) {
 }
 
 // ---- trodden / packed patches on flat snow (grey-brown slush at doors, loading bays, round the stacks): one draw
-export function groundPatches(list) {
+export function groundPatches(list, { color = 0x7a7468, opacity = 0.55, key = 'wo-patch' } = {}) {
   if (!_poolTex) floorPools([]);
-  const m = new THREE.MeshStandardMaterial({ color: 0x7a7468, alphaMap: _poolTex, transparent: true, opacity: 0.55, depthWrite: false, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const m = new THREE.MeshStandardMaterial({ color, alphaMap: _poolTex, transparent: true, opacity, depthWrite: false, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <alphamap_fragment>', 'diffuseColor.a *= texture2D( alphaMap, vAlphaMapUv ).a;'); };
   m.customProgramCacheKey = () => 'wo-patch';
   const g = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);

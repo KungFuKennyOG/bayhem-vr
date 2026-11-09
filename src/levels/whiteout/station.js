@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { YARD, MID, MID_HALL, TRACK_X, LINE, PYLON, HALL, DOCK, lineY, terrainAt, groundAt, SNIPERS } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, trackDecals, groundPatches, lightCone, lanePatches } from './kit.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
+import { buildGroomer } from './groomer.js';
+import { dressStation } from './interior.js';
 import { signTexture } from './tex.js';
 
 // =====================================================================================
@@ -26,6 +28,13 @@ export function buildStation(ctx) {
     const { x0, x1, z0, z1 } = MID, wallT = 0.5, H = 7.5;
     const cA = footAO(Y, 1.4, 0.4, [0.86, 0.85, 0.83]);
     // west / east walls (solid), the south front with the big door, the north end open for the cables
+    // pour-lift joints on the outside faces (board-marked 60s concrete): a thin dark groove every 0.75 m, a drip course at 3 m
+    for (let h = 0.75; h < H - 0.2; h += 0.75) {
+      const k = Math.abs(h - 3) < 0.1 ? [0.5, 0.49, 0.48] : [0.6, 0.59, 0.58], th = Math.abs(h - 3) < 0.1 ? 0.12 : 0.035, dp = Math.abs(h - 3) < 0.1 ? 0.1 : 0.02;
+      for (const [wx, f] of [[x0, -1], [x1, 1]]) B.concrete.add(new THREE.BoxGeometry(dp, th, z1 - z0 + 0.04), M4(wx + f * dp / 2, Y + h, (z0 + z1) / 2), k);
+      for (const [a, b] of [[x0, 72], [98, x1]]) B.concrete.add(new THREE.BoxGeometry(b - a + 0.04, th, dp), M4((a + b) / 2, Y + h, z1 + dp / 2), k);
+      if (h > 4.7) B.concrete.add(new THREE.BoxGeometry(26, th, dp), M4(85, Y + h, z1 + dp / 2), k);
+    }
     B.concrete.add(rbox(wallT, H, z1 - z0, 0.03), M4(x0 + wallT / 2, Y + H / 2, (z0 + z1) / 2), cA, { uvScale: 3.2 });
     B.concrete.add(rbox(wallT, H, z1 - z0, 0.03), M4(x1 - wallT / 2, Y + H / 2, (z0 + z1) / 2), cA, { uvScale: 3.2 });
     col(x0, Y, z0, x0 + wallT, Y + H, z1); col(x1 - wallT, Y, z0, x1, Y + H, z1);
@@ -35,13 +44,39 @@ export function buildStation(ctx) {
     // north end: a tall frame with glazing above the cable opening
     for (const xx of [x0 + 1, 76, 94, x1 - 1]) B.concrete.add(rbox(1.2, H + 2, 0.8), M4(xx, Y + (H + 2) / 2, z0 + 0.4), cA, { uvScale: 3.2 });
     for (const [a, b] of [[x0 + 1.6, 75.4], [94.6, x1 - 1.6]]) { B.concrete.add(rbox(b - a, 2.5, 0.4), M4((a + b) / 2, Y + 1.25, z0 + 0.4), cA, { uvScale: 3.2 }); col(a, Y, z0, b, Y + 2.5, z0 + 0.8); }
-    B.glass.add(new THREE.PlaneGeometry(x1 - x0 - 2, 4.5), M4((x0 + x1) / 2, Y + H - 0.5, z0 + 0.35, 0, PI, 0));
+    const glz = [[x0 + 1, TRACK_X[0] - 2.6], [TRACK_X[0] + 2.6, TRACK_X[1] - 2.6], [TRACK_X[1] + 2.6, x1 - 1]];   // slots left open for the hangers
+    for (const [a, b] of glz) B.glass.add(new THREE.PlaneGeometry(b - a, 4.5), M4((a + b) / 2, Y + H - 0.5, z0 + 0.35, 0, PI, 0));
+    // glazing mullions + transom (the glass read as a blank white screen), and the wall closing the gap up to the roof
+    for (const [a, b] of glz) {
+      const n = Math.max(1, Math.round((b - a) / 2.2));
+      for (let k = 0; k <= n; k++) B.metal.add(new THREE.BoxGeometry(0.12, 4.5, 0.16), M4(a + k * (b - a) / n, Y + H - 0.5, z0 + 0.3), [0.16, 0.17, 0.18]);
+      for (const yy of [Y + H - 2.75, Y + H - 0.5, Y + H + 1.75]) B.metal.add(new THREE.BoxGeometry(b - a, 0.14, 0.18), M4((a + b) / 2, yy, z0 + 0.3), [0.16, 0.17, 0.18]);
+    }
+    B.concrete.add(rbox(x1 - x0, 3.0, 0.6, 0.03), M4((x0 + x1) / 2, Y + H + 3.2, z0 + 0.3), cA, { uvScale: 3.2 });
+    // gable infill on the side walls: the raking roof left a wedge of open sky over each long wall
+    {
+      const sh = new THREE.Shape(); sh.moveTo(z0 - 0.2, 0); sh.lineTo(z1 + 0.2, 0); sh.lineTo(z1 + 0.2, 0.2); sh.lineTo(z0 - 0.2, 4.9); sh.lineTo(z0 - 0.2, 0);
+      const g = new THREE.ExtrudeGeometry(sh, { depth: wallT, bevelEnabled: false }).translate(0, 0, -wallT / 2).rotateY(-PI / 2);
+      for (const wx of [x0 + wallT / 2, x1 - wallT / 2]) B.concrete.add(g.clone(), M4(wx, Y + H - 0.05, 0), [0.8, 0.79, 0.77], { uvScale: 3.2 });
+      // their inner faces painted like the lining below
+      const gi = new THREE.ExtrudeGeometry(sh, { depth: 0.02, bevelEnabled: false }).rotateY(-PI / 2);
+      for (const [wx, f] of [[x0 + wallT + 0.03, 1], [x1 - wallT - 0.01, -1]]) B.paintIn.add(gi.clone(), M4(wx, Y + H - 0.05, 0), [0.62, 0.59, 0.53]);
+      B.paintIn.add(new THREE.BoxGeometry(x1 - x0 - 2 * wallT, 3.0, 0.02), M4((x0 + x1) / 2, Y + H + 3.2, z0 + 0.62), [0.62, 0.59, 0.53]);
+    }
+    // the inside: cream-painted wall lining above the wainscot (it was bare dark concrete), panel joints, a painted soffit
+    for (const [wx, f] of [[x0 + wallT + 0.015, 1], [x1 - wallT - 0.015, -1]]) {
+      B.paintIn.add(new THREE.BoxGeometry(0.02, H - 1.36, z1 - z0 - 1.2), M4(wx, Y + 1.36 + (H - 1.36) / 2, (z0 + z1) / 2), (q) => { const k = 0.9 + 0.1 * Math.min(1, (q.y - Y - 1.4) / 4); return [0.66 * k, 0.63 * k, 0.56 * k]; });
+      for (let z = z0 + 3; z < z1 - 1; z += 3) B.paintIn.add(new THREE.BoxGeometry(0.03, H - 1.4, 0.04), M4(wx + f * 0.01, Y + 1.4 + (H - 1.4) / 2, z), [0.42, 0.4, 0.36]);
+    }
+    for (const [a, b] of [[x0 + wallT, 72], [98, x1 - wallT]]) B.paintIn.add(new THREE.BoxGeometry(b - a, H - 1.36, 0.02), M4((a + b) / 2, Y + 1.36 + (H - 1.36) / 2, z1 - wallT - 0.015), [0.64, 0.61, 0.54]);
     // the raking roof: rises toward the north (the cables leave under its high end), deep eaves, snow quilt
     const roofL = (z1 - z0) + 3, pitch = Math.atan2(4.5, z1 - z0);
-    B.concrete.add(rbox(x1 - x0 + 2.4, 0.5, roofL, 0.05), M4((x0 + x1) / 2, Y + H + 2.3, (z0 + z1) / 2, -pitch, 0, 0), [0.62, 0.6, 0.58], { uvScale: 4 });
-    B.snow.add(snowCap(x1 - x0 + 2.2, roofL - 0.2, 0.55, 3, 12, 8), M4((x0 + x1) / 2, Y + H + 2.75, (z0 + z1) / 2, -pitch, 0, 0), [0.95, 0.97, 1]);
+    B.concrete.add(rbox(x1 - x0 + 2.4, 0.5, roofL, 0.05), M4((x0 + x1) / 2, Y + H + 2.3, (z0 + z1) / 2, pitch, 0, 0), [0.62, 0.6, 0.58], { uvScale: 4 });
+    B.snow.add(snowCap(x1 - x0 + 2.2, roofL - 0.2, 0.55, 3, 12, 8), M4((x0 + x1) / 2, Y + H + 2.75, (z0 + z1) / 2, pitch, 0, 0), [0.95, 0.97, 1]);
+    B.paintIn.add(new THREE.BoxGeometry(x1 - x0 - 1, 0.04, (z1 - z0) / Math.cos(pitch) + 1), M4((x0 + x1) / 2, Y + H + 2.3 - 0.29, (z0 + z1) / 2, pitch, 0, 0), [0.52, 0.52, 0.5]);
+
     // icicles off the front eave
-    for (let i = 0; i < 40; i++) { const il = 0.2 + rng() * rng() * 1.2; B.snow.add(new THREE.ConeGeometry(0.04 + il * 0.025, il, 5).rotateX(PI), M4(x0 - 0.8 + i * (x1 - x0 + 1.6) / 39, Y + H + 0.1 - il / 2, z1 + 1.4), [0.72, 0.8, 0.95]); }
+    for (let i = 0; i < 40; i++) { const il = 0.2 + rng() * rng() * 1.2; B.snow.add(new THREE.ConeGeometry(0.04 + il * 0.025, il, 5).rotateX(PI), M4(x0 - 0.8 + i * (x1 - x0 + 1.6) / 39, Y + H - 0.42 - il / 2, z1 + 1.3), [0.72, 0.8, 0.95]); }
     // platform floor + the dock edges (yellow-black) along each track
     B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 - 1, 0.3, z1 - z0 - 1), M4((x0 + x1) / 2, Y - 0.13, (z0 + z1) / 2), [0.5, 0.49, 0.48], { uvScale: 3 });
     for (const tx of TRACK_X) {
@@ -114,6 +149,15 @@ export function buildStation(ctx) {
     }
     // door lamps outside (warm on the snow of the yard)
     for (const lx of [70, 100]) { B.lamp.add(new THREE.SphereGeometry(0.16, 8, 6), M4(lx, Y + 4.2, z1 + 0.3), [1.6, 1.0, 0.5]); glows.push({ p: [lx, Y + 4.2, z1 + 0.6], color: WARM, size: 1.8 }); pools.push({ p: [lx, Y, z1 + 4], c: [0.7, 0.48, 0.22], r: 6, k: 1 }); }
+    // the hall inside: wainscot, cabinets, doors, gates, dock rails, map, clock, light pools (interior.js)
+    // the side windows from inside: cold daylight panes in deep steel frames (the outside shows them lit warm)
+    for (const [wx, f] of [[x0 + wallT + 0.055, 1], [x1 - wallT - 0.055, -1]]) for (let i = 0; i < 7; i++) {
+      const wz = z0 + 3 + i * (z1 - z0 - 6) / 6;
+      B.lamp.add(new THREE.BoxGeometry(0.02, 2.6, 2.2), M4(wx, Y + 4.4, wz), [0.36, 0.42, 0.52]);
+      for (const [dy, dz, hh, ww] of [[1.36, 0, 0.12, 2.44], [-1.36, 0, 0.12, 2.44], [0, -1.16, 2.6, 0.12], [0, 1.16, 2.6, 0.12], [0.3, 0, 0.05, 2.2]]) B.paintIn.add(new THREE.BoxGeometry(0.12, hh, ww), M4(wx + f * 0.05, Y + 4.4 + dy, wz + dz), [0.2, 0.22, 0.24]);
+    }
+    dressStation({ B, col, glows, root, x0, x1, z0, z1, Y, H, wt: wallT, trusses: false, seed: 41, mapY: 2.25,
+      lamps: [72, 85, 98].flatMap((lx) => [[lx, -12], [lx, -2]]), docks: TRACK_X.map((x) => ({ x, z: -8, len: 12, door: 1 })), doorZ: z1, doorX: [72, 98] });
   }
 
   // ---------------------------------------------------------------- the yard
@@ -123,16 +167,74 @@ export function buildStation(ctx) {
     B.concrete.add(rbox(sx1 - sx0, sh, sz1 - sz0, 0.04), M4((sx0 + sx1) / 2, Y + sh / 2, (sz0 + sz1) / 2), footAO(Y, 1.2, 0.4, [0.8, 0.79, 0.77]), { uvScale: 3.2 });
     B.metal.add(new THREE.BoxGeometry(sx1 - sx0 + 1.2, 0.3, sz1 - sz0 + 1.2), M4((sx0 + sx1) / 2, Y + sh + 0.15, (sz0 + sz1) / 2), [0.3, 0.32, 0.34]);
     B.snow.add(snowCap(sx1 - sx0 + 1.0, sz1 - sz0 + 1.0, 0.45, 9, 8, 10), M4((sx0 + sx1) / 2, Y + sh + 0.5, (sz0 + sz1) / 2), [0.95, 0.97, 1]);
-    for (const dz of [23, 31, 39]) { B.paint.add(new THREE.BoxGeometry(0.12, 4.2, 5.2), M4(sx0 - 0.04, Y + 2.1, dz - 1.4), (p, n, l) => { const k = 0.38 + 0.04 * Math.sin(l.y * 25); return [k * 0.95, k, k * 1.08]; }); }
+    for (const dz of [23, 31, 39]) {
+      const zc = dz - 1.4;
+      // roll-up door: ribbed slats (separate strips so the ribs catch light), a steel frame, a hood box, bollards, a number
+      for (let k = 0; k < 14; k++) B.paint.add(rbox(0.1, 0.28, 5.2, 0.03), M4(sx0 - 0.05, Y + 0.16 + k * 0.29, zc), (k % 5 === 4) ? [0.3, 0.32, 0.36] : [0.4, 0.42, 0.47]);
+      B.paint.add(new THREE.BoxGeometry(0.11, 0.18, 5.2), M4(sx0 - 0.06, Y + 0.09, zc), [0.08, 0.08, 0.08]);
+      for (const s of [-2.75, 2.75]) B.metal.add(new THREE.BoxGeometry(0.22, 4.5, 0.22), M4(sx0 - 0.1, Y + 2.25, zc + s), [0.26, 0.27, 0.28]);
+      B.metal.add(rbox(0.5, 0.55, 5.9, 0.04), M4(sx0 - 0.2, Y + 4.6, zc), [0.3, 0.31, 0.33]);
+      for (const s of [-2.95, 2.95]) { B.paint.add(new THREE.CylinderGeometry(0.11, 0.11, 1.0, 10), M4(sx0 - 0.5, Y + 0.5, zc + s), (q) => (Math.floor((q.y - Y) * 4) % 2 ? [0.08, 0.08, 0.08] : [0.8, 0.62, 0.05])); B.snow.add(new THREE.CylinderGeometry(0.11, 0.12, 0.06, 10), M4(sx0 - 0.5, Y + 1.02, zc + s), [0.95, 0.97, 1]); }
+      const t = signTexture([[String((dz - 15) / 8), 150]], { w: 128, h: 128, bg: '#e8e2d2', fg: '#1c1c1c', border: null, seed: dz, age: 0.5 });
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 })); nm.position.set(sx0 - 0.46, Y + 4.6, zc); nm.rotation.y = -PI / 2; root.add(nm);
+      B.lamp.add(new THREE.BoxGeometry(0.2, 0.1, 0.5), M4(sx0 - 0.35, Y + 5.02, zc), [1.5, 1.4, 1.2]);
+      glows.push({ p: [sx0 - 0.6, Y + 5.05, zc], color: [1.2, 1.1, 0.95], size: 0.45 });
+    }
+    // snow banked along the door bottoms and drifted into the gaps between the doors / at the corners
+    { const dc = (q) => { const k = 0.84 + 0.16 * Math.min(1, (q.y - Y) / 0.9); return [k * 0.95, k * 0.97, k]; };
+      for (const dz of [23, 31, 39]) B.snow.add(driftWedge(5.0, 0.28, 0.9, dz), M4(sx0 - 0.08, Y - 0.04, dz - 1.4, 0, -PI / 2, 0), dc);
+      for (const [gz, L, h] of [[25.6, 2.0, 0.9], [33.6, 2.0, 0.75], [18.3, 1.2, 1.0], [41.3, 1.6, 1.1]]) B.snow.add(driftWedge(L, h, h * 1.9, gz | 0), M4(sx0 - 0.05, Y - 0.05, gz, 0, -PI / 2, 0), dc); }
+    // downpipes at the corners, a gutter along the eave, a lit window + the PISTENFAHRZEUGE sign on the west face
+    for (const pz of [sz0 + 0.3, sz1 - 0.3]) B.metal.add(new THREE.CylinderGeometry(0.07, 0.07, sh, 8), M4(sx0 - 0.2, Y + sh / 2, pz), [0.34, 0.35, 0.36]);
+    B.metal.add(new THREE.BoxGeometry(0.2, 0.16, sz1 - sz0 + 0.6), M4(sx0 - 0.25, Y + sh - 0.05, (sz0 + sz1) / 2), [0.34, 0.35, 0.36]);
+    { const t = signTexture([['PISTENFAHRZEUGE', 80]], { w: 1024, h: 128, bg: '#2a4a8a', fg: '#f2efe6', border: '#f2efe6', seed: 88, age: 0.5 });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.62), new THREE.MeshStandardMaterial({ map: t, roughness: 0.7 })); m.position.set(sx0 - 0.03, Y + 5.55, sz0 + 3.6); m.rotation.y = -PI / 2; root.add(m); }
     col(sx0, Y, sz0, sx1, Y + sh + 0.3, sz1);
     named.shedRoof = new THREE.Vector3(SNIPERS.shed.x, Y + sh + 0.3, SNIPERS.shed.z);
     // the fuel tank (west side of the yard) — big, horizontal, on saddles: the yard's money shot
     {
       const tx = 58, tz = 20, len = 7.5, r = 1.35;
-      B.paint.add(new THREE.CapsuleGeometry(r, len, 6, 18).rotateX(PI / 2), M4(tx, Y + r + 0.55, tz), (p, n, l) => (Math.abs(l.y - 0.3) < 0.14 ? [0.7, 0.55, 0.05] : [0.3, 0.33, 0.27]));
-      for (const s of [-2.4, 2.4]) B.concrete.add(rbox(2.6, 0.9, 0.6, 0.04), M4(tx, Y + 0.45, tz + s), [0.62, 0.6, 0.58], { uvScale: 2 });
+      const ty = Y + r + 0.55;
+      // the shell: a cylinder with dished heads (not a stretched capsule), grime toward the belly, a yellow band
+      const shell = (p, n, l) => { const belly = Math.max(0, -n.y); const k = (0.92 + 0.08 * Math.sin(l.y * 3 + l.x * 1.7)) * (1 - 0.35 * belly * belly); return [0.3 * k, 0.34 * k, 0.28 * k]; };
+      B.paint.add(new THREE.CylinderGeometry(r, r, len, 28, 4, true).rotateX(PI / 2), M4(tx, ty, tz), shell, { uvScale: 2 });
+      // the yellow band down each flank + a snow crust on the crown (curved, following the shell)
+      for (const th of [1.91, 4.37]) B.paint.add(new THREE.CylinderGeometry(r + 0.006, r + 0.006, len, 2, 1, true, th - 0.07, 0.14).rotateX(PI / 2), M4(tx, ty, tz), [0.75, 0.58, 0.06]);
+      B.snow.add(new THREE.CylinderGeometry(r + 0.07, r + 0.07, len - 0.2, 12, 1, true, PI - 0.75, 1.5).rotateX(PI / 2), M4(tx, ty, tz), (q) => [0.93, 0.95, 1]);
+      for (const s of [-1, 1]) {
+        const head = new THREE.SphereGeometry(r, 28, 8, 0, PI * 2, 0, PI / 2).scale(1, 0.38, 1).rotateX(s * PI / 2);
+        B.paint.add(head, M4(tx, ty, tz + s * len / 2), shell, { uvScale: 2 });
+        B.metal.add(new THREE.TorusGeometry(r + 0.01, 0.035, 5, 32), M4(tx, ty, tz + s * len / 2), [0.22, 0.24, 0.22]);   // head weld
+      }
+      // stiffening hoops, steel saddles with straps, on concrete plinths
+      for (const hz of [-2.2, -0.75, 0.75, 2.2]) B.paint.add(new THREE.TorusGeometry(r + 0.03, 0.05, 5, 32), M4(tx, ty, tz + hz), [0.24, 0.27, 0.22]);
+      for (const s of [-2.4, 2.4]) {
+        B.concrete.add(rbox(2.8, 0.5, 0.9, 0.04), M4(tx, Y + 0.25, tz + s), footAO(Y, 0.5, 0.4, [0.62, 0.6, 0.58]), { uvScale: 2 });
+        const sad = new THREE.Shape(); sad.moveTo(-r - 0.1, 0); sad.lineTo(r + 0.1, 0); sad.lineTo(r + 0.1, 0.35); sad.absarc(0, r + 0.05, r + 0.02, -0.3, -PI + 0.3, true); sad.lineTo(-r - 0.1, 0);
+        B.metal.add(new THREE.ExtrudeGeometry(sad, { depth: 0.24, bevelEnabled: false, curveSegments: 14 }).translate(0, 0, -0.12), M4(tx, Y + 0.5, tz + s), [0.2, 0.21, 0.22]);
+        B.metal.add(new THREE.TorusGeometry(r + 0.06, 0.03, 4, 32, PI * 1.2).rotateZ(-0.1 * PI), M4(tx, ty, tz + s), [0.36, 0.36, 0.37]);
+      }
+      // the top: a manhole dome, a vent mast, a catwalk with railings, the ladder up the east side
+      B.metal.add(new THREE.CylinderGeometry(0.34, 0.38, 0.22, 16), M4(tx, ty + r + 0.08, tz - 1.4), [0.26, 0.28, 0.25]);
+      B.metal.add(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 16), M4(tx, ty + r + 0.2, tz - 1.4), [0.3, 0.3, 0.3]);
+      B.metal.add(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 6), M4(tx + 0.3, ty + r + 0.7, tz + 2.2), [0.35, 0.35, 0.36]);
+      B.metal.add(new THREE.CylinderGeometry(0.1, 0.07, 0.18, 8), M4(tx + 0.3, ty + r + 1.42, tz + 2.2), [0.2, 0.2, 0.2]);
+      B.metal.add(new THREE.BoxGeometry(0.7, 0.05, 5.5), M4(tx - 0.2, ty + r + 0.14, tz), (p) => (Math.floor(p.z * 6) % 2 ? [0.28, 0.28, 0.29] : [0.18, 0.18, 0.19]));
+      for (let k = 0; k <= 5; k++) B.metal.add(new THREE.CylinderGeometry(0.025, 0.025, 1.0, 5), M4(tx - 0.55, ty + r + 0.55, tz - 2.75 + k * 1.1), [0.7, 0.55, 0.06]);
+      for (const yy of [0.55, 1.05]) B.metal.add(new THREE.CylinderGeometry(0.025, 0.025, 5.5, 5).rotateX(PI / 2), M4(tx - 0.55, ty + r + yy, tz), [0.7, 0.55, 0.06]);
+      for (const dz of [-0.22, 0.22]) B.metal.add(new THREE.CylinderGeometry(0.025, 0.025, 2 * r + 1.4, 5), M4(tx + r + 0.18, Y + r + 0.7, tz + 3.2 + dz), [0.7, 0.55, 0.06]);
+      for (let k = 0; k < 9; k++) B.metal.add(new THREE.CylinderGeometry(0.02, 0.02, 0.44, 4).rotateX(PI / 2), M4(tx + r + 0.18, Y + 0.4 + k * 0.36, tz + 3.2), [0.6, 0.6, 0.6]);
+      // fill / draw-off piping at the south head: a valve wheel, flanges, a hose coiled on a hook
+      B.metal.add(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8), M4(tx - 0.5, ty - r * 0.6, tz + len / 2 + 0.75, PI / 2, 0, 0), [0.28, 0.28, 0.28]);
+      B.metal.add(new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8), M4(tx - 0.5, ty - r * 0.6 - 0.5, tz + len / 2 + 1.35), [0.28, 0.28, 0.28]);
+      for (const fz of [0.3, 1.0]) B.metal.add(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 10).rotateX(PI / 2), M4(tx - 0.5, ty - r * 0.6, tz + len / 2 + fz), [0.2, 0.2, 0.2]);
+      B.paint.add(new THREE.TorusGeometry(0.2, 0.025, 4, 14), M4(tx - 0.5, ty - r * 0.6 + 0.25, tz + len / 2 + 0.6, 0, 0, 0).multiply(new THREE.Matrix4().makeRotationX(PI / 2)), [0.7, 0.08, 0.05]);
+      B.metal.add(new THREE.TorusGeometry(0.3, 0.05, 5, 16), M4(tx + 0.6, ty - 0.2, tz + len / 2 + 0.42), [0.08, 0.08, 0.08]);
       B.metal.add(new THREE.CylinderGeometry(0.06, 0.06, 4, 6).rotateX(PI / 2), M4(tx + r * 0.7, Y + 0.6, tz + 4), [0.4, 0.38, 0.3]);
-      B.snow.add(snowCap(r * 1.4, len + r, 0.25, 4, 3, 8), M4(tx, Y + r * 2 + 0.6, tz), [0.95, 0.97, 1]);
+      // the hazard placards (DIESEL / flammable diamond) on both sides
+      { const t = signTexture([['DIESEL', 92], ['UN 1202 · 30 000 L', 34]], { w: 512, h: 192, bg: '#d9a316', fg: '#151515', border: '#151515', seed: 77, age: 0.6 });
+        const pm = new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2 });
+        for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.82), pm); m.position.set(tx + s * (r + 0.02), ty - 0.05, tz - 0.1); m.rotation.y = s * PI / 2; root.add(m); } }
       col(tx - r, Y, tz - len / 2 - r, tx + r, Y + r * 2 + 0.6, tz + len / 2 + r, { kind: 'tank', mat: 'metal' });
       explosives.push({ p: new THREE.Vector3(tx, Y + r + 0.55, tz), r: r + 0.4, hp: 10, kind: 'fueltank', size: 3.2 });
       named.fuelTank = new THREE.Vector3(tx, Y + r + 0.55, tz);
@@ -157,20 +259,8 @@ export function buildStation(ctx) {
     // open west edge (a dark mid-ground silhouette against the white-out)
     {
       const gx = 68, gz = 41.5, yaw = PI / 2 + 0.25;
-      const G = (lx, ly, lz, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => M4(0, 0, 0).multiplyMatrices(M4(gx, Y, gz, 0, yaw, 0), M4(lx, ly, lz, rx, ry, rz, sx, sy, sz));
-      for (const sd of [-1, 1]) { B.paint.add(rbox(1.1, 1.05, 5.0, 0.48, 3), G(sd * 1.75, 0.53, 0), [0.07, 0.07, 0.075]); for (let k = 0; k < 16; k++) B.metal.add(new THREE.BoxGeometry(1.15, 0.06, 0.1), G(sd * 1.75, 1.07, -2.2 + k * 0.29), [0.3, 0.3, 0.31]); }
-      B.paint.add(rbox(2.6, 0.9, 4.6, 0.1), G(0, 1.4, 0.1), [0.62, 0.08, 0.05]);
-      B.paint.add(rbox(2.3, 0.55, 1.7, 0.12), G(0, 1.95, -1.6, 0.25, 0, 0), [0.62, 0.08, 0.05]);
-      B.paint.add(rbox(2.2, 1.3, 2.0, 0.1), G(0, 2.45, -0.2), [0.6, 0.08, 0.05]);
-      B.glass.add(new THREE.BoxGeometry(2.0, 0.85, 0.04), G(0, 2.6, -1.22, -0.12));
-      for (const sd of [-1, 1]) B.glass.add(new THREE.BoxGeometry(0.04, 0.7, 1.5), G(sd * 1.11, 2.6, -0.2));
-      B.metal.add(new THREE.BoxGeometry(1.6, 0.14, 0.24), G(0, 3.17, -1.0), [0.15, 0.15, 0.16]);
-      for (let k = 0; k < 4; k++) B.lamp.add(new THREE.BoxGeometry(0.22, 0.1, 0.05), G(-0.55 + k * 0.37, 3.17, -1.13), k % 3 ? [1.6, 1.5, 1.3] : [1.8, 0.9, 0.1]);
-      B.paint.add(rbox(4.2, 1.2, 0.3, 0.12, 2), G(0, 0.8, -3.2, -0.2, 0, 0), (q, n, l) => (l.y < -0.45 ? [0.12, 0.11, 0.1] : [0.68, 0.52, 0.07]));
-      B.paint.add(rbox(3.8, 0.55, 1.0, 0.15), G(0, 0.5, 3.1), [0.2, 0.2, 0.21]);
-      B.snow.add(snowCap(2.1, 1.9, 0.14, 7, 3, 3), G(0, 3.12, -0.2), [0.95, 0.97, 1]);
-      glows.push({ p: new THREE.Vector3(0, 3.17, -1.4).applyMatrix4(M4(gx, Y, gz, 0, yaw, 0)).toArray(), color: [2.4, 1.2, 0.2], size: 0.9, blink: true, rate: 4 });
-      const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(gx - c * 2.1 - sn * 3.3, Y, gz - sn * 2.1 - c * 3.3, gx + c * 2.1 + sn * 3.3, Y + 3.2, gz + sn * 2.1 + c * 3.3, { kind: 'wreck', mat: 'metal' });
+      { const GR = buildGroomer({ seed: 3, paint: [0.66, 0.07, 0.05] }); GR.root.position.set(gx, Y, gz); GR.root.rotation.y = yaw; root.add(GR.root); glows.push({ p: new THREE.Vector3(0.6, 3.35, -0.5).applyMatrix4(M4(gx, Y, gz, 0, yaw, 0)).toArray(), color: [2.4, 1.2, 0.2], size: 0.9, blink: true, rate: 4 }); }
+      const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(gx - c * 2.2 - sn * 3.6, Y, gz - sn * 2.2 - c * 3.6, gx + c * 2.2 + sn * 3.6, Y + 3.2, gz + sn * 2.2 + c * 3.6, { kind: 'wreck', mat: 'metal' });
       // the snow fence: dark posts, an orange plastic mesh (slats), drifts banked on its windward side
       for (let fz = 12; fz < 36; fz += 2.4) {
         B.wood.add(new THREE.BoxGeometry(0.1, 1.6, 0.1), M4(50.6, Y + 0.8, fz), [0.16, 0.12, 0.09]);
@@ -179,6 +269,7 @@ export function buildStation(ctx) {
       B.snow.add(driftWedge(24, 0.8, 1.6, 41), M4(50.3, Y - 0.05, 24, 0, -PI / 2, 0), (q) => { const k = 0.86 + 0.14 * Math.min(1, (q.y - Y) / 0.8); return [k * 0.95, k * 0.97, k]; });
     }
     // packed grey-brown slush where everything stops: the station doorway, the shed doors, round the tank and the pallets
+    root.add(aoStrips([[62, -6, 3.2, 30], [110, -6, 3.2, 30], [67, 8, 11, 3], [104, 8, 13, 3], [114, 30, 3, 25], [121, 42, 15, 3], [58, 20, 4.6, 10.5], [68, 41.5, 4.5, 8, PI / 2 + 0.25], [76, 28, 7.6, 4, 0.05], [94, 34, 7.6, 4, PI / 2 + 0.08], [88, 22, 7.6, 4, 0.02]].map(([x, z, w, d, yaw = 0]) => ({ x, y: Y, z, w, d, yaw }))));
     root.add(groundPatches([{ x: 85, y: Y, z: 11, w: 24, d: 9 }, { x: 110, y: Y, z: 30, w: 6, d: 18 }, { x: 62, y: Y, z: 20, w: 9, d: 13 }, { x: 72, y: Y, z: 36, w: 7, d: 6 }, { x: 100, y: Y, z: 26, w: 6, d: 5 }, { x: 84, y: Y, z: 13, w: 8, d: 6 }, { x: 60, y: Y, z: 38, w: 12, d: 8, yaw: 0.5 }]));
     root.add(lanePatches([[[50, 41], [60, 36], [72, 33], [84, 30], [98, 24], [104, 14], [100, 6]], [[54, 39], [58, 31], [64, 24], [72, 18], [84, 14], [92, 10]], [[113, 38], [104, 40], [86, 41], [70, 40]]], Y, 6.5));
     // tyre tracks: in from the road, round the containers to the station, the groomer's belts from the shed

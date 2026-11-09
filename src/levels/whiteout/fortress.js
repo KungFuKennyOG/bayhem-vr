@@ -1,8 +1,10 @@
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { dressStation } from './interior.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { HALL, HALL_WALK, DOCK, COURT, BLOCK, TOWER, STAIR_A, LAND_A, STAIR_B, LAND_B, GALLERY, RAILCAR, TRACK_X, SUMMIT_Y, terrainAt, groundAt, lineY } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, floorPools, trackDecals, groundPatches, lightCone, lanePatches } from './kit.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, floorPools, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
+import { buildGroomer } from './groomer.js';
 import { signTexture } from './tex.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
 
@@ -77,6 +79,27 @@ export function buildFortress(ctx) {
     const t = signTexture([['GRAUHORN', 110], ['3 412 m  •  STATION', 46]], { w: 1024, h: 256, bg: '#c8c2b4', fg: '#7a1410', border: '#7a1410', font: 'Anton', seed: 31, age: 0.7 });
     const sm = new THREE.Mesh(new THREE.PlaneGeometry(10, 2.5), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 }));
     sm.position.set(87, Y + 6.2, z0 - 0.02); sm.rotation.y = PI; root.add(sm);
+    dressStation({ B, col, glows, root, x0, x1, z0, z1, Y, H, wt: T, seed: 51,
+      lamps: [72, 85, 98].flatMap((lx) => [[lx, -298], [lx, -310]]), docks: TRACK_X.map((x) => ({ x, z: DOCK.z, len: 16, door: 1 })), doorZ: z0, doorX: [76, 98] });
+    // cream lining above the wainscot on all four inner faces (bare dark concrete inside read as a black box), panel joints, a pale soffit
+    {
+      const cream = (q) => { const k = 0.88 + 0.12 * Math.min(1, (q.y - Y - 1.4) / 6); return [0.66 * k, 0.63 * k, 0.56 * k]; }, y0 = Y + 1.36;
+      for (const [wx, f] of [[x0 + T + 0.015, 1], [x1 - T - 0.015, -1]]) {
+        B.paintIn.add(new THREE.BoxGeometry(0.02, H - 1.36, z1 - z0 - 1.4), M4(wx, (y0 + Y + H) / 2, (z0 + z1) / 2), cream);
+        for (let z = z0 + 3; z < z1 - 1; z += 3) B.paintIn.add(new THREE.BoxGeometry(0.03, H - 1.4, 0.04), M4(wx + f * 0.01, (y0 + Y + H) / 2, z), [0.42, 0.4, 0.36]);
+      }
+      for (const [zz, segs] of [[z0 + T + 0.015, [[x0 + T, 76, y0], [98, x1 - T, y0], [76, 98, Y + 4.5]]], [z1 - T - 0.015, [[x0 + T, 72, y0], [98, x1 - T, y0], [72, 98, Y + 9]]]])
+        for (const [a, b, ya] of segs) B.paintIn.add(new THREE.BoxGeometry(b - a, Y + H - ya, 0.02), M4((a + b) / 2, (ya + Y + H) / 2, zz), cream);
+      B.paintIn.add(new THREE.BoxGeometry(x1 - x0 - 2 * T, 0.03, z1 - z0 - 2 * T), M4((x0 + x1) / 2, roofY - 0.02, (z0 + z1) / 2), [0.5, 0.5, 0.48]);
+      // the windows seen from inside: cold daylight panes with deep frames and a sill (the exterior windowRow positions)
+      const pane = (xa, xb, n, zz, y, f, w = 1.3, h = 1.6) => { for (let i = 0; i < n; i++) { const x = xa + (i + 0.5) * (xb - xa) / n;
+        B.lamp.add(new THREE.BoxGeometry(w, h, 0.02), M4(x, y, zz), [0.36, 0.42, 0.52]);
+        for (const [dx, dy, ww, hh] of [[0, h / 2 + 0.06, w + 0.24, 0.12], [0, -h / 2 - 0.06, w + 0.24, 0.12], [-w / 2 - 0.06, 0, 0.12, h], [w / 2 + 0.06, 0, 0.12, h], [0, 0, 0.05, h]]) B.paintIn.add(new THREE.BoxGeometry(ww, hh, 0.12), M4(x + dx, y + dy, zz + f * 0.05), [0.2, 0.22, 0.24]);
+        B.paintIn.add(new THREE.BoxGeometry(w + 0.3, 0.05, 0.3), M4(x, y - h / 2 - 0.12, zz + f * 0.15), [0.55, 0.53, 0.5]); } };
+      pane(x0 + 2, 74, 4, z0 + T + 0.03, Y + 7, 1); pane(100, x1 - 2, 3, z0 + T + 0.03, Y + 7, 1); pane(x0 + 2, x1 - 2, 9, z1 - T - 0.03, Y + 10.5, -1);
+      // daylight spilling in through the courtyard doors (cold, on the dark floor)
+      root.add(floorPools([[81, -320.5], [87, -320.5], [93, -320.5], [87, -317]].map(([x, z]) => ({ p: [x, Y + 0.02, z], c: [0.16, 0.2, 0.27], r: 4.5 }))));
+    }
   }
 
   // ---------------------------------------------------------------- the courtyard
@@ -134,13 +157,18 @@ export function buildFortress(ctx) {
       col(mx - 0.25, Y, mz - 0.25, mx + 0.25, Y + 11, mz + 0.25, { mat: 'metal' });
     }
     // the enemy snowcat parked by the block (cover)
-    { const sx = 96, sz = -372, yaw = PI / 2 + 0.1; const M = (lx, ly, lz) => M4(0, 0, 0).multiplyMatrices(M4(sx, Y, sz, 0, yaw, 0), M4(lx, ly, lz)); for (const s of [-1, 1]) B.paint.add(rbox(0.9, 0.95, 4.6, 0.3), M(s * 1.55, 0.48, 0), [0.07, 0.07, 0.07]); B.paint.add(rbox(2.3, 0.8, 4.2, 0.08), M(0, 1.25, 0.1), [0.22, 0.25, 0.2]); B.paint.add(rbox(2.0, 1.25, 1.9, 0.07), M(0, 2.2, -0.45), [0.22, 0.25, 0.2]); B.glass.add(new THREE.BoxGeometry(1.9, 0.9, 0.05), M(0, 2.35, -1.42)); B.paint.add(rbox(3.9, 1.1, 0.18, 0.04), M(0, 0.75, -2.85), [0.6, 0.45, 0.05]); const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(sx - c * 2 - sn * 3, Y, sz - sn * 2 - c * 3, sx + c * 2 + sn * 3, Y + 2.9, sz + sn * 2 + c * 3, { kind: 'wreck', mat: 'metal' }); }
+    { const sx = 96, sz = -372, yaw = PI / 2 + 0.1; const GR = buildGroomer({ seed: 11, paint: [0.32, 0.34, 0.33] }); GR.root.position.set(sx, Y, sz); GR.root.rotation.y = yaw; root.add(GR.root); const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(sx - c * 2.2 - sn * 3.6, Y, sz - sn * 2.2 - c * 3.6, sx + c * 2.2 + sn * 3.6, Y + 3.0, sz + sn * 2.2 + c * 3.6, { kind: 'wreck', mat: 'metal' }); }
   }
 
   // ---------------------------------------------------------------- the north block (two storeys; the roof walk)
   {
     const { x0, x1, z0, z1, roofY } = BLOCK;
-    wall(x0, x1, z1 - 0.6, z1, Y, roofY, B.stone, 2.6, footAO(Y, 2, 0.45, [0.78, 0.77, 0.74]));
+    // front: a rusticated stone ground floor, a pale concrete upper storey (all-stone read as one dark slab), a string course between
+    wall(x0, x1, z1 - 0.6, z1, Y, Y + 3.3, B.stone, 2.6, footAO(Y, 2, 0.45, [0.78, 0.77, 0.74]));
+    B.concrete.add(rbox(x1 - x0, roofY - Y - 3.3, 0.6, 0.03), M4((x0 + x1) / 2, (Y + 3.3 + roofY) / 2, z1 - 0.3), (q) => { const t = (q.y - Y - 3.3) / (roofY - Y - 3.3); const k = 0.9 + 0.1 * t; return [0.97 * k, 0.93 * k, 0.85 * k]; }, { uvScale: 3.2 });
+    col(x0, Y + 3.3, z1 - 0.6, x1, roofY, z1);
+    B.concrete.add(rbox(x1 - x0 + 0.4, 0.3, 0.5, 0.04), M4((x0 + x1) / 2, Y + 3.3, z1 + 0.05), [0.62, 0.6, 0.57], { uvScale: 3 });
+    B.snow.add(snowCap(x1 - x0 + 0.3, 0.32, 0.08, 71, 14, 1), M4((x0 + x1) / 2, Y + 3.47, z1 + 0.12), [0.95, 0.97, 1]);
     wall(x0, x1, z0, z0 + 0.6, Y, roofY, B.stone, 2.6);
     wall(x1 - 0.6, x1, z0, z1, Y, roofY, B.stone, 2.6);
     windowRow(x0 + 4, x1 - 4, z1, Y + 2.0, 12, 1, 0.5, 1.2, 1.4);
@@ -148,11 +176,16 @@ export function buildFortress(ctx) {
     // doors at ground level (enemies come out of these)
     for (const dx of [90, 110]) { B.paint.add(new THREE.BoxGeometry(1.6, 2.4, 0.12), M4(dx, Y + 1.2, z1 + 0.04), [0.2, 0.24, 0.2]); B.lamp.add(new THREE.SphereGeometry(0.14, 8, 6), M4(dx, Y + 2.9, z1 + 0.25), [1.6, 1.0, 0.5]); glows.push({ p: [dx, Y + 2.9, z1 + 0.5], color: WARM, size: 1.6 }); }
     // a painted name band and a cornice line; pilasters every 10 m break the long face
-    { const t = signTexture([['FORSCHUNGSSTATION GRAUHORN', 84]], { w: 1024, h: 128, bg: '#cfc8ba', fg: '#3a2a20', border: null, font: 'Anton', seed: 61, age: 0.9 });
-      const sm = new THREE.Mesh(new THREE.PlaneGeometry(26, 2.4), snowLess(t)); sm.position.set(84, Y + 3.9, z1 + 0.04); root.add(sm); }
+    { const t = signTexture([['FORSCHUNGSSTATION GRAUHORN', 64]], { w: 1024, h: 80, bg: '#cfc8ba', fg: '#3a2a20', border: null, font: 'Anton', seed: 61, age: 0.9 });
+      // a fascia panel standing proud of the pilasters, between the two window rows (the letters used to run behind the windows)
+      B.concrete.add(rbox(21.2, 1.9, 0.26, 0.04), M4(84, Y + 3.8, z1 + 0.48), [0.6, 0.59, 0.57], { uvScale: 3 });
+      B.snow.add(snowCap(21.2, 0.3, 0.08, 61, 8, 1), M4(84, Y + 4.78, z1 + 0.5), [0.95, 0.97, 1]);
+      for (const dx of [-10.6, 10.6]) B.metal.add(new THREE.BoxGeometry(0.06, 0.6, 0.3), M4(84 + dx, Y + 3.0, z1 + 0.55), [0.3, 0.3, 0.32]);
+      const sm = new THREE.Mesh(new THREE.PlaneGeometry(20, 1.45), snowLess(t)); sm.position.set(84, Y + 3.8, z1 + 0.62); root.add(sm); }
     B.concrete.add(rbox(x1 - x0 + 0.6, 0.35, 0.7, 0.04), M4((x0 + x1) / 2, Y + 7.6, z1 + 0.1), [0.76, 0.75, 0.73], { uvScale: 3 });
     for (let x = x0 + 5; x < x1; x += 10) B.stone.add(rbox(0.8, BLOCK.roofY - Y, 0.4, 0.03), M4(x, (Y + BLOCK.roofY) / 2, z1 + 0.15), footAO(Y, 2, 0.45, [0.82, 0.8, 0.77]), { uvScale: 2.6 });
     named.blockDoors = [new THREE.Vector3(90, Y, z1 + 1.2), new THREE.Vector3(110, Y, z1 + 1.2)];
+    root.add(aoStrips([[105, -382, 72, 3], [70, -324, 12, 3], [103, -324, 10, 3], [96, -372, 4.6, 8, PI / 2 + 0.1]].map(([x, z, w, d, yaw = 0]) => ({ x, y: Y, z, w, d, yaw }))));
     // the roof: slab, the walk's parapet on the courtyard side (gap for the stair landing), sandbag nests, vents
     B.concrete.add(rbox(x1 - x0, 0.5, z1 - z0, 0.03), M4((x0 + x1) / 2, roofY - 0.25, (z0 + z1) / 2), [0.62, 0.6, 0.58], { uvScale: 4 });
     col(x0, Y, z0, x1, roofY, z1);   // the block itself (its top is the roof walk)

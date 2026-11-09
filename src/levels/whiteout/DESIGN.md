@@ -78,6 +78,12 @@ low gold sun in the south-south-west, the lit face, a lenticular cap, the cloud 
 - `sky.js` — one sky shader for storm and clear (the deck tears open from the top), the environment re-bake, the
   cloud sea.
 - `road.js`, `props.js`, `flora.js`, `station.js`, `fortress.js`, `cabin.js` — the art (see their headers).
+- `groomer.js` — `buildGroomer({ paint, burnt, seed })`: the piste basher (belts on stadium extrusions with cleats,
+  glasshouse cab, curved blade, tiller), used for the yard's machine, the burning wreck on the road and the court's cover.
+- `interior.js` — `dressStation(ctx)`: the shared fit-out of the two cable-car halls (trusses, wainscot, cabinet bank,
+  doors + signs, extinguishers, benches, ski rack, route map, clock, ticket gates, dock guide rails, floor light pools).
+- `cabin.js` — the car is lofted from a rounded-rect plan (belly, bumper, cream belt, crown roof, carriage with bogies,
+  6 glass panes, a framed sliding door); the interior is the riveted-lining canvas texture.
 - `billow.js` — **BillowCloud**: the avalanche's powder cloud as lit billow impostors (a noisy sphere per quad, cauliflower
   edge, normal from the sphere + the noise gradient, sun-lit tops / blue self-shadowed undersides, graded THEN
   premultiplied — premultiplying first made thin edges glow as halos), sorted back to front, one draw.
