@@ -169,7 +169,15 @@ export function buildSlide(ctx = {}) {
     gridFace(A, (u, v) => { const x = SLIDE.x0 + (SLIDE.x1 - SLIDE.x0) * u, z = SLIDE.toe - (SLIDE.toe - C0) * v; return [x, scarY(x, z), z]; }, 80, 48, { colFn: earthCol, emFn: fireEm });
     // the valley walls where the bank broke: rock face above the hill line (seen before), rough earth below it
     const rc = (p) => p[1] > hillY(p[2]) + 0.5 ? rockCol(p) : earthCol(p);
-    sideFace(A, SLIDE.x0, 1, bankProfile(SLIDE.x0), { jag: 9, under: hillY, colFn: rc });
+    // west side: where Sky Street's ground stands above the hill, the backs of its buildings come down to the hill (lit
+    // windows, not a black rock wall); below the hill line it's the broken earth the slide uncovers
+    { const Bp = bankProfile(SLIDE.x0), bankAt = (z) => { for (let i = 1; i < Bp.length; i++) if (Bp[i][1] >= z) { const [y0, z0] = Bp[i - 1], [y1, z1] = Bp[i]; return y0 + (y1 - y0) * Math.min(1, Math.max(0, (z - z0) / Math.max(1e-3, z1 - z0))); } return QUAY.y; };
+      sideFace(A, SLIDE.x0, 1, Bp.map(([y, z]) => [Math.min(y, hillY(z) - 0.05), z]), { jag: 9, under: hillY, colFn: earthCol });
+      const W = B.get('tile', 'scar');
+      W.set({ col: WALLC[2], rm: [0.85, 0, 0], em: [0, 0, 0, CODE], cell: [3.0, 3.0, 17.3, 0] });
+      gridFace(W, (u, v) => { const z = Math.min(PLAZA.z1 + 0.5, C0 + (PLAZA.z1 + 0.5 - C0) * (1 - u)), lo = Math.min(hillY(z), bankAt(z)), hi = Math.max(lo, bankAt(z) + 1.2); return [SLIDE.x0 - 0.05, lo + (hi - lo) * v, z]; }, 40, 6);
+      const Ce = B.get('concrete', 'scar'); Ce.set({ col: [0.42, 0.42, 0.43], rm: [0.9, 0, 0], em: em([1.0, 0.55, 0.2], 0.9, DUSK + CODE) });
+      Ce.box(SLIDE.x0 - 0.3, 57.0, C0, SLIDE.x0, 57.25, PLAZA.z1, { faces: 'X' }); }
     sideFace(A, SLIDE.x1, -1, hillProfile(C0, ZF), { jag: 9, under: hillY, colFn: rc });
     // broken services sticking out of the head scarp, rubble down the slope and piled at the waterline
     const Mt = B.get('metal', 'scar');

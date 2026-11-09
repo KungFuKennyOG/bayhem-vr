@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, damp, range } from '../../rng.js';
 import { arrivedAtMarker } from '../../beats.js';
 import { POWER, DIST } from './kit.js';
-import { START, STAIRS, LSTREET, GATE, GSTAIR, G40, BALC, LOWROOF, BRIDGE, CROWN, PLAZA, F1, F2, TANKER, CLIMB, SKYST, FOOTB, LOBBY, TERRACE, LOCKER, PSPAN, FLYOVER_W, TOWER, stairY, climbY, groundAt } from './layout.js';
+import { START, STAIRS, LSTREET, GATE, GSTAIR, G40, BALC, LOWROOF, BRIDGE, CROWN, PLAZA, F1, F2, TANKER, CLIMB, SKYST, FOOTB, LOBBY, TERRACE, LOCKER, ROOFTOP, PSPAN, FLYOVER_W, TOWER, stairY, climbY, groundAt } from './layout.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _look = new THREE.Vector3(), _to = new THREE.Vector3();
@@ -166,23 +166,32 @@ export class Director {
           later(1.4, () => hud.objective('Clear the sky lobby'));
           for (const [x, z, d] of [[330, 140, 0.4], [350, 139, 1.0], [340, 146, 1.8], [326, 148, 2.6], [354, 147, 3.4], [338, 130, 4.4]]) S({ x, z, delay: d });
           S({ x: 340, z: 150, role: 'rusher', delay: 10, entry: V(340, 0, 140) });
-          A?.go([{ p: V(341, 0, 112), nav: null, slow: 0.6 }, { p: V(341, 0, 121), nav: null, slow: 0.6 }, go(328, 130, { slow: 0.5 }), go(330, 142, { slow: 0.5 }), go(340, 150, {})]);
+          A?.go([{ p: V(341, 0, 112), nav: null, slow: 0.6 }, { p: V(341, 0, 121), nav: null, slow: 0.6 }, go(328, 130, { slow: 0.5 }), go(330, 142, { slow: 0.5 }), go(340, 146, {})]);
         }, update: (t) => { this.sp.towerGroan(clamp(t / 40, 0.2, 0.8)); },
-        until: (t) => (t > 6 && alive(s => s.role !== 'sniper') === 0 && pz() > 146) || t > 140 * T },
+        until: (t) => (t > 6 && alive(s => s.role !== 'sniper') === 0) || t > 140 * T },
+      // 10b ---- the lift: the rig's on the roof (the helipad), 180 m up; the lift still has power
+      { name: 'lift', wp: V(ROOFTOP.lift.x, LOBBY.y + 1.6, ROOFTOP.lift.z), music: 0.9, enter: () => {
+          say('Lobby\'s clear. There\'s a BASE rig up on the helipad — take the lift. ...Roof. Now.', 3.6);
+          later(1.0, () => hud.objective('The lift — up to the roof'));
+          if (A) A.go([go(334, 124, { slow: 0.6 }), { p: V(ROOFTOP.lift.x, 0, ROOFTOP.lift.z), nav: null, slow: 0.5 }]);
+        }, update: (t) => {
+          this.sp.towerGroan(0.8);
+          if (!this.sp.lift && (this.sp.nearLift() || t > 40 * T)) this.sp.liftRide();
+        }, until: () => !!this.sp.onRoof },
       // 11 ---- the tower's going: the rig, the gap, the jump
-      { name: 'jump', wp: V(LOCKER.x, LOBBY.y + 1.6, LOCKER.z), music: 1.0, enter: () => {
+      { name: 'jump', wp: V(ROOFTOP.locker.x, ROOFTOP.y + 1.6, ROOFTOP.locker.z), music: 1.0, enter: () => {
           this.sp.towerGroan(1);
-          say('That\'s it — she\'s coming off the cliff! There\'s a BASE rig in that locker — grab it!', 3.4);
+          say('That\'s it — she\'s coming off the cliff! The locker by the edge — grab the rig!', 3.4);
           later(1.2, () => hud.objective('The locker — grab the BASE rig'));
-          if (A) A.go([{ p: V(LOCKER.x - 1.2, 0, LOCKER.z - 1.4), nav: null, slow: 0.8 }]);
+          if (A) A.go([{ p: V(ROOFTOP.locker.x - 1.2, 0, ROOFTOP.locker.z - 1.4), nav: null, slow: 0.8 }]);
           this.jt = 0;
         }, update: (t) => {
           this.sp.towerGroan(1);
           if (!this.sp.rigOn && (this.sp.nearLocker() || t > 25)) {
             this.sp.takeRig();
-            hud.setWaypoint(V((TERRACE.gap[0] + TERRACE.gap[1]) / 2, LOBBY.y + 1, TERRACE.z1 - 0.3));
+            hud.setWaypoint(V((ROOFTOP.gap[0] + ROOFTOP.gap[1]) / 2, ROOFTOP.y + 1, ROOFTOP.z1 - 0.3));
             later(0.4, () => say('Rig\'s on! The gap in the railing — run and JUMP! Don\'t think!', 2.8));
-            if (A) later(0.8, () => A.go([{ p: V(340, 0, TERRACE.z1 - 0.2), nav: null, sprint: true }]));
+            if (A) later(0.8, () => A.go([{ p: V(340, 0, ROOFTOP.z1 - 0.3), nav: null, sprint: true }]));
           }
           if (this.sp.rigOn) { this.jt += 1 / 60; if (this.sp.atEdge() || this.jt > 20) this.sp.jump(); }
         }, until: () => !!this.sp.glide },
@@ -248,9 +257,9 @@ export class Director {
     ];
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
-    const START_P = { steps: [-122, 64, 76], lstreet: [-62, 50, 80], gallery: [84, 50, 94], bridge: [108, 40, 109], plaza: [176, 40, 104], pancake: [276, 40, 98], blackout: [250, 40, 100], climb: [270, 40, 98], lobby: [341, 56, 106], jump: [340, 56, 146], glide: [340, 56, 156], outro: [340, 56, 156], credits: [340, 56, 156] };
+    const START_P = { steps: [-122, 64, 76], lstreet: [-62, 50, 80], gallery: [84, 50, 94], bridge: [108, 40, 109], plaza: [176, 40, 104], pancake: [276, 40, 98], blackout: [250, 40, 100], climb: [270, 40, 98], lobby: [341, 56, 106], lift: [340, 56, 140], jump: [340, 239, 133], glide: [340, 239, 153], outro: [340, 239, 153], credits: [340, 239, 153] };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
-    const NIGHT = { intro: 0.26, steps: 0.3, lstreet: 0.42, gallery: 0.55, bridge: 0.68, plaza: 0.82, pancake: 0.85, blackout: 1, climb: 1, lobby: 1, jump: 1, glide: 1, outro: 1, credits: 1 };
+    const NIGHT = { intro: 0.26, steps: 0.3, lstreet: 0.42, gallery: 0.55, bridge: 0.68, plaza: 0.82, pancake: 0.85, blackout: 1, climb: 1, lobby: 1, lift: 1, jump: 1, glide: 1, outro: 1, credits: 1 };
     if (ji > 0) {
       const p = START_P[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
       const idx = (n) => this.steps.findIndex(s => s.name === n);
@@ -259,9 +268,10 @@ export class Director {
       if (ji > idx('pancake')) { this.sp.tankerArmed = true; this.sp.spanDownNow(); g.fire = 0.75; this.sp.blackoutArmed = true; }
       if (ji > idx('blackout')) { this.sp.startBlackout(true); g.glow = 0.1; }
       if (ji > idx('blackout')) { this.sp.blackT = 30; }
+      if (ji > idx('lift')) this.sp.onRoof = true;
       if (ji >= idx('glide')) { this.sp.takeRig(); this.sp.jump(); g.slowT = 0; }
       if (ji > idx('glide')) { this.sp.landslide(true); }
-      g.score = [0, 0, 2400, 5200, 8600, 12000, 15600, 19400, 21800, 22600, 26800, 30200, 31000, 38000, 38000][ji] || 0;
+      g.score = [0, 0, 2400, 5200, 8600, 12000, 15600, 19400, 21800, 22600, 26000, 26800, 30200, 31000, 38000][ji] || 0;
       for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
       for (const L of Object.values(hud.lanes || {})) { L.q.length = 0; L.cur = null; }
       this.stepIdx = ji - 1;

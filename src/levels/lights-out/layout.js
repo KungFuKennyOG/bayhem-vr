@@ -86,6 +86,9 @@ export const scarY0 = (z) => { const w = Math.min(1, Math.max(0, (z - SLIDE.crac
 export const TOWER = { x0: 320, x1: 360, z0: 120, z1: 160, base: 3, h: 236, lobby: 56, floorH: 4.2 };
 export const LOBBY = { x0: 323, x1: 357, z0: 121, z1: 150, y: 56 };
 export const TERRACE = { x0: 323, x1: 357, z0: 150, z1: 158.6, y: 56, gap: [334, 346] };  // glass balustrade with a gap: the jump
+// the roof (inside the crown's lantern cage, 239 m up): the lift from the sky lobby comes out here; the BASE rig is in a
+// locker by the gap in the south parapet — the jump is from the top
+export const ROOFTOP = { x0: 324, x1: 356, z0: 124, z1: 156, y: 239, gap: [334, 346], locker: { x: 351, z: 152.4 }, lift: { x: 332.3, z: 123.7 }, out: { x: 340, z: 132 } };
 export const LOCKER = { x: 350, z: 152.2 };                                               // the BASE rig (a dead guard's kit by the gap)
 
 // ---------------------------------------------------------------- the Chaotian bridge (cable-stayed, across the river) and the glide
@@ -94,8 +97,9 @@ export const FARARCH = [{ x: 680, y: 36, code: 13 }, { x: -760, y: 34, code: 11 
 // the glide rail (a Catmull-Rom through these points; the last point is replaced by the boat's deck). It swings out
 // south-east into the river first, so looking back you face the east bank (the landslide) square on, then turns downstream
 export const GLIDE = [
-  [340, 57.4, 158], [344, 56, 180], [356, 54.5, 206], [374, 53, 232], [390, 51.5, 258], [394, 50, 282], [380, 48.5, 302],
-  [350, 47, 314], [300, 45, 318], [240, 42, 314], [170, 38, 308], [100, 33, 305], [20, 26, 308], [-50, 20, 307], [-110, 15, 305], [-150, 12.5, 304], [-196, 8.5, 302], [-236, 5, 300], [-262, 2.8, 298],
+  [340, 240.5, 158], [344, 236, 180], [356, 226, 206], [374, 214, 232], [390, 200, 258], [394, 186, 282], [380, 172, 302],
+  [350, 158, 314], [300, 140, 318], [240, 118, 314], [170, 92, 308], [100, 68, 305], [40, 50, 307], [-20, 34, 308], [-70, 22, 307],
+  [-110, 15, 305], [-150, 12.5, 304], [-196, 8.5, 302], [-236, 5, 300], [-262, 2.8, 298],
 ];
 export const GLIDE_SPEED = 8.2;                                                           // m/s along the rail
 export const BOAT = { x0: -340, z: 298, speed: 1.6 };                                    // the gunboat steams east toward the landing

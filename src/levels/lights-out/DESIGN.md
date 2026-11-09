@@ -27,8 +27,9 @@ searchlights. Every number lives in `layout.js`.
    later a scattering of emergency windows comes back (the dark city still reads as a city).
 9. **climb** — up to Sky Street in the dark: generator searchlights (shoot the lamps), lasers, fires.
 10. **lobby** — over the footbridge into Jinlong's sky lobby (marble, gold, the 金龙 bulkhead); the building groans.
-11. **jump** — grab the BASE rig from the locker; run for the gap in the terrace balustrade; slow-mo jump.
-12. **glide** — the rail swings out south-east into the river first, so "LOOK BACK" (look-gated, from ~7 s) faces the
+10b. **lift** — the lift up to the roof (a blink to black, the hum of the ride): 239 m up, inside the crown's lantern cage.
+11. **jump** — on the roof: grab the BASE rig from the locker by the helipad; run for the gap in the south parapet; slow-mo jump.
+12. **glide** — from the top: the rail descends from 240 m, swinging out south-east over the river first, so "LOOK BACK" (look-gated, from ~7 s) faces the
     east bank square on: the **landslide**. East of Jinlong the bank is a terraced hillside district (it carries on east
     past the slide, static, so the slide tears a gap out of it) (six streets of
     low housing stepping down from the y-64 hill to the quay, lit terrace lines, shops in the retaining walls,

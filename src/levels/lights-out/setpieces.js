@@ -10,7 +10,7 @@ import { HINGE } from './tower.js';
 import { Searchlights } from './searchlights.js';
 import { buildCanopy, GlideRail, buildGunboat } from './glide.js';
 import { Landslide } from './slide.js';
-import { F1, F2, PSPAN, TANKER, SUBST, PLAZA, TOWER, TERRACE, LOBBY, LOCKER, CHAOTIAN, BOAT, WATER_Y, GLIDE_SPEED, CLIMB, SKYST, FOOTB, groundAt } from './layout.js';
+import { F1, F2, PSPAN, TANKER, SUBST, PLAZA, TOWER, TERRACE, LOBBY, LOCKER, ROOFTOP, CHAOTIAN, BOAT, WATER_Y, GLIDE_SPEED, CLIMB, SKYST, FOOTB, groundAt } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 function rayBox(o, d, mn, mx) {
@@ -50,17 +50,43 @@ export class SetPieces {
     this.canopy.visible = false; scene.add(this.canopy);
     this.boat = buildGunboat(); this.boat.position.set(BOAT.x0, WATER_Y + 0.15, BOAT.z); this.boat.visible = false; scene.add(this.boat);
     this.blackT = -1; this.state = {};
+    // a black blink around the eyes for the lift ride (the lobby → the roof)
+    this.fadeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 8), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
+    this.fadeMesh.renderOrder = 9999; this.fadeMesh.frustumCulled = false; this.fadeMesh.visible = false; g.camera.add(this.fadeMesh);
     this.glide = null;
     this.riding = false;
   }
   warmMaterials() {
     const out = [];
     for (const o of [this.spans.f1, this.canopy, this.boat]) o.traverse(m => { if (m.isMesh || m.isLine) for (const mm of [].concat(m.material)) if (!out.includes(mm)) out.push(mm); });
-    out.push(this.search.mesh.material);
+    out.push(this.search.mesh.material, this.fadeMesh.material);
     return out;
   }
   // the terrace's gap: you can step to the very edge once you have the rig
-  extraWalk(x, z) { return !!this.rigOn && x > TERRACE.gap[0] + 0.4 && x < TERRACE.gap[1] - 0.4 && z > TERRACE.z0 && z < TERRACE.z1 + 0.6; }
+  extraWalk(x, z) { return false; }
+  // the lift from the sky lobby to the roof: doors, a blink to black, the hum of the ride, out onto the roof
+  nearLift() { const h = this.g.headPos, L = ROOFTOP.lift; return Math.hypot(h.x - L.x, h.z - L.z) < 1.8 && h.y < LOBBY.y + 4; }
+  liftRide() {
+    if (this.lift) return;
+    this.lift = { t: 0, moved: false, done: false };
+    this.audio.play('container_doors', { volume: 0.7, pitch: 1.3 });
+  }
+  _updateLift(dt) {
+    const L = this.lift; if (!L || L.done) return;
+    L.t += dt;
+    const o = L.t < 0.5 ? L.t / 0.5 : L.t < 2.8 ? 1 : Math.max(0, 1 - (L.t - 2.8) / 0.6);
+    this.fadeMesh.material.opacity = o; this.fadeMesh.visible = o > 0.002;
+    if (!L.moved && L.t > 0.6) {
+      L.moved = true;
+      const g = this.g, R = ROOFTOP;
+      g.rig.position.set(R.out.x, R.y, R.out.z);
+      if (g.player) { g.player.yaw = Math.PI; g.player.pitch = -0.05; }
+      if (g.loco) g.loco.vel?.set?.(0, 0, 0);
+      this.audio.play('gear_rattle', { volume: 0.5, pitch: 0.6 });
+      g.fx.later(1.6, () => this.audio.play('container_doors', { volume: 0.8, pitch: 1.2 }));
+    }
+    if (L.t > 3.4) { L.done = true; this.onRoof = true; this.fadeMesh.visible = false; this.g.events.push({ type: 'roof' }); }
+  }
 
   // ================================================================== fires (persistent, light the scene)
   addFire(p, size = 1, { smoke = true, life = 1e9 } = {}) { const f = { p: p.clone(), size, smoke, t: 0, life }; this.fires.push(f); return f; }
@@ -332,12 +358,13 @@ export class SetPieces {
   }
   takeRig() {
     if (this.rigOn) return; this.rigOn = true;
+    for (const b of this.g.world.col.boxes) if (b.data.kind === 'gapbar') b.enabled = false;
     this.g.audio.play('reload', { volume: 1 }); this.g.audio.play('gear_rattle', { volume: 1 });
     this.g.hud.objective('BASE RIG ON — off the edge!', 4);
     this.g.events.push({ type: 'rig' });
   }
-  nearLocker() { const h = this.g.headPos; return Math.hypot(h.x - LOCKER.x, h.z - LOCKER.z) < 2.2 && Math.abs(h.y - LOBBY.y - 1.6) < 1.5; }
-  atEdge() { const h = this.g.headPos; return this.rigOn && h.x > TERRACE.gap[0] && h.x < TERRACE.gap[1] && h.z > TERRACE.z1 - 0.9; }
+  nearLocker() { const h = this.g.headPos, R = ROOFTOP; return Math.hypot(h.x - R.locker.x, h.z - R.locker.z) < 2.7 && Math.abs(h.y - R.y - 1.6) < 1.5; }
+  atEdge() { const h = this.g.headPos, R = ROOFTOP; return this.rigOn && h.y > R.y && h.x > R.gap[0] && h.x < R.gap[1] && h.z > R.z1 - 1.2; }
 
   // the jump: slow-mo, the rig carries you off the edge onto the rail; the canopy opens fast
   jump() {
@@ -658,6 +685,7 @@ export class SetPieces {
     this._updatePancake(dt);
     this._updateBlackout(dt);
     this._updateFall(dt);
+    this._updateLift(dt);
     this.slide.update(dt);
     this._updateJumpers(dt);
     this._updateGlide(dt, dt);

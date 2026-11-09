@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
+import { gridFace } from './terrain.js';
 import { Buckets, em, mul3, hexc, GOLD, COOLW, DIST, DUSK, signQuad, hipRoof } from './kit.js';
 import { materials } from './mats.js';
 import { SIGN } from './signs.js';
 import { lantern } from './kitbuild.js';
-import { TOWER, LOBBY, TERRACE, FOOTB, LOCKER, QUAY } from './layout.js';
+import { TOWER, LOBBY, TERRACE, FOOTB, LOCKER, QUAY, ROOFTOP } from './layout.js';
 
 // =====================================================================================
 //  JINLONG TOWER — 236 m of gold-tinted glass and lit fins on the river shelf, its 13th floor level
@@ -176,11 +177,53 @@ export function buildTower(ctx = {}) {
     // the crown: a gold lantern cage with the tower's name and a spire with the red light
     const L = Bc.get('plain', 'tc'), top = T.base + T.h, cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
     L.set({ col: FIN, rm: [0.35, 0.8, 0], em: em(GOLDF, 0.75, code) });
-    for (let i = 0; i < 4; i++) { const y = top + 2 + i * 4; L.box(T.x0 + 4, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z0 + 4.5); L.box(T.x0 + 4, y, T.z1 - 4.5, T.x1 - 4, y + 0.5, T.z1 - 4); L.box(T.x0 + 4, y, T.z0 + 4, T.x0 + 4.5, y + 0.5, T.z1 - 4); L.box(T.x1 - 4.5, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z1 - 4); }
+    for (let i = 0; i < 3; i++) { const y = top + 6 + i * 4; L.box(T.x0 + 4, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z0 + 4.5); L.box(T.x0 + 4, y, T.z1 - 4.5, T.x1 - 4, y + 0.5, T.z1 - 4); L.box(T.x0 + 4, y, T.z0 + 4, T.x0 + 4.5, y + 0.5, T.z1 - 4); L.box(T.x1 - 4.5, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z1 - 4); }
     for (const [x, z] of [[T.x0 + 4, T.z0 + 4], [T.x1 - 4.5, T.z0 + 4], [T.x0 + 4, T.z1 - 4.5], [T.x1 - 4.5, T.z1 - 4.5]]) L.box(x, top, z, x + 0.5, top + 16, z + 0.5);
     const Mt = Bc.get('metal', 'tc'); Mt.set({ col: [0.3, 0.3, 0.32], rm: [0.4, 0.8, 0] }); Mt.cyl(cx, top + 16, cz, 1.2, 0.12, top + 46, 8, { cap: false });
     const Sg = Bc.get('sign', 'tc'); Sg.set({ col: [1, 1, 1], rm: [0.4, 0.3, 0], em: em([1, 1, 1], 2.4, code) });
     signQuad(Sg, [cx, top + 9, T.z1 - 3.9], [0, 0, 1], 22, 11, SIGN.jinlong); signQuad(Sg, [cx, top + 9, T.z0 + 3.9], [0, 0, -1], 22, 11, SIGN.jinlong);
+  }
+  // ---- the roof deck inside the cage (the jump is from up here): a parapet with a gap on the river side, the lift
+  // housing the lobby lift comes up into, a helipad H, floodlights on the corners, the BASE locker by the gap
+  const roofGlows = [], RC = DUSK + DIST.ALWAYS;   // the roof's lights are on the helipad's own supply (the cut takes the floors below)
+  {
+    const R = ROOFTOP, y = R.y, C = Bc.get('concrete', 'tc'), Pp = Bc.get('plain', 'tc'), Mm = Bc.get('metal', 'tc'), S2 = Bc.get('sign', 'tc');
+    C.set({ col: [0.42, 0.41, 0.4], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
+    // the deck: lit by the corner floods, the lift's doorway and the helipad's edge lights (baked into its emissive)
+    const pools = [[R.x0 + 1, R.z0 + 1, 1], [R.x1 - 1, R.z0 + 1, 1], [R.x0 + 1, R.z1 - 1, 1], [R.x1 - 1, R.z1 - 1, 1], [340, 131, 0.8], [R.locker.x - 1, R.locker.z - 1.5, 0.5]];
+    const deckEm = (p) => { let k = 0.02; for (const [x, z, s] of pools) { const d2 = (p[0] - x) ** 2 + (p[2] - z) ** 2; k += s * 0.16 / (1 + d2 / 14); } const rr = Math.hypot(p[0] - 340, p[2] - 142); k += 0.06 * Math.exp(-((rr - 9) ** 2) / 3); return [1.0 * k, 0.78 * k, 0.55 * k, RC]; };
+    gridFace(C, (u, v) => [R.x0 + (R.x1 - R.x0) * u, y, R.z1 - (R.z1 - R.z0) * v], 32, 32, { emFn: deckEm });
+    // a gold LED line along the parapet top (the crown's outline, as seen from the city)
+    Pp.set({ col: [0.2, 0.18, 0.15], rm: [0.4, 0.6, 0], em: em(GOLDF, 1.2, RC) });
+    for (const [x0, z0, x1, z1] of [[R.x0, R.z0, R.x1, R.z0 + 0.12], [R.x0, R.z0, R.x0 + 0.12, R.z1], [R.x1 - 0.12, R.z0, R.x1, R.z1], [R.x0, R.z1 - 0.12, R.gap[0], R.z1], [R.gap[1], R.z1 - 0.12, R.x1, R.z1]]) Pp.box(x0, y + 1.1, z0, x1, y + 1.18, z1, { faces: 'Y' });
+    const par = (x0, z0, x1, z1) => { C.box(x0, y, z0, x1, y + 1.1, z1, { faces: 'xXzZY', s: 1 }); colliders.push({ min: [x0, y, z0], max: [x1, y + 1.1, z1], data: { mat: 'concrete', kind: 'wall' } }); };
+    par(R.x0, R.z0, R.x0 + 0.35, R.z1); par(R.x1 - 0.35, R.z0, R.x1, R.z1); par(R.x0, R.z0, R.x1, R.z0 + 0.35);
+    par(R.x0, R.z1 - 0.35, R.gap[0], R.z1); par(R.gap[1], R.z1 - 0.35, R.x1, R.z1);
+    // the lift housing (doors facing south onto the deck) and its machine room
+    C.box(331, y, R.z0 + 0.35, 349, y + 4.2, 130, { faces: 'xXZY', s: 1 });
+    colliders.push({ min: [331, y, R.z0], max: [349, y + 4.2, 130], data: { mat: 'concrete', kind: 'wall' } });
+    Mm.set({ col: hexc(0xb08d4a), rm: [0.3, 0.9, 0], em: [0, 0, 0, 0] });
+    Mm.box(338.6, y, 130, 341.4, y + 3, 130.08, { faces: 'Z' });
+    Pp.set({ col: [1, 1, 1], rm: [0.4, 0, 0], em: em([1.0, 0.86, 0.66], 1.4, RC) }); Pp.box(337.5, y + 3.3, 130.02, 342.5, y + 3.6, 130.1, { faces: 'Z' });
+    // the helipad H and its ring, the hazard stripes at the gap
+    Pp.set({ col: [0.85, 0.66, 0.1], rm: [0.6, 0, 0], em: em([1.0, 0.7, 0.1], 0.08, RC) });
+    Pp.box(336.5, y + 0.01, 138, 337.5, y + 0.02, 146, { faces: 'Y' }); Pp.box(342.5, y + 0.01, 138, 343.5, y + 0.02, 146, { faces: 'Y' }); Pp.box(337.5, y + 0.01, 141.5, 342.5, y + 0.02, 142.5, { faces: 'Y' });
+    for (let k = 0; k < 16; k++) { const a0 = k / 16 * Math.PI * 2, x = 340 + Math.cos(a0) * 9, z = 142 + Math.sin(a0) * 9; Pp.set({ col: [0.3, 0.5, 0.3], rm: [0.4, 0, 0], em: em([0.4, 1.0, 0.45], 1.0, RC) }); Pp.box(x - 0.08, y, z - 0.08, x + 0.08, y + 0.08, z + 0.08, { faces: 'xXzZY' }); }
+    S2.set({ col: [1, 1, 1], rm: [0.5, 0, 0], em: em([1, 1, 1], 0.12, RC) });
+    S2.quad([R.gap[0], y + 0.03, R.z1 - 0.4], [R.gap[1], y + 0.03, R.z1 - 0.4], [R.gap[1], y + 0.03, R.z1 - 1.4], [R.gap[0], y + 0.03, R.z1 - 1.4], SIGN.stripe);
+    // the locker (a dead guard's kit), floodlights on the four corners
+    Mm.set({ col: [0.3, 0.34, 0.3], rm: [0.5, 0.5, 0], em: [0, 0, 0, 0] });
+    Mm.box(R.locker.x - 0.6, y, R.locker.z - 0.35, R.locker.x + 0.6, y + 2.0, R.locker.z + 0.35, { faces: 'xXzZY' });
+    colliders.push({ min: [R.locker.x - 0.6, y, R.locker.z - 0.35], max: [R.locker.x + 0.6, y + 2.0, R.locker.z + 0.35], data: { mat: 'metal', kind: 'locker' } });
+    // the gap is barred until you have the rig (setpieces lifts the bar)
+    colliders.push({ min: [R.gap[0], y, R.z1 - 0.35], max: [R.gap[1], y + 1.1, R.z1], data: { mat: 'metal', kind: 'gapbar', noBlock: false } });
+    for (const [x, z] of [[R.x0 + 1, R.z0 + 1], [R.x1 - 1, R.z0 + 1], [R.x0 + 1, R.z1 - 1], [R.x1 - 1, R.z1 - 1]]) {
+      Mm.set({ col: [0.2, 0.2, 0.22], rm: [0.4, 0.8, 0] }); Mm.box(x - 0.15, y + 1.1, z - 0.15, x + 0.15, y + 3.2, z + 0.15);
+      Pp.set({ col: [1, 1, 1], rm: [0.4, 0, 0], em: em([1.0, 0.8, 0.55], 2.4, RC) }); Pp.box(x - 0.4, y + 3.2, z - 0.4, x + 0.4, y + 3.5, z + 0.4, { faces: 'xXzZy' });
+      roofGlows.push(new THREE.Vector3(x, y + 3.1, z));
+    }
+    // the floor collider (only stood on from up here: the locomotion's ground query is height-aware)
+    colliders.push({ min: [R.x0, y - 0.4, R.z0], max: [R.x1, y, R.z1], data: { mat: 'concrete', kind: 'floor' } });
   }
   Bc.finish(crown);
   // the crown's halo + the red light: these ride the rig (setpieces updates their positions)
@@ -188,7 +231,7 @@ export function buildTower(ctx = {}) {
   const riding = [
     { local: new THREE.Vector3(cx, top + 9, cz), p: new THREE.Vector3(cx, top + 9, cz), color: [1.0, 0.6, 0.2], size: 11, code, far: true, crown: true },
     { local: new THREE.Vector3(cx, top + 47, cz), p: new THREE.Vector3(cx, top + 47, cz), color: [3, 0.2, 0.1], size: 5, blink: true, rate: 1.4, code: DUSK + code, far: true, crown: true },
-    
+    ...roofGlows.map(p => ({ local: p.clone(), p: p.clone(), color: [1.6, 1.2, 0.8], size: 3.2, code: DUSK + DIST.ALWAYS, far: true, crown: true })),
   ];
   for (const g of riding) { g.prio = 1; glows.push(g); }
   return { root, anchors: { glows, lights, named: { tower: { root, body, crown, crownHinge, riding } } }, colliders, panes, tris: 0 };

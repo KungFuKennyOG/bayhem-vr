@@ -373,6 +373,8 @@ Reviews of the rebuild (6 rounds, fresh reviewer each time, L5 calibration 7.5�
 
 Fixing these is engine work, not tuning: a mip-mapped window texture system, a different dust and smoke renderer (soft, ground-hugging, lit), and possibly a higher vantage for the slide.
 
+**Jump from the roof (Kenny: "I thought we were gliding out from the top of the building").** A new `lift` beat follows the lobby: the lift doors, a blink to black, and you come out on a roof deck inside the crown's lantern cage, 239 m up. The deck has a helipad, corner floods, a gold LED parapet, a locker and a barred gap in the south parapet; the bar lifts when you take the rig. The glide rail now descends from 240 m. Seen from above, the terraced district and its slide finally read as ground. Also new: the district continues east of the slide (static), the west valley wall is the lit backs of Sky Street's buildings, and two new driver lines are voiced. The full autopilot flow is clean: lobby → lift → roof → jump → glide → landing → credits.
+Review of the high vantage: 5/10 (cal 7 / 6.5). It still reads as "demolished with puff charges", for the same systemic reasons: window noise, cotton-ball dust, a lit city in a "blackout", and water impacts too small to see from height.
 **Needs a headset check:** the glide (comfort: rail speed 8.2 m/s, yaw ≤ 3°/s, the canopy frame), the height fog and the LED bands in stereo, text readability on the signs, frame rate in the blackout + glide (searchlight beams + glows + fires).
 
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
