@@ -355,19 +355,24 @@ What would move it (beyond polish):
 - **Interiors:** the gallery and lobby need shops / lattice screens / a curtain wall with the city below, not more lighting tweaks.
 Open issues (by impact): window static (above); pancake staging (above); explosion colour (above); blackout foreground still reads underexposed; flat background towers far away; HUD popups stacking over money shots (CHAIN REACTION / HOTPOT / OVERBOARD); the player's own canopy reads as a flat board when you look up.
 **The landslide (added after the first review pass, at Kenny's request: "a whole section of the city falls off").** `slide.js` + `SLIDE` in `layout.js`; the static east-bank cliff, terrace, quay and quay lamps now stop at `SLIDE.x0` / `x1` and the slide builds its own. Four pieces (terrace + shop row + hanging houses + quay blocks + cliff face + quay, wedge-shaped down to the slip surface) go one after another from the far east end toward the tower (delays 0 / 1.8 / 3.6 / 5.4 s): crack + dust jets along the road, a 2.2 s slump tipping the street toward the river, then an accelerating slide down and out, the five towers on them toppling off (fanned so they don't cross). The pieces and towers are bones of one `SkinnedMesh` per material (17 meshes, the glide view went from 173 to ~120 draw calls). Then Jinlong goes (7.6 s later): rod on its hinge, then at ~55° it tears off the stump and falls free into the river (it used to stop level at y 50 and hang over the water). Afterwards: the scar (gullied slip surface lit by the fires burning on it, jagged side scarps, rubble, torn road slabs), three smoke columns, rubble islands and three tower tops sticking out of the river. New VO line ("The BANK — the whole riverside's going with it!"). Fixed on the way: `world.glowList` holds ~2700 halos but the batch draws 1400, so the last-built ones were silently dropped in wide views; set-piece halos now carry `prio` and are sorted first.
-Landslide reviews (fresh reviewer, same 8 angles + L5 collapse / L6 crossing calibration): 5.0 → 5.0 → 4.5–5 (L5 7.5, L6 6.5–7). Consistent asks: the moving ground itself barely reads from the rail (the bank is seen at a grazing angle and dust covers the slab), the towers topple as rigid sticks (pre-split them into 2–3 segments with broken caps), a real river response (expanding swell ring mesh, silt stain), half-buildings hanging over the scar's rim, and the engine's smoke reading as separate balls. Second pass ("make it look way better"):
-- **Towers:** each toppling tower is built in two segments, split at a floor line with torn caps and rebar. The upper segment is a child bone that folds and snaps (dust, glass, debris) a few seconds after the base starts to go.
-- **Buildings across the crack:** three buildings straddle it. Their front halves ride the pieces, and their back halves stay on the rim, cut open: floor slabs, gutted interiors, rebar, a slab hanging down the scarp.
-- **River:** swell rings roll out from each impact, and a silt stain spreads on the water.
-- **Wreckage:** rubble islands and three tower tops stay in the river afterwards.
-- **Jinlong's fall:** the tower falls free with a downward kick.
-- **The glide rail** now heads out into the river first, so the bank is seen more face-on.
+Landslide reviews (fresh reviewer, same 8 angles + L5 collapse / L6 crossing calibration): 5.0 → 5.0 → 4.5–5 (L5 7.5, L6 6.5–7). Consistent asks: the moving ground itself barely reads from the rail (the bank is seen at a grazing angle and dust covers the slab), the towers topple as rigid sticks (pre-split them into 2–3 segments with broken caps), a real river response (expanding swell ring mesh, silt stain), half-buildings hanging over the scar's rim, and the engine's smoke reading as separate balls. Rebuilt from the ground up ("don't be scared to start from the ground up"; target 7/10):
+- **The district:** the vertical cliff plus flat terrace was replaced by a **terraced hillside district**, which is how Chongqing's banks actually look:
+  - six streets of low housing step down from the hill to a narrow quay;
+  - lit terrace lines, shops built into the retaining walls, stairways, lamps and lanterns;
+  - three towers and three crest buildings on top.
+- **The slide:** the hillside is 12 skinned blocks. They go toe-first and east-first, leaning, rolling and dropping at different rates, and the gaps between them open on earth. The towers break in two and fold. The crest buildings stay half on the rim, cut open.
+- **The glide rail** now swings out south-east into the river first, so the bank is seen square on during the slide. The look gate moved to ~7 s. Bridge and boat hints are keyed to the distance left on the rail.
+- **Level-wide changes:**
+  - Windows under ~9 px now blend to their average (less stipple). This moves the whole level's look.
+  - The river's mist is thinner on the water itself (it read as milk).
 
-Reviews of the second pass: 5.0 and 5.0 (L5 7.5, L6 7.0). **Plateau.** The reviewers still read it as "towers hinging over like dominoes" with the ground itself not visibly moving. From the rail the slab sits under its own dust and towers, and the engine's smoke reads as separate balls. They also flag the window stipple on tilted facades, which is the level-wide window-texture issue.
-What would move it:
-- A slab that is seen sliding: a shot from higher, or a section that slides toward the rail rather than across it.
-- A real dust surge: a ground-hugging volumetric wall instead of billboard puffs.
-- Mip-mapped windows.
+Reviews of the rebuild (6 rounds, fresh reviewer each time, L5 calibration 7.5–8): 5.5, 5.5, 4.5, 5.0 and similar. **Plateau at ~5.** Every round says the same three things:
+1. **The ground doesn't visibly move.** Seen from near river level at 150–250 m, a hillside is a wall of facades. Sliding toward the camera barely changes it on screen, and the dust covers the toe. With the dust switched off, the motion is clearly there.
+2. **Window shader noise.** Every round, on every tower, worst on Jinlong falling. This is the level-wide analytic window pattern.
+3. **The engine smoke** reads as cool cotton balls.
+
+Fixing these is engine work, not tuning: a mip-mapped window texture system, a different dust and smoke renderer (soft, ground-hugging, lit), and possibly a higher vantage for the slide.
+
 **Needs a headset check:** the glide (comfort: rail speed 8.2 m/s, yaw ≤ 3°/s, the canopy frame), the height fog and the LED bands in stereo, text readability on the signs, frame rate in the blackout + glide (searchlight beams + glows + fires).
 
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level

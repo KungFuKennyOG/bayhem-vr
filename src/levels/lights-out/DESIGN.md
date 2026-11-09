@@ -28,14 +28,16 @@ searchlights. Every number lives in `layout.js`.
 9. **climb** — up to Sky Street in the dark: generator searchlights (shoot the lamps), lasers, fires.
 10. **lobby** — over the footbridge into Jinlong's sky lobby (marble, gold, the 金龙 bulkhead); the building groans.
 11. **jump** — grab the BASE rig from the locker; run for the gap in the terrace balustrade; slow-mo jump.
-12. **glide** — "LOOK BACK" (look-gated at the bank east of the tower): the **landslide** — the whole riverside block
-    east of Jinlong (Binjiang Road's terrace, its shop row, hanging houses on the cliff face, the quay blocks, five
-    towers) cracks along the road and slides into the river in four pieces, running along the bank toward the
-    tower; the towers on them topple off the moving ground, dust rolls out across the water, a raw scar of broken
-    earth is left with fires burning in it. Then Jinlong (its footing gone) goes over — gold until it hits — tears off
-    its stump at ~55° and drops into the hole in the bank. Jumpers on canopies (shoot the canopy), gunners on the
-    Chaotian bridge, searchlights, barges; the gunboat (shoot the drums on its stern, marker on them), then you land
-    on its deck.
+12. **glide** — the rail swings out south-east into the river first, so "LOOK BACK" (look-gated, from ~7 s) faces the
+    east bank square on: the **landslide**. East of Jinlong the bank is a terraced hillside district (six streets of
+    low housing stepping down from the y-64 hill to the quay, lit terrace lines, shops in the retaining walls,
+    stairways, three towers and three crest buildings on top). It breaks into 12 blocks and slides into the river
+    toe-first and east-first, the blocks leaning, rolling and dropping at different rates, the towers toppling off
+    and breaking in two, dust out of the opening gaps, spray and silt where each block goes in. A raw scar is left
+    (fires, rubble, the cut-open backs of the crest buildings, wreckage in the river). 7.6 s after it starts,
+    Jinlong goes over, tears off its stump and drops into the river. Then jumpers on canopies (shoot the canopy),
+    gunners on the Chaotian bridge, searchlights, barges; the gunboat (shoot the drums on its stern, marker on
+    them), then you land on its deck.
 13. **outro** / **credits** — stats card, then the credits for all nine levels.
 
 ## Comfort (VR)
@@ -58,13 +60,15 @@ searchlights. Every number lives in `layout.js`.
   hinge, crown on its own hinge, lobby, terrace); `river.js` (water, mist, boats, reflections on water and wet streets).
 - `setpieces.js`: fires, the pancake, the blackout + arcs, the tower fall (a rod on its hinge, then a free body once it
   tears off the stump), the glide (rail, jumpers, gunboat, landing).
-- `slide.js`: the landslide. `SLIDE` / `scarY0` in `layout.js`. Four pieces + five toppling towers are **bones**; all of
-  their geometry (built in world space with the city kit, `towerBlock`, `shopRow`) is merged into one `SkinnedMesh`
-  per material (~12 draw calls for the whole thing). The scar (slip surface, side scarps, rubble, torn road slabs) is
-  static, hidden inside the rock until the pieces leave; its emissive bakes the light of the fires burning on it so the
-  relief reads at night. Everything on the pieces is district TOWER (Jinlong's generators: lit below y 70 after the
-  blackout, full and flickering while it goes, dark when the tower hits). Riding glows follow their bones (and their
-  river reflections move with them); `world.glowList` is sorted so `prio` halos are never the ones the capped batch drops.
+- `slide.js`: the landslide. `SLIDE` / `TERR` / `hillY` / `scarY0` in `layout.js`. The hillside is 12 blocks (4 columns ×
+  3 rows) plus the three towers (two segments each), all **bones**. All of their geometry (built in world space with
+  the city kit: `towerBlock`, `lampPost`, `lantern`, `tree`) is merged into one `SkinnedMesh` per material (about 12
+  draw calls). Each block carries its terraces, retaining walls, housing and the earth under it down to the slip
+  surface, so the gaps that open between blocks show raw earth. The scar (slip surface, rough valley walls,
+  rubble, torn road slabs, the cut-open back halves of the crest buildings) is static and hidden inside the hill
+  until the blocks leave. Its emissive bakes the light of the fires on it. Streets and some housing are district
+  TOWER (Jinlong's generators); the rest are EAST (emergency windows). Riding glows follow their bones.
+  `world.glowList` is sorted so `prio` halos are never the ones the capped batch drops.
 - `glide.js`: canopy, rail, gunboat (lofted hull, mast, nav lights, wake). `searchlights.js`: instanced beams that lock on.
 - Shared code reused: `whiteout/ai.js` (copied as `ai.js` with the jumper role), `whiteout/auto.js`,
   `iron-lady/reflections.js`, `downtown-haven/{glass,cars,...}.js` (cars got a `city: 'longwu'` livery: blue 渝 plates,

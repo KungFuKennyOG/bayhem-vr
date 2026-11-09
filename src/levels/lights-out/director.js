@@ -190,27 +190,27 @@ export class Director {
       { name: 'glide', wp: null, music: 1.0, enter: () => {
           hud.setWaypoint(null);
           this.lookT = 0; this._pt = 0; this.downT = 0;
-          later(1.4, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
-          if (A) later(2.0, () => { g.cinematicLook = V(500, 42, 110); g.cinematicW = 1.3; });
+          later(5.2, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
+          if (A) later(6.0, () => { g.cinematicLook = V(480, 40, 110); g.cinematicW = 1.3; });
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t;
           const sp = this.sp;
-          if (!sp.slide.active && t > 2.4) { this.lookT = looking(V(420, 80, 125), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > 8) sp.landslide(); }
+          if (!sp.slide.active && t > 6.5) { this.lookT = looking(V(420, 80, 125), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > 11) sp.landslide(); }
           for (const e of g.events) {
             if (e.type === 'towerDown') { this.downT = t; later(1.2, () => say('...Jinlong Tower. Gone. Into the river.', 2.8)); }
             // the trailer / desktop camera: the bank as it goes, then the tower as it comes off the stump
             if (e.type === 'slide') { later(0.8, () => say('The BANK — the whole riverside\'s going with it!', 2.8)); }
-            if (e.type === 'towerFall' && A) { g.cinematicLook = V(400, 125, 140); g.cinematicW = 1.2; }
+            if (e.type === 'towerFall' && A) later(3.5, () => { g.cinematicLook = V(420, 110, 150); g.cinematicW = 1.2; });
             if (e.type === 'towerFree' && A) { g.cinematicLook = V(500, 25, 175); g.cinematicW = 1.2; }
             if (e.type === 'landed') { /* next beat */ }
           }
           if (sp.fall && ((this.downT && t > this.downT + 3) || t > 26) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
           if (A && g.cinematicLook && this.downT && t > this.downT + 2.6 && first('fallLookEnd')) g.cinematicLook = null;
-          if (sp.rail.u > 0.52 && first('bridgehint')) say('Chaotian bridge dead ahead — gunners on the deck, lights on the towers. You\'re going UNDER it.', 3.6);
-          if (sp.rail.u > 0.78 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }
+          if (sp.rail.len - sp.rail.s < 327 && first('bridgehint')) say('Chaotian bridge dead ahead — gunners on the deck, lights on the towers. You\'re going UNDER it.', 3.6);
+          if (sp.rail.len - sp.rail.s < 150 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }
           // the boat: a marker on the drums (VR: look down at it), and the desktop / trailer camera goes with it
-          if (sp.rail.u > 0.78 && !sp.boatClear) hud.setWaypoint(sp.boat.userData.drumsP.clone().applyMatrix4(sp.boat.matrixWorld));
-          if (A && sp.rail.u > 0.82) { g.cinematicLook = sp.boat.userData.deck.clone().add(V(8, 2, 0)).applyMatrix4(sp.boat.matrixWorld); g.cinematicW = 1.2; }
+          if (sp.rail.len - sp.rail.s < 150 && !sp.boatClear) hud.setWaypoint(sp.boat.userData.drumsP.clone().applyMatrix4(sp.boat.matrixWorld));
+          if (A && sp.rail.len - sp.rail.s < 123) { g.cinematicLook = sp.boat.userData.deck.clone().add(V(8, 2, 0)).applyMatrix4(sp.boat.matrixWorld); g.cinematicW = 1.2; }
           if (sp.boatClear && first('boatwp')) hud.setWaypoint(null);
           // the boat must be clear before you land: a stray round from the bridge finds the drums if you didn't
           if (sp.rail.remaining < 6 && !sp.boatClear) sp.blowDrums();

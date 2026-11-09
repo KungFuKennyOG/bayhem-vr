@@ -129,7 +129,6 @@ export function buildTerrain(ctx = {}) {
     // the east bank's riverside terrace beyond the play space (y 40 / 56)
     Ae.box(SLIDE.x1, 55.6, 40, 1600, 56, PLAZA.z1, { faces: 'Y', s: 1 });
     Aec.box(SLIDE.x1, QUAY.y, PLAZA.z1 - 0.6, 1600, 56, PLAZA.z1, { faces: 'Z', s: 1 });
-    Ae.box(SLIDE.x0, 55.6, 40, SLIDE.x1, 56, SLIDE.crack, { faces: 'Y', s: 1 });     // behind the crack (the rest is on the slide)
     // the up/downstream north bank terraces (the glide sees these)
     Ac.box(-1400, 30, 60, -620, 34, QUAY.z0, { faces: 'YZ', s: 1 });
   }

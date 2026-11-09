@@ -421,7 +421,7 @@ export class SetPieces {
     }
     // two floors burning where the shear tore the risers, smoke trailing off them as it goes over
     if (!F.hit && !F.free && F.a > 0.03) for (const [hy, k] of [[88, 1.4], [121, 1.1]]) if (rand() < dt * 8) {
-      const p = _v3.set(range(TOWER.x0 + 2, TOWER.x1 - 2), hy, rand() < 0.5 ? TOWER.z0 - 0.5 : TOWER.z1 + 0.5).sub(HINGE).applyMatrix4(tw.body.matrixWorld);
+      const p = _v3.set(range(TOWER.x0 + 2, TOWER.x1 - 2), hy, rand() < 0.5 ? TOWER.z0 - 2.5 : TOWER.z1 + 2.5).sub(HINGE).applyMatrix4(tw.body.matrixWorld);
       g.fx.flame(p, range(1.4, 2.2) * k);
       if (rand() < 0.4) g.clouds.spawn({ x: p.x, y: p.y + 2, z: p.z, vx: range(-2, 2), vy: range(2, 5), vz: range(-2, 2), drag: 0.5, buoy: 0.3, s0: 4, s1: 18, life: range(6, 9), a: 0.8, fadeIn: 0.05, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.1, g1: 0.09, b1: 0.08, glow: 0.6, glowFade: 2.5 });
     }
@@ -491,7 +491,7 @@ export class SetPieces {
       hit: (P) => { D.hp--; g.fx.impact(P, _v.set(0, 1, 0), 'metal'); g.hitMarker(false); if (D.hp <= 0) self.blowDrums(); },
       blast: (P, r) => { if (P.distanceTo(drumsP()) < r + 1) self.blowDrums(); },
       aim: drumsP,
-      auto: (head) => { const p = drumsP(); const d = p.distanceTo(head); return D.dead || d > 110 || !self.glide || self.rail.u < 0.7 ? null : { kind: 'target', p, score: 90, ref: g.targets[g.targets.length - 1], tol: 0.03 }; },
+      auto: (head) => { const p = drumsP(); const d = p.distanceTo(head); return D.dead || d > 110 || !self.glide || self.rail.len - self.rail.s > 205 ? null : { kind: 'target', p, score: 90, ref: g.targets[g.targets.length - 1], tol: 0.03 }; },
     });
     // the Chaotian bridge: gunmen along the deck, two searchlights on the pylons
     const ch = CHAOTIAN;

@@ -79,7 +79,7 @@ vec3 windows(vec2 uv, vec4 cell, float k, float wy, float code, out float glassM
     wm *= 1.0 - bars * 0.75;
     detM += bars * wm * 0.0;
   }
-  float far = clamp(max(aa.x, aa.y) * 2.2 - 0.3, 0.0, 1.0);       // windows near pixel size: average them (no moiré)
+  float far = clamp(max(aa.x, aa.y) * 5.0 - 0.55, 0.0, 1.0);      // windows under ~9 px: blend to their average (no stipple / static / moiré)
   float area = (hi.x - lo.x) * (hi.y - lo.y);
   glassM = mix(wm, area, far);
   detM *= 1.0 - far;

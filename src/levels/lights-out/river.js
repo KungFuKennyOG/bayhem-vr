@@ -72,7 +72,7 @@ function waterMaterial(fog) {
         c += vec3(0.08, 0.07, 0.06) * fm * (1.0 - uNight * 0.7) * fl;
         float fogK = smoothstep(fogNear, fogFar, length(vFogViewPos));
         c = mix(c, fogColor, fogK);
-        c = mix(c, uHFC * 0.8, hfogK(vW));   // the mist lying on the water
+        c = mix(c, uHFC * 0.6, hfogK(vW) * 0.75);   // the mist lying on the water (thinner on the water itself: it read as milk)
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
