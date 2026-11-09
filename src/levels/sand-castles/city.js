@@ -67,6 +67,40 @@ export class City {
   }
   ruin(t, h) { if (t.idx == null) return; this.ruinData[t.idx * 4 + 2] = h; this.ruinTex.needsUpdate = true; this.sun.setDynamic('s' + t.idx, t, 0); }
 
+  // the low-rise fabric is the biggest thing in most frames: give every block a finished roof (parapet + plant,
+  // tanks, stair cores, AC, dishes; three layouts) and the villas pools + terraces, so it reads as a city, not boxes
+  _roofKits(list) {
+    const kits = [[], [], []], pools = [];
+    list.forEach((b, i) => { if (b.style === 4 && b.h < 10) pools.push(b); kits[(i * 7 + Math.floor(b.x * 0.37)) % 3 < 0 ? 0 : (i * 7 + Math.floor(Math.abs(b.x) * 0.37)) % 3].push(b); });
+    const BX = (g, x0, y0, z0, x1, y1, z1, c) => { const geo = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0); geo.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+      const n = geo.attributes.position.count, col = new Float32Array(n * 3); for (let k = 0; k < n; k++) col.set(c, k * 3); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.push(geo.toNonIndexed()); };
+    const PAR = [0.5, 0.46, 0.4], PLANT = [0.36, 0.35, 0.33], AC = [0.62, 0.62, 0.6], TANK = [0.82, 0.8, 0.76], DARK = [0.16, 0.16, 0.15];
+    const parapet = (g) => { BX(g, -1, 0, -1, 1, 1.1, -0.94, PAR); BX(g, -1, 0, 0.94, 1, 1.1, 1, PAR); BX(g, -1, 0, -1, -0.94, 1.1, 1, PAR); BX(g, 0.94, 0, -1, 1, 1.1, 1, PAR); };
+    const G = [[], [], []];
+    // office: a plant penthouse, a row of AC units, a water tank on legs
+    parapet(G[0]); BX(G[0], -0.55, 0, -0.45, 0.05, 3.6, 0.25, PLANT); for (let k = 0; k < 4; k++) BX(G[0], 0.2 + k * 0.17, 0, -0.7, 0.32 + k * 0.17, 1.4, -0.45, AC); BX(G[0], 0.45, 1.8, 0.35, 0.75, 4.2, 0.7, TANK); BX(G[0], 0.2, 0, 0.0, 0.9, 0.12, 0.85, DARK);
+    // residential: a stair core, water heaters and dishes in rows
+    parapet(G[1]); BX(G[1], 0.35, 0, 0.3, 0.75, 3.0, 0.75, PLANT); for (let a = 0; a < 3; a++) for (let k = 0; k < 4; k++) BX(G[1], -0.8 + k * 0.22, 0, -0.75 + a * 0.35, -0.68 + k * 0.22, 1.1, -0.6 + a * 0.35, k % 2 ? TANK : AC); BX(G[1], -0.2, 0, 0.3, 0.15, 0.08, 0.8, [0.3, 0.27, 0.22]);
+    // terrace: a shade pergola (dark slats), planters, a lift overrun
+    parapet(G[2]); for (let k = 0; k < 5; k++) BX(G[2], -0.7, 2.6, -0.6 + k * 0.22, 0.2, 2.75, -0.53 + k * 0.22, DARK); for (const [x, z] of [[-0.7, -0.6], [0.2, -0.6], [-0.7, 0.35], [0.2, 0.35]]) BX(G[2], x - 0.03, 0, z - 0.03, x + 0.03, 2.6, z + 0.03, DARK);
+    BX(G[2], 0.45, 0, -0.8, 0.85, 3.2, -0.4, PLANT); for (let k = 0; k < 3; k++) BX(G[2], -0.85 + k * 0.5, 0, 0.75, -0.55 + k * 0.5, 0.8, 0.88, [0.2, 0.32, 0.12]);
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), sc = new THREE.Vector3();
+    G.forEach((g, gi) => {
+      const L = kits[gi]; if (!L.length) return;
+      const im = new THREE.InstancedMesh(mergeGeometries(g), mat, L.length);
+      // x/z stretch with the roof (layout in roof fractions), heights stay in metres
+      L.forEach((b, i) => { q.setFromAxisAngle(Y, b.rot + (gi === 1 ? Math.PI / 2 : 0)); p.set(b.x, b.h, b.z); const sw = gi === 1 ? b.d : b.w, sd = gi === 1 ? b.w : b.d; sc.set(sw / 2, Math.min(1, b.h / 9), sd / 2); m.compose(p, q, sc); im.setMatrixAt(i, m); });
+      im.frustumCulled = false; this.scene.add(im);
+    });
+    // villa pools + a sun deck beside each villa on the palm (turquoise reads instantly from the air)
+    if (pools.length) {
+      const g = []; BX(g, 1.05, 0, -0.6, 1.75, 0.35, 0.6, [0.62, 0.55, 0.44]); BX(g, 1.15, 0.36, -0.45, 1.65, 0.4, 0.45, [0.06, 0.42, 0.48]);
+      const im = new THREE.InstancedMesh(mergeGeometries(g), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.1 }), pools.length);
+      pools.forEach((b, i) => { q.setFromAxisAngle(Y, b.rot); p.set(b.x, 0, b.z); sc.set(b.w / 2, 1, b.d / 2); m.compose(p, q, sc); im.setMatrixAt(i, m); });
+      im.frustumCulled = false; this.scene.add(im);
+    }
+  }
   _lowrise(plan, rng) {
     const G = GRID, list = [];
     const occ = plan.towers.map(t => [t.x, t.z, Math.hypot(t.w, t.d) * 0.5 + 16]);
@@ -119,6 +153,7 @@ export class City {
     im.frustumCulled = false; im.name = 'lowrise';
     this.scene.add(im);
     this.lowCount = N;
+    this._roofKits(list);
     return im;
   }
 }
