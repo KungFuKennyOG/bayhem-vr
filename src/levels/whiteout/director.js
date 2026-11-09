@@ -111,7 +111,7 @@ export class Director {
           say('I\'m in the control room. Get in the cabin — number ONE. I\'ll run you up.', 3.4);
           later(1.6, () => hud.objective('Get in the cable car'));
           for (const s of g.soldiers) if (s.alive && s.pos.distanceTo(g.headPos) > 40) { s.alive = false; s.root.visible = false; }
-          A?.go([go(85, 0, { slow: 0.8 }), { p: V(83.6, 30, -9.8), nav: null, tol: 0.5 }, { p: V(80.2, 30, -9.8), nav: null, tol: 0.5 }]);
+          A?.go([go(85, 0, { slow: 0.8 }), { p: V(83.6, 30, -9.8), nav: 'ground', tol: 0.6 }, { p: V(80.2, 30, -9.8), nav: null, tol: 0.5 }]);
         }, update: () => { if (this.sp.inCabin(g.headPos)) this.sp.board(); },
         until: () => !!this.sp.ride },
       // 7 ---- the ride across the gorge
