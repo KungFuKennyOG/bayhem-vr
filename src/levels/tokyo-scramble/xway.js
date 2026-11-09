@@ -38,7 +38,7 @@ export function buildXway(ctx = {}) {
     S.con.tube([a, Y + XWAY.barrier + 0.25 - oy, XWAY_IN.z0 - 0.3], [b, Y + XWAY.barrier + 0.25 - oy, XWAY_IN.z0 - 0.3], 0.05, 5);
     // median: a low concrete divider with orange reflectors
     S.con.set({ col: hex(0x6e6b65), rm: [0.8, 0, 0] });
-    S.con.box(a, Y - oy, -150.35, b, Y + 0.8 - oy, -149.65, { faces: 'zZYxX', bottomDark: 0.5 });
+    S.con.box(a, Y - oy, -150.35, b, Y + 0.8 - oy, -149.65, { faces: 'zZYxX', bottomDark: 0.5, uvScale: 2.1 });
     // lane paint (white dashes, edge lines)
     const pq = (x0, z0, x1, z1) => S.paint.quad([x0 - ox, Y + 0.012 - oy, z1], [x1 - ox, Y + 0.012 - oy, z1], [x1 - ox, Y + 0.012 - oy, z0], [x0 - ox, Y + 0.012 - oy, z0]);
     for (let x = Math.ceil(xa / 12) * 12; x < xb - 6; x += 12) for (const z of [-154.7, -145.3]) pq(x, z - 0.075, x + 6, z + 0.075);

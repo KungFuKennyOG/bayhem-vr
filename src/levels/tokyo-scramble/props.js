@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex, signMat, zelkova } from './kit.js';
+import { Acc, rmMat, hex, signMat, zelkova, leafMaterial } from './kit.js';
 import { signAtlas, JP } from './signs.js';
 import { signQuad, signMaterial } from './city.js';
 import { CURB, PLAZA, TAXI, CENTER, GASWORKS } from './layout.js';
@@ -17,7 +17,7 @@ export function buildProps(ctx = {}) {
   const R = (a, b) => a + (b - a) * rng();
   const root = new THREE.Group(); root.name = 'props';
   const colliders = [], glows = [], lights = [];
-  const P = new Acc({ rm: true }), S = new Acc();
+  const P = new Acc({ rm: true }), S = new Acc(), leaves = new Acc();
   const { E: SE } = signAtlas();
   const col = (min, max, kind = 'prop', mat = 'concrete', extra = {}) => colliders.push({ min, max, data: { kind, mat, ...extra } });
   // ---- the kōban: white box, a glass front, the red lamp, 交番 KOBAN
@@ -63,7 +63,7 @@ export function buildProps(ctx = {}) {
   // ---- zelkova trees in round granite planters on the square
   for (const [x, z] of [[-46, -22], [-64, 14], [-40, 21], [-68, -4]]) {
     P.set({ col: hex(0x7c776e), rm: [0.75, 0, 0] }); P.cyl(x, CURB, z, 1.3, 1.3, CURB + 0.55, 14);
-    zelkova(P, x, CURB + 0.5, z, 1.0, x + z * 7);
+    zelkova(P, x, CURB + 0.5, z, 1.0, x + z * 7, leaves);
     col([x - 1.3, 0, z - 1.3], [x + 1.3, CURB + 0.55, z + 1.3], 'planter');
     colliders.push({ min: [x - 0.25, 0, z - 0.25], max: [x + 0.25, 4.2, z + 0.25], data: { kind: 'tree', mat: 'wood' } });
   }
@@ -125,6 +125,7 @@ export function buildProps(ctx = {}) {
   }
   // ---- meshes
   root.add(P.mesh(rmMat({}), { shadow: true }));
+  if (leaves.vn) root.add(leaves.mesh(leafMaterial(), { shadow: true }));
   root.add(S.mesh(signMaterial()));
   return { root, colliders, anchors: { glows, lights } };
 }
