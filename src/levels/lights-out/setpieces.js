@@ -10,6 +10,7 @@ import { HINGE } from './tower.js';
 import { Searchlights } from './searchlights.js';
 import { buildCanopy, GlideRail, buildGunboat } from './glide.js';
 import { Landslide } from './slide.js';
+import { Gunship } from './gunship.js';
 import { F1, F2, PSPAN, TANKER, SUBST, PLAZA, TOWER, TERRACE, LOBBY, LOCKER, ROOFTOP, CHAOTIAN, BOAT, WATER_Y, GLIDE_SPEED, CLIMB, SKYST, FOOTB, groundAt } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
@@ -44,6 +45,7 @@ export class SetPieces {
     this._buildTanker();
     this.tw = g.world.named.tower || null;
     this.slide = new Landslide(g, g.world.named.slide || null);
+    this.gun = new Gunship(g, this);
     this.mono = g.world.named.mono || null;
     this.rail = new GlideRail();
     this.canopy = buildCanopy({ top: [0.16, 0.17, 0.15], stripe: [0.85, 0.3, 0.06], lit: true });
@@ -59,7 +61,7 @@ export class SetPieces {
   warmMaterials() {
     const out = [];
     for (const o of [this.spans.f1, this.canopy, this.boat]) o.traverse(m => { if (m.isMesh || m.isLine) for (const mm of [].concat(m.material)) if (!out.includes(mm)) out.push(mm); });
-    out.push(this.search.mesh.material, this.fadeMesh.material);
+    out.push(this.search.mesh.material, this.fadeMesh.material, ...this.gun.warmMaterials());
     return out;
   }
   // the terrace's gap: you can step to the very edge once you have the rig
@@ -385,7 +387,8 @@ export class SetPieces {
   // the bank goes first: the riverside block east of Jinlong slides into the river piece by piece, running along the
   // bank toward the tower; then the tower (its footing gone) comes over — body pivoting on its base, the crown section
   // lagging and folding — and once it is well over it tears off the stump and drops into the hole in the bank
-  landslide(fast = false) { if (this.slide.active) return; this.slide.start(fast); if (fast) this.towerFall(true); else this.g.fx.later(7.6, () => this.towerFall()); }
+  // the hill goes when the gunship goes into it (c0: the column it hit); the tower follows once you've jumped (director)
+  landslide(fast = false, c0 = null) { if (this.slide.active) return; this.slide.start(fast, c0); }
   towerFall(fast = false) {
     if (this.fall) return;
     this.fall = { t: 0, a: 0, av: 0.045, c: 0, cv: 0, hit: false };
@@ -427,7 +430,9 @@ export class SetPieces {
       if (wet) { F.vc.multiplyScalar(Math.exp(-1.4 * dt)); F.w *= Math.exp(-1.2 * dt); }
       if (F.a > 1.2) F.w *= Math.exp(-4 * dt);
       F.com.addScaledVector(F.vc, dt); F.a += F.w * dt;
-      if (F.com.y < WATER_Y - 70) { F.gone = true; tw.body.visible = false; return; }
+      // it comes to rest half sunk, the crown end out of the water: the wreck stays in the river (dark, burning)
+      if (F.com.y < WATER_Y - 6 && !F.rest) { F.rest = true; this.addFire(F.com.clone().setY(WATER_Y + 1), 2.2, { life: 600 }); }
+      if (F.rest) { F.vc.multiplyScalar(Math.exp(-6 * dt)); F.w *= Math.exp(-6 * dt); if (F.com.y < WATER_Y - 8) F.vc.y = Math.max(F.vc.y, 0); }
     }
     // the crown section lags then whips: a damped spring on its own hinge
     if (!F.hit) { F.cv += (-(F.c - (F.free ? F.w : F.av) * -0.55) * 6 - F.cv * 2.2) * dt; F.c += F.cv * dt; }
@@ -520,16 +525,11 @@ export class SetPieces {
       aim: drumsP,
       auto: (head) => { const p = drumsP(); const d = p.distanceTo(head); return D.dead || d > 110 || !self.glide || self.rail.len - self.rail.s > 205 ? null : { kind: 'target', p, score: 90, ref: g.targets[g.targets.length - 1], tol: 0.03 }; },
     });
-    // the Chaotian bridge: gunmen along the deck, two searchlights on the pylons
-    const ch = CHAOTIAN;
-    this.bridgeMen = [[ch.x - 9, 300], [ch.x + 8, 316], [ch.x - 6, 334], [ch.x + 10, 290]].map(([x, z], i) => g.spawnSoldier({ x, y: ch.y, z, role: 'perch', delay: 18 + i * 1.3, range: 100, noNade: true }));
-    this.bridgeLights = [S.add({ p: new THREE.Vector3(ch.x - 12, ch.y + 22, ch.pylons[0] - 3), yaw0: Math.PI * 0.6, pitch0: 0.25, sweep: [0.8, 0.25, 0.3], len: 170, spread: 0.06, shooters: this.bridgeMen }),
-      S.add({ p: new THREE.Vector3(ch.x + 12, ch.y + 22, ch.pylons[0] - 3), yaw0: Math.PI * 0.4, pitch0: 0.3, sweep: [0.7, 0.2, 0.26], len: 170, spread: 0.06, shooters: this.bridgeMen })];
     // two armed barges out on the river under the line (gunners + a searchlight each)
     this.barges = [];
-    for (const [x, z, v] of [[150, 340, 0.6], [-10, 270, -0.5]]) {
+    for (const [x, z, v] of [[150, 340, 0.6], [262, 270, -0.5]]) {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
-      const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: 8 + i * 2 + (x < 0 ? 22 : 0), range: 110, noNade: true }));
+      const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: 6 + i * 2 + (x > 200 ? 8 : 18), range: 110, noNade: true }));
       const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: Math.PI, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew });
       this.barges.push({ g: b, v, crew, L });
     }
@@ -687,6 +687,7 @@ export class SetPieces {
     this._updateFall(dt);
     this._updateLift(dt);
     this.slide.update(dt);
+    this.gun.update(dt);
     this._updateJumpers(dt);
     this._updateGlide(dt, dt);
     this.search.update(dt);

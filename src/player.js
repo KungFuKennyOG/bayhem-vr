@@ -212,6 +212,13 @@ export class Player {
       const dk = dip > 0 ? dip * dip * (3 - 2 * dip) : 0;
       this.camera.rotation.set(this.pitch + (sh ? Math.sin(g.time * 47) * sh * 0.02 : 0) + bobY * 0.15 + dk * 0.25, this.yaw + (sh ? Math.sin(g.time * 39) * sh * 0.02 : 0), dk * 0.35, 'YXZ');
       this.camera.position.set(Math.cos(this.yaw) * bobX, 1.65 + bobY - dk * 1.2, -Math.sin(this.yaw) * bobX);
+      // lean: a scripted head offset in world space (desktop + capture only, e.g. leaning out over a railing to look down)
+      if (this.lean || this._lean) {
+        this._lean ||= new THREE.Vector3();
+        const k = 1 - Math.exp(-rdt * 2.5);
+        if (this.lean) this._lean.lerp(this.lean, k); else { this._lean.multiplyScalar(1 - k); if (this._lean.lengthSq() < 1e-6) this._lean = null; }
+        if (this._lean && this.camera.parent) { const par = this.camera.parent; par.updateMatrixWorld(); const w = par.localToWorld(this.camera.position.clone()).add(this._lean); this.camera.position.copy(par.worldToLocal(w)); }
+      }
       // viewmodel sway + converge onto the aim point
       this.camera.updateMatrixWorld();
       const aimDist = 30;

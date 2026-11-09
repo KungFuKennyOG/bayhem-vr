@@ -349,7 +349,7 @@ export function buildSlide(ctx = {}) {
       tris += collect(Bu, bones.length - 1, skin);
       for (const q of tgl) gl.push({ ...q, _obj: tg, _pv: bp });
       for (const q of ugl) gl.push({ ...q, _obj: ug, _pv: ubp });
-      towers.push({ grp: tg, ug, pv: bp, h: top - Y0, phi: t.phi, d: t.d, roll: t.roll, fold: t.fold, top: new THREE.Vector3(bp.x, top, (t.z0 + t.z1) / 2).sub(ubp), wet: false, groan: false, snap: false });
+      towers.push({ grp: tg, ug, pv: bp, upv: ubp.clone(), h: top - Y0, phi: t.phi, d: t.d, roll: t.roll, fold: t.fold, top: new THREE.Vector3(bp.x, top, (t.z0 + t.z1) / 2).sub(ubp), wet: false, groan: false, snap: false });
     }
     tris += collect(B, bi, skin);
     const bg = [];
@@ -393,9 +393,11 @@ const SLUMP = 2.0, DIRS = [new THREE.Vector3(0, -0.75, 0.66), new THREE.Vector3(
 export class Landslide {
   constructor(g, S) { this.g = g; this.S = S; this.T = -1; this.audio = g.audio; }
   get active() { return this.T >= 0; }
-  start(fast = false) {
+  // c0: the column it starts from (the gunship's impact): the hill lets go there first, then outward from it
+  start(fast = false, c0 = null) {
     if (this.T >= 0 || !this.S) return;
     this.T = 0;
+    if (c0 != null) for (const B of this.S.blocks) B.delay += Math.abs(B.c - c0) * 1.5 - [4.6, 3.1, 1.6, 0][B.c] + 0.8;
     const g = this.g;
     POWER.pow.value[CODE] = 1; POWER.cut.value[CODE] = 9999;
     if (fast) {
@@ -417,6 +419,19 @@ export class Landslide {
     }
     g.lastExplosionT = g.time; g.lastExplosionShake = 0.45;
     g.events.push({ type: 'slide' });
+  }
+  // something stuck in a tower (the gunship's wreck): it rides that tower's upper segment down the slope
+  attach(obj, P) {
+    let best = null, bd = 1e9;
+    for (const B of this.S?.blocks || []) for (const t of B.towers) { const d = Math.hypot(t.upv.x - P.x, t.upv.z - P.z); if (d < bd) { bd = d; best = { B, t }; } }
+    if (!best) return null;
+    const { B, t } = best, local = P.clone().sub(t.upv);
+    t.ug.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(t.ug.matrixWorld).invert();
+    obj.updateMatrixWorld(true);
+    const M = new THREE.Matrix4().multiplyMatrices(inv, obj.matrixWorld);
+    t.ug.add(obj); M.decompose(obj.position, obj.quaternion, obj.scale);
+    return { world: (out) => B.hidden ? null : out.copy(local).applyMatrix4(t.ug.matrixWorld), B, t };
   }
   _arc(p) {
     const g = this.g, d = p.distanceTo(g.headPos), sz = 2 + d * 0.03;

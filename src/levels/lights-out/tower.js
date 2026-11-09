@@ -176,11 +176,13 @@ export function buildTower(ctx = {}) {
     shaft(Bc, 'tc', T.x0 + 4, T.z0 + 4, T.x1 - 4, T.z1 - 4, 200, T.base + T.h, T.base, code, 4);
     // the crown: a gold lantern cage with the tower's name and a spire with the red light
     const L = Bc.get('plain', 'tc'), top = T.base + T.h, cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
-    L.set({ col: FIN, rm: [0.35, 0.8, 0], em: em(GOLDF, 0.75, code) });
+    // the lantern and its name are on the helipad's supply (they stay gold over the blacked-out city, and over you on the roof)
+    const RCc = DUSK + DIST.ALWAYS;
+    L.set({ col: FIN, rm: [0.35, 0.8, 0], em: em([1.0, 0.62, 0.26], 0.13, RCc) });
     for (let i = 0; i < 3; i++) { const y = top + 6 + i * 4; L.box(T.x0 + 4, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z0 + 4.5); L.box(T.x0 + 4, y, T.z1 - 4.5, T.x1 - 4, y + 0.5, T.z1 - 4); L.box(T.x0 + 4, y, T.z0 + 4, T.x0 + 4.5, y + 0.5, T.z1 - 4); L.box(T.x1 - 4.5, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z1 - 4); }
     for (const [x, z] of [[T.x0 + 4, T.z0 + 4], [T.x1 - 4.5, T.z0 + 4], [T.x0 + 4, T.z1 - 4.5], [T.x1 - 4.5, T.z1 - 4.5]]) L.box(x, top, z, x + 0.5, top + 16, z + 0.5);
     const Mt = Bc.get('metal', 'tc'); Mt.set({ col: [0.3, 0.3, 0.32], rm: [0.4, 0.8, 0] }); Mt.cyl(cx, top + 16, cz, 1.2, 0.12, top + 46, 8, { cap: false });
-    const Sg = Bc.get('sign', 'tc'); Sg.set({ col: [1, 1, 1], rm: [0.4, 0.3, 0], em: em([1, 1, 1], 2.4, code) });
+    const Sg = Bc.get('sign', 'tc'); Sg.set({ col: [1, 1, 1], rm: [0.4, 0.3, 0], em: em([1, 1, 1], 2.4, RCc) });
     signQuad(Sg, [cx, top + 9, T.z1 - 3.9], [0, 0, 1], 22, 11, SIGN.jinlong); signQuad(Sg, [cx, top + 9, T.z0 + 3.9], [0, 0, -1], 22, 11, SIGN.jinlong);
   }
   // ---- the roof deck inside the cage (the jump is from up here): a parapet with a gap on the river side, the lift
@@ -195,9 +197,18 @@ export function buildTower(ctx = {}) {
     gridFace(C, (u, v) => [R.x0 + (R.x1 - R.x0) * u, y, R.z1 - (R.z1 - R.z0) * v], 32, 32, { emFn: deckEm });
     // a gold LED line along the parapet top (the crown's outline, as seen from the city)
     Pp.set({ col: [0.2, 0.18, 0.15], rm: [0.4, 0.6, 0], em: em(GOLDF, 1.2, RC) });
-    for (const [x0, z0, x1, z1] of [[R.x0, R.z0, R.x1, R.z0 + 0.12], [R.x0, R.z0, R.x0 + 0.12, R.z1], [R.x1 - 0.12, R.z0, R.x1, R.z1], [R.x0, R.z1 - 0.12, R.gap[0], R.z1], [R.gap[1], R.z1 - 0.12, R.x1, R.z1]]) Pp.box(x0, y + 1.1, z0, x1, y + 1.18, z1, { faces: 'Y' });
+    for (const [x0, z0, x1, z1] of [[R.x0, R.z0, R.x1, R.z0 + 0.12], [R.x0, R.z0, R.x0 + 0.12, R.z1], [R.x0, R.z1 - 0.12, R.gap[0], R.z1], [R.gap[1], R.z1 - 0.12, R.x1, R.z1]]) Pp.box(x0, y + 1.1, z0, x1, y + 1.18, z1, { faces: 'Y' });
     const par = (x0, z0, x1, z1) => { C.box(x0, y, z0, x1, y + 1.1, z1, { faces: 'xXzZY', s: 1 }); colliders.push({ min: [x0, y, z0], max: [x1, y + 1.1, z1], data: { mat: 'concrete', kind: 'wall' } }); };
-    par(R.x0, R.z0, R.x0 + 0.35, R.z1); par(R.x1 - 0.35, R.z0, R.x1, R.z1); par(R.x0, R.z0, R.x1, R.z0 + 0.35);
+    par(R.x0, R.z0, R.x0 + 0.35, R.z1); par(R.x0, R.z0, R.x1, R.z0 + 0.35);
+    // the east side is a railing, not a wall: you can lean on it and look straight down at the hillside district
+    {
+      const x = R.x1 - 0.18;
+      Mm.set({ col: [0.16, 0.15, 0.14], rm: [0.4, 0.85, 0], em: [0, 0, 0, 0] });
+      for (let z = R.z0 + 0.35; z <= R.z1 - 0.3; z += 1.6) Mm.box(x - 0.05, y, z - 0.05, x + 0.05, y + 1.1, z + 0.05, { faces: 'xXzZ' });
+      for (const h of [0.38, 0.74]) Mm.box(x - 0.025, y + h, R.z0 + 0.35, x + 0.025, y + h + 0.04, R.z1 - 0.35, { faces: 'xXyY' });
+      Mm.box(x - 0.05, y + 1.05, R.z0 + 0.35, x + 0.05, y + 1.1, R.z1 - 0.35, { faces: 'xXyY' });
+      colliders.push({ min: [R.x1 - 0.35, y, R.z0], max: [R.x1, y + 1.1, R.z1], data: { mat: 'metal', kind: 'wall', noBullet: true } });
+    }
     par(R.x0, R.z1 - 0.35, R.gap[0], R.z1); par(R.gap[1], R.z1 - 0.35, R.x1, R.z1);
     // the lift housing (doors facing south onto the deck) and its machine room
     C.box(331, y, R.z0 + 0.35, 349, y + 4.2, 130, { faces: 'xXZY', s: 1 });

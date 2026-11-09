@@ -908,6 +908,66 @@
   ]
  },
  {
+  "key": "3231bcff",
+  "text": "GUNSHIP! Right off the edge! Hit it — the cockpit, the engines, anything!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "7d82dea9",
+  "text": "It's roping guys onto the roof! Get them on the ropes!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "432f2df2",
+  "text": "Engine's hit! It's smoking — stay on it!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "3fc54d35",
+  "text": "It dropped under the edge — watch the sides, it's coming back up!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "72e5c7c3",
+  "text": "It's going DOWN — it's going into the hill—",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "d2e3159d",
+  "text": "The BANK — the whole riverside's going with it!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
   "key": "b74838d6",
   "text": "Longwu. A city built on a cliff, in the fog, two rivers deep. Last stop.",
   "levels": [
@@ -1078,6 +1138,16 @@
   ]
  },
  {
+  "key": "435f3bb1",
+  "text": "Top of the world. ...Hear that? That is NOT the wind.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
   "key": "0f10c51b",
   "text": "That's it — she's coming off the cliff! The locker by the edge — grab the rig!",
   "levels": [
@@ -1118,28 +1188,8 @@
   ]
  },
  {
-  "key": "d2e3159d",
-  "text": "The BANK — the whole riverside's going with it!",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
   "key": "1538be83",
   "text": "Jumpers! Behind you — they followed you off the roof!",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "63020ffa",
-  "text": "Chaotian bridge dead ahead — gunners on the deck, lights on the towers. You're going UNDER it.",
   "levels": [
    "lights-out"
   ],

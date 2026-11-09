@@ -70,9 +70,12 @@ function waterMaterial(fog) {
         // foam streaks / debris lines drifting with the current
         float fm = smoothstep(0.82, 0.98, texture2D(uNormal, (p - flow * t * 1.05) * vec2(0.01, 0.05)).x);
         c += vec3(0.08, 0.07, 0.06) * fm * (1.0 - uNight * 0.7) * fl;
-        float fogK = smoothstep(fogNear, fogFar, length(vFogViewPos));
+        // seen from high above (the roof, the glide) the fog is a short column of clear air, not a long grazing path:
+        // let the dark water through so the river reads as water, not a beige plane
+        float up = smoothstep(0.25, 0.75, V.y);
+        float fogK = smoothstep(fogNear, fogFar, length(vFogViewPos)) * (1.0 - 0.5 * up);
         c = mix(c, fogColor, fogK);
-        c = mix(c, uHFC * 0.6, hfogK(vW) * 0.75);   // the mist lying on the water (thinner on the water itself: it read as milk)
+        c = mix(c, uHFC * 0.6, hfogK(vW) * 0.75 * (1.0 - 0.6 * up));   // the mist lying on the water (thinner on the water itself: it read as milk)
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

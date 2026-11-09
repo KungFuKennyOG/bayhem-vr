@@ -94,12 +94,12 @@ export const LOCKER = { x: 350, z: 152.2 };                                     
 // ---------------------------------------------------------------- the Chaotian bridge (cable-stayed, across the river) and the glide
 export const CHAOTIAN = { x: -150, z0: 112, z1: 604, y: 32, w: 26, pylons: [262, 470], pylonH: 156 };   // its north end tunnels into the cliff under the store
 export const FARARCH = [{ x: 680, y: 36, code: 13 }, { x: -760, y: 34, code: 11 }];        // two arched bridges up- and downstream (backdrop)
-// the glide rail (a Catmull-Rom through these points; the last point is replaced by the boat's deck). It swings out
-// south-east into the river first, so looking back you face the east bank (the landslide) square on, then turns downstream
+// the glide rail (a Catmull-Rom through these points; ~510 m, ~1 min, a steady 2.2:1 glide from the roof to the gunboat's
+// deck). It swings out south-east over the river first, so looking back you see Jinlong come down onto the slid hillside,
+// then turns downstream
 export const GLIDE = [
-  [340, 240.5, 158], [344, 236, 180], [356, 226, 206], [374, 214, 232], [390, 200, 258], [394, 186, 282], [380, 172, 302],
-  [350, 158, 314], [300, 140, 318], [240, 118, 314], [170, 92, 308], [100, 68, 305], [40, 50, 307], [-20, 34, 308], [-70, 22, 307],
-  [-110, 15, 305], [-150, 12.5, 304], [-196, 8.5, 302], [-236, 5, 300], [-262, 2.8, 298],
+  [340, 240.5, 158], [344, 229.3, 178], [354, 214.5, 203], [366, 199.3, 228], [372, 185.1, 253], [366, 171.4, 277], [348, 157.7, 294],
+  [320, 141.2, 304], [288, 123.4, 309], [254, 104.8, 310], [220, 86, 307], [186, 67.2, 303], [150, 47.4, 300], [114, 27.6, 298], [80, 9.4, 297], [50, 2.8, 297],
 ];
 export const GLIDE_SPEED = 8.2;                                                           // m/s along the rail
 export const BOAT = { x0: -340, z: 298, speed: 1.6 };                                    // the gunboat steams east toward the landing

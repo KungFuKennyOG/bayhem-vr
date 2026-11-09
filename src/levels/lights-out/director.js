@@ -45,6 +45,12 @@ export class Director {
       if (e.type === 'searchlightDown' && first('sldown')) later(0.6, () => say('Ha! Lights out for HIM.', 2.2));
       if (e.type === 'canopyDown' && first('canopy')) later(0.6, () => say('Canopy\'s gone — he\'s going for a swim!', 2.6));
       if (e.type === 'boatDown' && first('boat')) later(0.8, () => say('Boat\'s clear! It\'s all yours — bring it in!', 2.8));
+      if (e.type === 'heliUp' && first('heliup')) later(1.6, () => say('GUNSHIP! Right off the edge! Hit it — the cockpit, the engines, anything!', 3.4));
+      if (e.type === 'heliDrop' && first('helidrop')) later(0.8, () => say('It\'s roping guys onto the roof! Get them on the ropes!', 2.8));
+      if (e.type === 'heliHurt' && first('helihurt')) later(0.5, () => say('Engine\'s hit! It\'s smoking — stay on it!', 2.4));
+      if (e.type === 'heliDive' && first('helidive')) later(0.6, () => say('It dropped under the edge — watch the sides, it\'s coming back up!', 3));
+      if (e.type === 'heliDying' && first('helidying')) later(0.8, () => say('It\'s going DOWN — it\'s going into the hill—', 2.4));
+      if (e.type === 'slide' && first('slidevo')) later(1.6, () => say('The BANK — the whole riverside\'s going with it!', 2.8));
     };
     const glow = (k) => { this.glowTarget = k; };
     this.steps = [
@@ -178,9 +184,36 @@ export class Director {
           this.sp.towerGroan(0.8);
           if (!this.sp.lift && (this.sp.nearLift() || t > 40 * T)) this.sp.liftRide();
         }, until: () => !!this.sp.onRoof },
-      // 11 ---- the tower's going: the rig, the gap, the jump
+      // 11 ---- the roof, 240 m up: a gunship comes up over the edge, ropes men onto the roof, rockets, the chin gun. Bring
+      // it down and it spirals into the hillside district below — into the gold tower on the crest — and the hill lets go
+      { name: 'roof', wp: null, music: 1.0, enter: () => {
+          hud.setWaypoint(null);
+          this._pt = 0; this.crashT = -1;
+          later(0.7, () => say('Top of the world. ...Hear that? That is NOT the wind.', 3));
+          later(2.6, () => this.sp.gun.spawn());
+          later(3.6, () => hud.objective('Bring down the gunship'));
+          if (A) { A.go([{ p: V(343, 0, 145), nav: null, slow: 0.5 }]); later(2.8, () => { g.cinematicLook = V(350, 236, 196); g.cinematicW = 1.4; }); later(7.5, () => { if (!this.sp.gun.dead) g.cinematicLook = null; }); }
+        }, update: (t) => {
+          const dt = t - this._pt; this._pt = t;
+          const G = this.sp.gun, H = G.H;
+          // no one is stuck up here forever: after three minutes it's burning anyway
+          if (H && H.alive && H.phase !== 'dying' && t > 180) G.damage(dt * 4);
+          for (const e of g.events) {
+            if (e.type === 'heliCrash') this.crashT = t;
+            // to the railing: it goes down into the district under the east face (VR: lean over and watch it)
+            if (e.type === 'heliDying') { hud.setWaypoint(V(ROOFTOP.x1 - 0.6, ROOFTOP.y + 1.2, 138)); later(1.2, () => hud.objective('The railing — watch it go')); if (A) { g.cinematicW = 1.6; A.go([{ p: V(ROOFTOP.x1 - 0.7, 0, 138), nav: null, sprint: true }]); } }
+            if (e.type === 'heliCrash') later(4, () => hud.setWaypoint(null));
+          }
+          // the trailer / desktop camera: the burning bird all the way down, then the hill
+          if (A && H && H.phase === 'dying') g.cinematicLook = H.pos.clone();
+          if (A && this.crashT >= 0 && t > this.crashT + 0.4) { g.cinematicLook = t > this.crashT + 3.5 ? V(520, 12, 168) : V(462, 90, 80); g.cinematicW = 0.9; }
+          if (this.crashT >= 0 && t > this.crashT + 5) this.sp.towerGroan(0.9);
+          // the desktop / trailer camera leans out over the railing to look down (VR: you lean yourself)
+          if (A && g.player && H && !H.alive && g.headPos.x > ROOFTOP.x1 - 1.6) { g.player.lean = V(1.6, 0.45, 0); if (g.loco) g.loco.enabled = false; }
+        }, until: (t) => this.crashT >= 0 && t > this.crashT + 12 },
+      // 12 ---- the tower's going: the rig, the gap, the jump
       { name: 'jump', wp: V(ROOFTOP.locker.x, ROOFTOP.y + 1.6, ROOFTOP.locker.z), music: 1.0, enter: () => {
-          this.sp.towerGroan(1);
+          this.sp.towerGroan(1); g.cinematicLook = null; if (g.player) g.player.lean = null; if (g.loco) g.loco.enabled = true;
           say('That\'s it — she\'s coming off the cliff! The locker by the edge — grab the rig!', 3.4);
           later(1.2, () => hud.objective('The locker — grab the BASE rig'));
           if (A) A.go([{ p: V(ROOFTOP.locker.x - 1.2, 0, ROOFTOP.locker.z - 1.4), nav: null, slow: 0.8 }]);
@@ -195,27 +228,26 @@ export class Director {
           }
           if (this.sp.rigOn) { this.jt += 1 / 60; if (this.sp.atEdge() || this.jt > 20) this.sp.jump(); }
         }, until: () => !!this.sp.glide },
-      // 12 ---- the glide: look back (the tower comes down), jumpers, searchlights, the bridge, the gunboat
+      // 13 ---- the glide: look back (the tower comes down onto the slid hill), jumpers, the barges, the gunboat
       { name: 'glide', wp: null, music: 1.0, enter: () => {
           hud.setWaypoint(null);
           this.lookT = 0; this._pt = 0; this.downT = 0;
           later(5.2, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
-          if (A) later(6.0, () => { g.cinematicLook = V(480, 40, 110); g.cinematicW = 1.3; });
+          if (A) later(6.0, () => { g.cinematicLook = V(346, 160, 140); g.cinematicW = 1.3; });
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t;
           const sp = this.sp;
-          if (!sp.slide.active && t > 6.5) { this.lookT = looking(V(420, 80, 125), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > 11) sp.landslide(); }
+          if (!sp.slide.active) sp.landslide(true);
+          if (!sp.fall && t > 6.5) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > 12) sp.towerFall(); }
           for (const e of g.events) {
             if (e.type === 'towerDown') { this.downT = t; later(1.2, () => say('...Jinlong Tower. Gone. Into the river.', 2.8)); }
             // the trailer / desktop camera: the bank as it goes, then the tower as it comes off the stump
-            if (e.type === 'slide') { later(0.8, () => say('The BANK — the whole riverside\'s going with it!', 2.8)); }
-            if (e.type === 'towerFall' && A) later(3.5, () => { g.cinematicLook = V(420, 110, 150); g.cinematicW = 1.2; });
-            if (e.type === 'towerFree' && A) { g.cinematicLook = V(500, 25, 175); g.cinematicW = 1.2; }
+            if (e.type === 'towerFall' && A) later(3.0, () => { g.cinematicLook = V(400, 120, 150); g.cinematicW = 1.2; });
+            if (e.type === 'towerFree' && A) { g.cinematicLook = V(470, 30, 165); g.cinematicW = 1.2; }
             if (e.type === 'landed') { /* next beat */ }
           }
           if (sp.fall && ((this.downT && t > this.downT + 3) || t > 26) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
           if (A && g.cinematicLook && this.downT && t > this.downT + 2.6 && first('fallLookEnd')) g.cinematicLook = null;
-          if (sp.rail.len - sp.rail.s < 327 && first('bridgehint')) say('Chaotian bridge dead ahead — gunners on the deck, lights on the towers. You\'re going UNDER it.', 3.6);
           if (sp.rail.len - sp.rail.s < 150 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }
           // the boat: a marker on the drums (VR: look down at it), and the desktop / trailer camera goes with it
           if (sp.rail.len - sp.rail.s < 150 && !sp.boatClear) hud.setWaypoint(sp.boat.userData.drumsP.clone().applyMatrix4(sp.boat.matrixWorld));
@@ -257,9 +289,9 @@ export class Director {
     ];
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
-    const START_P = { steps: [-122, 64, 76], lstreet: [-62, 50, 80], gallery: [84, 50, 94], bridge: [108, 40, 109], plaza: [176, 40, 104], pancake: [276, 40, 98], blackout: [250, 40, 100], climb: [270, 40, 98], lobby: [341, 56, 106], lift: [340, 56, 140], jump: [340, 239, 133], glide: [340, 239, 153], outro: [340, 239, 153], credits: [340, 239, 153] };
+    const START_P = { steps: [-122, 64, 76], lstreet: [-62, 50, 80], gallery: [84, 50, 94], bridge: [108, 40, 109], plaza: [176, 40, 104], pancake: [276, 40, 98], blackout: [250, 40, 100], climb: [270, 40, 98], lobby: [341, 56, 106], lift: [340, 56, 140], roof: [340, 239, 132], jump: [340, 239, 140], glide: [340, 239, 153], outro: [340, 239, 153], credits: [340, 239, 153] };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
-    const NIGHT = { intro: 0.26, steps: 0.3, lstreet: 0.42, gallery: 0.55, bridge: 0.68, plaza: 0.82, pancake: 0.85, blackout: 1, climb: 1, lobby: 1, lift: 1, jump: 1, glide: 1, outro: 1, credits: 1 };
+    const NIGHT = { intro: 0.26, steps: 0.3, lstreet: 0.42, gallery: 0.55, bridge: 0.68, plaza: 0.82, pancake: 0.85, blackout: 1, climb: 1, lobby: 1, lift: 1, roof: 1, jump: 1, glide: 1, outro: 1, credits: 1 };
     if (ji > 0) {
       const p = START_P[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
       const idx = (n) => this.steps.findIndex(s => s.name === n);
@@ -269,9 +301,10 @@ export class Director {
       if (ji > idx('blackout')) { this.sp.startBlackout(true); g.glow = 0.1; }
       if (ji > idx('blackout')) { this.sp.blackT = 30; }
       if (ji > idx('lift')) this.sp.onRoof = true;
+      if (ji > idx('roof')) { this.sp.gun.skip(); this.sp.landslide(true); }
       if (ji >= idx('glide')) { this.sp.takeRig(); this.sp.jump(); g.slowT = 0; }
-      if (ji > idx('glide')) { this.sp.landslide(true); }
-      g.score = [0, 0, 2400, 5200, 8600, 12000, 15600, 19400, 21800, 22600, 26000, 26800, 30200, 31000, 38000][ji] || 0;
+      if (ji > idx('glide')) { this.sp.towerFall(true); }
+      g.score = [0, 0, 2400, 5200, 8600, 12000, 15600, 19400, 21800, 22600, 26000, 26800, 34000, 35000, 37000, 44000][ji] || 0;
       for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
       for (const L of Object.values(hud.lanes || {})) { L.q.length = 0; L.cur = null; }
       this.stepIdx = ji - 1;
