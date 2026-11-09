@@ -73,23 +73,64 @@ const earthCol = (p) => {
 // the pieces: x range, what stands on them, how they go
 const PIECES = [
   { delay: 5.4, acc: 4.6, pitch: 0.55, yaw: 0.06, roll: -0.1,
-    towers: [{ x0: 378, z0: 60, x1: 398, z1: 80, h: 108, style: 0, crown: 'frame', roofSign: 'roof1', phi: 0.5, d: 0.6, roll: -0.12 }],
+    towers: [{ x0: 378, z0: 60, x1: 398, z1: 80, h: 108, style: 0, crown: 'frame', roofSign: 'roof1', phi: 0.5, d: 0.6, roll: -0.12, fold: 0.35 }],
     shops: { storeys: 4, seed: 401 }, houses: [[381, 30, 5.5], [386, 14, 6], [420, 38, 4.5]], quay: [{ x0: 396, x1: 414, h: 70, style: 2 }] },
   { delay: 3.6, acc: 4.2, pitch: 0.48, yaw: -0.05, roll: 0.08,
-    towers: [{ x0: 434, z0: 56, x1: 458, z1: 78, h: 158, style: 1, crown: 'led', bands: 4, bandCol: GOLD, ledCol: GOLD, roofSign: 'roof5', phi: 0.55, d: 0.2, roll: 0.1 }],
+    towers: [{ x0: 434, z0: 56, x1: 458, z1: 78, h: 158, style: 1, crown: 'led', bands: 4, bandCol: GOLD, ledCol: GOLD, roofSign: 'roof5', phi: 0.5, d: 0.2, roll: 0.1, fold: 0.45 }],
     low: [{ x0: 462, z0: 78, x1: 476, z1: 91, h: 62, style: 4, crown: 'pagoda', flood: GOLD }],
     shops: { storeys: 3, seed: 411 }, houses: [[436, 24, 6], [440, 40, 5], [475, 30, 5]], quay: [{ x0: 448, x1: 470, h: 88, style: 0, roofSign: 'roof9' }] },
   { delay: 1.8, acc: 5.0, pitch: 0.6, yaw: 0.08, roll: -0.06,
-    towers: [{ x0: 484, z0: 58, x1: 502, z1: 76, h: 96, style: 0, crown: 'frame', roofSign: 'roof6', phi: 0.5, d: 0.3, roll: 0.2 },
-      { x0: 512, z0: 64, x1: 530, z1: 82, h: 100, style: 0, crown: 'frame', phi: 0.38, d: 1.1, roll: -0.24 }],
+    towers: [{ x0: 484, z0: 58, x1: 502, z1: 76, h: 96, style: 0, crown: 'frame', roofSign: 'roof6', phi: 0.5, d: 0.3, roll: 0.2, fold: -0.3 },
+      { x0: 512, z0: 64, x1: 530, z1: 82, h: 100, style: 0, crown: 'frame', phi: 0.38, d: 1.1, roll: -0.24, fold: 0.4 }],
     shops: { storeys: 5, seed: 421 }, houses: [[488, 20, 5], [492, 36, 6], [526, 28, 6]], quay: [{ x0: 500, x1: 516, h: 64, style: 2 }] },
   { delay: 0.0, acc: 3.9, pitch: 0.46, yaw: -0.07, roll: 0.13,
-    towers: [{ x0: 562, z0: 58, x1: 584, z1: 78, h: 122, style: 0, crown: 'diamond', ledCol: [1.0, 0.85, 0.6], phi: 0.45, d: 0.5, roll: -0.16 }],
+    towers: [{ x0: 562, z0: 58, x1: 584, z1: 78, h: 122, style: 0, crown: 'diamond', ledCol: [1.0, 0.85, 0.6], phi: 0.45, d: 0.5, roll: -0.16, fold: 0.38 }],
     low: [{ x0: 540, z0: 62, x1: 556, z1: 88, h: 56, style: 2 }],
     shops: { storeys: 4, seed: 431 }, houses: [[541, 30, 5], [580, 14, 6], [586, 38, 4]], quay: [{ x0: 548, x1: 572, h: 80, style: 0 }] },
 ];
 const WALLC = [hexc(0xd6c8b0), hexc(0xc9b9a6), hexc(0xd8d2c4), hexc(0xb9b2a5)];
 const GLASSC = [hexc(0x3c4a58), hexc(0x30404c), hexc(0x4a4436)];
+
+// the torn floor where a tower breaks: a ragged slab, rebar bristling out of it, a dark gash (upper: hanging down)
+function breakCap(B, reg, t, yb, upper) {
+  const r = makeRng(Math.round(t.x0 * 7 + yb)), Cc = B.get('concrete', reg), Mt = B.get('metal', reg), D = B.get('plain', reg);
+  const s = upper ? -1 : 1;
+  Cc.set({ col: [0.38, 0.37, 0.36], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+  D.set({ col: [0.03, 0.03, 0.03], rm: [1, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+  D.box(t.x0 + 0.2, yb - 0.02, t.z0 + 0.2, t.x1 - 0.2, yb + 0.02, t.z1 - 0.2, { faces: upper ? 'y' : 'Y' });
+  for (let k = 0; k < 9; k++) {
+    const x = t.x0 + r() * (t.x1 - t.x0 - 4), z = t.z0 + r() * (t.z1 - t.z0 - 4), w = 2 + r() * 5, d = 2 + r() * 5, h = 0.4 + r() * 2.2;
+    Cc.box(x, s > 0 ? yb : yb - h, z, Math.min(t.x1, x + w), s > 0 ? yb + h : yb, Math.min(t.z1, z + d), { faces: 'xXzZ' + (s > 0 ? 'Y' : 'y'), s: 1 });
+  }
+  Mt.set({ col: [0.25, 0.18, 0.13], rm: [0.6, 0.6, 0], em: [0, 0, 0, 0] });
+  for (let k = 0; k < 26; k++) { const x = t.x0 + r() * (t.x1 - t.x0), z = r() < 0.5 ? (r() < 0.5 ? t.z0 : t.z1) : t.z0 + r() * (t.z1 - t.z0); Mt.beam([x, yb, z], [x + range(-0.8, 0.8), yb + s * (1 + r() * 3), z + range(-0.8, 0.8)], 0.06, 0.06); }
+}
+// buildings standing across the crack: the back half stays (its cut face shows the floors), the front half goes
+const SHELLS = [{ x0: 402, x1: 424, h: 36, style: 0, piece: 0 }, { x0: 461, x1: 478, h: 30, style: 2, piece: 1 }, { x0: 538, x1: 560, h: 42, style: 0, piece: 3 }];
+const SHZ0 = 41.5, SHZ1 = 58;
+function shellHalf(B, reg, S, back, seed) {
+  const fl = 3.0, top = 56.18 + S.h, z0 = back ? SHZ0 : C0, z1 = back ? C0 : SHZ1, col = WALLC[seed % WALLC.length];
+  const W = B.get('tile', reg), Cc = B.get('concrete', reg);
+  W.set({ col, rm: [0.85, 0, 0], em: [0, 0, 0, DIST.EAST], cell: [3.0, fl, seed * 0.37 % 1 * 40, S.style] });
+  W.box(S.x0, 56.18, z0, S.x1, top, z1, { faces: back ? 'xXz' : 'xXZ', s: 1, wy0: 56.18 });
+  Cc.set({ col: [0.42, 0.42, 0.43], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+  Cc.box(S.x0 - 0.3, top, z0 - (back ? 0.3 : 0), S.x1 + 0.3, top + 0.8, z1 + (back ? 0 : 0.3), { faces: 'xXY' + (back ? 'z' : 'Z'), s: 1 });
+  if (!back) return;
+  // the cut face: floor slabs sticking out, a dark gutted interior behind, columns, rebar, a slab hanging off it
+  const r = makeRng(seed), D = B.get('plain', reg), Mt = B.get('metal', reg);
+  D.set({ col: [0.035, 0.03, 0.03], rm: [1, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+  D.box(S.x0 + 0.3, 56.18, C0 - 3, S.x1 - 0.3, top, C0 - 3, { faces: 'Z' });
+  for (let y = 56.18 + fl; y < top - 0.5; y += fl) {
+    const jag = (x) => C0 - 0.6 + Math.max(0, Math.sin(x * 1.7 + y) * 1.4 + r() * 0.6);
+    for (let x = S.x0; x < S.x1 - 0.1; x += 2.2) Cc.box(x, y - 0.3, C0 - 3, Math.min(S.x1, x + 2.2), y, jag(x), { faces: 'yYZ', s: 1 });
+  }
+  for (let x = S.x0 + 2; x < S.x1 - 1; x += 5 + r() * 2) Cc.box(x, 56.18, C0 - 3.4, x + 0.6, top, C0 - 2.6, { faces: 'xXZ', s: 1 });
+  Mt.set({ col: [0.25, 0.18, 0.13], rm: [0.6, 0.6, 0], em: [0, 0, 0, 0] });
+  for (let k = 0; k < 30; k++) { const x = S.x0 + r() * (S.x1 - S.x0), y = 56.18 + fl * (1 + Math.floor(r() * (S.h / fl - 1))); Mt.beam([x, y - 0.15, C0 - 0.5], [x + range(-0.5, 0.5), y + range(-1.2, 0.3), C0 + 0.8 + r() * 2], 0.05, 0.05); }
+  // one slab torn half off, hanging down the face
+  const hy = 56.18 + fl * (2 + Math.floor(r() * 3)), hx = S.x0 + 3 + r() * (S.x1 - S.x0 - 9), Mh = new THREE.Matrix4().makeRotationX(1.1).setPosition(hx, hy, C0 - 0.4);
+  const sv = Cc.push(Mh); Cc.box(0, -0.3, 0, 6, 0, 4.5, { faces: 'xXyYZ', s: 1 }); Cc.pop(sv);
+}
 
 export function buildSlide(ctx = {}) {
   SLIDE.gone = false;
@@ -132,6 +173,7 @@ export function buildSlide(ctx = {}) {
       const w = 4 + r() * 5, d = 3 + r() * 4, tilt = 0.3 + r() * 0.7, M = new THREE.Matrix4().makeRotationX(tilt).premultiply(new THREE.Matrix4().makeTranslation(x, 55.8, C0 + 0.2));
       for (const A of [As, Cc]) { const sv = A.push(M); if (A === As) A.box(0, -0.4, 0, w, 0, d, { faces: 'xXYz Z', s: 1 }); else A.box(0, -0.9, 0, w, -0.4, d, { faces: 'xXyzZ', s: 1 }); A.pop(sv); }
     }
+    SHELLS.forEach((S, k) => shellHalf(B, 'scar', S, true, 77 + k * 13));
     tris += B.finish(root).tris;
     // fires in the wreckage on the slope and along the torn edge: halos that come on once the pieces have gone
     for (const [x, y, z, k] of FIRES) {
@@ -168,7 +210,7 @@ export function buildSlide(ctx = {}) {
     const B = mkB(M), reg = 's' + i, gl = [], bi = bones.length - 1;
     // rock: the river face (the same face as the static cliff either side), the underside (the slip surface), the side breaks
     const R = B.get('rock', reg); R.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
-    const pieceEm = (p) => { const k = 1 - Math.max(0, (p[1] - QUAY.y) / 56); return [0.16 * (0.35 + k), 0.095 * (0.35 + k), 0.05 * (0.35 + k), DUSK + CODE]; };
+    const pieceEm = (p) => { const k = 1 - Math.max(0, (p[1] - QUAY.y) / 56), f = 0.12 + 0.9 * k * k * (0.7 + 0.6 * fbm(p[0] * 0.05, p[1] * 0.08)); return [0.13 * f, 0.075 * f, 0.04 * f, DUSK + CODE]; };
     gridFace(R, (u, v) => eastP(xa + (xb - xa) * u, v), Math.round((xb - xa) / 5), 14, { colFn: rockCol, emFn: pieceEm });
     gridFace(R, (u, v) => { const x = xa + (xb - xa) * u, z = C0 + (ZF - C0) * v; return [x, Math.min(scarY(x, z), z > QUAY.z0 ? QUAY.y - 0.4 : 99) - 0.05, z]; }, Math.round((xb - xa) / 6), 24, { colFn: earthCol });
     sideFace(R, xa, -1); sideFace(R, xb, 1);
@@ -226,17 +268,28 @@ export function buildSlide(ctx = {}) {
     // blocks standing on the quay against the cliff, rising past its top (the Chongqing wall: you enter at the river
     // and come out on the 18th floor at the street)
     for (const t of P.quay || []) towerBlock(B, { ...t, z0: PLAZA.z1 + 2, z1: QUAY.z0 + 9, y0: QUAY.y, seed: seed++, podium: true, plinth: 0, dist: CODE, signN: [0, 0, 1] }, reg, gl);
+    SHELLS.forEach((S, k) => { if (S.piece === i) shellHalf(B, reg, S, false, 77 + k * 13); });
     // the low blocks ride the piece; the tall ones get their own groups (they topple off it)
     for (const t of P.low || []) towerBlock(B, { ...t, y0: 56.18, seed: seed++, podium: true, plinth: 0, dist: DIST.EAST, signN: [0, 0, 1] }, reg, gl);
     const towers = [];
     for (const t of P.towers) {
       const bp = new THREE.Vector3((t.x0 + t.x1) / 2, 56.18, t.z1 + 2);
       const tg = new THREE.Bone(); tg.name = 'slide' + i + 't' + towers.length; tg.position.copy(bp).sub(pv); grp.add(tg); bones.push(tg);
+      // two segments: it breaks at a floor line part way up and folds as it goes (not a rigid stick)
+      const fl = t.style === 1 || t.style === 4 ? 3.9 : 3.0, hb = Math.round(t.h * (0.42 + r() * 0.16) / fl) * fl, yb = 56.18 + hb, ts = seed++;
       const Bt = mkB(M), tgl = [];
-      const top = towerBlock(Bt, { ...t, y0: 56.18, seed: seed++, podium: true, plinth: 7, dist: DIST.EAST, signN: [0, 0, 1], bands: 0 }, reg + 't', tgl).top;
+      towerBlock(Bt, { ...t, h: hb, crown: null, roofSign: null, corners: false, y0: 56.18, seed: ts, podium: true, plinth: 7, dist: DIST.EAST, signN: [0, 0, 1], bands: 0 }, reg + 't', tgl);
+      breakCap(Bt, reg + 't', t, yb, false);
       tris += collect(Bt, bones.length - 1, skin);
+      const ubp = new THREE.Vector3((t.x0 + t.x1) / 2, yb, t.z1);
+      const ug = new THREE.Bone(); ug.name = tg.name + 'u'; ug.position.copy(ubp).sub(bp); tg.add(ug); bones.push(ug);
+      const Bu = mkB(M), ugl = [];
+      const top = towerBlock(Bu, { ...t, h: t.h - hb, y0: yb, seed: ts, podium: false, plinth: 0, dist: DIST.EAST, signN: [0, 0, 1], bands: 0 }, reg + 'u', ugl).top;
+      breakCap(Bu, reg + 'u', t, yb, true);
+      tris += collect(Bu, bones.length - 1, skin);
       for (const q of tgl) gl.push({ ...q, _obj: tg, _pv: bp });
-      towers.push({ grp: tg, pv: bp, h: top - 56.18, phi: t.phi, d: t.d, roll: t.roll, top: new THREE.Vector3(bp.x, top, (t.z0 + t.z1) / 2).sub(bp), wet: false, groan: false });
+      for (const q of ugl) gl.push({ ...q, _obj: ug, _pv: ubp });
+      towers.push({ grp: tg, ug, pv: bp, h: top - 56.18, phi: t.phi, d: t.d, roll: t.roll, fold: t.fold ?? 0.3, top: new THREE.Vector3(bp.x, top, (t.z0 + t.z1) / 2).sub(ubp), wet: false, groan: false, snap: false, yb });
     }
     tris += collect(B, bi, skin);
     // riding glows (positions recomputed from the group each frame)
@@ -258,7 +311,15 @@ export function buildSlide(ctx = {}) {
     m.name = 'slide-' + mat.userData.key; m.frustumCulled = false; m.receiveShadow = true;
     root.add(m); m.bind(skel, new THREE.Matrix4());
   }
-  return { root, anchors: { glows, named: { slide: { root, pieces, wreck, scarFires: glows.filter(g => g.scarFire) } } }, tris };
+  // the river's answer: swell rings rolling out from where each piece goes in, a silt stain spreading on the water
+  // (made at load, transparent at 0, so nothing compiles mid-glide)
+  const ringMat = () => new THREE.MeshBasicMaterial({ color: 0xc9c6bd, transparent: true, opacity: 0, depthWrite: false, fog: true });
+  const rings = [], silts = [];
+  const rg = new THREE.RingGeometry(0.955, 1, 96); rg.rotateX(-Math.PI / 2);
+  const sg = new THREE.CircleGeometry(1, 48); sg.rotateX(-Math.PI / 2);
+  for (let k = 0; k < 8; k++) { const m = new THREE.Mesh(rg, ringMat()); m.position.y = WATER_Y + 0.12; m.scale.setScalar(1e-3); m.renderOrder = 3; root.add(m); rings.push({ m, t: -1 }); }
+  for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ color: 0x33261a, transparent: true, opacity: 0, depthWrite: false, fog: true })); m.position.y = WATER_Y + 0.08; m.scale.setScalar(1e-3); m.renderOrder = 2; root.add(m); silts.push({ m, t: -1 }); }
+  return { root, anchors: { glows, named: { slide: { root, pieces, wreck, rings, silts, scarFires: glows.filter(g => g.scarFire) } } }, tris };
 }
 
 // =====================================================================================
@@ -277,7 +338,7 @@ export class Landslide {
     this.T = 0;
     const g = this.g;
     POWER.pow.value[CODE] = 1; POWER.cut.value[CODE] = 9999;
-    if (fast) { this.T = 60; this._pose(60, 0); for (const P of this.S.pieces) this._hide(P); SLIDE.gone = true; for (const gl of this.S.scarFires) gl.dead = false; this._columns(); this._wreck(); return; }
+    if (fast) { this.T = 60; this._pose(60, 0); for (const P of this.S.pieces) this._hide(P); SLIDE.gone = true; for (const gl of this.S.scarFires) gl.dead = false; this._columns(); this._wreck(); this.S.silts?.forEach((Sl, i) => { const P = this.S.pieces[i]; Sl.t = 30; Sl.m.position.set((P.xa + P.xb) / 2, WATER_Y + 0.08, RIVER.z0 + 20); Sl.m.scale.set(104, 1, 80); Sl.m.material.opacity = 0.35; }); return; }
     const cx = (SLIDE.x0 + SLIDE.x1) / 2;
     this.audio.play('collapse_rumble', { x: cx, y: 50, z: 100, volume: 1 });
     this.audio.play('metal_groan', { x: cx - 60, y: 50, z: 90, volume: 1, pitch: 0.7 });
@@ -311,6 +372,7 @@ export class Landslide {
     for (const t of P.towers) {
       const u = ss(t.d + 1.0, t.d + 6.5, tau);
       _e.set(t.phi * u * u, 0, t.roll * u, 'XYZ'); t.grp.quaternion.setFromEuler(_e);
+      const f = ss(t.d + 2.6, t.d + 6.0, tau); _e.set(t.fold * f * f, 0, -t.roll * 0.6 * f, 'XYZ'); t.ug.quaternion.setFromEuler(_e);
     }
     return { tau, s };
   }
@@ -336,6 +398,13 @@ export class Landslide {
   update(dt) {
     if (this.T < 0 || !this.S) return;
     const g = this.g, T0 = this.T; this.T += dt; const T = this.T;
+    for (const R of this.S.rings || []) {
+      if (!R.go) continue; R.t += dt; if (R.t < 0) continue;
+      const u = R.t / 7; if (u >= 1) { R.go = false; R.t = -1; R.m.material.opacity = 0; R.m.scale.setScalar(1e-3); continue; }
+      const rad = 6 + 150 * (1 - Math.pow(1 - u, 2)); R.m.scale.set(rad, 1, rad * 0.8);
+      R.m.material.opacity = 0.3 * R.k * (1 - u) * Math.min(1, R.t * 4);
+    }
+    for (const Sl of this.S.silts || []) if (Sl.t >= 0) { Sl.t += dt; const u = Math.min(1, Sl.t / 14), rad = 10 + 70 * Math.sqrt(u); Sl.m.scale.set(rad * 1.3, 1, rad); Sl.m.material.opacity = 0.5 * Math.min(1, Sl.t / 2) * (1 - 0.3 * u); }
     if (T > 40) return;
     let anyLive = false;
     for (const P of this.S.pieces) {
@@ -373,6 +442,9 @@ export class Landslide {
         if (P.i === 0) this.audio.play('explosion_big', { x: toe.x, y: 2, z: toe.z, volume: 0.9, pitch: 0.7 });
         g.lastExplosionT = g.time; g.lastExplosionShake = 0.5;
         g.events.push({ type: 'slideWater', i: P.i });
+        const cx = (P.xa + P.xb) / 2, cz = Math.max(RIVER.z0 + 8, toe.z + 6);
+        for (const [j, dl] of [[0, 0], [1, 0.7], [2, 1.5]]) { const R = this.S.rings.find(q => q.t < 0); if (R) { R.t = -dl - 1e-3; R.go = true; R.m.position.set(cx + range(-8, 8), WATER_Y + 0.12, cz); R.k = 1 - j * 0.25; } }
+        const Sl = this.S.silts[P.i]; if (Sl) { Sl.t = 0; Sl.m.position.set(cx, WATER_Y + 0.08, cz + 10); }
         // the surge: a low wall of dust and spray rolling out across the river
         for (let j = 0; j < 6; j++) g.fx.later(0.1 + j * 0.12, () => this._dust(range(P.xa, P.xb), WATER_Y + range(2, 6), Math.max(RIVER.z0 + 6, toe.z) + range(0, 8), range(-3, 3), range(1, 3), range(9, 15), 14, range(55, 70), range(12, 16)));
       }
@@ -383,8 +455,15 @@ export class Landslide {
       // the towers: a groan as each one starts to go, glass bursting off them, a splash when the top goes in
       for (const t of P.towers) {
         const u = tau - t.d - 1.0;
+        if (tau > t.d + 2.6 && !t.snap) {
+          t.snap = true; const b = _w.set(0, 0, -8).applyMatrix4(t.ug.matrixWorld).clone();
+          for (let j = 0; j < 4; j++) this._dust(b.x + range(-8, 8), b.y + range(-2, 2), b.z + range(-6, 6), range(-3, 3), range(1, 4), range(0, 4), 6, range(24, 34), range(9, 12));
+          for (let j = 0; j < 14; j++) g.fx.spawnDebris(b.clone().add(_v.set(range(-9, 9), 0, range(-8, 8))), range(-6, 6), range(2, 9), range(-2, 8), range(0.6, 1.8), false);
+          g.glass.burst?.(b.clone(), new THREE.Vector3(0, 0.3, 1), 40, { spread: 8, speed: 5, size: 0.4, life: 10 });
+          this.audio.play('metal_groan', { x: b.x, y: b.y, z: b.z, volume: 1, pitch: 1.1 }); this.audio.play('collapse_impact', { x: b.x, y: b.y, z: b.z, volume: 0.6, pitch: 1.3 });
+        }
         if (u > 0 && !t.groan) { t.groan = true; this.audio.play('metal_groan', { x: t.pv.x, y: 90, z: t.pv.z, volume: 0.9, pitch: 0.8 + P.i * 0.08 }); }
-        const top = _v.copy(t.top).applyMatrix4(t.grp.matrixWorld);
+        const top = _v.copy(t.top).applyMatrix4(t.ug.matrixWorld);
         if (u > 0 && top.y > WATER_Y + 4 && rand() < dt * 7) {
           const p = _w.set(range(-8, 8), range(10, t.h), range(-2, 2)).applyMatrix4(t.grp.matrixWorld);
           g.glass.burst?.(p.clone(), new THREE.Vector3(range(-1, 1), 0.2, 1), 14, { spread: 3, speed: 3, size: 0.35, life: 10 });
@@ -399,7 +478,7 @@ export class Landslide {
       }
       // gone: once the lip, the back and every tower top are under water
       const back = _v.copy(P.back).applyMatrix4(W);
-      if (tau > 18 || tau > SLUMP + 2 && lip.y < WATER_Y - 6 && back.y < WATER_Y - 4 && P.towers.every(t => _w.copy(t.top).applyMatrix4(t.grp.matrixWorld).y < WATER_Y - 3)) this._hide(P);
+      if (tau > 18 || tau > SLUMP + 2 && lip.y < WATER_Y - 6 && back.y < WATER_Y - 4 && P.towers.every(t => _w.copy(t.top).applyMatrix4(t.ug.matrixWorld).y < WATER_Y - 3)) this._hide(P);
     }
     if (T0 < 12 && T >= 12) SLIDE.gone = true;
     if (T0 < 15 && T >= 15) { for (const gl of this.S.scarFires) gl.dead = false; this._columns(); }
