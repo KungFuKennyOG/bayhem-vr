@@ -2,7 +2,7 @@ import { vendAtlas } from './vending.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex, signMat, zelkova, leafMaterial, bush } from './kit.js';
+import { Acc, rmMat, hex, signMat, zelkova, leafMaterial, bush, roadDecalMaterial, scatterDecals } from './kit.js';
 import { facadeMaterial, cellRect, FCELL } from './facade.js';
 import { signAtlas, JP } from './signs.js';
 import { signAtlas2 } from './signs2.js';
@@ -232,7 +232,8 @@ export function buildEastExit(ctx = {}) {
     bal(ETOWER.x1, zN + e, GORE.x0 + 6, zN + e, B); bal(GORE.x1, zN + e, x1, zN + e, B);
     const planter = (cx, cz, w, d, tree) => {
       prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(cx - w / 2, B, cz - d / 2, cx + w / 2, B + 0.7, cz + d / 2);
-      prop.set({ col: hex(0x3a4a26), rm: [0.95, 0, 0] }); prop.box(cx - w / 2 + 0.12, B + 0.7, cz - d / 2 + 0.12, cx + w / 2 - 0.12, B + 1.05, cz + d / 2 - 0.12, { faces: 'Y' });
+      prop.set({ col: hex(0x2e2418), rm: [0.95, 0, 0] }); prop.box(cx - w / 2 + 0.12, B + 0.7, cz - d / 2 + 0.12, cx + w / 2 - 0.12, B + 0.74, cz + d / 2 - 0.12, { faces: 'Y' });   // soil
+      { const L_ = Math.max(w, d), n_ = Math.max(2, Math.round(L_ / 1.4)); for (let i = 0; i < n_; i++) { const t_ = (i + 0.5) / n_ - 0.5; bush(leaves, cx + (w > d ? t_ * (w - 0.6) : 0), B + 0.62, cz + (w > d ? 0 : t_ * (d - 0.6)), 0.62, cx * 5 + cz + i); } }
       col([cx - w / 2, B, cz - d / 2], [cx + w / 2, B + 1.05, cz + d / 2], { kind: 'planter' });
       if (tree) for (const [tx, tz] of tree) {
         zelkova(prop, tx, B + 0.7, tz, 0.75, tx + tz, leaves);
@@ -255,7 +256,7 @@ export function buildEastExit(ctx = {}) {
       }
       // a rooftop Inari shrine (department-store roofs keep one): a row of vermilion torii leading north to a
       // small hokora on a stone base, two white foxes with red bibs, a stone lantern
-      { const sx = 81.5, R_ = 0xd8401c, ink = 0x1a1a1a;
+      { const sx = 81.5, R_ = 0xb8341a, ink = 0x1a1a1a;
         prop.set({ col: hex(0x9a968c), rm: [0.85, 0, 0] }); prop.box(sx - 1.1, B, -110.6, sx + 1.1, B + 0.06, -103.6, { faces: 'YxXzZ' });   // the stone path
         for (const tz of [-104.2, -106.0, -107.8]) {
           prop.set({ col: hex(R_), rm: [0.55, 0, 0] });
@@ -462,12 +463,15 @@ export function buildEastExit(ctx = {}) {
   // ================================================================ the bus pool proper (the plaza was one big empty
   // granite sheet): an asphalt loop round a raised island, lane paint, zebra crossings on the tactile line,
   // バス専用 / 止まれ on the road, numbered stop poles, tall lamp posts, cones and barriers from the evacuation
-  const road = new Acc(), mark = new Acc(), roadTxt = new Acc();
+  const road = new Acc(), mark = new Acc(), roadTxt = new Acc(), dec = new Acc();
   {
     const y = CURB, O = { x0: 54, x1: 102, z0: -72, z1: -32 }, I = { x0: 68, x1: 90, z0: -64, z1: -40 };
     const ry = y + 0.006, my = y + 0.012;
     const rq = (x0, z0, x1, z1) => rect(road, x0, z0, x1, z1, ry, 8);
     rq(O.x0, O.z0, O.x1, I.z0); rq(O.x0, I.z1, O.x1, O.z1); rq(O.x0, I.z0, I.x0, I.z1); rq(I.x1, I.z0, O.x1, I.z1);
+    // oil, patches, skids, manholes: the loop is a working road, not a fresh sheet
+    scatterDecals(dec, [O.x0 + 1, O.z0 + 1, O.x1 - 1, I.z0 - 1], y + 0.009, 10, 71); scatterDecals(dec, [O.x0 + 1, I.z1 + 1, O.x1 - 1, O.z1 - 1], y + 0.009, 10, 72);
+    scatterDecals(dec, [O.x0 + 1, I.z0, I.x0 - 1, I.z1], y + 0.009, 8, 73); scatterDecals(dec, [I.x1 + 1, I.z0, O.x1 - 1, I.z1], y + 0.009, 8, 74);
     const mq = (x0, z0, x1, z1) => mark.quad([x0, my, z1], [x1, my, z1], [x1, my, z0], [x0, my, z0]);
     // edge lines round the outside and the island, a dashed centre line down the loop
     for (const [a0, a1, a2, a3] of [[O.x0, O.z0, O.x1, O.z1], [I.x0, I.z0, I.x1, I.z1]]) { const o = a0 === O.x0 ? 0.3 : -0.3;
@@ -572,12 +576,13 @@ export function buildEastExit(ctx = {}) {
   const mp = pave.mesh(pm); mp.receiveShadow = true; root.add(mp);
   const ym = new THREE.MeshStandardMaterial({ color: 0xd8b21a, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   root.add(tact.mesh(ym));
-  { const rm_ = new THREE.MeshStandardMaterial({ map: asphaltTex(), color: 0x9a9a9e, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  { const rm_ = new THREE.MeshStandardMaterial({ map: asphaltTex(), color: 0xa49e96, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     const mr = road.mesh(rm_); mr.receiveShadow = true; root.add(mr);
     const pm_ = new THREE.MeshStandardMaterial({ color: 0xe8e8e2, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
     const mm = mark.mesh(pm_); mm.receiveShadow = true; root.add(mm);
     const tm_ = new THREE.MeshStandardMaterial({ map: roadTextTex(), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, depthWrite: false });
     const mt_ = roadTxt.mesh(tm_); mt_.receiveShadow = true; root.add(mt_);
+    if (dec.vn) { const md = dec.mesh(roadDecalMaterial()); md.receiveShadow = true; root.add(md); }
     rm_.userData.noAO = false; }
   root.add(prop.mesh(rmMat({}), { shadow: false }));
   root.add(glass.mesh(rmMat({ envMapIntensity: 1.3 })));

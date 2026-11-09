@@ -124,7 +124,7 @@ export const CARS = [
   // south avenue (scenery, the barricade burns)
   [5, 40, 184, 'sedan', 'x'], [-6, 55, 4, 'taxi', 'x'], [0, 150, 70, 'wreck', ''],
   // the East Exit bus plaza (abandoned mid-evacuation: cover under the decks)
-  [64, -60, 15, 'bus', ''], [96, -34, 100, 'bus', 'burn'], [100, -70, 180, 'taxi', 'x'], [58, -34, 80, 'van', 'x haz'],
+  [62, -52, 2, 'bus', ''], [99, -58, 182, 'taxi', 'x open'], [96, -34, 100, 'bus', 'burn'], [100, -70, 180, 'taxi', 'x'], [58, -34, 80, 'van', 'x haz'],
   // the expressway jam: westbound (south half, facing -x) and eastbound (north half, facing +x)
   [98, -145, 92, 'van', 'x'], [86, -154, 268, 'sedan', 'x'], [78, -155.5, 274, 'suv', 'x'], [68, -145.5, 86, 'sedan', 'x alarm'], [58, -152.5, 262, 'taxi', 'x'],
   [50, -146, 94, 'sedan', 'x'], [44, -155.5, 270, 'van', 'x haz'], [36, -145.6, 80, 'sedan', 'x'], [31, -153, 258, 'suv', 'x'],

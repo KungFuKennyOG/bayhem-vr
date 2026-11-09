@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex } from './kit.js';
+import { Acc, rmMat, hex, roadDecalMaterial, scatterDecals } from './kit.js';
 import { JP } from './signs.js';
 import { asphaltTex } from './street.js';
 import { XWAY, XWAY_IN, SPAN, GORE, OFFRAMP, LANE, CROSS_ST, CURB, groundAt, XWAY_BLOCK, ESTAIR, offrampY } from './layout.js';
@@ -196,7 +196,10 @@ export function buildXway(ctx = {}) {
   colliders.push({ min: [gx - 0.3, Y + 1, XWAY_IN.z1 - 0.5], max: [gx + 0.3, Y + 7.6, XWAY_IN.z1], data: { mat: 'metal', kind: 'pole' } });
   // ---- meshes
   const tex = asphaltTex();
-  const roadMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xa8a8ac, roughness: 0.78 });
+  const roadMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xaea89f, roughness: 0.92 });
+  // wear on the stretch you fight along + the gore (oil, patches, skids, manholes)
+  { const dec = new Acc(); scatterDecals(dec, [SPAN.x1 + 2, XWAY_IN.z0 + 0.5, 112, -150.6], Y + 0.009, 26, 81); scatterDecals(dec, [SPAN.x1 + 2, -149.4, 112, XWAY_IN.z1 - 0.5], Y + 0.009, 26, 82); scatterDecals(dec, [GORE.x0 + 1, GORE.z0 + 1, GORE.x1 - 1, GORE.z1 - 1], Y + 0.009, 7, 83, { skids: false });
+    const md = dec.mesh(roadDecalMaterial()); md.receiveShadow = true; root.add(md); }
   const paintMat = new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const conMat = rmMat({ map: concreteTex() });
   for (const [S, parent] of [[main, root]]) { parent.add(S.road.mesh(roadMat)); parent.add(S.paint.mesh(paintMat)); parent.add(S.con.mesh(conMat, { shadow: true })); }

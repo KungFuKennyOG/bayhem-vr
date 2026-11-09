@@ -229,3 +229,52 @@ export function leafMaterial() {
   }
   return new THREE.MeshStandardMaterial({ map: _leafTex, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, roughness: 0.88, metalness: 0 });
 }
+
+// =====================================================================================
+//  Road decals (one 1024×256 atlas, 4 cells): oil stain, a cut-and-patched rectangle, a pair of tyre
+//  skids, a cast-iron manhole cover. Flat quads laid on asphalt with polygon offset; they break up the
+//  big flat road sheets (the bus loop, the expressway deck, the gore).
+// =====================================================================================
+let _decalTex = null;
+export function roadDecalMaterial() {
+  if (!_decalTex) {
+    const S = 256, c = makeCanvas(S * 4, S), g = c.getContext('2d'), rng = makeRng(4040);
+    g.clearRect(0, 0, S * 4, S);
+    // 0: oil stain — a few overlapping soft dark blotches, a rainbow-less sheen ring
+    for (let i = 0; i < 9; i++) { const x = S / 2 + (rng() - 0.5) * 90, y = S / 2 + (rng() - 0.5) * 90, r = 30 + rng() * 60; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(12,10,8,0.55)'); gr.addColorStop(0.7, 'rgba(14,12,10,0.25)'); gr.addColorStop(1, 'rgba(14,12,10,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
+    // 1: a patch — a darker, smoother rectangle with a sealed (tar) border and a few cracks
+    g.fillStyle = 'rgba(28,28,30,0.55)'; g.fillRect(S + 26, 40, S - 52, S - 80);
+    g.strokeStyle = 'rgba(10,10,10,0.8)'; g.lineWidth = 6; g.strokeRect(S + 26, 40, S - 52, S - 80);
+    g.strokeStyle = 'rgba(12,12,12,0.6)'; g.lineWidth = 2; for (let i = 0; i < 5; i++) { g.beginPath(); let x = S + 30 + rng() * (S - 60), y = 44 + rng() * (S - 88); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (rng() - 0.5) * 30; y += (rng() - 0.5) * 30; g.lineTo(x, y); } g.stroke(); }
+    // 2: tyre skids — two long dark streaks (the quad is stretched along them)
+    for (const ox of [S * 2 + 70, S * 2 + 186]) { const gr = g.createLinearGradient(ox - 16, 0, ox + 16, 0); gr.addColorStop(0, 'rgba(8,8,8,0)'); gr.addColorStop(0.5, 'rgba(8,8,8,0.6)'); gr.addColorStop(1, 'rgba(8,8,8,0)'); g.fillStyle = gr;
+      g.beginPath(); g.moveTo(ox - 14, 8); g.lineTo(ox + 14, 8); g.quadraticCurveTo(ox + 24, S / 2, ox + 10, S - 8); g.lineTo(ox - 6, S - 8); g.quadraticCurveTo(ox + 6, S / 2, ox - 14, 8); g.fill(); }
+    // 3: manhole — cast iron disc, a ring, the radial / hex relief, a little rust
+    { const cx = S * 3 + S / 2, cy = S / 2, R = S * 0.46;
+      g.fillStyle = '#2c2a28'; g.beginPath(); g.arc(cx, cy, R, 0, 6.283); g.fill();
+      g.strokeStyle = '#4a4744'; g.lineWidth = 8; g.beginPath(); g.arc(cx, cy, R - 6, 0, 6.283); g.stroke();
+      g.strokeStyle = '#3e3b38'; g.lineWidth = 3;
+      for (let k = 0; k < 12; k++) { const a = k * 0.5236; g.beginPath(); g.moveTo(cx + Math.cos(a) * 26, cy + Math.sin(a) * 26); g.lineTo(cx + Math.cos(a) * (R - 16), cy + Math.sin(a) * (R - 16)); g.stroke(); }
+      for (const r of [26, 60, 90]) { g.beginPath(); g.arc(cx, cy, r, 0, 6.283); g.stroke(); }
+      g.fillStyle = 'rgba(120,70,40,0.25)'; for (let i = 0; i < 40; i++) g.fillRect(cx + (rng() - 0.5) * R * 1.6, cy + (rng() - 0.5) * R * 1.6, 3 + rng() * 6, 2 + rng() * 4); }
+    _decalTex = canvasTex(c, { repeat: false, aniso: 8 });
+  }
+  return new THREE.MeshStandardMaterial({ map: _decalTex, transparent: true, depthWrite: false, roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
+// lay one decal: centre, rotation about y, width × length (m), atlas cell 0..3
+export function roadDecal(A, x, y, z, ang, w, l, cell) {
+  const c = Math.cos(ang), s = Math.sin(ang), hw = w / 2, hl = l / 2;
+  const P = (u, v) => [x + c * u + s * v, y, z - s * u + c * v];
+  A.quad(P(-hw, hl), P(hw, hl), P(hw, -hl), P(-hw, -hl), [cell * 0.25, 0, cell * 0.25 + 0.25, 1]);
+}
+// scatter decals over a rectangle (deterministic)
+export function scatterDecals(A, rect, y, n, seed, { skids = true } = {}) {
+  const rng = makeRng(seed), [x0, z0, x1, z1] = rect, alongX = (x1 - x0) > (z1 - z0);
+  for (let i = 0; i < n; i++) {
+    const x = x0 + rng() * (x1 - x0), z = z0 + rng() * (z1 - z0), r = rng();
+    if (r < 0.4) roadDecal(A, x, y, z, rng() * 6.28, 1.2 + rng() * 1.6, 1.2 + rng() * 1.6, 0);
+    else if (r < 0.65) roadDecal(A, x, y, z, (alongX ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.1, 1.6 + rng() * 2.4, 1.2 + rng() * 2.0, 1);
+    else if (r < 0.85 && skids) roadDecal(A, x, y, z, (alongX ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.5, 1.7, 6 + rng() * 8, 2);
+    else roadDecal(A, x, y, z, rng() * 6.28, 0.9, 0.9, 3);
+  }
+}
