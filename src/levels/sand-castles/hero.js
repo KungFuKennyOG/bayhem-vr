@@ -47,6 +47,11 @@ export class HeroTower {
     this.chunks = C.map((c, i) => ({ ...c, i, c: new THREE.Vector3(...c.c), h: new THREE.Vector3(...c.h), state: 'on', p: new THREE.Vector3(), q: new THREE.Quaternion(), v: new THREE.Vector3(), w: new THREE.Vector3(), sink: 0, hit: 0 }));
     const seg = (n) => Math.max(1, Math.round(n * F.detail));
     const geo = new THREE.BoxGeometry(2, 2, 2, seg(2), seg(3), seg(2)); // unit half-extent box, scaled per instance
+    // torn floors: the top / bottom faces' inner vertices are pushed up and down (a broken slab edge once it
+    // flies; inside the intact tower the bands hide them)
+    { const P = geo.attributes.position; for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+      if (Math.abs(Math.abs(y) - 1) < 1e-4 && Math.abs(x) < 0.999 && Math.abs(z) < 0.999) P.setY(i, y - Math.sign(y) * (0.12 + 0.3 * Math.abs(Math.sin(x * 12.9 + z * 78.2) * 43.7 % 1))); }
+      geo.computeVertexNormals(); }
     // (the facade shader reads its pattern from the instance scale: lp = position * scale)
     this.mesh = new THREE.InstancedMesh(geo, facadeMaterial({ inst: true, key: 'hero', vertexTail: 'if (vF.z > 1.5 && vF.z < 2.5) vF.z = 9.0; vS.w = -1.0;' }), C.length);
     { const org = new Float32Array(C.length * 4), st = new Float32Array(C.length * 4);
@@ -215,6 +220,8 @@ export class HeroTower {
     c.v.x += range(-3, 3); c.v.z += range(-3, 3);
     c.w.copy(S.ax).multiplyScalar(S.om * range(0.5, 1.8)).add(_v.set(range(-0.25, 0.25), range(-0.3, 0.3), range(-0.25, 0.25)));
     c.state = 'fly'; c.hit = 0; c.sink = 0;
+    // it tears out as an irregular slab, not the tidy band it was: random proportions (hidden by its dust burst)
+    c.hs = c.h.clone().multiply(_s.set(range(0.45, 1), range(0.55, 1), range(0.45, 1)));
     if (c.kind === 'face' && this.glass && chance(0.6)) this.glass.burst(c.p, _v.copy(c.v).normalize().multiplyScalar(0.3), 18, { spread: c.h.x, speed: 4, size: 2.5, life: 12 });
     // every piece tears out in its own burst of pulverised concrete: the break-up reads as a collapsing mass, not loose blocks
     this.dust.plume(c.p.x, c.p.y, c.p.z, c.v.x * 0.4, c.v.z * 0.4, range(1.4, 2.4));
@@ -277,7 +284,7 @@ export class HeroTower {
         const b = this.spireBody; if (!b) { _m.makeScale(0, 0, 0); m.setMatrixAt(c.i, _m); continue; }
         _v.copy(c.c).applyQuaternion(b.q).add(b.p); _q.copy(b.q);
       } else { _v.copy(c.p); _q.copy(c.q); }
-      _m.compose(_v, _q, c.h);
+      _m.compose(_v, _q, c.state === 'fly' || c.state === 'rest' ? (c.hs || c.h) : c.h);
       m.setMatrixAt(c.i, _m);
     }
     m.instanceMatrix.needsUpdate = true;

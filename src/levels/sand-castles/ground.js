@@ -98,6 +98,19 @@ Gr ground(vec3 wp){
   float road = max(gaa(fe.x, roadHalf, fw), gaa(fe.y, roadHalf, fw)) * step(0.5, urban);
   float lotH = fh2(cell + 0.37);
   vec3 lot = lotH < 0.35 ? vec3(0.38, 0.36, 0.33) : lotH < 0.6 ? vec3(0.16, 0.16, 0.17) : lotH < 0.85 ? vec3(0.5, 0.39, 0.27) : vec3(0.3, 0.29, 0.27);
+  // lot detail, so the open ground between buildings isn't a blank slab: plaza paving + planters, parking bays
+  // with stripes and parked cars, tyre tracks across the sand lots
+  { vec2 lm = f * uGrid.z;   // metres inside the block
+    if (lotH < 0.35) { vec2 pv = abs(fract(lm / 4.0) - 0.5); lot *= 1.0 - 0.12 * smoothstep(0.44, 0.5, max(pv.x, pv.y));
+      vec2 pl = abs(fract(lm / 26.0) - 0.5) * 26.0; float planter = step(max(pl.x, pl.y), 2.2);
+      lot = mix(lot, vec3(0.16, 0.22, 0.1), planter * 0.85); }
+    else if (lotH < 0.6) { float row = fract(lm.y / 17.0) * 17.0; float bay = step(1.0, row) * step(row, 6.5) + step(10.5, row) * step(row, 16.0);
+      float stripe = smoothstep(0.08, 0.0, abs(fract(lm.x / 2.7) - 0.5) - 0.44) * bay;
+      lot = mix(lot, vec3(0.55, 0.53, 0.48), stripe * 0.6);
+      float car = bay * step(0.45, fh2(floor(vec2(lm.x / 2.7, lm.y / 8.5)) + cell * 7.0)) * step(abs(fract(lm.x / 2.7) - 0.5), 0.3) * step(abs(fract(lm.y / 8.5) - 0.5), 0.2);
+      vec3 cc = mix(vec3(0.75, 0.73, 0.7), vec3(0.12, 0.13, 0.15), step(0.5, fh2(floor(lm / 2.7) + 3.1)));
+      lot = mix(lot, cc, car); }
+    else if (lotH < 0.85) { float tr = fvn(vec2(lm.x * 0.02 + lm.y * 0.11, lm.y * 0.02)); lot *= 1.0 - 0.18 * smoothstep(0.47, 0.5, tr) * smoothstep(0.53, 0.5, tr); } }
   // parking lot stalls
   if (lotH > 0.35 && lotH < 0.6) { float stall = gaa(fract((wp.x) / 2.7) - 0.5, 0.04, fwx / 2.7) * step(0.15, fract(gp.y * 4.0)); lot = mix(lot, vec3(0.7), stall * clamp(1.0 - fwx * 0.8, 0.0, 1.0) * 0.6); }
   lot *= 0.85 + 0.3 * fvn(wp.xz * 0.06);

@@ -247,7 +247,7 @@ export class SandGame {
     // moving door (the men themselves are a few pixels at that range)
     this._flareT = (this._flareT ?? 0) - dt;
     if (this._flareT <= 0) {
-      this._flareT = 0.14;
+      this._flareT = 0.09;
       const seen = new Set();
       for (const m of this.men) {
         if (!m.alive || m.delay > 0 || seen.has(m.tower)) continue;
@@ -255,7 +255,7 @@ export class SandGame {
         const T = m.tower; if (Math.hypot(T.x - H.x, T.z - H.z) > 900) continue;
         const ang = Math.atan2(H.z - T.z, H.x - T.x) + 0.9, r = m.r * 0.9;
         const x = T.x + Math.cos(ang) * r, z = T.z + Math.sin(ang) * r, y = T.h + 0.5;
-        this.fx.main.spawn({ x, y, z, vx: range(-0.6, 0.6) + 1.2, vy: range(4, 6.5), vz: range(-0.6, 0.6), drag: 0.3, frameKind: 2, frame: rand() * 40, frames: 16, s0: 2, s1: 26, ease: 0.8, life: range(6, 8), rot: rand() * 6.28, vrot: range(-0.3, 0.3), r: 0.34, g: 0.13, b: 0.1, a: 0.5, fadeIn: 0.05, fadeOut: 0.5 });
+        this.fx.main.spawn({ x, y, z, vx: range(-0.6, 0.6) + 1.2, vy: range(6, 9), vz: range(-0.6, 0.6), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 16, s0: 1.4, s1: 18, ease: 0.8, life: range(7, 9), rot: rand() * 6.28, vrot: range(-0.3, 0.3), r: 0.34, g: 0.13, b: 0.1, a: 0.5, fadeIn: 0.05, fadeOut: 0.5 });
         if (rand() < 0.6) this.fx.flame(_v.set(x, y, z), 1.6);
       }
     }
@@ -293,6 +293,8 @@ export class SandGame {
     const to = aim.clone().addScaledVector(_v2.subVectors(aim, mz).normalize(), hit ? 0 : 40);
     this.fx.tracer(mz, to, { speed: 480, width: 0.14 + dist * 0.0012, len: 4, color: [1.6, 0.55, 0.25] });
     this.fx.muzzle(mz, _v2.subVectors(aim, mz).normalize(), 'rifle', false);
+    // seen from 100+ m a rifle flash is a pixel: a star-glint sized by distance so you can spot who's shooting
+    { const dd = mz.distanceTo(this.headPos); if (dd > 40) this.fx.main.spawn({ x: mz.x, y: mz.y, z: mz.z, frame: CELL.STAR, s0: dd * 0.022, s1: dd * 0.03, life: 0.07, r: 2.0, g: 1.3, b: 0.5, a: 0, rot: (dd * 13.7) % 6.28 }); }
     this.audio.play('enemy_gun', { x: mz.x, y: mz.y, z: mz.z, volume: 0.9 });
     if (hit) {
       this.hurt(range(3, 6), mz);
