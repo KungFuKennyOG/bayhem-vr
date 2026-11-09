@@ -52,7 +52,7 @@ function stationSignTex() {
     g.font = '400 40px Anton, sans-serif'; g.fillStyle = '#c8d0dc'; g.fillText('KUROGANE STA.  EAST EXIT', off + 382, 124);
     g.fillStyle = '#f2c21a'; g.font = '700 70px Anton, sans-serif'; g.fillText('→', off + 930, 84);
   }
-  return canvasTex(c, { repeat: false, aniso: 8 });
+  return canvasTex(c, { repeat: true, aniso: 8 });
 }
 // the blue pedestrian direction sign on the decks
 function dirSignTex() {
@@ -74,7 +74,7 @@ function deckNameTex() {
   g.font = `900 64px ${JP}`; g.textAlign = 'left'; g.fillText('黒金イーストデッキ', 60, 58);
   g.font = '400 46px Anton, sans-serif'; g.fillText('KUROGANE EAST DECK', 700, 60);
   g.font = `700 44px ${JP}`; g.textAlign = 'right'; g.fillText('← 銀鶏坂   ハチ口 →', W - 60, 58);
-  return canvasTex(c, { repeat: false, aniso: 8 });
+  return canvasTex(c, { repeat: true, aniso: 8 });   // tiled along the fascia at its own aspect (one copy ≈ 9.9 m at 0.62 m tall)
 }
 
 export function buildEastExit(ctx = {}) {
@@ -393,6 +393,7 @@ export function buildEastExit(ctx = {}) {
   // the station sign along the north arm's fascia (facing the plaza and the avenue)
   {
     const t = stationSignTex(), m = new THREE.Mesh(new THREE.PlaneGeometry(A.e[0] - A.w[2] - 6, 1.6), signMat(t, { color: 1.2, vc: false }));
+    t.repeat.set(Math.max(1, Math.round((A.e[0] - A.w[2] - 6) / (1.6 * 2048 / 160))), 1);   // keep the lettering's aspect
     m.position.set((A.w[2] + A.e[0]) / 2, Y - 1.25, A.n[3] + 0.06); root.add(m);
     prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] }); prop.box(A.w[2] + 2.8, Y - 2.1, A.n[3] - 0.02, A.e[0] - 2.8, Y - 0.4, A.n[3] + 0.04);
     for (let x = A.w[2] + 6; x < A.e[0] - 4; x += 9) prop.box(x - 0.04, Y - 0.85, A.n[3] - 0.02, x + 0.04, Y - 0.4, A.n[3] + 0.02);
@@ -400,6 +401,7 @@ export function buildEastExit(ctx = {}) {
   // the deck's name band on the centre bridge (both faces)
   {
     const t = deckNameTex(), L = A.c[2] - A.c[0] - 2, g = new THREE.PlaneGeometry(L, 0.62), m = signMat(t, { color: 1.0, vc: false });
+    t.repeat.set(Math.max(1, Math.round(L / (0.62 * 2048 / 128))), 1);   // (it was one copy stretched 5× over 50 m)
     const a = new THREE.Mesh(g, m); a.position.set((A.c[0] + A.c[2]) / 2, Y - 0.42, A.c[3] + 0.05); root.add(a);
     const b = new THREE.Mesh(g, m); b.position.set((A.c[0] + A.c[2]) / 2, Y - 0.42, A.c[1] - 0.05); b.rotation.y = Math.PI; root.add(b);
   }

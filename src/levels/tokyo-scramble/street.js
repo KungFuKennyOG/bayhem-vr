@@ -422,7 +422,7 @@ function archSign() {
   neon('黒金センター街', 380, 66, 82, '#ff4fc0', JP);
   neon('KUROGANE CENTER-GAI', 820, 66, 40, '#4ff0ff', 'Anton, sans-serif');
   const t = canvasTex(c, { repeat: false, aniso: 4 });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.6), signMat(t, { color: 1.6, vc: false }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.825), signMat(t, { color: 1.6, vc: false }));   // at the canvas aspect (8:1)
   return m;
 }
 
