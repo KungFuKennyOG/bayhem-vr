@@ -16,7 +16,7 @@ import { SLIDE, TERR, HILLE, hillY, scarY0, QUAY, RIVER, PLAZA, WATER_Y } from '
 //  street above, stairways between them, lamps and lanterns, three towers on the top terrace and
 //  three buildings straddling the hill's crest. During the glide the whole slope lets go.
 //
-//  The slope is cut into 12 blocks (4 columns × 3 rows). Each block is a bone: its terraces,
+//  The slope is cut into 30 uneven pieces (COLS × ROWSC; it was a 4 × 3 grid, which looked scripted). Each block is a bone: its terraces,
 //  retaining walls, buildings, lamps and the earth under it down to the slip surface. Blocks go
 //  toe-first and east-first: the bottom row drops into the river, the rows above slide down after
 //  it, the gaps between them open on raw earth. The towers are child bones in two segments; they
@@ -113,6 +113,12 @@ const TOWERS = [
 ];
 const SHELLS = [{ x0: 392, x1: 418, h: 33, style: 0, c: 0 }, { x0: 464, x1: 478, h: 27, style: 2, c: 1 }, { x0: 539, x1: 551, h: 36, style: 0, c: 3 }];
 const SHZ0 = 30, SHZ1 = 48;
+// the hill breaks into 30 uneven pieces, not a 4 x 3 grid: ten columns of different widths (cut so no tower or crest
+// building straddles a cut), and each column breaks across at different terraces. Every piece goes at its own moment
+// (outward from where the gunship hit, with jitter), at its own rate, with its own twist, roll and drop
+const COLS = [370, 389, 421, 434, 461, 480, 492, 515, 536, 555, 592], IMPACT_X = 447;
+const ROWSC = [[40, 76, 112], [40, 58, 94], [40, 76, 130], [40, 58, 112], [40, 76, 94], [40, 58, 130], [40, 76, 112], [40, 58, 94], [40, 76, 130], [40, 58, 112]];
+const colOf = (x) => Math.max(0, Math.min(COLS.length - 2, COLS.findIndex((c, i) => x >= c && x < COLS[i + 1])));
 // the east rim: the district beside the slide doesn't end on a ruler line. Three more pieces (one per row, different
 // widths) lose their support, drop and tilt into the scar and hang there, houses leaning: a broken, stepped edge
 const RIMW = [16, 30, 21], rimBot = (x, z) => hillY(z) - 15;
@@ -335,9 +341,11 @@ export function buildSlide(ctx = {}) {
   }
   // ---------------------------------------------------------------- the blocks
   const blocks = [], bones = [], skin = {};
-  const cuts = SLIDE.cuts, rows = SLIDE.rows;
-  for (let c = 0; c < 4; c++) for (let rw = 0; rw < 3; rw++) {
-    const xa = cuts[c], xb = cuts[c + 1], za = rows[rw], zb = rows[rw + 1], cx = (xa + xb) / 2, cz = (za + zb) / 2;
+  const rows = SLIDE.rows;
+  for (const t of TOWERS) t.c = colOf((t.x0 + t.x1) / 2);
+  for (const S of SHELLS) S.c = colOf((S.x0 + S.x1) / 2);
+  for (let c = 0; c < COLS.length - 1; c++) for (let rw = 0; rw < 3; rw++) {
+    const xa = COLS[c], xb = COLS[c + 1], za = ROWSC[c][rw], zb = rw === 2 ? rows[3] : ROWSC[c][rw + 1], cx = (xa + xb) / 2, cz = (za + zb) / 2;
     const pv = new THREE.Vector3(cx, (hillY(cz) + scarY0(cz)) / 2, cz);
     const grp = new THREE.Bone(); grp.name = `slide${c}_${rw}`; grp.position.copy(pv); root.add(grp); bones.push(grp);
     const bi = bones.length - 1, B = mkB(M), reg = 'b' + c + rw, gl = [];
@@ -381,7 +389,7 @@ export function buildSlide(ctx = {}) {
     }
     blocks.push({ c, rw, xa, xb, za, zb, grp, pv, towers, glows: bg,
       front: new THREE.Vector3(cx, hillY(zb - 1e-3), zb).sub(pv), back: new THREE.Vector3(cx, hillY(za + 1e-3), za).sub(pv),
-      delay: [4.6, 3.1, 1.6, 0][c] + [2.2, 1.1, 0][rw] + r() * 0.3, acc: 3.4 + r() * 1.4, pitch: [0.22, 0.3, 0.28][rw] + r() * 0.1, yaw: range(-0.1, 0.1), roll: (c % 2 ? -1 : 1) * (rw === 1 ? -1 : 1) * range(0.1, 0.18), drop: range(2.5, 6),
+      delay: Math.abs(cx - IMPACT_X) / 55 + [1.7, 0.8, 0][rw] + 0.5 + r() * 1.1, acc: 3.0 + r() * 2.2, pitch: [0.2, 0.28, 0.26][rw] + r() * 0.16, yaw: range(-0.22, 0.22), roll: (r() < 0.5 ? -1 : 1) * range(0.08, 0.28), drop: range(2, 8),
       wet: false, hidden: false, last: new THREE.Vector3(), vel: new THREE.Vector3(), arced: false });
   }
   for (let rw = 0; rw < 3; rw++) {
@@ -436,7 +444,7 @@ export class Landslide {
     if (this.T >= 0 || !this.S) return;
     this.T = 0;
     // from the impact column outward, tighter than the default east-first run (the whole hill is moving within ~5 s)
-    if (c0 != null) for (const B of this.S.blocks) if (!B.rim) B.delay = Math.abs(B.c - c0) * 1.0 + [1.6, 0.8, 0][B.rw] + 0.6 + (B.delay % 0.3);
+    void c0;   // (the pieces' delays already run outward from IMPACT_X, the crest tower the gunship hits)
     const g = this.g;
     POWER.pow.value[CODE] = 1; POWER.cut.value[CODE] = 9999;
     if (fast) {
@@ -563,32 +571,33 @@ export class Landslide {
         if (gl.p.y < WATER_Y + (gl.quay ? 6.5 : -0.3)) this._killGlow(gl);
       }
       if (tau <= 0) continue;
+      const wk = (B.xb - B.xa) / 55;
       const front = _v.copy(B.front).applyMatrix4(W), fx = front.x, fy = front.y, fz = front.z;
       const back = _w.copy(B.back).applyMatrix4(W), by = back.y, bz = back.z;
       const local = (x, y, z) => _v.set(x - B.pv.x, y - B.pv.y, z - B.pv.z).applyMatrix4(W);
       // the power lines between the terraces snap
       if (!B.arced && tau > 0.4) { B.arced = true; this._arc(local(range(B.xa + 6, B.xb - 6), hillY(B.zb - 1) + 6, B.zb - 2).clone()); }
       // dust boiling out of the gap opening behind it (the head scarp for the top row), and off its leading edge
-      if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * (B.rw === 0 ? 0.8 : 0.3)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
-      if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.3) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
+      if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * wk * (B.rw === 0 ? 0.8 : 0.3)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
+      if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.3 * wk) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
       // the rolling front: low, wide dust pushed ahead of the moving toe (it is what says 'the ground is moving')
-      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 1.3) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(6, 8), a: 0.6, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
+      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 1.3 * wk) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(6, 8), a: 0.6, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
       // rock and wreckage pouring off its front; fires catching in the housing
-      if (tau > 0.6 && fy > WATER_Y + 2 && rand() < dt * 14) g.fx.spawnDebris(new THREE.Vector3(range(B.xa, B.xb), fy + range(-2, 1), fz + range(0, 2)), B.vel.x + range(-3, 3), B.vel.y + range(-1, 4), B.vel.z + range(1, 6), range(0.8, 2.2), rand() < 0.12);
-      if (tau > 1 && fy > WATER_Y + 4 && rand() < dt * 1.5) { const zz = range(B.za + 2, B.zb - 2); g.fx.flame(local(range(B.xa + 4, B.xb - 4), hillY(zz) + 2, zz).clone(), range(1.4, 2.4)); }
+      if (tau > 0.6 && fy > WATER_Y + 2 && rand() < dt * 14 * wk) g.fx.spawnDebris(new THREE.Vector3(range(B.xa, B.xb), fy + range(-2, 1), fz + range(0, 2)), B.vel.x + range(-3, 3), B.vel.y + range(-1, 4), B.vel.z + range(1, 6), range(0.8, 2.2), rand() < 0.12);
+      if (tau > 1 && fy > WATER_Y + 4 && rand() < dt * 1.5 * wk) { const zz = range(B.za + 2, B.zb - 2); g.fx.flame(local(range(B.xa + 4, B.xb - 4), hillY(zz) + 2, zz).clone(), range(1.4, 2.4)); }
       // into the river: spray across its width, a swell ring, the silt stain for its column
       if (!B.wet && fy < WATER_Y + 1 && tau > SLUMP * 0.5) {
         B.wet = true;
         const z = Math.max(RIVER.z0 + 6, fz);
         this._splash(B.xa, B.xb, z, B.rw === 2 ? 1.5 : 1.7);
-        const Sl = this.S.silts[B.c]; if (Sl && Sl.t < 0) { Sl.t = 0; Sl.m.position.set((B.xa + B.xb) / 2, WATER_Y + 0.08, z + 12); }
-        for (let j = 0; j < 3; j++) g.fx.later(0.2 + j * 0.15, () => this._dust(B.xa + (B.xb - B.xa) * (j + 0.5) / 3 + range(-4, 4), WATER_Y + range(4, 9), z + range(0, 6), range(-3, 3), range(2, 4), range(3, 6), 14, range(45, 60), range(10, 14)));
-        this.audio.play('collapse_impact', { x: fx, y: 2, z, volume: 1, pitch: 0.8 + rand() * 0.3 });
-        if (B.rw === 2 && B.c === 3) this.audio.play('explosion_big', { x: fx, y: 2, z, volume: 0.9, pitch: 0.7 });
+        const Sl = this.S.silts[Math.min(3, Math.floor(((B.xa + B.xb) / 2 - SLIDE.x0) / 55.5))]; if (Sl && Sl.t < 0) { Sl.t = 0; Sl.m.position.set((B.xa + B.xb) / 2, WATER_Y + 0.08, z + 12); }
+        for (let j = 0, nj = Math.max(1, Math.round(3 * wk)); j < nj; j++) g.fx.later(0.2 + j * 0.15, () => this._dust(B.xa + (B.xb - B.xa) * (j + 0.5) / nj + range(-4, 4), WATER_Y + range(4, 9), z + range(0, 6), range(-3, 3), range(2, 4), range(3, 6), 14, range(45, 60), range(10, 14)));
+        if (rand() < 0.5) this.audio.play('collapse_impact', { x: fx, y: 2, z, volume: 1, pitch: 0.8 + rand() * 0.3 });
+        if (B.rw === 2 && B.c === COLS.length - 2) this.audio.play('explosion_big', { x: fx, y: 2, z, volume: 0.9, pitch: 0.7 });
         g.lastExplosionT = g.time; g.lastExplosionShake = 0.4;
         g.events.push({ type: 'slideWater', c: B.c, rw: B.rw });
       }
-      if (B.wet && fy > WATER_Y - 6 && rand() < dt * 0.8) {
+      if (B.wet && fy > WATER_Y - 6 && rand() < dt * 0.8 * wk) {
         const s0 = range(9, 13);
         g.clouds.spawn({ x: range(B.xa, B.xb), y: WATER_Y + 3, z: Math.max(RIVER.z0 + 4, fz) + range(0, 6), vx: range(-3, 3), vy: range(5, 11), vz: range(2, 7), drag: 0.7, buoy: 0.3, s0, s1: s0 * 3.5, life: range(6, 8), a: 0.6, fadeIn: 0.04, fadeOut: 0.6, r: 0.23, g: 0.19, b: 0.14, r1: 0.18, g1: 0.15, b1: 0.12, glow: 0.3, glowFade: 2 });
       }
