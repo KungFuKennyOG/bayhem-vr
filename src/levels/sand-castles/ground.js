@@ -149,6 +149,9 @@ Gr ground(vec3 wp){
   float occ2 = max(max(texture2D(tSunH, hb + vec2(hx, hx) * 2.2).r, texture2D(tSunH, hb - vec2(hx, hx) * 2.2).r), max(texture2D(tSunH, hb + vec2(hx, -hx) * 2.2).r, texture2D(tSunH, hb - vec2(hx, -hx) * 2.2).r));
   lc *= 1.0 - 0.38 * smoothstep(0.01, 0.06, occ) - 0.16 * smoothstep(0.01, 0.06, occ2);
   g.tilt = mix(dtilt * (1.0 - urban), wt, g.water);
+  // a desert city: everything on land carries a warm sand cast (cool blue-grey streets read European), and the
+  // shade on the ground is umber, not navy
+  lc *= vec3(1.12, 1.0, 0.8);
   g.c = stormShade(mix(lc, wc, g.water), wp);
   g.r = mix(rough, 0.035 + 0.05 * w3, g.water);
   g.m = 0.0;
