@@ -87,20 +87,20 @@ function bankProfile(x) {
 }
 // a face at x between a top profile and the slip surface. dir +1 faces +x. jag: rough, bulging out into the void
 // (only below `under(z)`, the hill top, so nothing shows before the slide)
-function sideFace(A, x, dir, T, { jag = 0, under = null, colFn = earthCol } = {}) {
+function sideFace(A, x, dir, T, { jag = 0, under = null, colFn = earthCol, bot = null } = {}) {
   const n = T.length - 1;
   gridFace(A, (u, v) => {
     const i = Math.min(n - 1, Math.floor(u * n)), f = u * n - i, a = T[dir > 0 ? n - i : i], b = T[dir > 0 ? n - i - 1 : i + 1];
     const tyy = a[0] + (b[0] - a[0]) * f, tzz = a[1] + (b[1] - a[1]) * f;
     let xx = x;
     if (jag) { const lim = under ? under(tzz) : tyy; const yy0 = Math.min(tyy - 0.2, scarY(x, tzz)), yy = yy0 + (tyy - yy0) * v; if (yy < lim - 1) xx = x - dir * jag * (0.35 + fbm(tzz * 0.08 + x, yy * 0.09) * 1.3) * Math.min(1, (lim - 1 - yy) / 6) * Math.min(1, (tzz - C0) / 8); }
-    const by = Math.min(tyy - 0.2, scarY(xx, tzz));
+    const by = bot ? bot(xx, tzz) : Math.min(tyy - 0.2, scarY(xx, tzz));
     return [xx, by + (tyy - by) * v, tzz];
   }, n, jag ? 8 : 1, { colFn });
 }
 // a face across the hill at z (facing +z if dir > 0) from the slip surface up to y1
-function crossFace(A, z, xa, xb, dir, y1, colFn = earthCol) {
-  gridFace(A, (u, v) => { const x = dir > 0 ? xa + (xb - xa) * u : xb - (xb - xa) * u, b = Math.min(y1 - 0.2, scarY(x, z)); return [x, b + (y1 - b) * v, z]; }, Math.round((xb - xa) / 4), 2, { colFn });
+function crossFace(A, z, xa, xb, dir, y1, colFn = earthCol, bot = null) {
+  gridFace(A, (u, v) => { const x = dir > 0 ? xa + (xb - xa) * u : xb - (xb - xa) * u, b = bot ? bot(x, z) : Math.min(y1 - 0.2, scarY(x, z)); return [x, b + (y1 - b) * v, z]; }, Math.round((xb - xa) / 4), 2, { colFn });
 }
 
 const WALLC = [hexc(0xd6c8b0), hexc(0xc9b9a6), hexc(0xd8d2c4), hexc(0xb9b2a5), hexc(0xc4a593), hexc(0xa9a196)];
@@ -113,6 +113,9 @@ const TOWERS = [
 ];
 const SHELLS = [{ x0: 392, x1: 418, h: 33, style: 0, c: 0 }, { x0: 464, x1: 478, h: 27, style: 2, c: 1 }, { x0: 539, x1: 551, h: 36, style: 0, c: 3 }];
 const SHZ0 = 30, SHZ1 = 48;
+// the east rim: the district beside the slide doesn't end on a ruler line. Three more pieces (one per row, different
+// widths) lose their support, drop and tilt into the scar and hang there, houses leaning: a broken, stepped edge
+const RIMW = [16, 30, 21], rimBot = (x, z) => hillY(z) - 15;
 
 // the torn floor where a tower breaks: a ragged slab, rebar bristling out of it, a dark gash (upper: hanging down)
 function breakCap(B, reg, t, yb, upper) {
@@ -178,7 +181,14 @@ export function buildSlide(ctx = {}) {
       gridFace(W, (u, v) => { const z = Math.min(PLAZA.z1 + 0.5, C0 + (PLAZA.z1 + 0.5 - C0) * (1 - u)), lo = Math.min(hillY(z), bankAt(z)), hi = Math.max(lo, bankAt(z) + 1.2); return [SLIDE.x0 - 0.05, lo + (hi - lo) * v, z]; }, 40, 6);
       const Ce = B.get('concrete', 'scar'); Ce.set({ col: [0.42, 0.42, 0.43], rm: [0.9, 0, 0], em: em([1.0, 0.55, 0.2], 0.9, DUSK + CODE) });
       Ce.box(SLIDE.x0 - 0.3, 57.0, C0, SLIDE.x0, 57.25, PLAZA.z1, { faces: 'X' }); }
-    sideFace(A, SLIDE.x1, -1, hillProfile(C0, ZF), { jag: 9, under: hillY, colFn: rc });
+    sideFace(A, SLIDE.x1, -1, hillProfile(C0, ZF).map(([y, z]) => [y - 12, z]), { jag: 9, under: (z) => hillY(z) - 12, colFn: earthCol });
+    for (let rw = 0; rw < 3; rw++) {
+      const za = SLIDE.rows[rw], zb = rw === 2 ? ZF : SLIDE.rows[rw + 1];
+      sideFace(A, SLIDE.x1 + RIMW[rw], -1, hillProfile(za, zb), { colFn: rc, bot: (x, z) => hillY(z) - 17 });
+      if (rw < 2) { const wa = RIMW[rw], wb = RIMW[rw + 1], z = SLIDE.rows[rw + 1];
+        if (wa < wb) crossFace(A, z, SLIDE.x1 + wa, SLIDE.x1 + wb, 1, hillY(z - 1e-3), earthCol, (x, zz) => hillY(zz + 1e-3) - 17);
+        else crossFace(A, z, SLIDE.x1 + wb, SLIDE.x1 + wa, -1, hillY(z + 1e-3), earthCol, (x, zz) => hillY(zz + 1e-3) - 17); }
+    }
     // broken services sticking out of the head scarp, rubble down the slope and piled at the waterline
     const Mt = B.get('metal', 'scar');
     Mt.set({ col: [0.2, 0.21, 0.22], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
@@ -305,7 +315,8 @@ export function buildSlide(ctx = {}) {
   // its own generators: it stays lit, so the gap the slide tears in it reads)
   {
     const B = mkB(M), gl = [];
-    for (let x = HILLE.x0; x < HILLE.x1 - 1; x += 56) streets(B, 'nb', x, Math.min(HILLE.x1, x + 56), C0, ZF, gl, -1, DIST.ALWAYS);
+    for (let rw = 0; rw < 3; rw++) streets(B, 'nb', HILLE.x0 + RIMW[rw], HILLE.x0 + 56, SLIDE.rows[rw], rw === 2 ? ZF : SLIDE.rows[rw + 1], gl, -1, DIST.ALWAYS);
+    for (let x = HILLE.x0 + 56; x < HILLE.x1 - 1; x += 56) streets(B, 'nb', x, Math.min(HILLE.x1, x + 56), C0, ZF, gl, -1, DIST.ALWAYS);
     // the hill's east end: a rock face where it meets the old bank (both ways, wherever one stands above the other)
     const A = B.get('rock', 'nb'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
     const Hp = hillProfile(C0, ZF), Bp = bankProfile(HILLE.x1), bankAt = (z) => { for (let i = 1; i < Bp.length; i++) if (Bp[i][1] >= z) return Bp[i][0]; return QUAY.y; };
@@ -373,6 +384,24 @@ export function buildSlide(ctx = {}) {
       delay: [4.6, 3.1, 1.6, 0][c] + [2.2, 1.1, 0][rw] + r() * 0.3, acc: 3.4 + r() * 1.4, pitch: [0.22, 0.3, 0.28][rw] + r() * 0.1, yaw: range(-0.1, 0.1), roll: (c % 2 ? -1 : 1) * (rw === 1 ? -1 : 1) * range(0.1, 0.18), drop: range(2.5, 6),
       wet: false, hidden: false, last: new THREE.Vector3(), vel: new THREE.Vector3(), arced: false });
   }
+  for (let rw = 0; rw < 3; rw++) {
+    const xa = SLIDE.x1, xb = xa + RIMW[rw], za = rows[rw], zb = rw === 2 ? ZF : rows[rw + 1], cx = (xa + xb) / 2, cz = (za + zb) / 2;
+    const pv = new THREE.Vector3(cx, hillY(cz) - 7, cz);
+    const grp = new THREE.Bone(); grp.name = 'rim' + rw; grp.position.copy(pv); root.add(grp); bones.push(grp);
+    const bi = bones.length - 1, B = mkB(M), reg = 'r' + rw, gl = [];
+    const R = B.get('rock', reg); R.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
+    gridFace(R, (u, v) => { const x = xa + (xb - xa) * u, z = za + (zb - za) * v; return [x, rimBot(x, z), z]; }, 4, 10, { colFn: earthCol });
+    const P = hillProfile(za, zb);
+    sideFace(R, xa, -1, P, { bot: rimBot }); sideFace(R, xb, 1, P, { bot: rimBot });
+    crossFace(R, za, xa, xb, -1, hillY(za + 1e-3), earthCol, rimBot);
+    if (rw < 2) crossFace(R, zb, xa, xb, 1, hillY(zb + 1e-3), earthCol, rimBot);
+    streets(B, reg, xa, xb, za, zb, gl, -1, DIST.ALWAYS);
+    tris += collect(B, bi, skin);
+    const bg = [];
+    for (const q of gl) { const p = q.p.isVector3 ? q.p.clone() : new THREE.Vector3(...q.p); const G = { ...q, p, local: p.clone().sub(pv), obj: grp, slide: true, far: true, prio: 1 }; glows.push(G); bg.push(G); }
+    blocks.push({ rim: true, c: 4, rw, xa, xb, za, zb, grp, pv, towers: [], glows: bg, delay: [7.5, 5.8, 6.6][rw], drop: [8, 11, 7][rw], roll: [0.3, 0.42, 0.34][rw], dx: [5, 10, 7][rw], pitch: [0.06, 0.12, 0.2][rw], yaw: [0.15, -0.21, 0.18][rw],
+      front: new THREE.Vector3(), back: new THREE.Vector3(), wet: false, hidden: false, last: new THREE.Vector3(), vel: new THREE.Vector3(), arced: false });
+  }
   root.updateMatrixWorld(true);
   const skel = new THREE.Skeleton(bones);
   for (const { mat, geos } of Object.values(skin)) {
@@ -406,11 +435,12 @@ export class Landslide {
   start(fast = false, c0 = null) {
     if (this.T >= 0 || !this.S) return;
     this.T = 0;
-    if (c0 != null) for (const B of this.S.blocks) B.delay += Math.abs(B.c - c0) * 1.5 - [4.6, 3.1, 1.6, 0][B.c] + 0.8;
+    // from the impact column outward, tighter than the default east-first run (the whole hill is moving within ~5 s)
+    if (c0 != null) for (const B of this.S.blocks) if (!B.rim) B.delay = Math.abs(B.c - c0) * 1.0 + [1.6, 0.8, 0][B.rw] + 0.6 + (B.delay % 0.3);
     const g = this.g;
     POWER.pow.value[CODE] = 1; POWER.cut.value[CODE] = 9999;
     if (fast) {
-      this.T = 60; for (const B of this.S.blocks) this._hide(B);
+      this.T = 60; for (const B of this.S.blocks) { if (B.rim) { this._rim(B, 60); B.grp.updateMatrixWorld(true); for (const gl of B.glows) gl.p.copy(gl.local).applyMatrix4(gl.obj.matrixWorld); } else this._hide(B); }
       SLIDE.gone = true; for (const gl of this.S.scarFires) gl.dead = false; this._columns(); this._wreck();
       this.S.silts.forEach((Sl, i) => { const x0 = SLIDE.cuts[i], x1 = SLIDE.cuts[i + 1]; Sl.t = 30; Sl.m.position.set((x0 + x1) / 2, WATER_Y + 0.08, RIVER.z0 + 26); Sl.m.scale.set(104, 1, 80); Sl.m.material.opacity = 0.35; });
       return;
@@ -447,6 +477,15 @@ export class Landslide {
     g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.FLASH, s0: sz, s1: sz * 1.8, life: 0.12, r: 2.6, g: 2.4, b: 2.6, fadeIn: 0, fadeOut: 0.5 });
     for (let k = 0; k < 16; k++) g.fx.sparks.spawn({ x: p.x, y: p.y, z: p.z, vx: range(-7, 7), vy: range(0, 9), vz: range(-7, 7), grav: 9.8, drag: 0.15, frame: CELL.SPARK, s0: 1 + d * 0.004, w: 0.05 + d * 0.0003, len: 0.2, life: range(0.5, 1.4), r: 2.2, g: 2.6, b: 3.4, a: 1, fadeOut: 0.4 });
     if (d < 400) this.audio.play('impact_metal', { x: p.x, y: p.y, z: p.z, volume: 0.6, pitch: 1.8 });
+  }
+  // a rim piece: it loses the hill beside it, drops, tilts into the scar and stays hanging there
+  _rim(B, T) {
+    const tau = T - B.delay;
+    if (tau <= 0) { const k = ss(0, 1.5, T); B.grp.position.copy(B.pv); B.grp.position.y += Math.sin(T * 39 + B.rw * 2) * 0.06 * k; B.grp.quaternion.identity(); return tau; }
+    const k = 1 - Math.pow(1 - Math.min(1, tau / 3.2), 2), j = tau < 3.2 ? Math.sin(T * 31 + B.rw) * 0.12 * (1 - k) : 0;
+    B.grp.position.set(B.pv.x - B.dx * k, B.pv.y - B.drop * k + j, B.pv.z + 1.5 * k);
+    _e.set(B.pitch * k, B.yaw * k, B.roll * k, 'XYZ'); B.grp.quaternion.setFromEuler(_e);
+    return tau;
   }
   _pose(B, T) {
     const tau = T - B.delay;
@@ -501,6 +540,15 @@ export class Landslide {
     if (T > 45) return;
     let live = 0;
     for (const B of this.S.blocks) {
+      if (B.rim) {
+        if (T > B.delay + 5) continue;
+        const tau = this._rim(B, T); B.grp.updateMatrixWorld(true);
+        for (const gl of B.glows) if (!gl.dead) { gl.p.copy(gl.local).applyMatrix4(gl.obj.matrixWorld); const refl = g.world._refl; if (refl && gl._refl >= 0) refl.set(gl._refl, { p: gl.p.toArray() }); }
+        if (tau > 0 && !B.arced) { B.arced = true; this.audio.play('collapse_impact', { x: B.xa, y: hillY(B.za) , z: (B.za + B.zb) / 2, volume: 0.9, pitch: 0.9 + B.rw * 0.1 }); this._arc(_v.set(B.xa + 2, hillY((B.za + B.zb) / 2) + 5, (B.za + B.zb) / 2).clone()); }
+        if (tau > 0 && tau < 3.5 && rand() < dt * 3) this._dust(B.xa + range(-4, 6), hillY(range(B.za, B.zb)) - range(2, 10), range(B.za, B.zb), range(-5, -1), range(2, 6), range(-1, 2), 8, range(26, 36), range(8, 11));
+        if (tau > 0 && tau < 4 && rand() < dt * 10) g.fx.spawnDebris(new THREE.Vector3(B.xa + range(-2, 3), hillY(range(B.za, B.zb)) - range(0, 8), range(B.za, B.zb)), range(-8, -2), range(-1, 5), range(-2, 4), range(0.8, 2.2), rand() < 0.1);
+        continue;
+      }
       if (B.hidden) continue;
       live++;
       B.last.copy(B.grp.position);
@@ -521,10 +569,10 @@ export class Landslide {
       // the power lines between the terraces snap
       if (!B.arced && tau > 0.4) { B.arced = true; this._arc(local(range(B.xa + 6, B.xb - 6), hillY(B.zb - 1) + 6, B.zb - 2).clone()); }
       // dust boiling out of the gap opening behind it (the head scarp for the top row), and off its leading edge
-      if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * (B.rw === 0 ? 1.2 : 0.5)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
-      if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.6) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
+      if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * (B.rw === 0 ? 0.8 : 0.3)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
+      if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.3) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
       // the rolling front: low, wide dust pushed ahead of the moving toe (it is what says 'the ground is moving')
-      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 2.2) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(1, 6), z: fz + range(2, 8), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(9, 13), s1: range(26, 36), life: range(7, 10), a: 0.8, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
+      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 1.3) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(6, 8), a: 0.6, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
       // rock and wreckage pouring off its front; fires catching in the housing
       if (tau > 0.6 && fy > WATER_Y + 2 && rand() < dt * 14) g.fx.spawnDebris(new THREE.Vector3(range(B.xa, B.xb), fy + range(-2, 1), fz + range(0, 2)), B.vel.x + range(-3, 3), B.vel.y + range(-1, 4), B.vel.z + range(1, 6), range(0.8, 2.2), rand() < 0.12);
       if (tau > 1 && fy > WATER_Y + 4 && rand() < dt * 1.5) { const zz = range(B.za + 2, B.zb - 2); g.fx.flame(local(range(B.xa + 4, B.xb - 4), hillY(zz) + 2, zz).clone(), range(1.4, 2.4)); }
