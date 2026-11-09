@@ -226,27 +226,29 @@ export class Director {
           hud.setWaypoint(null);
           this.lookT = 0; this._pt = 0; this.downT = 0; this.slideT = -1;
           later(1.4, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
-          later(4.0, () => this.sp.gun.startChase());
+          later(3.0, () => this.sp.gun.startChase());
           if (A) later(3.0, () => { g.cinematicLook = V(346, 175, 175); g.cinematicW = 1.3; });
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t;
           const sp = this.sp, G = sp.gun, H = G.H;
           // it's burning: if you haven't finished it by now it goes down on its own (the destruction never waits on aim)
-          if (H && H.alive && H.phase === 'chase' && t > 26) G.damage(dt * 14);
+          if (H && H.alive && H.phase === 'chase' && t > 14) G.damage(dt * 16);
           for (const e of g.events) {
             if (e.type === 'slide') this.slideT = t;
             if (e.type === 'towerDown') { this.downT = t; later(1.2, () => say('...Jinlong Tower. Gone. Into the river.', 2.8)); }
             // the trailer / desktop camera: the bird, its crash, the hill as it goes, then the tower as it comes off the stump
-            if (e.type === 'towerFall' && A) later(3.0, () => { g.cinematicLook = V(400, 120, 150); g.cinematicW = 1.2; });
-            if (e.type === 'towerFree' && A) { g.cinematicLook = V(470, 30, 165); g.cinematicW = 1.2; }
-          }
+            if (e.type === 'towerFall' && A) { g.cinematicW = 1.2; }
+                      }
           if (A && H && H.phase === 'chase' && H.t > 2) { g.cinematicLook = null; }
+          // the camera follows the tower's top down
+          if (A && sp.fall && !this.downT) { const k = clamp(sp.fall.a / 1.2, 0, 1); g.cinematicLook = V(350 + 215 * k, 165 - 140 * k, 140 + 75 * k); }
           if (A && H && H.phase === 'dying') { g.cinematicLook = H.pos.clone(); g.cinematicW = 1.4; }
-          if (A && this.slideT >= 0 && !sp.fall) { g.cinematicLook = V(486, 30, 122); g.cinematicW = 1.0; }
+          if (A && this.slideT >= 0 && !sp.fall) { g.cinematicLook = V(clamp(g.headPos.x - 30, 430, 560), 22, 150); g.cinematicW = 1.0; }
           // the hill took Jinlong's footings: once it's sliding, the tower goes (look-gated, 9 s cap)
-          if (this.slideT >= 0 && t > this.slideT + 4.5 && first('towerhint')) say('The hill took Jinlong\'s footings — LOOK BACK, she\'s going!', 3.2);
-          if (this.slideT >= 0 && !sp.fall && t > this.slideT + 5) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > this.slideT + 9) sp.towerFall(); }
-          if (sp.fall && ((this.downT && t > this.downT + 3) || t > 52) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
+          if (this.slideT >= 0 && t > this.slideT + 7 && g.headPos.x > 550 && first('towerhint')) say('The hill took Jinlong\'s footings — LOOK BACK, she\'s going!', 3.2);
+          // (not before you're past x 545: its top comes down across the line ~40 m behind you)
+          if (this.slideT >= 0 && !sp.fall && t > this.slideT + 7.5 && g.headPos.x > 560) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || g.headPos.x > 590) sp.towerFall(); }
+          if (sp.fall && ((this.downT && t > this.downT + 3) || t > 60) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
           if (A && g.cinematicLook && this.downT && t > this.downT + 2.6 && first('fallLookEnd')) g.cinematicLook = null;
           if (sp.rail.len - sp.rail.s < 150 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }
           // the boat: a marker on the drums (VR: look down at it), and the desktop / trailer camera goes with it

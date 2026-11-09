@@ -313,6 +313,15 @@ export function buildSlide(ctx = {}) {
     tris += B.finish(root).tris;
     for (const q of gl) glows.push({ ...q, far: true, prio: 1 });
   }
+  // ---------------------------------------------------------------- the quay shelf west of Jinlong (under the plaza's cliff):
+  // it was 34 m of bare road. A riverside street on a low terrace: houses against the cliff, shops in the wall, lamps,
+  // lanterns (on Jinlong's generators, so it stays lit after the blackout)
+  {
+    const B = mkB(M), gl = [];
+    for (let x = 176; x < 315; x += 70) streets(B, 'wq', x, Math.min(316, x + 70), TERR.z0 + TERR.d * (TERR.n - 1), TERR.quay, gl, -1, DIST.TOWER);
+    tris += B.finish(root).tris;
+    for (const q of gl) glows.push({ ...q, far: true });
+  }
   // ---------------------------------------------------------------- the blocks
   const blocks = [], bones = [], skin = {};
   const cuts = SLIDE.cuts, rows = SLIDE.rows;
@@ -469,8 +478,8 @@ export class Landslide {
     for (let j = 0; j <= n; j++) {
       const x = x0 + (x1 - x0) * j / n;
       g.fx.later(j * 0.06 + rand() * 0.08, () => {
-        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: x + range(-5, 5), y: WATER_Y + range(5, 10), z: z + range(-3, 7), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(2, 7), drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.65, fadeIn: 0.04, fadeOut: 0.6, r: 0.2, g: 0.19, b: 0.18, r1: 0.15, g1: 0.14, b1: 0.13, glow: 0.3, glowFade: 2 }); }
-        for (let i = 0; i < 16; i++) g.fx.main.spawn({ x: x + range(-7, 7), y: WATER_Y + 1, z: z + range(-3, 8), vx: range(-4, 4), vy: range(10, 22) * k, vz: range(0, 6), grav: 9.8, drag: 0.6, frame: CELL.WISP, s0: 5 * k, s1: 16 * k, life: range(1.8, 2.8), rot: rand() * 6, r: 0.34, g: 0.34, b: 0.33, a: 0.4, fadeOut: 0.6 });
+        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: x + range(-5, 5), y: WATER_Y + range(5, 10), z: z + range(-3, 7), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(2, 7), drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.65, fadeIn: 0.04, fadeOut: 0.6, r: 0.25, g: 0.2, b: 0.14, r1: 0.19, g1: 0.16, b1: 0.12, glow: 0.3, glowFade: 2 }); }
+        for (let i = 0; i < 16; i++) g.fx.main.spawn({ x: x + range(-7, 7), y: WATER_Y + 1, z: z + range(-3, 8), vx: range(-4, 4), vy: range(10, 22) * k, vz: range(0, 6), grav: 9.8, drag: 0.6, frame: CELL.WISP, s0: 5 * k, s1: 16 * k, life: range(1.8, 2.8), rot: rand() * 6, r: 0.4, g: 0.34, b: 0.26, a: 0.4, fadeOut: 0.6 });
       });
     }
   }
@@ -514,6 +523,8 @@ export class Landslide {
       // dust boiling out of the gap opening behind it (the head scarp for the top row), and off its leading edge
       if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * (B.rw === 0 ? 1.2 : 0.5)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
       if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.6) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
+      // the rolling front: low, wide dust pushed ahead of the moving toe (it is what says 'the ground is moving')
+      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 2.2) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(1, 6), z: fz + range(2, 8), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(9, 13), s1: range(26, 36), life: range(7, 10), a: 0.8, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
       // rock and wreckage pouring off its front; fires catching in the housing
       if (tau > 0.6 && fy > WATER_Y + 2 && rand() < dt * 14) g.fx.spawnDebris(new THREE.Vector3(range(B.xa, B.xb), fy + range(-2, 1), fz + range(0, 2)), B.vel.x + range(-3, 3), B.vel.y + range(-1, 4), B.vel.z + range(1, 6), range(0.8, 2.2), rand() < 0.12);
       if (tau > 1 && fy > WATER_Y + 4 && rand() < dt * 1.5) { const zz = range(B.za + 2, B.zb - 2); g.fx.flame(local(range(B.xa + 4, B.xb - 4), hillY(zz) + 2, zz).clone(), range(1.4, 2.4)); }
@@ -521,7 +532,7 @@ export class Landslide {
       if (!B.wet && fy < WATER_Y + 1 && tau > SLUMP * 0.5) {
         B.wet = true;
         const z = Math.max(RIVER.z0 + 6, fz);
-        this._splash(B.xa, B.xb, z, B.rw === 2 ? 1.0 : 1.2);
+        this._splash(B.xa, B.xb, z, B.rw === 2 ? 1.5 : 1.7);
         const Sl = this.S.silts[B.c]; if (Sl && Sl.t < 0) { Sl.t = 0; Sl.m.position.set((B.xa + B.xb) / 2, WATER_Y + 0.08, z + 12); }
         for (let j = 0; j < 3; j++) g.fx.later(0.2 + j * 0.15, () => this._dust(B.xa + (B.xb - B.xa) * (j + 0.5) / 3 + range(-4, 4), WATER_Y + range(4, 9), z + range(0, 6), range(-3, 3), range(2, 4), range(3, 6), 14, range(45, 60), range(10, 14)));
         this.audio.play('collapse_impact', { x: fx, y: 2, z, volume: 1, pitch: 0.8 + rand() * 0.3 });
@@ -531,7 +542,7 @@ export class Landslide {
       }
       if (B.wet && fy > WATER_Y - 6 && rand() < dt * 0.8) {
         const s0 = range(9, 13);
-        g.clouds.spawn({ x: range(B.xa, B.xb), y: WATER_Y + 3, z: Math.max(RIVER.z0 + 4, fz) + range(0, 6), vx: range(-3, 3), vy: range(5, 11), vz: range(2, 7), drag: 0.7, buoy: 0.3, s0, s1: s0 * 3.5, life: range(6, 8), a: 0.6, fadeIn: 0.04, fadeOut: 0.6, r: 0.18, g: 0.17, b: 0.16, r1: 0.14, g1: 0.13, b1: 0.12, glow: 0.3, glowFade: 2 });
+        g.clouds.spawn({ x: range(B.xa, B.xb), y: WATER_Y + 3, z: Math.max(RIVER.z0 + 4, fz) + range(0, 6), vx: range(-3, 3), vy: range(5, 11), vz: range(2, 7), drag: 0.7, buoy: 0.3, s0, s1: s0 * 3.5, life: range(6, 8), a: 0.6, fadeIn: 0.04, fadeOut: 0.6, r: 0.23, g: 0.19, b: 0.14, r1: 0.18, g1: 0.15, b1: 0.12, glow: 0.3, glowFade: 2 });
       }
       // the towers: a groan, the snap at the break, glass, and the splash when the top goes in
       for (const t of B.towers) {

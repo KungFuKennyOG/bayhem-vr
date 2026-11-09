@@ -46,7 +46,7 @@ export class Searchlights {
           float along = (1.0 - smoothstep(0.0, 1.0, vAlong)) * (0.35 + 0.65 * exp(-vAlong * 3.0));
           // dust / fog drifting through the beam
           float n = 0.65 + 0.35 * vn(vW.xz * 0.15 + vec2(uTime * 0.3, vW.y * 0.1));
-          float k = core * along * n * smoothstep(0.8, 6.0, vEye);
+          float k = core * along * n * smoothstep(5.0, 45.0, vEye);
           float fogK = smoothstep(fogNear, fogFar * 1.4, vEye);
           vec3 c = vCol * k * (1.0 - fogK * 0.85) * 0.5;
           gl_FragColor = vec4(c, 1.0);

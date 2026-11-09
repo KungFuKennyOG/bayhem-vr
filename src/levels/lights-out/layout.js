@@ -94,12 +94,13 @@ export const LOCKER = { x: 350, z: 152.2 };                                     
 // ---------------------------------------------------------------- the Chaotian bridge (cable-stayed, across the river) and the glide
 export const CHAOTIAN = { x: -150, z0: 112, z1: 604, y: 32, w: 26, pylons: [262, 470], pylonH: 156 };   // its north end tunnels into the cliff under the store
 export const FARARCH = [{ x: 680, y: 36, code: 13 }, { x: -760, y: 34, code: 11 }];        // two arched bridges up- and downstream (backdrop)
-// the glide rail (a Catmull-Rom through these points; ~580 m, ~70 s, a steady 2.4:1 glide from the roof to the gunboat's
-// deck). It swings out south-east over the river first, so looking back you see Jinlong come down onto the slid hillside,
-// then turns downstream
+// the glide rail (a Catmull-Rom through these points; ~630 m, ~77 s, a steady 2.6:1 glide from the roof to the gunboat's
+// deck). Out over the river, then EAST, upstream, along the foot of the hillside district at 80-150 m: the hill slides
+// into the river right beside / under you, Jinlong comes down across the scar behind you (it falls east, into the hole
+// the hill left: its top lands ~40 m behind the line), then over the gold arch bridge and down onto the boat
 export const GLIDE = [
-  [340, 240.5, 158], [344, 231, 178], [354, 218.4, 203], [366, 205.5, 228], [372, 193.5, 253], [366, 181.9, 277], [348, 170.2, 294], [320, 156.3, 304], [288, 141.2, 309],
-  [254, 125.4, 310], [220, 109.5, 307], [186, 93.6, 303], [150, 76.7, 300], [114, 60, 298], [78, 43.2, 297], [42, 26.4, 296], [6, 9.8, 296], [-28, 2.8, 296],
+  [340, 240.5, 158], [343, 231.7, 180], [352, 221.7, 204], [372, 209.9, 226], [402, 196.9, 240], [440, 181.7, 248], [480, 165.9, 252], [520, 150.2, 254], [560, 134.4, 255],
+  [600, 118.8, 256], [640, 103.1, 258], [680, 87.3, 260], [720, 71.5, 264], [760, 55.7, 270], [800, 39.7, 278], [840, 23.6, 287], [880, 8.1, 294], [915, 2.8, 298],
 ];
 export const GLIDE_SPEED = 8.2;                                                           // m/s along the rail
 export const BOAT = { x0: -340, z: 298, speed: 1.6 };                                    // the gunboat steams east toward the landing

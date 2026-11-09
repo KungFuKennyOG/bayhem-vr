@@ -37,19 +37,15 @@ searchlights. Every number lives in `layout.js`.
     it puts a four-rocket salvo into the tower under the roof (glass, the crown shudders) and drops away into the gorge.
 12. **jump** — "she's coming off the cliff": the BASE rig from the locker by the helipad; run for the gap in the south
     parapet; slow-mo jump.
-13. **glide** — ~70 s: the rail descends from 240 m at a steady 2.4 : 1, swinging out south-east over the river first.
-    "LOOK BACK": the gunship comes back up out of the gorge and chases you, holding station off your shoulder on the
-    hill's side (gun bursts, proximity-fused rockets). Shot down (or burning down on its own after 26 s), its dive
-    (look-gated, it circles round the tower, never through it) goes into the gold LED tower on the hillside crest, and
-    the hill lets go from that column outward: the **landslide**. East of Jinlong the bank is a terraced hillside
-    district (it carries on east past the slide, static, so the slide tears a gap out of it) (six streets of low housing
-    stepping down from the y-64 hill to the quay, lit terrace lines, shops in the retaining walls, stairways, three
-    towers and three crest buildings on top). It breaks into 12 blocks and slides into the river toe-first, the blocks
-    leaning, rolling and dropping at different rates, the towers toppling off and breaking in two (the wreck rides its
-    tower down), dust out of the opening gaps, spray and silt where each block goes in. "The hill took Jinlong's
-    footings — LOOK BACK": Jinlong goes over onto the slid hillside (look-gated), tears off its stump and comes to rest
-    half sunk in the river. Then jumpers on canopies (shoot the canopy), barge gunners and searchlights; the gunboat
-    (shoot the drums on its stern, marker on them), then you land on its deck.
+13. **glide** — ~77 s: the rail descends from 240 m at a steady 2.6 : 1, out over the river then EAST (upstream) along
+    the foot of the hillside district at 80–150 m. "LOOK BACK": the gunship comes back up out of the gorge and chases you
+    on the hill's side (gun bursts, proximity rockets; it burns down on its own from 14 s). Its dive (look-gated, round
+    the tower) goes into the gold LED tower on the crest, and the hill lets go from that column outward: the **landslide**,
+    right beside / under you — 12 blocks of terraced district sliding into the river toe-first, towers toppling and
+    breaking in two, a rolling dust front, muddy surge. Past x 560 "the hill took Jinlong's footings — LOOK BACK":
+    Jinlong falls east into the hole the hill left, across the scar toward you; its top lands ~45 m behind the line and
+    it lies half sunk. Then over the gold arch bridge, jumpers on canopies, barge gunners, the gunboat (shoot the
+    drums), and you land on its deck.
 14. **outro** / **credits** — stats card, then the credits for all nine levels.
 
 ## Comfort (VR)

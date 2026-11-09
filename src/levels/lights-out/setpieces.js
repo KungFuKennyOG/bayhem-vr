@@ -400,6 +400,8 @@ export class SetPieces {
     const g = this.g;
     for (let i = 0; i < 6; i++) g.fx.later(i * 0.12, () => { const p = new THREE.Vector3(range(TOWER.x0, TOWER.x1), 50 + range(-2, 3), range(TOWER.z0, TOWER.z1)); g.fx.explosion(p, 1.2, { noRing: true }); });
     for (const p of g.glass.panes) if (p.state === 'ok' && p.c.x > TOWER.x0 - 1 && p.c.x < TOWER.x1 + 1 && p.c.z > TOWER.z0 - 1 && p.c.z < TOWER.z1 + 1) g.glass.shatter(p, p.c.clone(), new THREE.Vector3(0, 0, 1), 2);
+    // the footing lets go: a skirt of dust bursts out round the base and rolls down over the quay
+    for (let i = 0; i < 26; i++) g.fx.later(rand() * 1.6, () => { const a = rand() * 6.283, s0 = range(10, 16); g.clouds.spawn({ x: 340 + Math.cos(a) * 24, y: range(6, 52), z: 140 + Math.sin(a) * 24, vx: Math.cos(a) * range(5, 12), vy: range(-1, 3), vz: Math.sin(a) * range(5, 12), drag: 0.7, buoy: 0.08, s0, s1: s0 * range(3, 4), life: range(10, 15), a: 0.85, fadeIn: 0.05, fadeOut: 0.5, r: 0.2, g: 0.16, b: 0.12, r1: 0.17, g1: 0.15, b1: 0.13, glow: 0.8, glowFade: 3 }); });
     g.events.push({ type: 'towerFall' });
   }
   _updateFall(dt) {
@@ -427,7 +429,7 @@ export class SetPieces {
     if (F.free) {
       const wet = F.com.y < WATER_Y + 8;
       F.vc.y -= 9.8 * dt;
-      if (wet) { F.vc.multiplyScalar(Math.exp(-1.4 * dt)); F.w *= Math.exp(-1.2 * dt); }
+      if (wet) { F.vc.multiplyScalar(Math.exp(-3.2 * dt)); F.w *= Math.exp(-1.6 * dt); }   // the river stops it: it doesn't skate on after you
       if (F.a > 1.2) F.w *= Math.exp(-4 * dt);
       F.com.addScaledVector(F.vc, dt); F.a += F.w * dt;
       // it comes to rest half sunk, the crown end out of the water: the wreck stays in the river (dark, burning)
@@ -466,7 +468,7 @@ export class SetPieces {
       this.audio.play('collapse_impact', { x: P.x, y: P.y, z: P.z, volume: 1 });
       this.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
       // a wall of white water and spray along the body's length (the stump end to the top)
-      this._waterLine(_v3.set(TOWER.x0 + 20, 52, (TOWER.z0 + TOWER.z1) / 2).sub(HINGE).applyMatrix4(tw.body.matrixWorld).clone(), P, 1.1);
+      this._waterLine(_v3.set(TOWER.x0 + 20, 52, (TOWER.z0 + TOWER.z1) / 2).sub(HINGE).applyMatrix4(tw.body.matrixWorld).clone(), P, 1.9);
       g.events.push({ type: 'towerDown' });
       g.addScore(5000, null);
     }
@@ -474,7 +476,7 @@ export class SetPieces {
     if (F.free && !F.slap && F.com.y < WATER_Y + 6) {
       F.slap = true;
       const a = _v3.set(TOWER.x0 + 20, 52, (TOWER.z0 + TOWER.z1) / 2).sub(HINGE).applyMatrix4(tw.body.matrixWorld).clone();
-      this._waterLine(a, top.clone(), 1.4);
+      this._waterLine(a, top.clone(), 2.2);
       this.audio.play('collapse_impact', { x: F.com.x, y: 2, z: F.com.z, volume: 1, pitch: 0.7 });
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.7;
     }
@@ -486,8 +488,8 @@ export class SetPieces {
       const q = new THREE.Vector3().lerpVectors(a, b, j / n); q.y = WATER_Y;
       if (q.z < 150) continue;
       g.fx.later(j * 0.07 + rand() * 0.06, () => {
-        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: q.x + range(-6, 6), y: q.y + range(5, 10), z: q.z + range(-6, 6), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(-3, 3) + 2, drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.65, fadeIn: 0.04, fadeOut: 0.6, r: 0.2, g: 0.19, b: 0.18, r1: 0.15, g1: 0.14, b1: 0.13, glow: 0.3, glowFade: 2 }); }
-        for (let i = 0; i < 12; i++) g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + 1, z: q.z + range(-7, 7), vx: range(-7, 7), vy: range(14, 32) * k, vz: range(-7, 7), grav: 9.8, drag: 0.35, frame: CELL.WISP, s0: 3 * k, s1: 9 * k, life: range(2, 3.4), rot: rand() * 6, r: 0.42, g: 0.42, b: 0.42, a: 0.4, fadeOut: 0.5 });
+        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: q.x + range(-6, 6), y: q.y + range(5, 10), z: q.z + range(-6, 6), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(-3, 3) + 2, drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.65, fadeIn: 0.04, fadeOut: 0.6, r: 0.25, g: 0.2, b: 0.14, r1: 0.19, g1: 0.16, b1: 0.12, glow: 0.3, glowFade: 2 }); }
+        for (let i = 0; i < 16; i++) g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + 1, z: q.z + range(-7, 7), vx: range(-7, 7), vy: range(16, 40) * k, vz: range(-7, 7), grav: 9.8, drag: 0.35, frame: CELL.WISP, s0: 3 * k, s1: 9 * k, life: range(2, 3.4), rot: rand() * 6, r: 0.44, g: 0.38, b: 0.3, a: 0.4, fadeOut: 0.5 });
         if (j % 3 === 0) g.fx.ring?.(q, 22 * k, 1.6, WATER_Y + 0.3);
       });
     }
@@ -527,9 +529,9 @@ export class SetPieces {
     });
     // two armed barges out on the river under the line (gunners + a searchlight each)
     this.barges = [];
-    for (const [x, z, v] of [[150, 340, 0.6], [262, 270, -0.5]]) {
+    for (const [x, z, v] of [[745, 300, 0.5], [850, 258, -0.4]]) {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
-      const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: 6 + i * 2 + (x > 200 ? 8 : 18), range: 110, noNade: true }));
+      const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: 40 + i * 2 + (x > 800 ? 8 : 0), range: 110, noNade: true }));
       const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: Math.PI, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew });
       this.barges.push({ g: b, v, crew, L });
     }
