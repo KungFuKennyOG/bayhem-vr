@@ -53,7 +53,8 @@ export const GRID = { pitch: 150, road: 22, x0: -2900, x1: 3000, z0: -1500, z1: 
 export const PALM = { x: -900, z: -2520, trunk: [-1560, -3080], frondL: 560, crescentR: 1060 };
 export const HERO = {
   x: 0, z: -230,        // the SARAB SPIRE, north of the boulevard
-  h: 520, band: 16, w0: 84, w1: 38, spire: 160, breakBand: 18,
+  // a true outlier (like the real-world supertalls it nods to): ~830 m to the tip, ~3x the towers round it
+  h: 608, band: 16, w0: 90, w1: 38, spire: 224, breakBand: 18,
   name: 'SARAB SPIRE',
 };
 
@@ -119,11 +120,12 @@ const ROUTE = [
   [1040, 1.1, -720, 'strike2'],
   [900, 1.1, -1060],
   [560, 1.1, -1200, 'strike3'],
-  [250, 1.35, -1100],
-  [60, 1.85, -860],
-  [0, 2.2, -660, 'spire'],
-  [-190, 2.1, -800],
-  [-420, 1.85, -1100, 'escape'],
+  [300, 1.45, -1250],
+  [90, 2.1, -1060],
+  // the hover: far enough back and high enough that the whole Spire fits in the door
+  [0, 2.6, -900, 'spire'],
+  [-210, 2.45, -1030],
+  [-460, 2.0, -1250, 'escape'],
   [-720, 1.6, -1500],
   [-960, 1.45, -2050],
   [-1000, 1.6, -2500, 'sea'],
@@ -180,10 +182,10 @@ export const SPECIAL = [
   { id: 'C1', role: 'crash', x: -330, z: 640, w: 48, d: 44, h: 230, kind: 'twist', rot: 0.3, roof: 'crown', mode: 'tilt' },
   // escalation: neighbours that come down while you paint (one at a time, behind the dust)
   { id: 'E1', role: 'mid', x: 1230, z: -1150, w: 42, d: 42, h: 200, kind: 'slab', rot: 0.9, roof: 'mech', mode: 'pancake' },
-  { id: 'E2', role: 'mid', x: -300, z: -560, w: 44, d: 40, h: 215, kind: 'chamfer', rot: 0.2, roof: 'pad', mode: 'lean' },
+  { id: 'E2', role: 'mid', x: -300, z: -560, w: 44, d: 40, h: 170, kind: 'chamfer', rot: 0.2, roof: 'pad', mode: 'lean' },
   { id: 'E3', role: 'mid', x: 1300, z: -380, w: 40, d: 46, h: 190, kind: 'box', rot: -0.4, roof: 'mech', mode: 'tilt' },
   // the spire's neighbour to the east: the spire's top comes down across it in the finale
-  { id: 'N1', role: 'mid', x: 210, z: -280, w: 44, d: 44, h: 235, kind: 'stepped', rot: 0.25, roof: 'pad', mode: 'tilt' },
+  { id: 'N1', role: 'mid', x: 210, z: -280, w: 44, d: 44, h: 165, kind: 'stepped', rot: 0.25, roof: 'pad', mode: 'tilt' },
 ];
 
 // rooftop fight stations: towers placed on the door side of the route, roofs below the path
@@ -256,8 +258,11 @@ export function buildPlan(F) {
         if (h < 30) continue;
       }
       // the money shot's sightline (the hover north of the Spire -> its break): keep it clear
-      { const ax = 0, az = -660, bx = HERO.x, bz = HERO.z, dd = segDist(x, z, ax, az, bx, bz);
-        if (dd < r + 60) { const t = Math.min(1, Math.max(0, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2))); h = Math.min(h, (F.alt * 2.2) * (1 - t) + 290 * t - 70); if (h < 30) continue; } }
+      { const ax = 0, az = -900, bx = HERO.x, bz = HERO.z, dd = segDist(x, z, ax, az, bx, bz);
+        if (dd < r + 60) { const t = Math.min(1, Math.max(0, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2))); h = Math.min(h, (F.alt * 2.6) * (1 - t) + 290 * t - 70); if (h < 30) continue; } }
+      // the downtown bowl: everything round the Spire's foot stays low (podiums, a few mid-rises), rising with
+      // distance, so the Spire towers ~3x over its neighbourhood instead of standing in a forest of equals
+      { const dH = Math.hypot(x - HERO.x, z - HERO.z); if (dH < 800) { h = Math.min(h, 70 + Math.max(0, dH - 180) * 0.32); if (h < 30) continue; } }
       take({ role: 'static', x, z, w, d, h, kind, rot: (rng() < 0.7 ? 0 : (rng() - 0.5) * 0.6) + (dist === 'marina' ? (rng() - 0.5) * 0.8 : 0), roof: pickRoof(rng, h), style: Math.floor(rng() * 8), district: dist });
     }
   }

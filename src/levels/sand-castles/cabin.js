@@ -22,6 +22,10 @@ const U = { uW2H: { value: new THREE.Matrix4() }, uSun: { value: new THREE.Vecto
 const LINE_GLSL = /* glsl */`
 uniform mat4 uW2H; uniform vec3 uSun; uniform float uRed; uniform float uWarn; uniform float uTime;
 varying vec3 vObj; varying float vK;
+float cH(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float cN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(cH(i), cH(i + vec3(1,0,0)), f.x), mix(cH(i + vec3(0,1,0)), cH(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(cH(i + vec3(0,0,1)), cH(i + vec3(1,0,1)), f.x), mix(cH(i + vec3(0,1,1)), cH(i + vec3(1,1,1)), f.x), f.y), f.z); }
 float doorSun(vec3 p){
   vec3 L = normalize((uW2H * vec4(uSun, 0.0)).xyz);
   if (L.x > -0.02) return 0.0;
@@ -54,7 +58,15 @@ function lineMat() {
           float d = step(0.82, fract(q.x)) * step(0.4, fract(q.y * 0.5));
           float fq = clamp(1.0 - fwidth(q.x) * 1.5, 0.0, 1.0);
           diffuseColor.rgb *= mix(0.96, 0.9 + 0.25 * d, fq);
-        }`)
+          // boot-worn path down the middle, dust in the corners
+          diffuseColor.rgb *= mix(1.0, 1.35, smoothstep(0.5, 0.0, abs(vObj.x + 0.3)) * (0.5 + 0.5 * cN(vObj * 6.0)));
+        } else if (vK > 4.5 && vK < 5.5) {
+          // painted door jamb: olive paint, worn lighter along its edges where hands and boots rub it
+          float wear = smoothstep(0.55, 0.85, cN(vObj * 11.0));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.3 + 0.02, wear * 0.25);
+        }
+        // everything: grime and hand-worn patches, darker low down (no spotless surfaces)
+        diffuseColor.rgb *= (0.94 + 0.06 * cN(vObj * 4.3)) * (0.82 + 0.18 * smoothstep(0.0, 0.6, vObj.y));`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         if (vK > 2.5 && vK < 3.5) {
           // displays: a dark bezel, scan lines, a moving horizon / bar graph so they read as instruments
@@ -72,7 +84,7 @@ function lineMat() {
         // fill dims away from the door; the red cabin light spills a little
         float near = 1.0 - smoothstep(0.2, 2.3, vObj.x - ${DOOR.x.toFixed(2)});
         float into = 1.0 - smoothstep(0.3, 1.6, max(${DOOR.z0.toFixed(2)} - vObj.z, vObj.z - ${DOOR.z1.toFixed(2)}));
-        float fill = 0.32 + 0.68 * near * mix(0.55, 1.0, into);
+        float fill = 0.45 + 0.55 * near * mix(0.55, 1.0, into); // never a black hole when you turn round into the cabin
         float cao = smoothstep(0.0, 0.35, vObj.y) * smoothstep(0.0, 0.3, 2.28 - vObj.y) * smoothstep(0.0, 0.3, 1.25 - vObj.x) * smoothstep(0.0, 0.3, 1.95 - vObj.z);
         fill *= 0.55 + 0.45 * cao; reflectedLight.directDiffuse *= 0.7 + 0.3 * cao;
         reflectedLight.indirectDiffuse *= fill; reflectedLight.indirectSpecular *= fill;
@@ -125,9 +137,10 @@ function buildLining() {
   piece(L, T, h, z1 - DOOR.z1, x0 - T / 2, h / 2, (DOOR.z1 + z1) / 2, QUILT, 1);
   piece(L, T, h - DOOR.y1, DOOR.z1 - DOOR.z0, x0 - T / 2, (h + DOOR.y1) / 2, (DOOR.z0 + DOOR.z1) / 2, QUILT, 1);
   // door frame: a thick painted jamb all round the opening (the skin is ~12 cm deep here)
-  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z0 - 0.035, [0.3, 0.26, 0.19]);
-  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z1 + 0.035, [0.3, 0.26, 0.19]);
-  piece(L, 0.16, 0.07, DOOR.z1 - DOOR.z0 + 0.14, x0 - 0.05, DOOR.y1 + 0.035, (DOOR.z0 + DOOR.z1) / 2, [0.3, 0.26, 0.19]);
+  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z0 - 0.035, [0.24, 0.25, 0.18], 5);
+  piece(L, 0.16, DOOR.y1, 0.07, x0 - 0.05, DOOR.y1 / 2, DOOR.z1 + 0.035, [0.24, 0.25, 0.18], 5);
+  piece(L, 0.16, 0.07, DOOR.z1 - DOOR.z0 + 0.14, x0 - 0.05, DOOR.y1 + 0.035, (DOOR.z0 + DOOR.z1) / 2, [0.24, 0.25, 0.18], 5);
+  for (const z of [DOOR.z0 - 0.075, DOOR.z1 + 0.075]) for (let y = 0.1; y < 0.6; y += 0.16) piece(L, 0.01, 0.07, 0.075, x0 + 0.035, y, z, YEL, 0, 0.5);
   // frame ribs (vertical) and stringers
   for (let z = z0 + 0.3; z < z1; z += 0.55) {
     piece(L, 0.06, h, 0.05, x1 - 0.02, h / 2, z, RIB);
@@ -156,6 +169,11 @@ function buildLining() {
   piece(L, 0.18, 0.06, 0.18, 0.3, h - 0.04, -1.1, [1, 0.3, 0.2], 4);
   for (const x of [-0.6, -0.5, 0.55]) cyl(L, 0.022, z1 - z0 - 0.2, x, h - 0.06, (z0 + z1) / 2, [0.08, 0.08, 0.08], 0, Math.PI / 2);
   piece(L, 0.4, 0.3, 0.12, 1.05, 1.75, 1.6, OD); piece(L, 0.05, 0.05, 0.02, 1.0, 1.82, 1.53, [0.2, 0.9, 0.3], 3); piece(L, 0.05, 0.05, 0.02, 1.08, 1.82, 1.53, [0.95, 0.6, 0.1], 3);
+  // monkey straps and a coiled gunner's tether hanging from the ceiling track (it's a working cabin)
+  for (const [x, z, l] of [[-0.55, -0.9, 0.55], [-0.35, 0.35, 0.42], [0.2, -0.3, 0.6], [0.6, 0.9, 0.5]]) { piece(L, 0.035, l, 0.006, x, h - l / 2 - 0.04, z, [0.12, 0.12, 0.08]); piece(L, 0.05, 0.03, 0.02, x, h - l - 0.04, z, STEEL); }
+  for (let i = 0; i < 5; i++) cyl(L, 0.012, 0.09, -0.2 + Math.sin(i * 1.3) * 0.03, h - 0.5 - i * 0.07, -0.95, [0.5, 0.42, 0.1], 0, 0, Math.PI / 2 + Math.sin(i) * 0.2);
+  // stencils: rivet rows along the ribs (dark dots)
+  for (let z = z0 + 0.3; z < z1; z += 0.55) for (let y = 0.2; y < h - 0.1; y += 0.12) piece(L, 0.012, 0.012, 0.012, x1 - 0.055, y, z + 0.026, [0.25, 0.25, 0.23]);
   // an ICS intercom box + cord by the door
   piece(L, 0.12, 0.18, 0.08, x0 + 0.06, 1.5, DOOR.z0 - 0.25, OD); piece(L, 0.03, 0.03, 0.01, x0 + 0.06, 1.55, DOOR.z0 - 0.205, [0.2, 0.9, 0.3], 3);
   // ---- cockpit (through the passage): seats, pilots, consoles, the instrument panel
@@ -194,7 +212,7 @@ export class Cabin {
     this.root.add(this.lining);
     // the open sliding door, parked back along the outside of the fuselage
     const dg = new THREE.BoxGeometry(0.06, 1.85, 2.0); dg.translate(-1.42, 0.98, 2.05);
-    const door = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ color: 0x5c4c36, roughness: 0.7, metalness: 0.1 })); this.root.add(door);
+    const door = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ color: 0x3a3d2c, roughness: 0.75, metalness: 0.15 })); this.root.add(door);
     const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 3.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.5, metalness: 0.6 })); rail.position.set(-1.38, DOOR.y1 + 0.1, 0.55); this.root.add(rail);
     const rail2 = rail.clone(); rail2.position.y = -0.04; this.root.add(rail2);
     // stencils: worn military markings on the bulkheads and the door post (one canvas, a few quads)

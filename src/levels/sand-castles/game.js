@@ -196,7 +196,9 @@ export class SandGame {
     }
     return hit;
   }
-  launchGrenade(origin, dir) { this.nades.push({ pos: origin.clone(), vel: dir.clone().multiplyScalar(80), t: 0 }); }
+  // the grenade leaves your launcher with the heli's own velocity (it used to start at rest in the air and fall
+  // behind the cabin at 34 m/s, so it looked like it came out of the helicopter, not your hand)
+  launchGrenade(origin, dir) { const v = dir.clone().multiplyScalar(80); if (this.rigVel) v.add(this.rigVel); this.nades.push({ pos: origin.clone(), vel: v, t: 0 }); }
 
   killMan(m, dir, head) {
     if (!m.alive) return;
@@ -241,6 +243,22 @@ export class SandGame {
   }
   _updateMen(dt) {
     const H = this.heliPos;
+    // a red smoke flare on every roof that still has shooters on it: you can find the squad at 100 m from a
+    // moving door (the men themselves are a few pixels at that range)
+    this._flareT = (this._flareT ?? 0) - dt;
+    if (this._flareT <= 0) {
+      this._flareT = 0.09;
+      const seen = new Set();
+      for (const m of this.men) {
+        if (!m.alive || m.delay > 0 || seen.has(m.tower)) continue;
+        seen.add(m.tower);
+        const T = m.tower; if (Math.hypot(T.x - H.x, T.z - H.z) > 900) continue;
+        const ang = Math.atan2(H.z - T.z, H.x - T.x) + 0.9, r = m.r * 0.9;
+        const x = T.x + Math.cos(ang) * r, z = T.z + Math.sin(ang) * r, y = T.h + 0.5;
+        this.fx.main.spawn({ x, y, z, vx: range(-0.6, 0.6) + 1.2, vy: range(6, 9), vz: range(-0.6, 0.6), drag: 0.25, frameKind: 2, frame: rand() * 40, frames: 16, s0: 1.4, s1: 18, ease: 0.8, life: range(7, 9), rot: rand() * 6.28, vrot: range(-0.3, 0.3), r: 0.34, g: 0.13, b: 0.1, a: 0.5, fadeIn: 0.05, fadeOut: 0.5 });
+        if (rand() < 0.6) this.fx.flame(_v.set(x, y, z), 1.6);
+      }
+    }
     for (const m of this.men) {
       if (!m.alive) continue;
       if (m.delay > 0) { if (m.pos.distanceTo(H) < 480) m.delay -= dt; if (m.delay <= 0) { m.gm.root.visible = true; this._placeMan(m); } continue; }
@@ -275,6 +293,8 @@ export class SandGame {
     const to = aim.clone().addScaledVector(_v2.subVectors(aim, mz).normalize(), hit ? 0 : 40);
     this.fx.tracer(mz, to, { speed: 480, width: 0.14 + dist * 0.0012, len: 4, color: [1.6, 0.55, 0.25] });
     this.fx.muzzle(mz, _v2.subVectors(aim, mz).normalize(), 'rifle', false);
+    // seen from 100+ m a rifle flash is a pixel: a star-glint sized by distance so you can spot who's shooting
+    { const dd = mz.distanceTo(this.headPos); if (dd > 40) this.fx.main.spawn({ x: mz.x, y: mz.y, z: mz.z, frame: CELL.STAR, s0: dd * 0.022, s1: dd * 0.03, life: 0.07, r: 2.0, g: 1.3, b: 0.5, a: 0, rot: (dd * 13.7) % 6.28 }); }
     this.audio.play('enemy_gun', { x: mz.x, y: mz.y, z: mz.z, volume: 0.9 });
     if (hit) {
       this.hurt(range(3, 6), mz);
@@ -479,7 +499,7 @@ export class SandGame {
       }
       g.hit *= Math.exp(-dt * 6);
       m.setDamage?.(clamp(1 - g.hp / g.maxHp, 0, 0.85));
-      if (g.hp < g.maxHp * 0.5) this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v), 0.7, (q) => this.fx.smoke(q, 2.4, 0.18, 3, 1.5, 0.45), 0); // tight spacing: no string of pearls behind a fast gunship
+      if (g.hp < g.maxHp * 0.5) this.fx.trailEmit(g, m.smokePt.getWorldPosition(_v), 0.6, (q) => this.fx.smoke(q, 3.6, 0.17, 3.5, 1.2, 0.5), 0); // tight spacing: no string of pearls behind a fast gunship
     } else if (g.phase === 'dying') {
       // spins down into the crash tower (setpieces sets g.crashAt)
       const T = g.crashAt || g.pos.clone().setY(0);
@@ -570,11 +590,11 @@ export class SandGame {
       if (!m.alive || m.delay > 0) continue;
       const d = m.pos.distanceTo(head);
       if (d > 420) continue;
-      c.push({ kind: 'gunman', p: m.pos, score: 70 - d * 0.12 + (m.role === 'rpg' ? 25 : 0) + (A.target?.ref === m ? 25 : 0), ref: m, tol: 0.02, heavy: false });
+      c.push({ kind: 'gunman', p: m.pos, score: 70 - d * 0.12 + (m.role === 'rpg' ? 25 : 0) + (A.target?.ref === m ? 25 : 0), ref: m, tol: 0.06, heavy: false }); // a minigun hoses: fire when roughly on
     }
-    for (const a of this.aas) if (a.alive && a.active) { const d = a.center.distanceTo(head); if (d < 500) c.push({ kind: 'aa', p: a.center, score: 30 - d * 0.03, ref: a, tol: 0.02, heavy: false }); }
+    for (const a of this.aas) if (a.alive && a.active) { const d = a.center.distanceTo(head); if (d < 500) c.push({ kind: 'aa', p: a.center, score: 30 - d * 0.03, ref: a, tol: 0.06, heavy: false }); }
     const g = this.gunship;
-    if (g && g.phase === 'fight') c.push({ kind: 'heli', p: g.pos, score: 60 + (A.target?.ref === g ? 25 : 0), ref: g, tol: 0.04, heavy: false });
+    if (g && g.phase === 'fight') c.push({ kind: 'heli', p: g.pos, score: 60 + (A.target?.ref === g ? 25 : 0), ref: g, tol: 0.08, heavy: false });
     if (g && g.phase === 'dying') { c.length = 0; c.push({ kind: 'look', p: g.pos, score: 999, ref: g, w: 6 }); }
     else if (this.cinematicLook && !c.some(x => x.kind === 'rocket')) { c.length = 0; c.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: this.cinematicW ?? 3 }); }
     if (this.paintTarget) { c.length = 0; c.push({ kind: 'paint', p: this.paintTarget, score: 999, ref: this.paintTarget, tol: 0.03, w: 4 }); }
