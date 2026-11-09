@@ -40,7 +40,9 @@ export function applyLook(night, glow, fire, { sun, hemi, fog, renderer, scene }
   fog.color.copy(L3(C(0.3, 0.29, 0.3), C(0.072, 0.082, 0.08), night)).add(C(0.06, 0.042, 0.018).multiplyScalar(glow * night)).add(C(0.06, 0.02, 0.0).multiplyScalar(fire * night));
   // the engine's fog mixes in display space: lift it toward the sky's horizon glow so distance reads as haze (fog
   // city), not as towers going black against a bright horizon
-  fog.color.multiplyScalar(lerp(1.25, 1.9, night));
+  // ...but in the blackout the haze has nothing to glow with: it goes dark and the towers stand as silhouettes against the
+  // fire-lit sky (reviewers kept reading the pale grey fog on dark towers as 'the city is still lit')
+  fog.color.multiplyScalar(lerp(1.25, 1.9, night) * lerp(1, 0.5, (1 - glow) * night));
   // the gorge mist (height fog): the same haze, a touch brighter and warmer where the city lights it
   HFOG.c.value.copy(fog.color).multiplyScalar(1.1).add(C(0.05, 0.03, 0.01).multiplyScalar(glow * night));
   HFOG.p.value.x = lerp(0.0022, 0.0032, night);
@@ -96,7 +98,7 @@ export class LightsGame {
     this.traffic = new Traffic(this, world.carMod, world.fallbackCar);
     this.lasers = new LaserFX(this);
     this.rifleLasers = new RifleLasers(this);
-    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320 });
+    this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320, soft: 0.7 });
     this.dustDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 12), new THREE.MeshBasicMaterial({ color: 0x3a3028, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
     this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
     E.scene.add(this.dustDome);

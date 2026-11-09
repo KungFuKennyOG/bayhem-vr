@@ -5,9 +5,9 @@ on the roof car park of the Longwu Department Store, fight down the Hundred Step
 Street on the cliff top, down through Lantern Cliff (a Hongyadong-style stilt-house wall), across the Qiansi through-arch
 bridge, under the stacked interchange (a fuel tanker blows, the top span pancakes onto the substation), watch the city's
 power go district by district, climb to Sky Street in the dark (searchlights, lasers), clear Jinlong Tower's sky lobby,
-ride the lift to the roof and fight a gunship 240 m over the city. Shot down, it spirals into the hillside district
-below and the whole hill slides into the river; Jinlong's footings go with it. You BASE-jump off the roof and glide
-out over the river as the tower comes down behind you (enemy jumpers, barge gunners, searchlights you can shoot), onto
+ride the lift to the roof and fight a gunship 240 m over the city. It rockets the tower and backs off; you BASE-jump
+off the roof and it chases your glide. Shot down, it spirals into the hillside district below, the whole hill slides
+into the river, and Jinlong, its footings gone, comes down behind you (enemy jumpers, barge gunners, searchlights you can shoot), onto
 a gunboat's deck. Outro stats, then credits for the whole game.
 
 Look: wet violet dusk → blue-black night in fog; gold floodlit structures (Jinlong, the bridges, the lantern wall's eave
@@ -30,26 +30,26 @@ searchlights. Every number lives in `layout.js`.
 9. **climb** — up to Sky Street in the dark: generator searchlights (shoot the lamps), lasers, fires.
 10. **lobby** — over the footbridge into Jinlong's sky lobby (marble, gold, the 金龙 bulkhead); the building groans.
 10b. **lift** — the lift up to the roof (a blink to black, the hum of the ride): 239 m up, inside the crown's lantern cage.
-11. **roof** — the climax, on the roof (`gunship.js`). The gunship rises out of the gorge past the gap in the south
-    parapet, searchlight in your face; it circles the crown on your side (outside the cage, off the mast), drops
-    under the roof line and comes back up somewhere else, and hovers over the roof's west end to fast-rope four men
-    onto it (two more once it is under 55 %). Rockets short of you onto the deck, a chin-gun burst walking in. The east
-    parapet is a see-through railing: when it is going down the marker sends you there, and its dive (look-gated, it
-    swings round the tower, never through it) goes into the gold LED tower on the hillside crest below. The hill lets
-    go from that column outward: the **landslide**, watched leaning over the railing, 50° down. East of Jinlong the bank
-    is a terraced hillside district (it carries on east past the slide, static, so the slide tears a gap out of it)
-    (six streets of low housing stepping down from the y-64 hill to the quay, lit terrace lines, shops in the retaining
-    walls, stairways, three towers and three crest buildings on top). It breaks into 12 blocks and slides into the river
-    toe-first, the blocks leaning, rolling and dropping at different rates, the towers toppling off and breaking in two
-    (the wreck rides its tower down), dust out of the opening gaps, spray and silt where each block goes in. A raw scar
-    is left (fires, rubble, the cut-open backs of the crest buildings, wreckage in the river).
-12. **jump** — Jinlong's footings were in that hill: it shudders. The BASE rig from the locker by the helipad; run for the
-    gap in the south parapet; slow-mo jump.
-13. **glide** — about a minute: the rail descends from 240 m at a steady 2.2 : 1, swinging out south-east over the river
-    first, so "LOOK BACK" (look-gated, from 6.5 s) faces the tower: Jinlong goes over onto the slid hillside (60 m off at
-    its closest, falling away from you), tears off its stump and drops into the river. Then jumpers on canopies (shoot the
-    canopy), barge gunners and searchlights; the gunboat (shoot the drums on its stern, marker on them), then you land on
-    its deck.
+11. **roof** — on the roof (`gunship.js`). The gunship rises out of the gorge past the gap in the south parapet,
+    searchlight in your face; it circles the crown on your side (outside the cage, off the mast), drops under the roof
+    line and comes back up somewhere else, and hovers over the roof's west end to fast-rope four men onto it (two more
+    under 70 %). Rockets short of you onto the deck, a chin-gun burst walking in. It can't be finished here: under 42 %
+    it puts a four-rocket salvo into the tower under the roof (glass, the crown shudders) and drops away into the gorge.
+12. **jump** — "she's coming off the cliff": the BASE rig from the locker by the helipad; run for the gap in the south
+    parapet; slow-mo jump.
+13. **glide** — ~70 s: the rail descends from 240 m at a steady 2.4 : 1, swinging out south-east over the river first.
+    "LOOK BACK": the gunship comes back up out of the gorge and chases you, holding station off your shoulder on the
+    hill's side (gun bursts, proximity-fused rockets). Shot down (or burning down on its own after 26 s), its dive
+    (look-gated, it circles round the tower, never through it) goes into the gold LED tower on the hillside crest, and
+    the hill lets go from that column outward: the **landslide**. East of Jinlong the bank is a terraced hillside
+    district (it carries on east past the slide, static, so the slide tears a gap out of it) (six streets of low housing
+    stepping down from the y-64 hill to the quay, lit terrace lines, shops in the retaining walls, stairways, three
+    towers and three crest buildings on top). It breaks into 12 blocks and slides into the river toe-first, the blocks
+    leaning, rolling and dropping at different rates, the towers toppling off and breaking in two (the wreck rides its
+    tower down), dust out of the opening gaps, spray and silt where each block goes in. "The hill took Jinlong's
+    footings — LOOK BACK": Jinlong goes over onto the slid hillside (look-gated), tears off its stump and comes to rest
+    half sunk in the river. Then jumpers on canopies (shoot the canopy), barge gunners and searchlights; the gunboat
+    (shoot the drums on its stern, marker on them), then you land on its deck.
 14. **outro** / **credits** — stats card, then the credits for all nine levels.
 
 ## Comfort (VR)
@@ -58,12 +58,18 @@ searchlights. Every number lives in `layout.js`.
 - Big moments are look-gated (tanker, blackout, the gunship's dive, the tower fall) with a timeout; markers point at
   them. The landslide is 150–300 m off, below the roof. The tower falls away from the rail (60 m at its closest).
 - The roof never tilts or moves under you: the tower's shudder is sound, dust, glass and a light shake only.
-- The gunship never takes more than three minutes: after that it burns down on its own.
+- The gunship backs off the roof after 2.5 minutes whatever you do, and in the glide it burns down on its own after 26 s:
+  the destruction never waits on your aim.
 
 ## Systems
 - `kit.js`: the shared material patch (vertex colour albedo, per-vertex rough/metal, emissive with a power code,
   procedural windows with Chinese residential details, wall-base grime from the light map's floor heights), `Acc`
-  geometry accumulator, `Buckets`. **Power**: `POWER.pow[16]` / `POWER.cut[16]` per district (`DIST`); emissive code =
+  geometry accumulator, `Buckets`. **Windows:** frames, glass, balconies, AC boxes and bars are analytic up close and
+  fade out by ~4 px per window; the lights themselves are baked into two 256² mip-mapped textures (one texel per window:
+  RGB = lit at full power, A = the sparse emergency pattern) sampled with the window grid's own gradients, so distant
+  towers filter smoothly. Hash inputs that come from interpolated varyings (the building seed / style) are rounded
+  first: hashing the raw varying turned float noise into the per-pixel 'window static' the reviews flagged for weeks.
+  **Power**: `POWER.pow[16]` / `POWER.cut[16]` per district (`DIST`); emissive code =
   district (+16 = on at dusk). `powK()` mirrors it on the CPU for glows and reflections.
 - `lightmap.js`: lamp pools baked into a 2D map over the play space (4 power groups, colour, 16-bit floor height).
 - `signs.js`: the canvas sign atlas (shop fascias, blades, plaques, gantries, rooftop names, ads, posters).
@@ -83,8 +89,9 @@ searchlights. Every number lives in `layout.js`.
   until the blocks leave. Its emissive bakes the light of the fires on it. Streets and some housing are district
   TOWER (Jinlong's generators); the rest are EAST (emergency windows). Riding glows follow their bones.
   `world.glowList` is sorted so `prio` halos are never the ones the capped batch drops.
-- `gunship.js`: the roof fight. The engine's WIDOWMAKER (`src/heli.js`, as in Level 5): rise / fight (orbit) / dive (under the
-  roof line) / drop (fast-ropes: perch soldiers slid down the rope during their `delay`, then holding a patch of roof) /
+- `gunship.js`: the roof fight and the chase. The engine's WIDOWMAKER (`src/heli.js`, as in Level 5): rise / fight (orbit) /
+  dive (under the roof line) / drop (fast-ropes: perch soldiers slid down the rope during their `delay`, then holding a
+  patch of roof) / retreat (the salvo into the tower) / lurk / chase (station-keeping off the glide rail) /
   dying (look-gated dive that circles round the tower) / the crash into `CRASH` (the c1 tower's face), where the wreck is
   parented to that tower's upper-segment bone (`Landslide.attach`), then `setpieces.landslide(false, 1)`.
 - `glide.js`: canopy, rail, gunboat (lofted hull, mast, nav lights, wake). `searchlights.js`: instanced beams that lock on.

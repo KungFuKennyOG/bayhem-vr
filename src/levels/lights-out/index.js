@@ -30,7 +30,7 @@ export async function create(E) {
   camera.far = 5000; camera.updateProjectionMatrix();
   // dark kit in a dark city: a lift and lit reflective bands so they read against the fog and the lights
   setGunmanLook({ lift: 0.26, band: 0.6 });
-  fx.fireHue = 1;                 // orange core, deep-red edges, dark smoke
+  fx.fireHue = 1.4;               // orange-red core, deep-red edges, dark smoke (at 1 the cores went yellow, and yellow under smoke reads olive)
   fx.heat = Math.min(fx.heat ?? 1, 0.76);   // stacked tanker booms blew out to white at 0.88
   fx.smokeTint = [1.0, 0.86, 0.9];          // charcoal-red smoke: the yellow-brown went olive under the grade at night
   // fire sprites: push toward orange and cool into near-black soot (as Levels 5 / 6)

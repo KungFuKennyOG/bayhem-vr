@@ -6,7 +6,9 @@ import { MAT } from '../../vehicles.js';
 import { ROOFTOP, TOWER, groundAt } from './layout.js';
 
 // =====================================================================================
-//  LIGHTS OUT — the roof fight. A gunship (the engine's WIDOWMAKER, as in Level 5) comes up over the
+//  LIGHTS OUT — the roof fight and the chase. On the roof it can't be finished: under 42 % it puts a rocket salvo into
+//  the tower and drops away; once you've jumped it comes back up out of the gorge and chases the glide (it holds station
+//  off your shoulder, on the hill's side), and that is where you bring it down. The roof fight: A gunship (the engine's WIDOWMAKER, as in Level 5) comes up over the
 //  edge of Jinlong's roof, 240 m over the city, searchlight in your face; it circles the crown, ducks
 //  under the roof line and comes back up somewhere else, hovers over the roof to rope men down onto it,
 //  rockets and a chin gun at you. Shoot it down and it spirals into the hillside district below — into
@@ -66,7 +68,7 @@ export class Gunship {
     this.glowB = new BillboardBatch(24, g.E.atlas, { boost: 1, renderOrder: 19, fog: g.scene.fog, ground: -20 });
     g.scene.add(this.glowB.mesh);
     this.target = {
-      active: () => !!this.H && this.H.alive && this.H.phase !== 'dying',
+      active: () => !!this.H && this.H.alive && this.H.phase !== 'dying' && this.H.phase !== 'retreat' && this.H.phase !== 'lurk',
       ray: (o, d) => { let best = -1; for (const [pt, r] of this.hit) { pt.getWorldPosition(_v); const t = raySphere(o, d, _v, r); if (t > 0 && (best < 0 || t < best)) best = t; } return best; },
       hit: (P, dir) => { g.fx.impact(P, _v.copy(dir).negate(), 'metal'); g.audio.play('impact_metal', { x: P.x, y: P.y, z: P.z, volume: 0.8, pitch: 0.75 }); this.damage(0.35, P); g.hitMarker(false); },
       near: (p) => this.H.pos.distanceTo(p) < 4.2,
@@ -92,6 +94,8 @@ export class Gunship {
   }
   // ?beat= past the roof: it's already in the hill
   skip() { this.H = { alive: false, phase: 'gone' }; this.m.root.visible = false; }
+  // ?beat=jump / glide: it has already rocketed the tower and is lurking in the gorge
+  lurk() { this.spawn(); this.g.events = this.g.events.filter(e => e.type !== 'heliUp'); const H = this.H; H.hp = H.maxHp * 0.42; H.phase = 'lurk'; H.t = 0; H.pos.set(430, 150, 230); H.vel.set(0, 0, 0); this.m.setDamage?.(0.58); }
   get alive() { return !!this.H && this.H.alive; }
   get dead() { return !!this.H && !this.H.alive; }
 
@@ -107,8 +111,10 @@ export class Gunship {
     return this.H;
   }
   damage(d, P) {
-    const H = this.H; if (!H || !H.alive || H.phase === 'dying') return;
+    const H = this.H; if (!H || !H.alive || H.phase === 'dying' || H.phase === 'retreat' || H.phase === 'lurk') return;
     H.hp -= d; H.hitT = 1;
+    // on the roof it won't go down: badly hurt, it rockets the tower and backs off (the kill is in the glide)
+    if (H.phase !== 'chase' && H.hp < H.maxHp * 0.42) { H.hp = H.maxHp * 0.42; this.retreat(); return; }
     if (this.m.setDamage?.(clamp(1 - H.hp / H.maxHp, 0, 1))) {
       const p = this.m.sparkPt.getWorldPosition(new THREE.Vector3());
       this.g.fx.smallExplosion(p, 0.7);
@@ -118,6 +124,25 @@ export class Gunship {
       this.g.events.push({ type: 'heliHurt' });
     }
     if (H.hp <= 0) this.kill();
+  }
+  retreat() {
+    const H = this.H, g = this.g;
+    if (!H || H.phase === 'retreat' || H.phase === 'lurk' || H.phase === 'chase') return;
+    if (H.men) for (const s of H.men) if (s && s.rope && !s.rope.done && s.alive) { s.rope.done = true; s.pos.copy(s.rope.land); s.root.position.copy(s.pos); s.floorY = s.rope.land.y; s.delay = 0.4; }
+    for (const r of this.ropes) r.visible = false;
+    H.phase = 'retreat'; H.t = 0; H.salvo = 0; H.ropesOut = false;
+    g.bossInfo = null;
+    g.events.push({ type: 'heliRetreat' });
+  }
+  // back up out of the gorge behind you: it chases the glide
+  startChase() {
+    const H = this.H, g = this.g, R = this.sp.rail;
+    if (!H || !H.alive || H.phase === 'chase') return;
+    H.phase = 'chase'; H.t = 0; H.rocketT = 5; H.gunT = 2.5; H.burst = 0;
+    R.at(Math.max(0, R.s - 70), _v); H.pos.set(_v.x + 40, _v.y - 45, _v.z - 10); H.vel.set(0, 18, 0);
+    this.m.root.visible = true;
+    g.audio.play('heli_flyby', { x: H.pos.x, y: H.pos.y, z: H.pos.z });
+    g.events.push({ type: 'heliChase' });
   }
   kill() {
     const g = this.g, H = this.H;
@@ -213,7 +238,7 @@ export class Gunship {
     const m = this.m, head = g.headPos;
     const target = _v.set(0, 0, 0);
     let speedK = 1.1, maxV = 30;
-    if (H.alive && H.phase !== 'dying') g.bossInfo = { frac: Math.max(0, H.hp / H.maxHp), name: 'GUNSHIP  "NIGHT HERON"' };
+    if (H.alive && H.phase !== 'dying' && H.phase !== 'retreat' && H.phase !== 'lurk') g.bossInfo = { frac: Math.max(0, H.hp / H.maxHp), name: 'GUNSHIP  "NIGHT HERON"' };
     if (H.phase === 'rise') {
       // straight up out of the gorge over the gap in the parapet, nose on you, light in your eyes
       target.set(350, 247, 194); speedK = 1.0; maxV = 20;
@@ -232,7 +257,7 @@ export class Gunship {
       }
       target.copy(H.wp);
       const next = H.drops.length ? H.drops[0] : 0;
-      if (next && (H.dropT <= 0 || (next === 2 && H.hp < H.maxHp * 0.55)) && (next === 4 || H.hp < H.maxHp * 0.55)) { H.drops.shift(); this._startDrop(next); }
+      if (next && (H.dropT <= 0 || (next === 2 && H.hp < H.maxHp * 0.7)) && (next === 4 || H.hp < H.maxHp * 0.7)) { H.drops.shift(); this._startDrop(next); }
       else if (H.diveT <= 0) {
         // under the roof line: it drops out of sight past the edge and comes back up somewhere else
         H.phase = 'dive'; H.t = 0; H.diveT = range(20, 26);
@@ -241,6 +266,32 @@ export class Gunship {
       }
     }
     if (H.phase === 'drop') { target.copy(HOVER); speedK = 1.0; maxV = 22; this._updDrop(dt); }
+    if (H.phase === 'retreat') {
+      // a salvo into the tower under the roof (glass, fire, the whole crown shudders), then it drops away into the gorge
+      const a = Math.atan2(H.pos.z - TC.z, H.pos.x - TC.x);
+      if (H.t < 1.6) { target.copy(H.pos); speedK = 0.5; maxV = 6; }
+      else { target.set(TC.x + Math.cos(a) * 120, 150, TC.z + Math.sin(a) * 120); speedK = 1.2; maxV = 34; }
+      while (H.salvo < 4 && H.t > 0.25 + H.salvo * 0.3) {
+        H.salvo++;
+        const pod = m.pods[H.salvo % 2], p = pod.getWorldPosition(new THREE.Vector3());
+        const f = new THREE.Vector3(clamp(H.pos.x, TOWER.x0 - 0.5, TOWER.x1 + 0.5), range(212, 232), clamp(H.pos.z, TOWER.z0 - 0.5, TOWER.z1 + 0.5));
+        const dir = f.clone().sub(p).normalize();
+        this.rockets.push({ pos: p, vel: dir.multiplyScalar(48), life: 4, tgt: f });
+        g.audio.play('rocket_launch', { x: p.x, y: p.y, z: p.z });
+        g.fx.muzzle(p, dir, 'launcher', false);
+      }
+      if (H.t > 6.5) { H.phase = 'lurk'; H.t = 0; }
+    }
+    if (H.phase === 'lurk') { target.copy(H.pos); speedK = 0.3; maxV = 4; }
+    if (H.phase === 'chase') {
+      // off your shoulder on the hill's side, a little behind and above, weaving; it climbs out of the gorge first
+      const R = this.sp.rail, back = 16 + 8 * Math.sin(H.t * 0.31);
+      R.at(Math.max(0, R.s - back), _v2);
+      const sd = _v3.set(-R.tan.z, 0, R.tan.x).normalize();
+      const sg = Math.sign(sd.x * (CRASH.x - _v2.x) + sd.z * (CRASH.z - _v2.z)) || 1;
+      target.copy(_v2).addScaledVector(sd, sg * (30 + 7 * Math.sin(H.t * 0.47))); target.y += 5 + 4 * Math.sin(H.t * 0.7);
+      speedK = H.t < 3 ? 1.2 : 1.5; maxV = 40;
+    }
     if (H.phase === 'dive') {
       const T = H.t, Rr = 72;
       if (T < 2.2) { target.set(TC.x + Math.cos(H.a0) * Rr, 200, TC.z + Math.sin(H.a0) * Rr); speedK = 1.8; maxV = 34; }
@@ -248,7 +299,7 @@ export class Gunship {
       else { target.set(TC.x + Math.cos(H.a1) * 64, 250, TC.z + Math.sin(H.a1) * 64); speedK = 1.6; maxV = 30; if (T > 5 && !H.upSnd) { H.upSnd = true; g.audio.play('heli_flyby', { x: H.pos.x, y: H.pos.y, z: H.pos.z, volume: 0.8 }); } }
       if (T > 8) { H.phase = 'fight'; H.wpT = 0; H.upSnd = false; }
     }
-    if (H.phase === 'fight' || H.phase === 'drop' || (H.phase === 'dive' && H.t > 6) || (H.phase === 'rise' && H.t > 3.5)) this._weapons(dt);
+    if (H.phase === 'fight' || H.phase === 'drop' || (H.phase === 'dive' && H.t > 6) || (H.phase === 'rise' && H.t > 3.5) || (H.phase === 'chase' && H.t > 3)) this._weapons(dt);
     m.aimGun?.(H.aimAt || head, dt, H.phase !== 'dying' && H.burst > 0);
     if (H.hp < H.maxHp * 0.5 && rand() < dt * 25) { m.sparkPt.getWorldPosition(_v2); g.fx.flame(_v2, 0.5, H.vel); }
     if (H.phase !== 'dying' && H.alive) {
@@ -322,13 +373,13 @@ export class Gunship {
       }
     }
     // the searchlight: from the nose, on you (or where the gun is walking)
-    this.spot.visible = H.phase !== 'dying' && H.alive;
+    this.spot.visible = H.phase !== 'dying' && H.phase !== 'lurk' && H.alive;
     if (this.spot.visible) { m.lightPt.getWorldPosition(_v); this.spot.position.copy(_v); const tg = _v2.copy(H.aimAt || g.headPos); if (H.phase === 'rise' || H.burst <= 0) tg.copy(g.headPos).y -= 1.2; tg.y = Math.min(tg.y, _v.y - 2); _v3.subVectors(tg, _v).normalize(); this.spot.quaternion.setFromUnitVectors(_v.set(0, -1, 0), _v3); }
     // nav lights + the lamp's glow
     const G = this.glowB, blink = Math.sin(g.time * 6) > 0.3;
     let gi = 0;
-    if (H.phase !== 'dying') for (const [pt, col] of m.navLights) { if (col[3] && !blink) continue; pt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 2.6, 2.6, 0, CELL.GLOW, 0, col[0] * 1.4, col[1] * 1.4, col[2] * 1.4, 1); }
-    if (H.phase !== 'dying') { m.lightPt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 6, 6, 0, CELL.GLOW, 0, 2.6, 2.4, 2.0, 0.9); }
+    if (H.phase !== 'dying') for (const [pt, col] of m.navLights) { if (col[3] && !blink) continue; pt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 1.3, 1.3, 0, CELL.GLOW, 0, col[0] * 1.4, col[1] * 1.4, col[2] * 1.4, 1); }
+    if (H.phase !== 'dying') { m.lightPt.getWorldPosition(_v); G.set(gi++, _v.x, _v.y, _v.z, 3, 3, 0, CELL.GLOW, 0, 2.2, 2.0, 1.7, 0.9); }
     G.commit(gi);
   }
   // keep out of the crown's cage and off the mast (the rotor is 11 m); never below the river fog
@@ -342,7 +393,7 @@ export class Gunship {
       const dm = Math.hypot(p.x - MAST.x, p.z - MAST.z);
       if (dm < 13.5 && p.y < 290) { H.vel.x += (p.x - MAST.x) / (dm || 1) * (13.5 - dm) * 8 * dt; H.vel.z += (p.z - MAST.z) / (dm || 1) * (13.5 - dm) * 8 * dt; }
     }
-    if (p.y < 150) H.vel.y = damp(H.vel.y, 8, 3, dt);
+    if (p.y < (H.phase === 'chase' ? 22 : 150)) H.vel.y = damp(H.vel.y, 8, 3, dt);
   }
   _weapons(dt) {
     const g = this.g, H = this.H, m = this.m, head = g.headPos;
@@ -353,9 +404,10 @@ export class Gunship {
       const pod = m.pods[Math.floor(rand() * 2)];
       const p = pod.getWorldPosition(new THREE.Vector3());
       // short of you onto the deck, the parapet beside you, the housing behind you: big, loud, mostly survivable
-      const aim = head.clone().add(_v.set(range(-6, 6), -1.6, range(-6, 6)));
+      const chase = H.phase === 'chase';
+      const aim = head.clone().add(chase ? _v.set(range(-5, 5), range(-3, 2), range(-5, 5)) : _v.set(range(-6, 6), -1.6, range(-6, 6)));
       const dir = aim.clone().sub(p).normalize();
-      this.rockets.push({ pos: p, vel: dir.multiplyScalar(44), life: 5 });
+      this.rockets.push({ pos: p, vel: dir.multiplyScalar(44), life: 5, prox: chase });
       g.audio.play('rocket_launch', { x: p.x, y: p.y, z: p.z });
       g.fx.muzzle(p, dir, 'launcher', false);
     }
@@ -366,12 +418,13 @@ export class Gunship {
       const mz = m.gun.getWorldPosition(new THREE.Vector3());
       const prog = 1 - H.burst / 16;
       const tgt = _v2.lerpVectors(H.walk0, H.walk1, prog);
-      tgt.y = roofGround(tgt.x, tgt.z) + range(-0.2, 0.6);
+      const air = H.phase === 'chase';
+      tgt.y = air ? head.y + range(-2, 0.6) : roofGround(tgt.x, tgt.z) + range(-0.2, 0.6);
       tgt.x += range(-0.8, 0.8); tgt.z += range(-0.8, 0.8);
-      this._gunRound(mz, tgt.clone());
+      this._gunRound(mz, tgt.clone(), air);
     }
   }
-  _gunRound(mz, tgt) {
+  _gunRound(mz, tgt, air = false) {
     const g = this.g;
     (this.H.aimAt ||= new THREE.Vector3()).copy(tgt);
     _v.subVectors(tgt, mz).normalize();
@@ -381,7 +434,7 @@ export class Gunship {
     const { end } = g._round(mz, tgt, null, { speed: 300, color: [2.0, 0.65, 0.28], width: 0.09, len: 6, carDmg: 2 });
     g.fx.later(mz.distanceTo(end) / 300, () => {
       g.fx.main.spawn({ x: end.x, y: end.y + 0.3, z: end.z, vy: range(2, 4), frame: CELL.DIRT, s0: 0.6, s1: 2.2, ease: 0.5, life: 0.9, rot: rand() * 6, r: 0.7, g: 0.68, b: 0.64, a: 0.85, fadeIn: 0.02, fadeOut: 0.3 });
-      if (end.distanceTo(g.headPos) < 1.6 + (g.trailer ? -0.6 : 0)) g.hurt(6, end);
+      if ((air ? tgt : end).distanceTo(g.headPos) < (air ? 1.1 : 1.6) + (g.trailer ? -0.6 : 0)) g.hurt(air ? 4 : 6, end);
     });
   }
   _updRockets(dt) {
@@ -396,7 +449,15 @@ export class Gunship {
       _v.subVectors(r.pos, prev); const L = _v.length(); _v.divideScalar(L || 1);
       const hit = L > 0 ? g.col.raycast(prev, _v, L, b => b.data.noBullet || b.data.kind === 'glass') : null;
       const gy = roofGround(r.pos.x, r.pos.z);
-      if (hit || r.pos.y < gy + 0.2 || r.life <= 0) {
+      const prox = r.prox && (r.pos.distanceTo(g.headPos) < 6 || (r.pos.distanceTo(g.headPos) < 16 && _v3.subVectors(g.headPos, r.pos).dot(r.vel) < 0));
+      if (r.tgt && r.pos.distanceTo(r.tgt) < 3) {
+        r.dead = true; g.audio.stopLoop('rocket:' + r.id);
+        g.boom(r.pos.clone(), 1.5, { radius: 8, dmg: 0, player: false });
+        g.glass.burst?.(r.pos.clone(), new THREE.Vector3(Math.sign(r.pos.x - TC.x), 0.3, Math.sign(r.pos.z - TC.z)), 30, { spread: 4, speed: 6, size: 0.4, life: 9 });
+        this.sp.towerGroan(1); g.lastExplosionShake = 0.8; g.lastExplosionT = g.time;
+        continue;
+      }
+      if (hit || prox || r.pos.y < gy + 0.2 || r.life <= 0) {
         r.dead = true;
         const P = hit ? prev.clone().addScaledVector(_v, hit.t - 0.2) : r.pos.clone().setY(Math.max(r.pos.y, gy + 0.3));
         g.audio.stopLoop('rocket:' + r.id);

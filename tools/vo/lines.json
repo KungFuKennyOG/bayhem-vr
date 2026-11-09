@@ -958,6 +958,26 @@
   ]
  },
  {
+  "key": "2b29f462",
+  "text": "It put rockets into the TOWER! It's pulling back — it'll be back.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "da745855",
+  "text": "It's BACK — right on your tail! Shoot it down!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
   "key": "d2e3159d",
   "text": "The BANK — the whole riverside's going with it!",
   "levels": [
@@ -1180,6 +1200,16 @@
  {
   "key": "6ebea8d5",
   "text": "...Jinlong Tower. Gone. Into the river.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "0403c777",
+  "text": "The hill took Jinlong's footings — LOOK BACK, she's going!",
   "levels": [
    "lights-out"
   ],

@@ -43,62 +43,82 @@ float powK(float code, float wy){
 float lh21(vec2 p){ p = fract(p * vec2(234.34, 435.345)); p += dot(p, p + 34.23); return fract(p.x * p.y); }
 `;
 
+// Window lights are baked into two small mip-mapped textures, one texel per window (A: flats in 3-bay clusters,
+// B: office floors in ~10-bay runs). RGB = the window lit at full power, A = the same window on emergency power
+// (a much sparser, candle-warm pattern). Sampling one texel per window with the window grid's own gradients lets
+// the GPU's mip chain average whole windows at distance: no stipple / static / moiré on the towers.
+const WN = 256;
+function bakeWindows(seed, cluster, frac) {
+  let x = seed >>> 0; const r = () => { x = (x + 0x6D2B79F5) >>> 0; let t = x; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const d = new Uint8Array(WN * WN * 4);
+  const floorOn = new Float32Array(WN).map(() => r() < 0.72 ? 1 : 0);
+  const cl = {};
+  const col = (h) => h < 0.58 ? [1.0, 0.60, 0.28] : h < 0.84 ? [1.0, 0.78, 0.52] : h < 0.97 ? [0.78, 0.88, 1.0] : [0.55, 0.62, 1.0];
+  for (let j = 0; j < WN; j++) for (let i = 0; i < WN; i++) {
+    const ck = j * 1000 + Math.floor(i / cluster);
+    const c = cl[ck] ||= { h: r(), hc: r(), b: r(), e: r() };
+    const own = r();
+    const on = floorOn[j] && (c.h * 0.88 + own * 0.12) < frac;
+    const C = col(c.hc), br = (0.62 + 0.38 * (c.b * 0.6 + own * 0.4)) * (on ? 1 : 0);
+    // emergency: ~1 flat in 22 has a lamp, a candle, a phone (warm, dim, flat by flat): the blackout city reads dark
+    const em = c.e < 0.045 ? 0.55 + 0.45 * own : 0;
+    const o = (j * WN + i) * 4;
+    d[o] = Math.round(C[0] * br * 255); d[o + 1] = Math.round(C[1] * br * 255); d[o + 2] = Math.round(C[2] * br * 255); d[o + 3] = Math.round(em * 255);
+  }
+  const t = new THREE.DataTexture(d, WN, WN, THREE.RGBAFormat, THREE.UnsignedByteType);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
+  return t;
+}
+export const WINTEX = { a: { value: bakeWindows(9157, 3, 0.5) }, b: { value: bakeWindows(4421, 10, 0.42) } };
+
 // procedural windows: uv in metres (u along the face, v up from the building's base), aCell = (bay, floor, seed, style)
 //  style 0 residential slab (punched windows, balcony rails, AC boxes), 1 office ribbon glazing, 2 old block,
 //  3 shop / podium (big glazing), 4 hotel / gold fins
 const WIN_GLSL = /* glsl */`
-vec3 winCol(float h){
-  if (h < 0.58) return vec3(1.0, 0.60, 0.28);          // incandescent / warm LED
-  if (h < 0.84) return vec3(1.0, 0.78, 0.52);          // warm white
-  if (h < 0.97) return vec3(0.78, 0.88, 1.0);          // fluorescent tube (every other Chinese kitchen)
-  return vec3(0.55, 0.62, 1.0);                         // a TV
-}
+uniform sampler2D uWinA, uWinB;
 // returns emissive; writes the glass mask (albedo / roughness) and a detail mask (balcony slabs light, AC units dark)
 vec3 windows(vec2 uv, vec4 cell, float k, float wy, float code, out float glassM, out float frameM, out float detM){
   vec2 cu = uv / cell.xy;
   vec2 id = floor(cu), f = fract(cu);
-  float st = cell.w;
+  // the seed / style arrive as interpolated varyings (not bit-exact across a face): round them before hashing,
+  // or the hash turns float noise into per-pixel static
+  float sd = floor(cell.z + 0.5), st = floor(cell.w + 0.5);
   vec2 lo = st < 0.5 ? vec2(0.12, 0.26) : st < 1.5 ? vec2(0.03, 0.14) : st < 2.5 ? vec2(0.26, 0.34) : st < 3.5 ? vec2(0.05, 0.08) : vec2(0.10, 0.16);
   vec2 hi = st < 0.5 ? vec2(0.72, 0.88) : st < 1.5 ? vec2(0.97, 0.93) : st < 2.5 ? vec2(0.74, 0.82) : st < 3.5 ? vec2(0.95, 0.88) : vec2(0.90, 0.94);
+  vec2 dx = dFdx(cu), dy = dFdy(cu);
   vec2 aa = max(fwidth(cu), vec2(1e-4)) * 1.2;
   vec2 m2 = smoothstep(lo - aa, lo + aa, f) * (1.0 - smoothstep(hi - aa, hi + aa, f));
   float wm = m2.x * m2.y;
-  float h = lh21(id + cell.z * 13.1), h2 = lh21(id.yx * 1.7 + cell.z * 3.3 + 7.0), h3 = lh21(id * 0.31 + 2.0 + cell.z);
+  float h3 = lh21(id * 0.31 + 2.0 + sd);
+  float far = clamp(max(aa.x, aa.y) * 7.0 - 0.7, 0.0, 1.0);       // windows under ~12 px fade to their average (frames, bars, AC boxes), fully by ~4 px
   detM = 0.0;
-  if (st > 0.5 && st < 1.5) wm *= 1.0 - (1.0 - smoothstep(0.0, aa.x * 2.0, abs(fract(f.x * 2.0) - 0.5) - 0.012)) * 0.9;
+  if (st > 0.5 && st < 1.5) wm *= 1.0 - (1.0 - smoothstep(0.0, aa.x * 2.0, abs(fract(f.x * 2.0) - 0.5) - 0.012)) * 0.9 * (1.0 - smoothstep(0.04, 0.12, aa.x));   // the mullion: only up close
   if (st < 0.5 || (st > 1.5 && st < 2.5)) {
     // Chinese residential: a balcony slab edge every floor, an AC condenser hung beside most windows,
-    // burglar bars over the lower floors' windows, laundry / clutter in some balconies
+    // burglar bars over the lower floors' windows (all fade out with distance)
     float slab = 1.0 - smoothstep(0.10, 0.10 + aa.y * 2.0, f.y);
     detM = slab * 0.55;
     vec2 ac = vec2(0.77, 0.12); vec2 acs = vec2(0.17, 0.2);
     float am = step(0.35, h3) * smoothstep(ac.x - aa.x, ac.x + aa.x, f.x) * (1.0 - smoothstep(ac.x + acs.x - aa.x, ac.x + acs.x + aa.x, f.x)) * smoothstep(ac.y - aa.y, ac.y + aa.y, f.y) * (1.0 - smoothstep(ac.y + acs.y - aa.y, ac.y + acs.y + aa.y, f.y));
     detM -= am * 0.75;
-    float bars = (id.y < 6.0 || h2 < 0.25) ? (1.0 - smoothstep(0.0, aa.x * 3.0, abs(fract(f.x * 9.0) - 0.5) - 0.38)) : 0.0;
-    bars *= 1.0 - smoothstep(0.012, 0.04, aa.x);   // fine bars alias into static past a few metres: fade them out
+    float bars = (id.y < 6.0) ? (1.0 - smoothstep(0.0, aa.x * 3.0, abs(fract(f.x * 9.0) - 0.5) - 0.38)) : 0.0;
+    bars *= 1.0 - smoothstep(0.012, 0.04, aa.x);
     wm *= 1.0 - bars * 0.75;
-    detM += bars * wm * 0.0;
   }
-  float far = clamp(max(aa.x, aa.y) * 5.0 - 0.55, 0.0, 1.0);      // windows under ~9 px: blend to their average (no stipple / static / moiré)
   float area = (hi.x - lo.x) * (hi.y - lo.y);
   glassM = mix(wm, area, far);
   detM *= 1.0 - far;
-  // whole floors that are offices / empty; residential: most windows lit at night
-  float floorOn = step(0.3, lh21(vec2(id.y, cell.z * 9.0)));
-  float frac = (st > 0.5 && st < 1.5 ? 0.42 : 0.5) * floorOn;
-  // a flat is two bays wide: its windows go on together, in its own colour (calmer than per-window noise)
-  // lights come on in clusters: a flat is 3 bays, an office floor runs ~10 bays; whole floors dark at random
-  vec2 fl2 = vec2(floor(id.x * (st > 0.5 && st < 1.5 ? 0.1 : 0.34)), id.y);
-  float hf = lh21(fl2 + cell.z * 13.1), hf2 = lh21(fl2.yx * 1.7 + cell.z * 3.3 + 7.0);
-  float on = step(mix(hf, h, 0.12), frac * k);
-  vec3 c = winCol(hf2) * (0.62 + 0.38 * mix(h3, hf, 0.6));
-  c *= 0.75 + 0.35 * smoothstep(0.2, 0.9, f.y) * step(0.5, h3);
-  if (hf2 > 0.97) c *= 0.7 + 0.3 * sin(uTime * 9.0 + h * 40.0);
-  c *= mix(vec3(0.55, 0.38, 0.22), vec3(1.0), smoothstep(0.15, 0.6, k));   // emergency power: dim, candle-warm
-  vec3 e = c * on * wm;
-  vec3 avg = vec3(0.95, 0.68, 0.40) * frac * k * area * 0.8;
   frameM = (1.0 - wm) * (1.0 - far);
-  return mix(e, avg, far);
+  // the lights: one texel per window, mip-filtered by the window grid's own footprint
+  vec2 tu = (mix(id + 0.5, cu, far) + vec2(mod(sd * 37.0, 256.0), mod(sd * 91.0, 256.0))) / 256.0;   // near: the window's own texel; far: filtered smoothly
+  // far off, blur over more windows than the pixel covers: clusters of lit flats otherwise read as blotches / static
+  float lb = 1.0 + 5.0 * far;
+  vec4 W = (st > 0.5 && st < 1.5) || st > 3.5 ? textureGrad(uWinB, tu, dx * lb / 256.0, dy * lb / 256.0) : textureGrad(uWinA, tu, dx * lb / 256.0, dy * lb / 256.0);
+  float full = smoothstep(0.3, 0.85, k);
+  vec3 c = W.rgb * full + W.a * vec3(0.55, 0.36, 0.18) * (1.0 - full) * clamp(k / 0.22, 0.0, 1.0);
+  c *= mix(0.75 + 0.35 * smoothstep(0.2, 0.9, f.y) * step(0.5, h3), 1.0, far);   // a lamp's glow on the ceiling, near only
+  return c * glassM;
 }
 `;
 
@@ -124,6 +144,7 @@ export function litMat(key, o = {}) {
   m.onBeforeCompile = (s) => {
     s.uniforms.uPow = POWER.pow; s.uniforms.uCut = POWER.cut; s.uniforms.uNight = POWER.night; s.uniforms.uTime = POWER.time;
     s.uniforms.uHF = HFOG.p; s.uniforms.uHFC = HFOG.c;
+    if (win) { s.uniforms.uWinA = WINTEX.a; s.uniforms.uWinB = WINTEX.b; }
     s.uniforms.uLM = LM.tex; s.uniforms.uLMC = LM.col; s.uniforms.uLMH = LM.hgt; s.uniforms.uLMR = LM.rect; s.uniforms.uLMG = LM.grp; s.uniforms.uLMK = LM.k;
     s.vertexShader = s.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 aInfo;\nattribute vec3 rm;\nvarying vec4 vInfo;\nvarying vec3 vRM;\nvarying vec3 vWP;' + (win ? '\nattribute vec4 aCell;\nvarying vec4 vCell;\nvarying vec2 vWin;' : ''))

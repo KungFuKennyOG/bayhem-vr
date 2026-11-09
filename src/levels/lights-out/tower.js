@@ -178,7 +178,7 @@ export function buildTower(ctx = {}) {
     const L = Bc.get('plain', 'tc'), top = T.base + T.h, cx = (T.x0 + T.x1) / 2, cz = (T.z0 + T.z1) / 2;
     // the lantern and its name are on the helipad's supply (they stay gold over the blacked-out city, and over you on the roof)
     const RCc = DUSK + DIST.ALWAYS;
-    L.set({ col: FIN, rm: [0.35, 0.8, 0], em: em([1.0, 0.62, 0.26], 0.13, RCc) });
+    L.set({ col: FIN, rm: [0.35, 0.8, 0], em: em([1.0, 0.62, 0.26], 0.05, RCc) });
     for (let i = 0; i < 3; i++) { const y = top + 6 + i * 4; L.box(T.x0 + 4, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z0 + 4.5); L.box(T.x0 + 4, y, T.z1 - 4.5, T.x1 - 4, y + 0.5, T.z1 - 4); L.box(T.x0 + 4, y, T.z0 + 4, T.x0 + 4.5, y + 0.5, T.z1 - 4); L.box(T.x1 - 4.5, y, T.z0 + 4, T.x1 - 4, y + 0.5, T.z1 - 4); }
     for (const [x, z] of [[T.x0 + 4, T.z0 + 4], [T.x1 - 4.5, T.z0 + 4], [T.x0 + 4, T.z1 - 4.5], [T.x1 - 4.5, T.z1 - 4.5]]) L.box(x, top, z, x + 0.5, top + 16, z + 0.5);
     const Mt = Bc.get('metal', 'tc'); Mt.set({ col: [0.3, 0.3, 0.32], rm: [0.4, 0.8, 0] }); Mt.cyl(cx, top + 16, cz, 1.2, 0.12, top + 46, 8, { cap: false });

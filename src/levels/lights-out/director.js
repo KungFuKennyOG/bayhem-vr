@@ -50,6 +50,8 @@ export class Director {
       if (e.type === 'heliHurt' && first('helihurt')) later(0.5, () => say('Engine\'s hit! It\'s smoking — stay on it!', 2.4));
       if (e.type === 'heliDive' && first('helidive')) later(0.6, () => say('It dropped under the edge — watch the sides, it\'s coming back up!', 3));
       if (e.type === 'heliDying' && first('helidying')) later(0.8, () => say('It\'s going DOWN — it\'s going into the hill—', 2.4));
+      if (e.type === 'heliRetreat' && first('heliret')) later(0.6, () => say('It put rockets into the TOWER! It\'s pulling back — it\'ll be back.', 3.2));
+      if (e.type === 'heliChase' && first('helichase')) later(0.8, () => say('It\'s BACK — right on your tail! Shoot it down!', 2.8));
       if (e.type === 'slide' && first('slidevo')) later(1.6, () => say('The BANK — the whole riverside\'s going with it!', 2.8));
     };
     const glow = (k) => { this.glowTarget = k; };
@@ -184,33 +186,23 @@ export class Director {
           this.sp.towerGroan(0.8);
           if (!this.sp.lift && (this.sp.nearLift() || t > 40 * T)) this.sp.liftRide();
         }, until: () => !!this.sp.onRoof },
-      // 11 ---- the roof, 240 m up: a gunship comes up over the edge, ropes men onto the roof, rockets, the chin gun. Bring
-      // it down and it spirals into the hillside district below — into the gold tower on the crest — and the hill lets go
+      // 11 ---- the roof, 240 m up: a gunship comes up over the edge, ropes men onto the roof, rockets, the chin gun. Hurt
+      // badly, it puts a salvo into the tower under you and drops away into the gorge (it is not done: it comes back in the glide)
       { name: 'roof', wp: null, music: 1.0, enter: () => {
           hud.setWaypoint(null);
-          this._pt = 0; this.crashT = -1;
+          this._pt = 0; this.retT = -1;
           later(0.7, () => say('Top of the world. ...Hear that? That is NOT the wind.', 3));
           later(2.6, () => this.sp.gun.spawn());
-          later(3.6, () => hud.objective('Bring down the gunship'));
-          if (A) { A.go([{ p: V(343, 0, 145), nav: null, slow: 0.5 }]); later(2.8, () => { g.cinematicLook = V(350, 236, 196); g.cinematicW = 1.4; }); later(7.5, () => { if (!this.sp.gun.dead) g.cinematicLook = null; }); }
+          later(3.6, () => hud.objective('Fight off the gunship'));
+          if (A) { A.go([{ p: V(343, 0, 145), nav: null, slow: 0.5 }]); later(2.8, () => { g.cinematicLook = V(350, 236, 196); g.cinematicW = 1.4; }); later(7.5, () => { g.cinematicLook = null; }); }
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t;
           const G = this.sp.gun, H = G.H;
-          // no one is stuck up here forever: after three minutes it's burning anyway
-          if (H && H.alive && H.phase !== 'dying' && t > 180) G.damage(dt * 4);
-          for (const e of g.events) {
-            if (e.type === 'heliCrash') this.crashT = t;
-            // to the railing: it goes down into the district under the east face (VR: lean over and watch it)
-            if (e.type === 'heliDying') { hud.setWaypoint(V(ROOFTOP.x1 - 0.6, ROOFTOP.y + 1.2, 138)); later(1.2, () => hud.objective('The railing — watch it go')); if (A) { g.cinematicW = 1.6; A.go([{ p: V(ROOFTOP.x1 - 0.7, 0, 138), nav: null, sprint: true }]); } }
-            if (e.type === 'heliCrash') later(4, () => hud.setWaypoint(null));
-          }
-          // the trailer / desktop camera: the burning bird all the way down, then the hill
-          if (A && H && H.phase === 'dying') g.cinematicLook = H.pos.clone();
-          if (A && this.crashT >= 0 && t > this.crashT + 0.4) { g.cinematicLook = t > this.crashT + 3.5 ? V(520, 12, 168) : V(462, 90, 80); g.cinematicW = 0.9; }
-          if (this.crashT >= 0 && t > this.crashT + 5) this.sp.towerGroan(0.9);
-          // the desktop / trailer camera leans out over the railing to look down (VR: you lean yourself)
-          if (A && g.player && H && !H.alive && g.headPos.x > ROOFTOP.x1 - 1.6) { g.player.lean = V(1.6, 0.45, 0); if (g.loco) g.loco.enabled = false; }
-        }, until: (t) => this.crashT >= 0 && t > this.crashT + 12 },
+          // no one is stuck up here forever: after two and a half minutes it has had enough anyway
+          if (H && H.alive && H.phase !== 'retreat' && H.phase !== 'lurk' && t > 150) G.retreat();
+          for (const e of g.events) if (e.type === 'heliRetreat') this.retT = t;
+          if (A && H && H.phase === 'retreat') { g.cinematicLook = H.salvo < 4 ? H.pos.clone() : V(TOWER.x1, 222, (TOWER.z0 + TOWER.z1) / 2); g.cinematicW = 1.5; }
+        }, until: (t) => (this.retT >= 0 && t > this.retT + 4.5) || t > 200 },
       // 12 ---- the tower's going: the rig, the gap, the jump
       { name: 'jump', wp: V(ROOFTOP.locker.x, ROOFTOP.y + 1.6, ROOFTOP.locker.z), music: 1.0, enter: () => {
           this.sp.towerGroan(1); g.cinematicLook = null; if (g.player) g.player.lean = null; if (g.loco) g.loco.enabled = true;
@@ -228,25 +220,33 @@ export class Director {
           }
           if (this.sp.rigOn) { this.jt += 1 / 60; if (this.sp.atEdge() || this.jt > 20) this.sp.jump(); }
         }, until: () => !!this.sp.glide },
-      // 13 ---- the glide: look back (the tower comes down onto the slid hill), jumpers, the barges, the gunboat
+      // 13 ---- the glide: the gunship comes back for you; shot down, it dives into the hill, the hill slides into the river and
+      // takes Jinlong with it (look back); then jumpers, the barges, the gunboat
       { name: 'glide', wp: null, music: 1.0, enter: () => {
           hud.setWaypoint(null);
-          this.lookT = 0; this._pt = 0; this.downT = 0;
-          later(5.2, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
-          if (A) later(6.0, () => { g.cinematicLook = V(346, 160, 140); g.cinematicW = 1.3; });
+          this.lookT = 0; this._pt = 0; this.downT = 0; this.slideT = -1;
+          later(1.4, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
+          later(4.0, () => this.sp.gun.startChase());
+          if (A) later(3.0, () => { g.cinematicLook = V(346, 175, 175); g.cinematicW = 1.3; });
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t;
-          const sp = this.sp;
-          if (!sp.slide.active) sp.landslide(true);
-          if (!sp.fall && t > 6.5) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > 12) sp.towerFall(); }
+          const sp = this.sp, G = sp.gun, H = G.H;
+          // it's burning: if you haven't finished it by now it goes down on its own (the destruction never waits on aim)
+          if (H && H.alive && H.phase === 'chase' && t > 26) G.damage(dt * 14);
           for (const e of g.events) {
+            if (e.type === 'slide') this.slideT = t;
             if (e.type === 'towerDown') { this.downT = t; later(1.2, () => say('...Jinlong Tower. Gone. Into the river.', 2.8)); }
-            // the trailer / desktop camera: the bank as it goes, then the tower as it comes off the stump
+            // the trailer / desktop camera: the bird, its crash, the hill as it goes, then the tower as it comes off the stump
             if (e.type === 'towerFall' && A) later(3.0, () => { g.cinematicLook = V(400, 120, 150); g.cinematicW = 1.2; });
             if (e.type === 'towerFree' && A) { g.cinematicLook = V(470, 30, 165); g.cinematicW = 1.2; }
-            if (e.type === 'landed') { /* next beat */ }
           }
-          if (sp.fall && ((this.downT && t > this.downT + 3) || t > 26) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
+          if (A && H && H.phase === 'chase' && H.t > 2) { g.cinematicLook = null; }
+          if (A && H && H.phase === 'dying') { g.cinematicLook = H.pos.clone(); g.cinematicW = 1.4; }
+          if (A && this.slideT >= 0 && !sp.fall) { g.cinematicLook = V(486, 30, 122); g.cinematicW = 1.0; }
+          // the hill took Jinlong's footings: once it's sliding, the tower goes (look-gated, 9 s cap)
+          if (this.slideT >= 0 && t > this.slideT + 4.5 && first('towerhint')) say('The hill took Jinlong\'s footings — LOOK BACK, she\'s going!', 3.2);
+          if (this.slideT >= 0 && !sp.fall && t > this.slideT + 5) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || t > this.slideT + 9) sp.towerFall(); }
+          if (sp.fall && ((this.downT && t > this.downT + 3) || t > 52) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
           if (A && g.cinematicLook && this.downT && t > this.downT + 2.6 && first('fallLookEnd')) g.cinematicLook = null;
           if (sp.rail.len - sp.rail.s < 150 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }
           // the boat: a marker on the drums (VR: look down at it), and the desktop / trailer camera goes with it
@@ -301,7 +301,8 @@ export class Director {
       if (ji > idx('blackout')) { this.sp.startBlackout(true); g.glow = 0.1; }
       if (ji > idx('blackout')) { this.sp.blackT = 30; }
       if (ji > idx('lift')) this.sp.onRoof = true;
-      if (ji > idx('roof')) { this.sp.gun.skip(); this.sp.landslide(true); }
+      if (ji > idx('roof') && ji <= idx('glide')) this.sp.gun.lurk();
+      if (ji > idx('glide')) { this.sp.gun.skip(); this.sp.landslide(true); }
       if (ji >= idx('glide')) { this.sp.takeRig(); this.sp.jump(); g.slowT = 0; }
       if (ji > idx('glide')) { this.sp.towerFall(true); }
       g.score = [0, 0, 2400, 5200, 8600, 12000, 15600, 19400, 21800, 22600, 26000, 26800, 34000, 35000, 37000, 44000][ji] || 0;

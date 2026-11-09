@@ -37,7 +37,8 @@ export function buildCanopy({ top = hexc(0x2a2d30), stripe = hexc(0xc8501a), dro
       const th = (c) => 0.42 * Math.max(0, 1 - Math.pow((c + chord * 0.15) / (chord * 0.62), 2));
       A.quad(P(t0, c0, th(c0)), P(t1, c0, th(c0)), P(t1, c1, th(c1)), P(t0, c1, th(c1)));
       // the underside: dark nylon, every other cell a shade lighter (the cell structure reads from below), seams dark
-      { const u = (i % 2 ? 0.11 : 0.075) * (k === 1 ? 1.15 : 1); A.set({ col: [u, u, u * 1.1], em: em([1, 0.45, 0.2], 0.012, DUSK + DIST.ALWAYS) }); }
+      // (lighter than it was: from under it, the canopy read as a flat black slab over your head; the stripes show too)
+      { const u = (i % 2 ? 0.2 : 0.15) * (k === 1 ? 1.12 : 1); const st = col === stripe; A.set({ col: st ? stripe.map(v => v * 0.6) : [u, u, u * 1.08], em: em([1, 0.45, 0.2], st ? 0.06 : 0.03, DUSK + DIST.ALWAYS) }); }
       A.quad(P(t0, c1, 0), P(t1, c1, 0), P(t1, c0, 0), P(t0, c0, 0));
       A.set({ col, em: em([1, 0.45, 0.2], 0.05, DUSK + DIST.ALWAYS) });
     }
