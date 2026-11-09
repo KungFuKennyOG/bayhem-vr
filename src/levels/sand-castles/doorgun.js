@@ -114,7 +114,9 @@ export class DoorGun {
   // after player.update: spin, heat, chute, sound
   update(rdt, dt) {
     const G = this.gun, P = this.player;
-    const trig = P.inputs.fireR || (P.auto && G.sinceShot < 0.1);
+    // (the autopilot keeps the barrels turning while it has a live target, like a gunner riding the trigger)
+    const tk = P.auto && P.autoState.target ? P.autoState.target.kind : null;
+    const trig = P.inputs.fireR || (P.auto && G.sinceShot < 0.1) || (tk && tk !== 'look' && tk !== 'paint');
     // spin-up: the first rounds wait for the barrels
     const want = trig && !this.cooling ? 1 : 0;
     this.spin = damp(this.spin, want, want ? 6 : 1.6, rdt);

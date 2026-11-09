@@ -238,6 +238,14 @@ export function buildTower(gb, t, opts = {}) {
     const a = 1.2 + rng() * 1.6;
     gb.box(px - a, h, pz - a * 0.7, px + a, h + 1.2 + rng() * 1.2, pz + a * 0.7, K.MECH, TT);
   }
+  // roof plant big enough to read from 300 m: a mechanical penthouse, a row of cooling-tower blocks, a water tank
+  if (roof !== 'pad' && roof !== 'pool' && roof !== 'aa' && roof !== 'crown' && inner > 16) {
+    const pw = inner * (0.28 + rng() * 0.18), pd = inner * (0.22 + rng() * 0.14), ox = (rng() - 0.5) * (inner - pw) * 0.6, oz = (rng() - 0.5) * (inner - pd) * 0.6;
+    gb.box(ox - pw / 2, h, oz - pd / 2, ox + pw / 2, h + 4 + rng() * 5, oz + pd / 2, K.MECH, TT);
+    const nC = 2 + Math.floor(rng() * 3), cz = oz + (oz > 0 ? -1 : 1) * (pd / 2 + 5);
+    for (let i = 0; i < nC; i++) { const cx = ox - (nC - 1) * 3.4 + i * 6.8; gb.box(cx - 2.8, h, cz - 2.8, cx + 2.8, h + 3.6, cz + 2.8, K.MECH, TT, i); }
+    if (rng() < 0.6) { const tx = -ox * 0.8, tz = -oz * 0.8 + (rng() - 0.5) * 6; gb.box(tx - 2.2, h + 2.5, tz - 2.2, tx + 2.2, h + 8.5, tz + 2.2, K.MECH, TT); for (const [dx, dz] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) gb.box(tx + dx - 0.2, h, tz + dz - 0.2, tx + dx + 0.2, h + 2.5, tz + dz + 0.2, K.MECH, TT); }
+  }
   // masts on some
   if (rng() < 0.3 && roof !== 'pad' && roof !== 'aa') { const px = (rng() - 0.5) * inner * 0.5, pz = (rng() - 0.5) * inner * 0.5, mh = 12 + rng() * 26; gb.box(px - 0.5, h, pz - 0.5, px + 0.5, h + mh, pz + 0.5, K.MECH, TT); }
   return { roofY: h, inner, rot: rot + aTop };

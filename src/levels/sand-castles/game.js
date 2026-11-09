@@ -588,11 +588,11 @@ export class SandGame {
       if (!m.alive || m.delay > 0) continue;
       const d = m.pos.distanceTo(head);
       if (d > 420) continue;
-      c.push({ kind: 'gunman', p: m.pos, score: 70 - d * 0.12 + (m.role === 'rpg' ? 25 : 0) + (A.target?.ref === m ? 25 : 0), ref: m, tol: 0.02, heavy: false });
+      c.push({ kind: 'gunman', p: m.pos, score: 70 - d * 0.12 + (m.role === 'rpg' ? 25 : 0) + (A.target?.ref === m ? 25 : 0), ref: m, tol: 0.06, heavy: false }); // a minigun hoses: fire when roughly on
     }
-    for (const a of this.aas) if (a.alive && a.active) { const d = a.center.distanceTo(head); if (d < 500) c.push({ kind: 'aa', p: a.center, score: 30 - d * 0.03, ref: a, tol: 0.02, heavy: false }); }
+    for (const a of this.aas) if (a.alive && a.active) { const d = a.center.distanceTo(head); if (d < 500) c.push({ kind: 'aa', p: a.center, score: 30 - d * 0.03, ref: a, tol: 0.06, heavy: false }); }
     const g = this.gunship;
-    if (g && g.phase === 'fight') c.push({ kind: 'heli', p: g.pos, score: 60 + (A.target?.ref === g ? 25 : 0), ref: g, tol: 0.04, heavy: false });
+    if (g && g.phase === 'fight') c.push({ kind: 'heli', p: g.pos, score: 60 + (A.target?.ref === g ? 25 : 0), ref: g, tol: 0.08, heavy: false });
     if (g && g.phase === 'dying') { c.length = 0; c.push({ kind: 'look', p: g.pos, score: 999, ref: g, w: 6 }); }
     else if (this.cinematicLook && !c.some(x => x.kind === 'rocket')) { c.length = 0; c.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: this.cinematicW ?? 3 }); }
     if (this.paintTarget) { c.length = 0; c.push({ kind: 'paint', p: this.paintTarget, score: 999, ref: this.paintTarget, tol: 0.03, w: 4 }); }

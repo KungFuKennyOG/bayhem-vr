@@ -152,7 +152,7 @@ export class HeroTower {
       // the upper section leans over about the break (Level 3), the stump pancakes after a beat
       S.om += 0.34 * Math.sin(S.th + 0.1) * dt;
       S.th = Math.min(1.45, S.th + S.om * dt);
-      S.bend = Math.min(0.55, S.bend + dt * 0.12 * (1 + S.th));
+      S.bend = Math.min(0.12, S.bend + dt * 0.04 * (1 + S.th)); // nearly rigid: the upper third goes over as ONE piece (a big bend read as a chain of boxes)
       if (S.t > 1.2) { S.sinkV = Math.min(16, S.sinkV + 6 * dt); S.sink = Math.min(K * HERO.band + 10, S.sink + S.sinkV * dt); }
       // spire shears off and tips toward the heli
       if (!this.spireBody && S.th > 0.22) this._shearSpire();
@@ -162,12 +162,16 @@ export class HeroTower {
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.15;
     }
     this._solveSpine();
+    // one continuous dust curtain off the falling section (its top, middle and the torn break), not a puff per chunk
+    if (S.phase === 'fall') { const N = this.nodes, m = Math.floor((K + B) / 2);
+      for (const j of [B, m, K + 1]) g.fx.trailEmit(N[j], N[j].p, 9 / Math.max(0.3, dust.rate), (q) => dust.plume(q.x, q.y, q.z, 0, 0, range(1.2, 2.2), j === K + 1), 0); }
     // ---- 2. upper chunks detach top-down as it leans
     if (S.phase === 'fall') {
       for (const c of this.chunks) {
         if (c.state !== 'on' || c.kind === 'spire' || c.b <= K) continue;
         const frac = (c.b - K) / (B - K);
-        c.thr ??= lerp(0.95, 0.38, frac) + range(-0.08, 0.08);
+        // it holds together as it goes over and only sheds the outer facade first; the core lets go late
+        c.thr ??= (c.kind === 'face' ? lerp(1.05, 0.62, frac) : lerp(1.25, 1.0, frac)) + range(-0.12, 0.12);
         if (S.th > c.thr) this._detach(c);
       }
       if (S.th > 1.2) { for (const c of this.chunks) if (c.state === 'on' && c.b > K && c.kind !== 'spire') this._detach(c); S.phase = 'down'; }
@@ -242,7 +246,7 @@ export class HeroTower {
     c.p.addScaledVector(c.v, dt);
     const wl = c.w.length(); if (wl > 1e-4) { _q.setFromAxisAngle(_v.copy(c.w).divideScalar(wl), wl * dt); c.q.premultiply(_q); }
     // dust shroud off the big pieces (trailEmit spaces it along the path: no string of pearls)
-    if (c.kind === 'core' || c.i % 3 === 0) this.g.fx.trailEmit(c, c.p, 9 / Math.max(0.3, this.dust.rate), (q) => this.dust.plume(q.x, q.y, q.z, c.v.x * 0.3, c.v.z * 0.3, 1.1), 0);
+    if (c.kind === 'core') this.g.fx.trailEmit(c, c.p, 14 / Math.max(0.3, this.dust.rate), (q) => this.dust.plume(q.x, q.y, q.z, c.v.x * 0.3, c.v.z * 0.3, range(0.8, 1.6)), 0);
     // lowest corner vs the ground
     _m.makeRotationFromQuaternion(c.q); const e = _m.elements;
     const lo = c.p.y - (Math.abs(e[1]) * c.h.x + Math.abs(e[5]) * c.h.y + Math.abs(e[9]) * c.h.z);

@@ -29,7 +29,7 @@ vec3 skyAt(vec3 d){
   vec3 cD = mix(hor, mid, smoothstep(0.0, 0.22, pow(hh, 0.8))); cD = mix(cD, zen, smoothstep(0.22, 0.9, hh));
   cD += vec3(1.0, 0.75, 0.45) * pow(sa, 5.0) * 0.55 + vec3(1.0, 0.85, 0.6) * pow(sa, 60.0) * 1.2;
   // ---- sunset over the Gulf: orange at the sun, rose and violet away from it, deep blue overhead
-  vec3 zS = vec3(0.06, 0.1, 0.24), mS = vec3(0.38, 0.3, 0.38), hA = vec3(1.08, 0.58, 0.34), hS = vec3(2.4, 0.95, 0.32);
+  vec3 zS = vec3(0.07, 0.09, 0.2), mS = vec3(0.52, 0.32, 0.26), hA = vec3(1.25, 0.6, 0.28), hS = vec3(2.6, 0.95, 0.28);
   vec3 horS = mix(hA, hS, pow(az, 3.0) * smoothstep(0.0, 0.0, 1.0));
   vec3 cS = mix(mix(hA, hS, pow(sa, 2.5)), mix(mS, zS, smoothstep(0.15, 0.7, hh)), smoothstep(0.0, 0.3, pow(hh, 0.7)));
   cS += vec3(1.3, 0.55, 0.16) * pow(sa, 3.0) * (1.0 - smoothstep(0.0, 0.5, hh)) + vec3(1.6, 0.8, 0.35) * pow(sa, 40.0);
@@ -100,8 +100,8 @@ export function bakeEnv(renderer, storm, sunset) {
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const LOOKS = {
   day: { sun: C(1.0, 0.64, 0.36), sunI: 5.3, hs: C(0.52, 0.5, 0.54), hg: C(0.62, 0.45, 0.3), hI: 0.42, fog: C(0.8, 0.66, 0.52), near: 600, far: 8500, fogSun: [1.6, 0.88, 0.42], rim: [1.0, 0.66, 0.38], exp: 0.76, env: 0.55 },
-  sunset: { sun: C(1.0, 0.52, 0.22), sunI: 4.0, hs: C(0.52, 0.43, 0.44), hg: C(0.55, 0.32, 0.2), hI: 0.62, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.1, 0.88, 0.34], rim: [1.5, 0.78, 0.4], exp: 1.02, env: 0.85 },
-  storm: { sun: C(1.0, 0.62, 0.32), sunI: 1.3, hs: C(0.78, 0.55, 0.34), hg: C(0.55, 0.36, 0.2), hI: 1.0, fog: C(0.6, 0.4, 0.22), near: 30, far: 820, fogSun: [0.95, 0.5, 0.2], rim: [0.6, 0.38, 0.2], exp: 1.0, env: 0.55 },
+  sunset: { sun: C(1.0, 0.5, 0.2), sunI: 4.7, hs: C(0.56, 0.42, 0.36), hg: C(0.55, 0.3, 0.18), hI: 0.5, fog: C(0.78, 0.5, 0.38), near: 600, far: 8000, fogSun: [2.3, 0.88, 0.3], rim: [1.9, 0.85, 0.35], exp: 1.0, env: 0.8 },
+  storm: { sun: C(1.0, 0.62, 0.32), sunI: 1.8, hs: C(0.7, 0.5, 0.32), hg: C(0.45, 0.3, 0.17), hI: 0.68, fog: C(0.56, 0.37, 0.2), near: 30, far: 820, fogSun: [0.95, 0.5, 0.2], rim: [0.6, 0.38, 0.2], exp: 1.0, env: 0.55 },
 };
 const _c = new THREE.Color();
 export const TOD = { sunset: 0, storm: 0, elev: 30 };
