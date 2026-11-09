@@ -111,7 +111,10 @@ export class SetPieces {
     const g = this.g;
     if (tower === this.heroTarget) { if (k === 2) this.g.events.push({ type: 'heroStruck' }); return; }
     for (const a of g.aas) if (a.tower === tower && a.alive) g.killAA(a, 'strike');
-    for (let i = 0; i < 6; i++) this.dust.plume(P.x + range(-10, 10), P.y + range(-8, 8), P.z + range(-10, 10), range(-6, 6), range(-6, 6), 1.1, rand() < 0.6);
+    // a strike is fire first: a hot core and a burst of flame, then the black smoke rising out of it
+    g.fx.explosion(P.clone(), 1.8); g.fx.light(P, 3000, 0.8, 0xff7a2a, false, 500);
+    for (let i = 0; i < 10; i++) g.fx.flame(_v.set(P.x + range(-12, 12), P.y + range(-6, 8), P.z + range(-12, 12)), range(6, 10));
+    for (let i = 0; i < 6; i++) this.dust.plume(P.x + range(-10, 10), P.y + range(-8, 8), P.z + range(-10, 10), range(-6, 6), range(-6, 6), 1.1, i < 4);
     if (k === 2) g.fx.later(0.7, () => { if (this.fallTower(tower.id, g.headPos)) { g.addScore(2500, 'TOWER DOWN', g.calloutAt(P.clone().setY(P.y + 30)), 'huge'); g.slowmoReq(1.6, 0.4); } });
   }
   update(dt, rdt, eye) {

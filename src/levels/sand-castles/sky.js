@@ -27,7 +27,7 @@ vec3 skyAt(vec3 d){
   // ---- afternoon: milky, dusty blue; a wide white-gold glare round the sun; a beige haze band at the horizon
   // (a Gulf afternoon: the dust never settles, so even straight up the blue is pale and milky; a thick beige band
   // sits on the horizon all the way round, and the sun is a big hazy glare rather than a crisp disc)
-  vec3 zen = vec3(0.24, 0.34, 0.5), mid = vec3(0.55, 0.56, 0.56), hor = mix(vec3(0.98, 0.8, 0.58), vec3(1.4, 0.92, 0.55), pow(az, 2.0));
+  vec3 zen = vec3(0.16, 0.28, 0.5), mid = vec3(0.5, 0.53, 0.56), hor = mix(vec3(0.98, 0.8, 0.58), vec3(1.4, 0.92, 0.55), pow(az, 2.0));
   vec3 cD = mix(hor, mid, smoothstep(0.0, 0.34, pow(hh, 0.75))); cD = mix(cD, zen, smoothstep(0.3, 1.0, hh));
   cD += vec3(1.0, 0.78, 0.5) * pow(sa, 3.0) * 0.6 + vec3(1.0, 0.86, 0.62) * pow(sa, 20.0) * 0.9 + vec3(1.0, 0.92, 0.75) * pow(sa, 200.0) * 1.6;
   // ---- sunset over the Gulf: orange at the sun, rose and violet away from it, deep blue overhead
