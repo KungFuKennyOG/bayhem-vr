@@ -121,7 +121,7 @@ const ROWSC = [[40, 76, 112], [40, 58, 94], [40, 76, 130], [40, 58, 112], [40, 7
 const colOf = (x) => Math.max(0, Math.min(COLS.length - 2, COLS.findIndex((c, i) => x >= c && x < COLS[i + 1])));
 // the east rim: the district beside the slide doesn't end on a ruler line. Three more pieces (one per row, different
 // widths) lose their support, drop and tilt into the scar and hang there, houses leaning: a broken, stepped edge
-const RIMW = [16, 30, 21], rimBot = (x, z) => hillY(z) - 15;
+const RIMW = [16, 30, 21], rimBot = (x, z) => Math.max(WATER_Y - 6, hillY(z) - 46);   // deep: when they drop they bed into the scar's floor (a 15 m slab hung over a void)
 
 // the torn floor where a tower breaks: a ragged slab, rebar bristling out of it, a dark gash (upper: hanging down)
 function breakCap(B, reg, t, yb, upper) {
@@ -187,13 +187,13 @@ export function buildSlide(ctx = {}) {
       gridFace(W, (u, v) => { const z = Math.min(PLAZA.z1 + 0.5, C0 + (PLAZA.z1 + 0.5 - C0) * (1 - u)), lo = Math.min(hillY(z), bankAt(z)), hi = Math.max(lo, bankAt(z) + 1.2); return [SLIDE.x0 - 0.05, lo + (hi - lo) * v, z]; }, 40, 6);
       const Ce = B.get('concrete', 'scar'); Ce.set({ col: [0.42, 0.42, 0.43], rm: [0.9, 0, 0], em: em([1.0, 0.55, 0.2], 0.9, DUSK + CODE) });
       Ce.box(SLIDE.x0 - 0.3, 57.0, C0, SLIDE.x0, 57.25, PLAZA.z1, { faces: 'X' }); }
-    sideFace(A, SLIDE.x1, -1, hillProfile(C0, ZF).map(([y, z]) => [y - 12, z]), { jag: 9, under: (z) => hillY(z) - 12, colFn: earthCol });
+    sideFace(A, SLIDE.x1, -1, hillProfile(C0, ZF).map(([y, z]) => [y - 40, z]), { jag: 9, under: (z) => hillY(z) - 40, colFn: earthCol });
     for (let rw = 0; rw < 3; rw++) {
       const za = SLIDE.rows[rw], zb = rw === 2 ? ZF : SLIDE.rows[rw + 1];
-      sideFace(A, SLIDE.x1 + RIMW[rw], -1, hillProfile(za, zb), { colFn: rc, bot: (x, z) => hillY(z) - 17 });
+      sideFace(A, SLIDE.x1 + RIMW[rw], -1, hillProfile(za, zb), { colFn: earthCol, bot: (x, z) => Math.max(WATER_Y - 8, hillY(z) - 50) });   // raw earth behind them (it was pale rock: a blank sheet)
       if (rw < 2) { const wa = RIMW[rw], wb = RIMW[rw + 1], z = SLIDE.rows[rw + 1];
-        if (wa < wb) crossFace(A, z, SLIDE.x1 + wa, SLIDE.x1 + wb, 1, hillY(z - 1e-3), earthCol, (x, zz) => hillY(zz + 1e-3) - 17);
-        else crossFace(A, z, SLIDE.x1 + wb, SLIDE.x1 + wa, -1, hillY(z + 1e-3), earthCol, (x, zz) => hillY(zz + 1e-3) - 17); }
+        if (wa < wb) crossFace(A, z, SLIDE.x1 + wa, SLIDE.x1 + wb, 1, hillY(z - 1e-3), earthCol, (x, zz) => Math.max(WATER_Y - 8, hillY(zz + 1e-3) - 50));
+        else crossFace(A, z, SLIDE.x1 + wb, SLIDE.x1 + wa, -1, hillY(z + 1e-3), earthCol, (x, zz) => Math.max(WATER_Y - 8, hillY(zz + 1e-3) - 50)); }
     }
     // broken services sticking out of the head scarp, rubble down the slope and piled at the waterline
     const Mt = B.get('metal', 'scar');
