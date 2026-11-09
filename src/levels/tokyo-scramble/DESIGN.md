@@ -23,11 +23,16 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
    taxi rank), into the scramble (abandoned cars, the giant screens). After ~9 s every screen tears over to the
    emergency broadcast (緊急警報 / EVACUATE). Screens can be shot out.
 3. **avenue** — east under the yellow subway bridge to the East Exit; a sniper on the roof across the avenue.
-4. **eastexit** — the bus plaza (buses, shelters, zelkovas, the old kiosk, vending under the deck). Gunmen pace the
+4. **eastexit** — the bus plaza: an asphalt bus loop round a raised island (lane paint, oil / patches / skids,
+   zebras on the tactile line, バス専用 / 止まれ, numbered stop poles with timetables, lamp posts, cones and crowd
+   barriers), a coach at a bay, a coach **burning** by the east stair, shelters, zelkovas, the old kiosk, vending under
+   the deck. Gunmen pace the
    deck ring overhead (`perch` role: they walk their arm toward you, duck behind the frosted glass, pop up to fire)
    while more come at you across the plaza: you shoot **up**.
 5. **decks** — up the east stair, along the east and north arms (gunmen left in the plaza now shoot up at you; you
-   shoot **down**), up the station's face stair to the roof terrace (sky garden, kiosk pavilion, the station tower),
+   shoot **down**; the west / east arms are roofed walkways with hanging direction signs and lit ad boxes), up the
+   station's face ramp to the roof terrace (sky garden: a timber café deck with parasols, a lawn and hedge, a rooftop
+   Inari shrine — three torii, a hokora, two foxes, a stone lantern — roof plant, the kiosk pavilion, the station tower),
    then the link bridge onto the expressway.
 6. **xway** — west through the jam (both carriageways), a sniper on a roof north of the road.
 7. **tanker** — shoot the tanker (it leaks, catches, blows). VR rule: if you don't, it goes once you're looking at it
@@ -118,4 +123,7 @@ glass (Ghostwire: Tokyo's trick). `?night=1` brings back the night-neon build fo
 and browns it as things burn), `ai.js` + `auto.js` imported from Level 5, `traffic.js` (Level 5's, `city: 'tokyo'`
 liveries: dark taxis, all-red police light bars), `setpieces.js` (tanker + span, gas works + chain, dive),
 `ruin.js` (the chain's aftermath: 4 instanced meshes — gutted openings, facade soot, ground scorch, rubble — every
-instance built hidden at load and revealed by its blast, plus the lingering fires), `director.js`.
+instance built hidden at load and revealed by its blast, plus the lingering fires), `jam.js` (the gridlock past the
+fight: 3 instanced car shapes to the horizon both ways, no colliders), `vending.js` (the vending machine fronts' own
+2048×512 atlas: cans, PET bottles, prices, buttons, coin / IC panel, 取出口), `kit.js` (`zelkova` crowns and `bush`
+are alpha-tested painted leaf-cluster cards, `roadDecalMaterial` / `scatterDecals`), `director.js`.
