@@ -79,6 +79,7 @@ export const FOOTB = { x0: 336, x1: 346, z0: 108, z1: 120, y: 56 };             
 // hill to a narrow quay: stacked housing, stairs, towers). It breaks into blocks (cuts × rows) and slides down its slip
 // surface (scarY0) into the river. gone = it has happened (debris then lands on the scar / in the water there)
 export const SLIDE = { x0: 370, x1: 592, crack: 40, toe: 178, depth: 80, cuts: [370, 426, 481, 537, 592], rows: [40, 76, 112, 161.2], gone: false };
+export const HILLE = { x0: 592, x1: 1000 };   // the district carries on east of the slide (static): the slide is a gap torn out of it
 export const TERR = { z0: 40, d: 18, n: 6, y0: 64, dy: 10.5, quay: 148 };
 export const hillY = (z) => z >= TERR.quay ? QUAY.y : TERR.y0 - TERR.dy * Math.max(0, Math.min(TERR.n - 1, Math.floor((z - TERR.z0) / TERR.d)));
 export const scarY0 = (z) => { const w = Math.min(1, Math.max(0, (z - SLIDE.crack) / (SLIDE.toe - SLIDE.crack))); return TERR.y0 - SLIDE.depth * (1 - Math.pow(1 - w, 2.0)); };
@@ -132,6 +133,7 @@ export const gstairY = (x) => x >= GSTAIR.xTop ? GSTAIR.y0 : x <= GSTAIR.x0 ? GS
 export function terrainAt(x, z) {
   if (z >= RIVER.z0 && z <= FARBANK.z) return WATER_Y - 4;
   if (x > SLIDE.x0 && x < SLIDE.x1 && z > SLIDE.crack) return SLIDE.gone ? Math.max(WATER_Y - 4, scarY0(z)) : hillY(z);
+  if (x >= HILLE.x0 && x < HILLE.x1 && z > SLIDE.crack) return hillY(z);
   if (z > FARBANK.z) return Math.min(64, (z - FARBANK.z) * 2.2);
   if (x > RAVINE.x0 && x < RAVINE.x1 && z > RAVINE.z0) return RAVINE.floor;
   if (z > QUAY.z0) return QUAY.y;

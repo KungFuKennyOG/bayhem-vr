@@ -8,7 +8,7 @@ import { SIGN, SIGN_LIST } from './signs.js';
 import { lampPost, lantern, tree } from './kitbuild.js';
 import { towerBlock } from './city.js';
 import { gridFace, fbm, eastP, rockCol } from './terrain.js';
-import { SLIDE, TERR, hillY, scarY0, QUAY, RIVER, PLAZA, WATER_Y } from './layout.js';
+import { SLIDE, TERR, HILLE, hillY, scarY0, QUAY, RIVER, PLAZA, WATER_Y } from './layout.js';
 
 // =====================================================================================
 //  THE LANDSLIDE. East of Jinlong the bank is a hillside district: six terraced streets step down
@@ -170,7 +170,7 @@ export function buildSlide(ctx = {}) {
     // the valley walls where the bank broke: rock face above the hill line (seen before), rough earth below it
     const rc = (p) => p[1] > hillY(p[2]) + 0.5 ? rockCol(p) : earthCol(p);
     sideFace(A, SLIDE.x0, 1, bankProfile(SLIDE.x0), { jag: 9, under: hillY, colFn: rc });
-    sideFace(A, SLIDE.x1, -1, bankProfile(SLIDE.x1), { jag: 9, under: hillY, colFn: rc });
+    sideFace(A, SLIDE.x1, -1, hillProfile(C0, ZF), { jag: 9, under: hillY, colFn: rc });
     // broken services sticking out of the head scarp, rubble down the slope and piled at the waterline
     const Mt = B.get('metal', 'scar');
     Mt.set({ col: [0.2, 0.21, 0.22], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
@@ -214,6 +214,97 @@ export function buildSlide(ctx = {}) {
     }
     tris += B.finish(wreck).tris;
   }
+  // ---- a strip of the hillside district between xa..xb, za..zb: terrace paving, retaining walls (shops, lit lines), railings,
+  // lamps, lanterns, stairways, housing; the quay and river wall if it reaches the river. code = the streets' power district
+  const streets = (B, reg, xa, xb, za, zb, gl, c, code) => {
+  const As = B.get('asphalt', reg), Cc = B.get('concrete', reg), St = B.get('stone', reg), Mt = B.get('metal', reg);
+  As.set({ col: [0.42, 0.42, 0.44], rm: [0.5, 0, 0], em: [0, 0, 0, 0] });
+  Cc.set({ col: [0.56, 0.54, 0.5], rm: [0.9, 0, 0], em: em([1.0, 0.6, 0.3], 0.05, DUSK + code) });
+  St.set({ col: [0.5, 0.48, 0.45], rm: [0.85, 0, 0], em: [0, 0, 0, 0] });
+  Mt.set({ col: [0.22, 0.23, 0.24], rm: [0.4, 0.8, 0], em: [0, 0, 0, 0] });
+  const occ = [];   // footprints already taken on each terrace (stairways)
+  for (let k = 0; k < TERR.n; k++) {
+    const z0 = tz0(k), z1 = tz0(k + 1), y = ty(k);
+    if (z0 < za - 1e-3 || z0 >= zb - 1e-3) continue;
+    As.box(xa, y - 0.4, z0, xb, y, z1, { faces: 'Y', s: 1 });
+    // the retaining wall at the terrace's front edge, down to the next terrace (board-marked concrete, a stone base)
+    const yn = k < TERR.n - 1 ? ty(k + 1) : QUAY.y;
+    Cc.box(xa, yn, z1 - 0.8, xb, y, z1, { faces: 'Z', s: 1 });
+    St.box(xa, yn, z1 - 0.2, xb, yn + 1.4, z1 + 0.4, { faces: 'YZ', s: 1 });
+    // shops and doorways built into the wall (Chongqing's retaining walls are lived in): lit openings, a lightbox over each
+    { const Sh = B.get('plain', reg), Sg = B.get('sign', reg);
+      for (let x = xa + 3 + r() * 6; x < xb - 5; x += 8 + r() * 9) {
+        const w = 2.6 + r() * 2.4, h = 2.8, on = r() < 0.75, col = r() < 0.6 ? [1.0, 0.62, 0.3] : [0.8, 0.9, 1.0];
+        Sh.set({ col: [0.06, 0.05, 0.045], rm: [0.9, 0, 0], em: on ? em(col, 0.9, DUSK + code) : [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+        Sh.box(x, yn + 0.1, z1 + 0.02, x + w, yn + h, z1 + 0.03, { faces: 'Z' });
+        if (on && r() < 0.7) { Sg.set({ col: [1, 1, 1], rm: [0.5, 0, 0], em: em([1, 1, 1], 1.4, DUSK + code), cell: [0, 0, 0, 0] }); signQuad(Sg, [x + w / 2, yn + h + 0.55, z1 + 0.06], [0, 0, 1], w + 0.4, 0.8, SIGN[SIGN_LIST.shops[(r() * SIGN_LIST.shops.length) | 0]]); }
+        if (on) gl.push({ p: [x + w / 2, yn + 1.6, z1 + 1.2], color: [col[0] * 0.9, col[1] * 0.7, col[2] * 0.5], size: 2.2, code: DUSK + code });
+      } }
+    { const Le = B.get('plain', reg); Le.set({ col: [0.2, 0.18, 0.15], rm: [0.5, 0.3, 0], em: em([1.0, 0.5, 0.16], 1.1, DUSK + code), cell: [0, 0, 0, 0] });
+      Le.box(xa, y - 0.75, z1 + 0.02, xb, y - 0.2, z1 + 0.14, { faces: 'yZ' });
+      Le.set({ col: [0.2, 0.18, 0.15], rm: [0.5, 0.3, 0], em: em([0.9, 0.5, 0.2], 0.9, DUSK + code) });
+      Le.box(xa, yn + 0.05, z1 + 0.42, xb, yn + 0.25, z1 + 0.5, { faces: 'YZ' }); }
+    // its railing, its lamps, a lantern string over the street
+    Mt.box(xa, y + 1.05, z1 - 0.45, xb, y + 1.13, z1 - 0.37); Mt.box(xa, y + 0.55, z1 - 0.44, xb, y + 0.6, z1 - 0.38);
+    for (let x = xa + 1.2; x < xb; x += 2.4) Mt.box(x - 0.04, y, z1 - 0.44, x + 0.04, y + 1.1, z1 - 0.37);
+    for (let x = xa + 6 + (k % 2) * 6; x < xb - 3; x += 14) lampPost(B, reg, x, y, z1 - 1.3, { dir: [0, 0, -1], h: 6.5, code: code, glows: gl, col: [1.0, 0.72, 0.38] });
+    if ((k + c) % 2 === 0) for (let x = xa + 2.5; x < xb - 2; x += 3.4) lantern(B, reg, x, y + 5.6 + Math.sin((x - xa) / (xb - xa) * Math.PI) * -0.5, z1 - 4.2, 0.7, code, (x | 0) % 3 ? null : gl);
+    occ[k] ||= [];
+    // a stairway in front of the wall up to this terrace from the one below (the hill's alleys)
+    if (k < TERR.n - 1) {
+      const sx = xa + 8 + r() * (xb - xa - 18), n = 16;
+      for (let j = 0; j < n; j++) { const yy = yn + (y - yn) * (j + 1) / n; St.box(sx, yn, z1 + 5.6 - 5.6 * (j + 1) / n, sx + 2.6, yy, z1 + 5.6 - 5.6 * j / n, { faces: 'xXYZ', s: 1 }); }
+      Mt.beam([sx - 0.05, yn + 1, z1 + 5.6], [sx - 0.05, y + 1, z1], 0.05, 0.05);
+      (occ[k + 1] ||= []).push([sx - 1.5, sx + 4.2]);
+      if (r() < 0.6) tree(B, reg, sx + 5, yn, z1 + 3.5, 0.75 + r() * 0.3, seed++);
+    }
+  }
+  // ---- the housing: stacked blocks against the wall behind each terrace, roofs at (or past) the street above,
+  // shops in the podiums, names on a few roofs. Windows split between the generators and the dead grid.
+  for (let k = 0; k < TERR.n; k++) {
+    const z0 = tz0(k), y = ty(k);
+    if (z0 < za - 1e-3 || z0 >= zb - 1e-3) continue;
+    const taken = (occ[k] || []).concat(TOWERS.filter(t => t.c === c && k === 0).map(t => [t.x0 - 2, t.x1 + 2]), SHELLS.filter(S => S.c === c && k === 0).map(S => [S.x0 - 1, S.x1 + 1]));
+    let x = xa + 1 + r() * 2;
+    while (x < xb - 9) {
+      const w = Math.min(xb - 1 - x, 12 + r() * 10), xe = x + w;
+      if (taken.some(([a, b]) => xe > a && x < b)) { x += 3; continue; }
+      // low on the slope (2-4 storeys: the terraces, their walls and street lights stay readable from the river), a few taller
+      const d = k === 0 ? 7 + r() * 2 : 8 + r() * 3, n = k === 0 ? 4 + Math.floor(r() * 6) : (r() < 0.15 ? 5 + Math.floor(r() * 3) : 2 + Math.floor(r() * 3)), h = n * 3;
+      const t = { x0: x, z0: z0 + 0.6, x1: xe, z1: z0 + 0.6 + d, y0: y, h, style: r() < 0.65 ? 0 : 2, podium: k > 0 && n > 4 && r() < 0.6, plinth: 0, seed: seed++,
+        crown: h > 26 && r() < 0.35 ? 'frame' : null, ledCol: [1.0, 0.82, 0.55], roofSign: h > 24 && r() < 0.22 ? SIGN_LIST.roofs[(r() * SIGN_LIST.roofs.length) | 0] : null, signN: [0, 0, 1], dist: r() < 0.38 ? code : DIST.EAST };
+      towerBlock(B, t, reg, gl);
+      x = xe + 2.5 + r() * 3;
+    }
+  }
+  // the quay and its river wall (bottom row)
+  if (zb >= ZF - 0.01) {
+    As.box(xa, QUAY.y - 0.5, TERR.quay, xb, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
+    Cc.box(xa, WATER_Y - 3, RIVER.z0, xb, QUAY.y + 0.05, ZF, { faces: 'YZ', s: 1 });
+    Cc.box(xa, QUAY.y, RIVER.z0 - 0.4, xb, QUAY.y + 1.0, RIVER.z0, { faces: 'yYzZ', s: 1 });
+    const L = B.get('plain', reg);
+    for (let x = -1380; x < 1580; x += 28) {
+      if (x <= xa || x >= xb) continue;
+      const z = RIVER.z0 - 0.8;
+      Mt.set({ col: [0.25, 0.26, 0.27], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
+      Mt.cyl(x, QUAY.y, z, 0.1, 0.07, QUAY.y + 6.5, 6, { cap: false }); Mt.beam([x, QUAY.y + 6.4, z], [x, QUAY.y + 6.6, z - 1.4], 0.12, 0.12);
+      L.set({ col: [1, 1, 1], rm: [0.5, 0, 0], em: em(SODIUM, 3, DUSK + code) }); L.box(x - 0.25, QUAY.y + 6.25, z - 1.65, x + 0.25, QUAY.y + 6.4, z - 1.1);
+      gl.push({ p: [x, QUAY.y + 6.1, z - 1.4], color: [2.4, 1.3, 0.5], size: 2.6, code: DUSK + code, far: true, quay: true });
+    }
+  }
+  };
+  // ---------------------------------------------------------------- the district carries on east of the slide (static, on
+  // its own generators: it stays lit, so the gap the slide tears in it reads)
+  {
+    const B = mkB(M), gl = [];
+    for (let x = HILLE.x0; x < HILLE.x1 - 1; x += 56) streets(B, 'nb', x, Math.min(HILLE.x1, x + 56), C0, ZF, gl, -1, DIST.ALWAYS);
+    // the hill's east end: a rock face where it meets the old bank (both ways, wherever one stands above the other)
+    const A = B.get('rock', 'nb'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
+    const Hp = hillProfile(C0, ZF), Bp = bankProfile(HILLE.x1), bankAt = (z) => { for (let i = 1; i < Bp.length; i++) if (Bp[i][1] >= z) return Bp[i][0]; return QUAY.y; };
+    for (const dir of [1, -1]) { const n = Hp.length - 1; gridFace(A, (u, v) => { const i = Math.min(n - 1, Math.floor(u * n)), f = u * n - i, a2 = Hp[dir > 0 ? n - i : i], b2 = Hp[dir > 0 ? n - i - 1 : i + 1], zz = a2[1] + (b2[1] - a2[1]) * f, hy = a2[0] + (b2[0] - a2[0]) * f, by = bankAt(zz), lo = Math.min(hy, by), hi = Math.max(hy, by); return [HILLE.x1, lo + (hi - lo) * v, zz]; }, n, 1, { colFn: rockCol }); }
+    tris += B.finish(root).tris;
+    for (const q of gl) glows.push({ ...q, far: true, prio: 1 });
+  }
   // ---------------------------------------------------------------- the blocks
   const blocks = [], bones = [], skin = {};
   const cuts = SLIDE.cuts, rows = SLIDE.rows;
@@ -229,81 +320,7 @@ export function buildSlide(ctx = {}) {
     sideFace(R, xa, -1, P); sideFace(R, xb, 1, P);
     if (rw > 0) crossFace(R, za, xa, xb, -1, hillY(za + 1e-3));                         // back break (faces up-slope)
     if (rw < 2) crossFace(R, zb, xa, xb, 1, hillY(zb + 1e-3));                          // front break below the next terrace
-    const As = B.get('asphalt', reg), Cc = B.get('concrete', reg), St = B.get('stone', reg), Mt = B.get('metal', reg);
-    As.set({ col: [0.42, 0.42, 0.44], rm: [0.5, 0, 0], em: [0, 0, 0, 0] });
-    Cc.set({ col: [0.56, 0.54, 0.5], rm: [0.9, 0, 0], em: em([1.0, 0.6, 0.3], 0.05, DUSK + CODE) });
-    St.set({ col: [0.5, 0.48, 0.45], rm: [0.85, 0, 0], em: [0, 0, 0, 0] });
-    Mt.set({ col: [0.22, 0.23, 0.24], rm: [0.4, 0.8, 0], em: [0, 0, 0, 0] });
-    const occ = [];   // footprints already taken on each terrace (stairways)
-    for (let k = 0; k < TERR.n; k++) {
-      const z0 = tz0(k), z1 = tz0(k + 1), y = ty(k);
-      if (z0 < za - 1e-3 || z0 >= zb - 1e-3) continue;
-      As.box(xa, y - 0.4, z0, xb, y, z1, { faces: 'Y', s: 1 });
-      // the retaining wall at the terrace's front edge, down to the next terrace (board-marked concrete, a stone base)
-      const yn = k < TERR.n - 1 ? ty(k + 1) : QUAY.y;
-      Cc.box(xa, yn, z1 - 0.8, xb, y, z1, { faces: 'Z', s: 1 });
-      St.box(xa, yn, z1 - 0.2, xb, yn + 1.4, z1 + 0.4, { faces: 'YZ', s: 1 });
-      // shops and doorways built into the wall (Chongqing's retaining walls are lived in): lit openings, a lightbox over each
-      { const Sh = B.get('plain', reg), Sg = B.get('sign', reg);
-        for (let x = xa + 3 + r() * 6; x < xb - 5; x += 8 + r() * 9) {
-          const w = 2.6 + r() * 2.4, h = 2.8, on = r() < 0.75, col = r() < 0.6 ? [1.0, 0.62, 0.3] : [0.8, 0.9, 1.0];
-          Sh.set({ col: [0.06, 0.05, 0.045], rm: [0.9, 0, 0], em: on ? em(col, 0.9, DUSK + CODE) : [0, 0, 0, 0], cell: [0, 0, 0, 0] });
-          Sh.box(x, yn + 0.1, z1 + 0.02, x + w, yn + h, z1 + 0.03, { faces: 'Z' });
-          if (on && r() < 0.7) { Sg.set({ col: [1, 1, 1], rm: [0.5, 0, 0], em: em([1, 1, 1], 1.4, DUSK + CODE), cell: [0, 0, 0, 0] }); signQuad(Sg, [x + w / 2, yn + h + 0.55, z1 + 0.06], [0, 0, 1], w + 0.4, 0.8, SIGN[SIGN_LIST.shops[(r() * SIGN_LIST.shops.length) | 0]]); }
-          if (on) gl.push({ p: [x + w / 2, yn + 1.6, z1 + 1.2], color: [col[0] * 0.9, col[1] * 0.7, col[2] * 0.5], size: 2.2, code: DUSK + CODE });
-        } }
-      { const Le = B.get('plain', reg); Le.set({ col: [0.2, 0.18, 0.15], rm: [0.5, 0.3, 0], em: em([1.0, 0.62, 0.26], 2.2, DUSK + CODE), cell: [0, 0, 0, 0] });
-        Le.box(xa, y - 0.75, z1 + 0.02, xb, y - 0.2, z1 + 0.14, { faces: 'yZ' });
-        Le.set({ col: [0.2, 0.18, 0.15], rm: [0.5, 0.3, 0], em: em([0.9, 0.5, 0.2], 0.9, DUSK + CODE) });
-        Le.box(xa, yn + 0.05, z1 + 0.42, xb, yn + 0.25, z1 + 0.5, { faces: 'YZ' }); }
-      // its railing, its lamps, a lantern string over the street
-      Mt.box(xa, y + 1.05, z1 - 0.45, xb, y + 1.13, z1 - 0.37); Mt.box(xa, y + 0.55, z1 - 0.44, xb, y + 0.6, z1 - 0.38);
-      for (let x = xa + 1.2; x < xb; x += 2.4) Mt.box(x - 0.04, y, z1 - 0.44, x + 0.04, y + 1.1, z1 - 0.37);
-      for (let x = xa + 6 + (k % 2) * 6; x < xb - 3; x += 14) lampPost(B, reg, x, y, z1 - 1.3, { dir: [0, 0, -1], h: 6.5, code: CODE, glows: gl, col: [1.0, 0.72, 0.38] });
-      if ((k + c) % 2 === 0) for (let x = xa + 2.5; x < xb - 2; x += 3.4) lantern(B, reg, x, y + 5.6 + Math.sin((x - xa) / (xb - xa) * Math.PI) * -0.5, z1 - 4.2, 0.7, CODE, (x | 0) % 3 ? null : gl);
-      occ[k] ||= [];
-      // a stairway in front of the wall up to this terrace from the one below (the hill's alleys)
-      if (k < TERR.n - 1) {
-        const sx = xa + 8 + r() * (xb - xa - 18), n = 16;
-        for (let j = 0; j < n; j++) { const yy = yn + (y - yn) * (j + 1) / n; St.box(sx, yn, z1 + 5.6 - 5.6 * (j + 1) / n, sx + 2.6, yy, z1 + 5.6 - 5.6 * j / n, { faces: 'xXYZ', s: 1 }); }
-        Mt.beam([sx - 0.05, yn + 1, z1 + 5.6], [sx - 0.05, y + 1, z1], 0.05, 0.05);
-        (occ[k + 1] ||= []).push([sx - 1.5, sx + 4.2]);
-        if (r() < 0.6) tree(B, reg, sx + 5, yn, z1 + 3.5, 0.75 + r() * 0.3, seed++);
-      }
-    }
-    // ---- the housing: stacked blocks against the wall behind each terrace, roofs at (or past) the street above,
-    // shops in the podiums, names on a few roofs. Windows split between the generators and the dead grid.
-    for (let k = 0; k < TERR.n; k++) {
-      const z0 = tz0(k), y = ty(k);
-      if (z0 < za - 1e-3 || z0 >= zb - 1e-3) continue;
-      const taken = (occ[k] || []).concat(TOWERS.filter(t => t.c === c && k === 0).map(t => [t.x0 - 2, t.x1 + 2]), SHELLS.filter(S => S.c === c && k === 0).map(S => [S.x0 - 1, S.x1 + 1]));
-      let x = xa + 1 + r() * 2;
-      while (x < xb - 9) {
-        const w = Math.min(xb - 1 - x, 12 + r() * 10), xe = x + w;
-        if (taken.some(([a, b]) => xe > a && x < b)) { x += 3; continue; }
-        // low on the slope (2-4 storeys: the terraces, their walls and street lights stay readable from the river), a few taller
-        const d = k === 0 ? 7 + r() * 2 : 8 + r() * 3, n = k === 0 ? 4 + Math.floor(r() * 6) : (r() < 0.15 ? 5 + Math.floor(r() * 3) : 2 + Math.floor(r() * 3)), h = n * 3;
-        const t = { x0: x, z0: z0 + 0.6, x1: xe, z1: z0 + 0.6 + d, y0: y, h, style: r() < 0.65 ? 0 : 2, podium: k > 0 && n > 4 && r() < 0.6, plinth: 0, seed: seed++,
-          crown: h > 26 && r() < 0.35 ? 'frame' : null, ledCol: [1.0, 0.82, 0.55], roofSign: h > 24 && r() < 0.22 ? SIGN_LIST.roofs[(r() * SIGN_LIST.roofs.length) | 0] : null, signN: [0, 0, 1], dist: r() < 0.38 ? CODE : DIST.EAST };
-        towerBlock(B, t, reg, gl);
-        x = xe + 2.5 + r() * 3;
-      }
-    }
-    // the quay and its river wall (bottom row)
-    if (rw === 2) {
-      As.box(xa, QUAY.y - 0.5, TERR.quay, xb, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
-      Cc.box(xa, WATER_Y - 3, RIVER.z0, xb, QUAY.y + 0.05, ZF, { faces: 'YZ', s: 1 });
-      Cc.box(xa, QUAY.y, RIVER.z0 - 0.4, xb, QUAY.y + 1.0, RIVER.z0, { faces: 'yYzZ', s: 1 });
-      const L = B.get('plain', reg);
-      for (let x = -1380; x < 1580; x += 28) {
-        if (x <= xa || x >= xb) continue;
-        const z = RIVER.z0 - 0.8;
-        Mt.set({ col: [0.25, 0.26, 0.27], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
-        Mt.cyl(x, QUAY.y, z, 0.1, 0.07, QUAY.y + 6.5, 6, { cap: false }); Mt.beam([x, QUAY.y + 6.4, z], [x, QUAY.y + 6.6, z - 1.4], 0.12, 0.12);
-        L.set({ col: [1, 1, 1], rm: [0.5, 0, 0], em: em(SODIUM, 3, DUSK + CODE) }); L.box(x - 0.25, QUAY.y + 6.25, z - 1.65, x + 0.25, QUAY.y + 6.4, z - 1.1);
-        gl.push({ p: [x, QUAY.y + 6.1, z - 1.4], color: [2.4, 1.3, 0.5], size: 2.6, code: DUSK + CODE, far: true, quay: true });
-      }
-    }
+    streets(B, reg, xa, xb, za, zb, gl, c, CODE);
     // the crest buildings' front halves (top row)
     if (rw === 0) SHELLS.forEach((S, k) => { if (S.c === c) shellHalf(B, reg, S, false, 77 + k * 13); });
     // ---- the towers (top row): child bones in two segments, broken at a floor line

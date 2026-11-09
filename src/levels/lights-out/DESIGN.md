@@ -29,7 +29,8 @@ searchlights. Every number lives in `layout.js`.
 10. **lobby** — over the footbridge into Jinlong's sky lobby (marble, gold, the 金龙 bulkhead); the building groans.
 11. **jump** — grab the BASE rig from the locker; run for the gap in the terrace balustrade; slow-mo jump.
 12. **glide** — the rail swings out south-east into the river first, so "LOOK BACK" (look-gated, from ~7 s) faces the
-    east bank square on: the **landslide**. East of Jinlong the bank is a terraced hillside district (six streets of
+    east bank square on: the **landslide**. East of Jinlong the bank is a terraced hillside district (it carries on east
+    past the slide, static, so the slide tears a gap out of it) (six streets of
     low housing stepping down from the y-64 hill to the quay, lit terrace lines, shops in the retaining walls,
     stairways, three towers and three crest buildings on top). It breaks into 12 blocks and slides into the river
     toe-first and east-first, the blocks leaning, rolling and dropping at different rates, the towers toppling off

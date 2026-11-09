@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { Buckets, hexc, mul3, em, DIST, DUSK, SODIUM } from './kit.js';
 import { materials } from './mats.js';
-import { RIVER, QUAY, FARBANK, CLIFF_W, LSTREET, ROOF, RAVINE, BRIDGE, PLAZA, SKYST, TOWER, CLIMB, G40, WATER_Y, SLIDE } from './layout.js';
+import { RIVER, QUAY, FARBANK, CLIFF_W, LSTREET, ROOF, RAVINE, BRIDGE, PLAZA, SKYST, TOWER, CLIMB, G40, WATER_Y, SLIDE, HILLE } from './layout.js';
 import { hillW, hillE } from './city.js';
 
 // =====================================================================================
@@ -81,7 +81,7 @@ export function buildTerrain(ctx = {}) {
     }
     // the east bank cliff under the plaza / Sky Street / the tower's shelf
     // (the stretch over the landslide is built by slide.js, on the pieces that go)
-    for (const [xa, xb, nu] of [[RAVINE.x1, SLIDE.x0, 28], [SLIDE.x1, 900, 42]]) gridFace(A, (u, v) => eastP(xa + (xb - xa) * u, v), nu, 14, { colFn: rockCol, emFn: rockEm(DIST.EAST) });
+    for (const [xa, xb, nu] of [[RAVINE.x1, SLIDE.x0, 28], [HILLE.x1, 1200, 30]]) gridFace(A, (u, v) => eastP(xa + (xb - xa) * u, v), nu, 14, { colFn: rockCol, emFn: rockEm(DIST.EAST) });
   }
   // ---------------------------------------------------------------- the ravine floor: a stream over boulders, mist
   {
@@ -93,7 +93,7 @@ export function buildTerrain(ctx = {}) {
     const As = B.get('asphalt', 'quay'), Ac = B.get('concrete', 'quay'), Am = B.get('metal', 'quay');
     As.set({ col: [0.55, 0.55, 0.56], rm: [0.35, 0, 0], em: [0, 0, 0, 0] });
     Ac.set({ col: [0.55, 0.55, 0.53], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
-    for (const [x0, x1] of [[-1400, RAVINE.x0], [RAVINE.x1, SLIDE.x0], [SLIDE.x1, 1600]]) {
+    for (const [x0, x1] of [[-1400, RAVINE.x0], [RAVINE.x1, SLIDE.x0], [HILLE.x1, 1600]]) {
       As.box(x0, QUAY.y - 0.5, QUAY.z0, x1, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
       Ac.box(x0, WATER_Y - 3, RIVER.z0, x1, QUAY.y + 0.05, RIVER.z0 + 1.2, { faces: 'YzZ', s: 1 });      // the river wall
       Ac.box(x0, QUAY.y, RIVER.z0 - 0.4, x1, QUAY.y + 1.0, RIVER.z0, { faces: 'yYzZ', s: 1 });          // its parapet
@@ -103,7 +103,7 @@ export function buildTerrain(ctx = {}) {
     Am.set({ col: [0.25, 0.26, 0.27], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
     for (let x = -1380; x < 1580; x += 28) {
       if (x > RAVINE.x0 - 4 && x < RAVINE.x1 + 4) continue;
-      if (x > SLIDE.x0 && x < SLIDE.x1) continue;   // slide.js has its own (they go with it)
+      if (x > SLIDE.x0 && x < HILLE.x1) continue;   // slide.js has its own (the hillside district's quay)
       const z = RIVER.z0 - 0.8;
       Am.cyl(x, QUAY.y, z, 0.1, 0.07, QUAY.y + 6.5, 6, { cap: false });
       Am.beam([x, QUAY.y + 6.4, z], [x, QUAY.y + 6.6, z - 1.4], 0.12, 0.12);
@@ -127,8 +127,8 @@ export function buildTerrain(ctx = {}) {
     const bandsE = [[-60, 40, 64], [-180, -60, 82], [-700, -180, 104]];
     for (const [z0, z1, y] of bandsE) { Ae.box(RAVINE.x1 + 1, y - 0.4, z0, 1600, y, z1, { faces: 'Y', s: 1 }); Aec.box(RAVINE.x1 + 1, y - 30, z1 - 0.6, 1600, y, z1, { faces: 'Z', s: 1 }); }
     // the east bank's riverside terrace beyond the play space (y 40 / 56)
-    Ae.box(SLIDE.x1, 55.6, 40, 1600, 56, PLAZA.z1, { faces: 'Y', s: 1 });
-    Aec.box(SLIDE.x1, QUAY.y, PLAZA.z1 - 0.6, 1600, 56, PLAZA.z1, { faces: 'Z', s: 1 });
+    Ae.box(HILLE.x1, 55.6, 40, 1600, 56, PLAZA.z1, { faces: 'Y', s: 1 });
+    Aec.box(HILLE.x1, QUAY.y, PLAZA.z1 - 0.6, 1600, 56, PLAZA.z1, { faces: 'Z', s: 1 });
     // the up/downstream north bank terraces (the glide sees these)
     Ac.box(-1400, 30, 60, -620, 34, QUAY.z0, { faces: 'YZ', s: 1 });
   }
