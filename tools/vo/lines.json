@@ -521,12 +521,14 @@
   "levels": [
    "downtown-haven",
    "iron-lady",
+   "lights-out",
    "tokyo-scramble",
    "whiteout"
   ],
   "files": [
    "src/levels/downtown-haven/game.js",
    "src/levels/iron-lady/game.js",
+   "src/levels/lights-out/game.js",
    "src/levels/tokyo-scramble/game.js",
    "src/levels/whiteout/game.js"
   ]
@@ -803,6 +805,366 @@
   ],
   "files": [
    "src/levels/iron-lady/director.js"
+  ]
+ },
+ {
+  "key": "ed5cdfef",
+  "text": "Red dot — he's got the angle on you!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "ea294796",
+  "text": "Sniper! Watch for the red line in the fog!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "02c879e9",
+  "text": "Longwu taxis. Built to go bang. Apparently.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "944a9e95",
+  "text": "Sniper down. Good.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "2b88f86f",
+  "text": "That's a long way down for him.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "2d7ec255",
+  "text": "It's leaking! Again!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "54c9d47e",
+  "text": "Searchlight's on you! Shoot the lamp — no light, no aim!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "a93379bf",
+  "text": "Ha! Lights out for HIM.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "98676ed6",
+  "text": "Canopy's gone — he's going for a swim!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "46639004",
+  "text": "Boat's clear! It's all yours — bring it in!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "b74838d6",
+  "text": "Longwu. A city built on a cliff, in the fog, two rivers deep. Last stop.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "4b2e6332",
+  "text": "Their whole crew is holed up in Jinlong Tower — the gold one, way across the ravine. Down the Hundred Steps.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "5a24b389",
+  "text": "They're on the landings below you — and up on the flyover. Look up, look down.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "ef074e05",
+  "text": "Lantern Street. Go east — the red gate takes you down into Lantern Cliff.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "de4f4c62",
+  "text": "Rooftops on your left! They're over the shops!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "0e8b6677",
+  "text": "Down the stairs, along the gallery. They're on the balconies over you — and the roofs under you.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "4c93bc55",
+  "text": "Qiansi bridge. Don't look down. ...Okay, look down a little. Then look UP — the arch!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "af2763bf",
+  "text": "Interchange. Two decks of road over your head — and they're up on both.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "32790ce0",
+  "text": "Tanker up on the top deck — right over the substation. ...You're going to shoot it, aren't you.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "b4c25050",
+  "text": "The TANKER! Up on the top deck!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "50412027",
+  "text": "The whole deck's going — BOTH decks—",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "a58ef76d",
+  "text": "...and the substation.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "38bc3dc8",
+  "text": "Oh no. Look — LOOK at the city.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "eb0fe0b3",
+  "text": "Bridges. The river. The whole south bank. ...Every light in Longwu.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "e5352326",
+  "text": "Jinlong's still lit — generators. Up the steps, onto Sky Street, over the footbridge.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "46cf3d32",
+  "text": "Sky lobby. Clear it. ...Does that building sound right to you?",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "d56bd183",
+  "text": "That's it — she's coming off the cliff! There's a BASE rig in that locker — grab it!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "584aa5f0",
+  "text": "Rig's on! The gap in the railing — run and JUMP! Don't think!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "a5f2a3a7",
+  "text": "Canopy's open! Good! ...Now LOOK BACK!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "6ebea8d5",
+  "text": "...Jinlong Tower. Gone. Into the river.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "1538be83",
+  "text": "Jumpers! Behind you — they followed you off the roof!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "63020ffa",
+  "text": "Chaotian bridge dead ahead — gunners on the deck, lights on the towers. You're going UNDER it.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "9098af64",
+  "text": "Gunboat under you! The drums on its stern — hit them!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "e5b3c67e",
+  "text": "...Nice landing. I'm two minutes out. Don't touch anything.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "86f8956e",
+  "text": "Get up! Last city, last fight — you do not get to quit here!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/game.js"
+  ]
+ },
+ {
+  "key": "32e16dd9",
+  "text": "Not in the final level. Not on my watch. Up!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/game.js"
   ]
  },
  {

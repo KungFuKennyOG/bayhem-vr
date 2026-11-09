@@ -21,6 +21,7 @@ const R = {};                                     // named atlas rects [x, y, w,
 let ATLAS = null, MAT = null, THIN = null;           // THIN: antenna / mirrors (kept out of the cover bounds)
 let PARIS = false, MAT_P = null, MAT_T = null;                     // PARIS: the car being built uses the Paris liveries
 let TOKYO = false;                                   // TOKYO (Level 6): dark taxis, all-red police light bars (default atlas)
+let LONGWU = false, MAT_L = null;                    // LONGWU (Level 9): Chinese plates, 出租 taxis, 警察 police, a city bus
 
 // ---------------------------------------------------------------------- small math
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -119,7 +120,15 @@ const C = { black: [0.035, 0.035, 0.038], under: [0.07, 0.065, 0.06], well: [0.0
 const hex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };   // linear
 
 // ---------------------------------------------------------------------- materials (shared by every car)
-function materials(paris = false, tokyo = false) {
+function materials(paris = false, tokyo = false, longwu = false) {
+  if (longwu) {   // Level 9: blue Chinese plates, yellow 出租 taxis, white/blue 警察 cars, a Longwu city bus
+    if (MAT_L) return MAT_L;
+    const base = materials();
+    const body = rmMaterial(buildAtlas(false, false, true), { envMapIntensity: 1.25, coat: true });
+    body.userData.duskEmissive = 1.4;
+    MAT_L = { ...base, body };
+    return MAT_L;
+  }
   if (tokyo) {   // Level 6: Japanese plates, JPN-taxi / patrol-car / courier / city-bus liveries (same regions)
     if (MAT_T) return MAT_T;
     const base = materials();
@@ -431,7 +440,7 @@ function wheel(bk, x, y, z, R0, tw, rimR, { spokes = 5, tyre = true, rimCol = C.
 }
 
 // ---------------------------------------------------------------------- atlas
-function buildAtlas(paris = false, tokyo = false) {
+function buildAtlas(paris = false, tokyo = false, longwu = false) {
   const c = document.createElement('canvas'); c.width = c.height = AW;
   const g = c.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, AW, AW);
@@ -444,6 +453,7 @@ function buildAtlas(paris = false, tokyo = false) {
   const pr = makeRng(8128);
   if (paris) parisPlates(g, FONT, FONT2);
   else if (tokyo) tokyoPlates(g, pr);
+  else if (longwu) longwuPlates(g, pr);
   else for (let k = 0; k < 8; k++) {
     const x = 256 + (k % 2) * 128, y = 1536 + Math.floor(k / 2) * 64;
     g.fillStyle = '#e9ecef'; g.fillRect(x, y, 128, 64);
@@ -504,6 +514,7 @@ function buildAtlas(paris = false, tokyo = false) {
   R.taxiSignFR = [1280, 1536, 256, 64];
   if (paris) parisTaxi(g, FONT, FONT2);
   else if (tokyo) tokyoTaxi(g, FONT, FONT2);
+  else if (longwu) longwuTaxi(g, FONT, FONT2);
   else {
     let [x, y, w, h] = R.taxiSign; g.fillStyle = '#ffe9a8'; g.fillRect(x, y, w, h);
     g.fillStyle = '#141414'; g.fillRect(x, y, w, 6); g.fillRect(x, y + h - 6, w, 6);
@@ -518,6 +529,7 @@ function buildAtlas(paris = false, tokyo = false) {
   R.pdDoor = [1536, 1536, 256, 128]; R.pdQuarter = [1536, 1664, 128, 64]; R.pdRoof = [1664, 1664, 128, 64];
   if (paris) parisPolice(g, FONT, FONT2);
   else if (tokyo) tokyoPolice(g, FONT, FONT2);
+  else if (longwu) longwuPolice(g, FONT, FONT2);
   else {
     let [x, y, w, h] = R.pdDoor; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     // badge star
@@ -534,6 +546,7 @@ function buildAtlas(paris = false, tokyo = false) {
   R.vanLogo = [0, 1792, 512, 256];
   if (paris) parisVanLogo(g, FONT, FONT2);
   else if (tokyo) tokyoVanLogo(g, FONT, FONT2);
+  else if (longwu) longwuVanLogo(g, FONT, FONT2);
   else {
     const [x, y, w, h] = R.vanLogo; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     g.fillStyle = '#d2461c'; g.beginPath(); g.moveTo(x + 20, y + 150); g.quadraticCurveTo(x + 250, y + 40, x + 500, y + 70); g.lineTo(x + 500, y + 95); g.quadraticCurveTo(x + 250, y + 70, x + 20, y + 175); g.fill();
@@ -546,6 +559,7 @@ function buildAtlas(paris = false, tokyo = false) {
   R.busDest = [512, 1792, 512, 64]; R.busSide = [512, 1856, 1024, 128]; R.busRoute = [1024, 1792, 128, 64];
   if (paris) parisBus(g, FONT, FONT2);
   else if (tokyo) tokyoBus(g, FONT, FONT2);
+  else if (longwu) longwuBus(g, FONT, FONT2);
   else {
     let [x, y, w, h] = R.busDest; g.fillStyle = '#050505'; g.fillRect(x, y, w, h);
     g.fillStyle = '#ffb21e'; g.font = `400 40px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('42', x + 16, y + 33);
@@ -558,7 +572,7 @@ function buildAtlas(paris = false, tokyo = false) {
   }
   R.vanRear = [1792, 1536, 256, 256]; R.chevron = [1536, 1856, 512, 32];
   if (paris) parisVanRear(g, FONT, FONT2, pr);
-  else if (tokyo) tokyoVanRear(g, FONT, FONT2, pr);
+  else if (tokyo || longwu) tokyoVanRear(g, FONT, FONT2, pr, longwu);
   else {
     const [x, y, w, h] = R.vanRear;
     g.fillStyle = '#eceae4'; g.fillRect(x, y, w, h);
@@ -590,7 +604,7 @@ function buildAtlas(paris = false, tokyo = false) {
   R.reflector = [1152, 1792, 128, 64];
   { const [x, y, w, h] = R.reflector; const lg = g.createLinearGradient(x, y, x, y + h); lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.5, '#9aa0a8'); lg.addColorStop(1, '#f0f0f0'); g.fillStyle = lg; g.fillRect(x, y, w, h); g.strokeStyle = 'rgba(0,0,0,0.25)'; for (let k = 0; k < w; k += 8) { g.beginPath(); g.moveTo(x + k, y); g.lineTo(x + k, y + h); g.stroke(); } }
   // side livery rows
-  for (const [kind, row] of Object.entries(SIDE_ROW)) drawSide(g, kind, row, paris, tokyo);
+  for (const [kind, row] of Object.entries(SIDE_ROW)) drawSide(g, kind, row, paris, tokyo, longwu);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   return t;
@@ -679,7 +693,7 @@ function sideMap(kind) {
   const z0 = S.zMin ?? S.zF, z1 = S.zMax ?? S.zR, row = SIDE_ROW[kind];
   return { S, X: (z) => (z - z0) / (z1 - z0) * AW, Y: (y) => row * 256 + 4 + (1 - Math.min(1, Math.max(0, y / S.H))) * 248, z0, z1, row };
 }
-function drawSide(g, kind, row, paris = false, tokyo = false) {
+function drawSide(g, kind, row, paris = false, tokyo = false, longwu = false) {
   const sm2 = sideMap(kind), { S, X, Y } = sm2;
   const top = row * 256, r = makeRng(row * 77 + 5);
   g.save(); g.beginPath(); g.rect(0, top, AW, 256); g.clip();
@@ -706,7 +720,16 @@ function drawSide(g, kind, row, paris = false, tokyo = false) {
   } else if (tokyo && kind === 'taxi') {   // JPN-taxi: a thin gold pinstripe, the company kanji on the rear door
     g.fillStyle = '#c9a23a'; g.fillRect(0, Y(0.66), AW, 3);
   }
-  if ((paris || tokyo) && (kind === 'police' || kind === 'taxi' || kind === 'van')) { /* French / Japanese liveries above */ }
+  if (longwu && kind === 'police') {   // Chinese police: white, a deep blue band below the belt with a pale blue stripe over it
+    g.fillStyle = '#123a8c'; g.fillRect(0, Y(0.62), AW, Y(0.3) - Y(0.62));
+    g.fillStyle = '#5fa8e6'; g.fillRect(0, Y(0.69), AW, Y(0.64) - Y(0.69));
+  } else if (longwu && kind === 'van') {
+    g.fillStyle = '#1556a8'; g.fillRect(X(-1.2), Y(0.95), X(3.4) - X(-1.2), 10);
+    for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); }
+  } else if (longwu && kind === 'taxi') {   // Longwu taxi: a thin black pinstripe, the company name on the doors
+    g.fillStyle = '#141414'; g.fillRect(0, Y(0.66), AW, 3);
+  }
+  if ((paris || tokyo || longwu) && (kind === 'police' || kind === 'taxi' || kind === 'van')) { /* French / Japanese / Chinese liveries above */ }
   else if (kind === 'police') {   // black fenders/trunk, white doors and roof
     g.fillStyle = '#0b0b0c';
     g.fillRect(0, Y(1.02), X(S.doors[0][0] - 0.01), Y(0) - Y(1.02));
@@ -714,12 +737,17 @@ function drawSide(g, kind, row, paris = false, tokyo = false) {
     g.fillRect(0, Y(0.42), AW, Y(0) - Y(0.42));    // black rockers
     g.fillStyle = '#1b2c55'; g.fillRect(X(S.doors[0][0]), Y(0.47), X(S.doors[1][1]) - X(S.doors[0][0]), 4);
   }
-  if (kind === 'taxi' && !paris && !tokyo) {     // checker band along the doors
+  if (kind === 'taxi' && !paris && !tokyo && !longwu) {     // checker band along the doors
     const y0 = 0.6, y1 = 0.68, n = 2, cw = (Y(y0) - Y(y1)) / n;
     for (let zz = X(S.doors[0][0] + 0.06), k = 0; zz < X(S.doors[1][1] - 0.06); zz += cw, k++) for (let j = 0; j < n; j++) if ((k + j) % 2 === 0) { g.fillStyle = '#0c0c0c'; g.fillRect(zz, Y(y1) + j * cw, cw, cw); }
   }
   if (kind === 'suv') { g.fillStyle = '#d0d0d0'; g.fillRect(0, Y(1.0), AW, Y(0.6) - Y(1.0)); g.fillStyle = '#fff'; }
-  if (kind === 'bus' && tokyo) {   // city bus: white, a red skirt band, a thin green line, grey roof band
+  if (kind === 'bus' && longwu) {   // Longwu bus: white over a blue skirt, a green line
+    g.fillStyle = '#1556a8'; g.fillRect(0, Y(0.66), AW, Y(0) - Y(0.66));
+    g.fillStyle = '#2f9a4a'; g.fillRect(0, Y(0.74), AW, Y(0.69) - Y(0.74));
+    g.fillStyle = '#9aa2a8'; g.fillRect(0, Y(3.3), AW, Y(2.95) - Y(3.3));
+    for (let z = -5.3; z < 5.8; z += 1.32) line([[z, 0.4], [z, 1.12]], 2, 0.5);
+  } else if (kind === 'bus' && tokyo) {   // city bus: white, a red skirt band, a thin green line, grey roof band
     g.fillStyle = '#c4222a'; g.fillRect(0, Y(0.62), AW, Y(0) - Y(0.62));
     g.fillStyle = '#1f7a3e'; g.fillRect(0, Y(0.7), AW, Y(0.66) - Y(0.7));
     g.fillStyle = '#8a9096'; g.fillRect(0, Y(3.3), AW, Y(2.95) - Y(3.3));
@@ -735,7 +763,7 @@ function drawSide(g, kind, row, paris = false, tokyo = false) {
     // engine louvres at the rear
     for (let k = 0; k < 9; k++) line([[4.6, 0.55 + k * 0.05], [5.6, 0.55 + k * 0.05]], 3, 0.7);
   }
-  if (kind === 'van' && !paris && !tokyo) {
+  if (kind === 'van' && !paris && !tokyo && !longwu) {
     g.fillStyle = '#d2461c'; g.fillRect(X(-1.2), Y(0.95), X(3.4) - X(-1.2), 6);
     g.fillStyle = '#1d2f4f'; g.fillRect(X(-1.2), Y(0.86), X(3.4) - X(-1.2), 10);
     for (let z = -0.62; z < 3.4; z += 0.58) { line([[z, 0.72], [z, 3.0]], 1.2, 0.18); g.fillStyle = 'rgba(0,0,0,0.28)'; for (let y = 0.8; y < 3.0; y += 0.09) g.fillRect(X(z) - 4, Y(y), 2, 2); }
@@ -1360,8 +1388,8 @@ function suvKit(bk, S) {
 
 // ---------------------------------------------------------------------- public API
 export function buildCar(type, opts = {}) {
-  PARIS = opts.city === 'paris'; TOKYO = opts.city === 'tokyo';
-  const M = materials(PARIS, TOKYO);
+  PARIS = opts.city === 'paris'; TOKYO = opts.city === 'tokyo'; LONGWU = opts.city === 'longwu';
+  const M = materials(PARIS, TOKYO, LONGWU);
   const seed = opts.seed ?? 7;
   const rng = makeRng(seed * 9973 + type.length * 131);
   const out = { body: new Bucket(), glass: new Bucket(), glassW: new Bucket(), door: new Bucket(), doorGlass: new Bucket() };
@@ -1500,7 +1528,7 @@ export function buildCar(type, opts = {}) {
   };
   return res;
 }
-export function carMaterials(city) { return materials(city === 'paris', city === 'tokyo'); }
+export function carMaterials(city) { return materials(city === 'paris', city === 'tokyo', city === 'longwu'); }
 
 // ---------------------------------------------------------------------- Tokyo atlas content (Level 6)
 const JPF = '"Noto Sans CJK JP","Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif';
@@ -1562,17 +1590,72 @@ function tokyoBus(g, FONT, FONT2) {
   g.fillStyle = '#1f7a3e'; g.font = `600 30px ${FONT2}`; g.fillText('KUROGANE BUS  •  ノンステップバス', x + 380, y + 66);
   [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ff9a1e'; g.font = `700 36px ${JPF}`; g.textAlign = 'center'; g.fillText('黒01', x + w / 2, y + h / 2 + 2);
 }
-function tokyoVanRear(g, FONT, FONT2, pr) {
+function tokyoVanRear(g, FONT, FONT2, pr, longwu = false) {
   const [x, y, w, h] = R.vanRear;
   g.fillStyle = '#f0eee8'; g.fillRect(x, y, w, h);
   const gr = g.createLinearGradient(0, y + h * 0.55, 0, y + h); gr.addColorStop(0, 'rgba(110,92,74,0)'); gr.addColorStop(1, 'rgba(96,80,64,0.55)'); g.fillStyle = gr; g.fillRect(x, y, w, h);
   g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillRect(x + w / 2 - 1.5, y, 3, h);
   g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2;
   for (const x0 of [x + 8, x + w / 2 + 8]) g.strokeRect(x0, y + 10, w / 2 - 16, h - 20);
-  g.fillStyle = '#1f7a3e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 30px ${JPF}`; g.fillText('はと急便', x + w / 2, y + 52);
+  g.fillStyle = longwu ? '#1556a8' : '#1f7a3e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 30px ${longwu ? CNF : JPF}`; g.fillText(longwu ? '山城快运' : 'はと急便', x + w / 2, y + 52);
   g.fillStyle = '#fff'; g.fillRect(x + 24, y + h - 110, 80, 30); g.strokeStyle = '#c4222a'; g.strokeRect(x + 24, y + h - 110, 80, 30);
-  g.fillStyle = '#c4222a'; g.font = `700 15px ${JPF}`; g.fillText('安全運転', x + 64, y + h - 95);
-  g.fillStyle = '#c9a02a'; g.fillRect(x + w / 2 + 20, y + h - 110, 90, 30); g.fillStyle = '#111'; g.font = `700 13px ${JPF}`; g.fillText('左折注意', x + w / 2 + 65, y + h - 95);
+  g.fillStyle = '#c4222a'; g.font = `700 15px ${longwu ? CNF : JPF}`; g.fillText(longwu ? '安全驾驶' : '安全運転', x + 64, y + h - 95);
+  g.fillStyle = '#c9a02a'; g.fillRect(x + w / 2 + 20, y + h - 110, 90, 30); g.fillStyle = '#111'; g.font = `700 13px ${longwu ? CNF : JPF}`; g.fillText(longwu ? '保持车距' : '左折注意', x + w / 2 + 65, y + h - 95);
   const tape = (tx, ty, tw, th) => { for (let k = 0; k * 12 < tw; k++) { g.fillStyle = k % 2 ? '#c41a12' : '#f4f2ee'; g.fillRect(tx + k * 12, ty, Math.min(12, tw - k * 12), th); } };
   tape(x + 6, y + h - 26, w - 12, 10);
+}
+
+// ---------------------------------------------------------------------- Longwu atlas content (Level 9)
+const CNF = '"Noto Sans CJK SC","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+// Chinese plates (same 128×64 slots): blue, white characters, 渝A·12345 style (fictional region letters)
+function longwuPlates(g, pr) {
+  R.plates = [];
+  const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  for (let k = 0; k < 8; k++) {
+    const x = 256 + (k % 2) * 128, y = 1536 + Math.floor(k / 2) * 64;
+    g.fillStyle = '#1a4fb4'; g.fillRect(x, y, 128, 64);
+    g.strokeStyle = '#e8eef8'; g.lineWidth = 3; g.strokeRect(x + 4, y + 4, 120, 56);
+    g.fillStyle = '#f4f6fa'; g.textBaseline = 'middle'; g.textAlign = 'left';
+    g.font = `900 24px ${CNF}`; g.fillText('渝', x + 9, y + 33);
+    g.font = '400 26px "Anton", Impact, sans-serif'; g.fillText(`${L[pr() * L.length | 0]}·${10000 + (pr() * 89999 | 0)}`.slice(0, 7), x + 36, y + 34);
+    R.plates.push([x + 2, y + 2, 124, 60]);
+  }
+}
+// the roof lamp (出租 TAXI), door lettering, the car number
+function longwuTaxi(g, FONT, FONT2) {
+  let [x, y, w, h] = R.taxiSign;
+  g.fillStyle = '#f6f1e0'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#c81e1a'; g.fillRect(x, y + h - 14, w, 14); g.fillStyle = '#141414'; g.fillRect(x, y, w, 8);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#c81e1a'; g.font = `900 50px ${CNF}`; g.fillText('出租', x + w / 2 - 34, y + 46);
+  g.fillStyle = '#141414'; g.font = `400 28px ${FONT}`; g.fillText('TAXI', x + w / 2 + 70, y + 48);
+  [x, y, w, h] = R.taxiDoor; g.fillStyle = '#f2b705'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#141414'; g.font = `900 34px ${CNF}`; g.fillText('龙雾出租', x + w / 2, y + 30);
+  g.font = `600 15px ${FONT2}`; g.fillText('LONGWU TAXI  •  监督电话 96096', x + w / 2, y + 62);
+  [x, y, w, h] = R.taxiNum; g.fillStyle = '#f2b705'; g.fillRect(x, y, w, h); g.fillStyle = '#141414'; g.font = `400 30px ${FONT}`; g.fillText('T2783', x + w / 2, y + h / 2 + 2);
+}
+function longwuPolice(g, FONT, FONT2) {
+  let [x, y, w, h] = R.pdDoor; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#123a8c'; g.font = `900 66px ${CNF}`; g.fillText('警察', x + w / 2, y + 52);
+  g.font = `600 18px ${FONT2}`; g.fillText('POLICE', x + w / 2, y + 102);
+  [x, y, w, h] = R.pdQuarter; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillStyle = '#123a8c'; g.font = `400 40px ${FONT}`; g.fillText('110', x + w / 2, y + h / 2 + 2);
+  [x, y, w, h] = R.pdRoof; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.fillStyle = '#111'; g.font = `700 32px ${CNF}`; g.fillText('渝 07', x + w / 2, y + h / 2 + 2);
+}
+function longwuVanLogo(g, FONT, FONT2) {
+  const [x, y, w, h] = R.vanLogo;
+  g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#1556a8'; g.beginPath(); g.moveTo(x + 24, y + 150); g.lineTo(x + 120, y + 60); g.lineTo(x + 150, y + 60); g.lineTo(x + 54, y + 150); g.fill();
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#1556a8';
+  g.font = `900 84px ${CNF}`; g.fillText('山城快运', x + 160, y + 100);
+  g.font = `600 26px ${FONT2}`; g.fillText('SHANCHENG EXPRESS  •  同城急送', x + 166, y + 170);
+  g.font = `700 22px ${CNF}`; g.fillStyle = '#c81e1a'; g.fillText('全城配送  当日达', x + 166, y + 214);
+}
+function longwuBus(g, FONT, FONT2) {
+  let [x, y, w, h] = R.busDest; g.fillStyle = '#050505'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#ff9a1e'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `700 38px ${CNF}`; g.fillText('818', x + 14, y + 33);
+  g.font = `700 34px ${CNF}`; g.fillText('灯崖 — 千丝桥 — 天街', x + 104, y + 33);
+  g.fillStyle = 'rgba(0,0,0,0.55)'; for (let k = 0; k < w; k += 3) g.fillRect(x + k, y, 1, h); for (let k = 0; k < h; k += 3) g.fillRect(x, y + k, w, 1);
+  [x, y, w, h] = R.busSide; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#1556a8'; g.font = `900 72px ${CNF}`; g.fillText('龙雾公交', x + 24, y + 62);
+  g.fillStyle = '#2f9a4a'; g.font = `600 30px ${FONT2}`; g.fillText('LONGWU BUS  •  文明乘车', x + 380, y + 66);
+  [x, y, w, h] = R.busRoute; g.fillStyle = '#050505'; g.fillRect(x, y, w, h); g.fillStyle = '#ff9a1e'; g.font = `700 38px ${CNF}`; g.textAlign = 'center'; g.fillText('818', x + w / 2, y + h / 2 + 2);
 }

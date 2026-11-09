@@ -3,6 +3,7 @@
 BAYHEM is a WebXR VR shooter for Meta Quest 3 built with three.js r170 and Vite. The target is Michael Bay spectacle at a polished PS2-era AAA look. Everything is procedural: there are no model or texture files, and the only audio files are the driver's voiced radio lines (`public/vo/`, see `tools/vo/README.md`).
 
 ## Status
+- **Level 9, "Lights Out" (on foot + a parafoil glide: a fictional Chongqing at dusk going to night, the city's power going out district by district), is built** on branch `level-9-chongqing` — see its section below and `src/levels/lights-out/DESIGN.md`. Reviews plateaued at ~5.8 (Level 5 ≈ 7.0, Level 6 ≈ 6.2 on the same scale); its best frames (the Hundred Steps, Lantern Cliff from the river, the gold tower going over) score 6.4–6.9. **Needs a Quest 3 run.**
 - **Level 8, "Sand Castles" (door gunner on a helicopter on rails over a fictional Gulf megacity), is built and merged (PR #22, Nov 8, 2026) — see its section below and `src/levels/sand-castles/DESIGN.md`. Reviews plateaued at ~6.0 (Level 5 ≈ 6.8, Level 6 ≈ 6.3 on the same scale). **Needs a Quest 3 run** (test plan in its section). The grey-box prototype stays URL-only at `?level=dubai-proto`.
 - **Dubai (Level 8) prototype, merged as PR #14, URL only** (`?level=dubai-proto`, not in the menu): a grey-box tech test of the Level 8 finale with an in-VR perf panel and load flags. **Needs a Quest 3 run** — see "Dubai prototype" below for the test plan and pass/fail numbers.
 - **All four levels are merged into `main` and live on Pages.** Next step: a Quest 3 test pass (frame rate at the heaviest moments, `VR_HOLD` gun grips, locomotion comfort, text readability) before more art polish.
@@ -305,6 +306,37 @@ Budget (desktop, per eye): ~40 draws cruising, ~60 in fights; ~300k triangles at
 5. Door gun: does it go where your hand points, is the weight right, can you reach / see the full arc out of the door; brass pile and haptics.
 6. Designator: paint a flak tower and the Spire (left trigger held). Lock in ~1.5 s?
 7. Readability: can you see the rooftop gunmen at ~100 m? The RPG rockets coming? The waypoint?
+
+### Level 9: LIGHTS OUT (on foot + parafoil glide, a fictional Chongqing) — BUILT, in review (branch `level-9-chongqing`)
+Code: `src/levels/lights-out/` — see its `DESIGN.md` (beats, systems, comfort rules). Beats: intro (the roof rail over the gorge) → steps (the Hundred Steps) → lstreet (Lantern Street) → gallery (down through Lantern Cliff) → bridge (Qiansi arch) → plaza (under the interchange) → pancake (tanker, look-gated; the top span hinges down, the stack drops on the substation) → blackout (look-gated: district-by-district cuts, transformer arcs, emergency windows later) → climb (searchlights you can shoot) → lobby (Jinlong's sky lobby) → jump (BASE rig, slow-mo) → glide (the tower falls gold, jumpers, bridge gunners, searchlights, the gunboat, landing) → outro → credits for the whole game. `?level=lights-out&beat=<name>`.
+New tech:
+- **Power districts** (`kit.js`): every emissive vertex carries a district code; `POWER.pow` / `POWER.cut` per district drive windows, signs, LEDs, glows, river reflections and the baked light pools together (the blackout is a few uniforms). Codes ≥ 32 animate (LED facade bands sweeping up the towers).
+- **Baked light pools** (`lightmap.js`): every lamp / lantern / shopfront lays a pool on a 2D map with a 16-bit floor height (pools only light their own level); the same height map gives a wall-base grime / contact darkening for free. Groups dim with their districts.
+- **Height fog** for the gorge (exponential, integrated along the eye ray) in the level's materials and the water; the engine fog is lifted toward the sky's horizon so distance reads as haze.
+- Procedural windows with Chinese residential details (balcony slabs, AC units, burglar bars), lit in clustered flats / office runs; far windows average out.
+Shared-engine changes (all opt-in, default paths unchanged; one frame of every level re-shot, all boot with no page errors):
+- `downtown-haven/cars.js`: `city: 'longwu'` atlas (blue 渝 plates, yellow 出租 taxis, white/blue 警察 police, a 龙雾公交 bus, a 山城快运 van).
+- `fx.js`: `fx.smokeTint` (null = untouched) multiplies explosion smoke colour.
+- `player.js`: `game.autoRigYaw` makes autopilot aim rig-relative (the glide turns the rig).
+- `tools/vo`: 36 new driver lines voiced (`public/vo`, `src/vo-manifest.js`); `SPOKEN` learned Qiansi / Chaotian.
+Gameplay checks: every beat jumps cleanly with and without `noauto=1` (28/28, no page errors). Full autopilot runs found real-play blockers, all fixed: a 0.1 m gap in the walk mask at the foot of the steps, the atrium wall's collider standing 1 m above the gate floor, the lift core built across the footbridge door, a doorway with no floor between the footbridge and the lobby. The autopilot now plays intro → credits in ~10 min.
+Review status (fresh reviewer each round, the same 12 fixed angles, calibrated against L5 intro/collapse and L6 crossing/gas):
+| Round | L9 | L5 | L6 | What changed |
+|---|---|---|---|---|
+| r2 | 5.4 | 7.1 | 6.2 | first full build (after a paper-window atlas bug striped every lantern-wall window like caution tape) |
+| r5 | 5.5 | 7.1 | 6.2 | pavilion towers + banners + swept eaves on Lantern Cliff, LED lines toned down, gold tower, gunboat rebuilt, blackout look-gated with arcs, emergency windows |
+| r6 | 5.9 | 7.0 | 6.1 | height fog + lifted fog, terraced far-bank mountain + ridge, lobby marble/gold, wet-street reflections, light pools dim in the blackout |
+| r8 | 5.7 | 7.0 | 6.1 | coffered lobby, clustered windows, Chinese skyline crowns / estates, burning plaza wrecks |
+| r9 | 5.6 | 7.0 | 6.2 | stilts + rock under Lantern Cliff, red gallery beams, moonlight in the blackout, smoke tint |
+| r10 | 5.9 | 7.1 | 6.2 | 33° stair flights, Chinese-first fascias, ravine zigzag stair + perched houses, grey-green fog (final frames in `docs/level9/`) |
+Honest read: **plateau at ~5.8 (5.9 / 5.7 / 5.6 / 5.9 over the last four rounds), ~0.3 under Level 6 and ~1.2 under Level 5.** Every round rates the street level (the Hundred Steps 6.3–6.7), the Lantern Cliff river vista (6.6–6.9) and the gold tower going over against the dusk (6.0–6.4) at or above Level 6; the middle (gallery, plaza, pancake, blackout, lobby) scores 4.6–5.6.
+What would move it (beyond polish):
+- **Facade texture system:** reviewers still read the procedural windows as "TV static / moiré" at mid distance. A real fix is a mip-mapped, world-scaled window texture (cells 8–16 px, mullions, seeded per-cell states) instead of the analytic per-pixel pattern.
+- **The interchange stack in frame:** the plaza is supposed to be under 2–3 curving decks; from the plaza the decks read as one dark slab and the pancake reads as smoke behind a fence. It needs the decks overhead the play space (piers, soffit lights) and the falling span framed from underneath, with a lit edge, a dust curtain off the lip and slow-mo.
+- **Explosion FX:** the olive fringe / white core (engine `fx.js` + the grade) is flagged every round, as in Levels 3–8.
+- **Interiors:** the gallery and lobby need shops / lattice screens / a curtain wall with the city below, not more lighting tweaks.
+Open issues (by impact): window static (above); pancake staging (above); explosion colour (above); blackout foreground still reads underexposed; flat background towers far away; HUD popups stacking over money shots (CHAIN REACTION / HOTPOT / OVERBOARD); the player's own canopy reads as a flat board when you look up.
+**Needs a headset check:** the glide (comfort: rail speed 8.2 m/s, yaw ≤ 3°/s, the canopy frame), the height fog and the LED bands in stereo, text readability on the signs, frame rate in the blackout + glide (searchlight beams + glows + fires).
 
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
 Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. URL only: https://kungfukennyog.github.io/bayhem-vr/?level=dubai-proto (registered with `hidden: true`, so it is not in the menu and never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.

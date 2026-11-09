@@ -144,7 +144,8 @@ export class Player {
       A.aimPoint.copy(p);
       _d.subVectors(p, this.camera.getWorldPosition(new THREE.Vector3()));
       const dist = _d.length();
-      wantYaw = Math.atan2(-_d.x, -_d.z) + A.err.x;
+      // levels that turn the rig under you (Level 9's glide) opt in so the aim is relative to the rig
+      wantYaw = Math.atan2(-_d.x, -_d.z) + A.err.x - (g.autoRigYaw ? this.rig.rotation.y : 0);
       wantPitch = Math.atan2(_d.y, Math.hypot(_d.x, _d.z)) + A.err.y;
       A.err.multiplyScalar(Math.exp(-dt * 3.5));
       let dy = wantYaw - this.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
