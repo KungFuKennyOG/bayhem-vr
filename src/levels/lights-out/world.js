@@ -7,8 +7,8 @@ import { groundAt, walkable, structFloor } from './layout.js';
 import { LightBaker, LM } from './lightmap.js';
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
-const NAMES = ['./city.js', './terrain.js', './west.js', './lantern.js', './bridge.js', './east.js', './tower.js', './river.js', '../downtown-haven/cars.js'];
-const ASSETS = import.meta.glob(['./city.js', './terrain.js', './west.js', './lantern.js', './bridge.js', './east.js', './tower.js', './river.js', '../downtown-haven/cars.js']);
+const NAMES = ['./city.js', './terrain.js', './west.js', './lantern.js', './bridge.js', './east.js', './tower.js', './slide.js', './river.js', '../downtown-haven/cars.js'];
+const ASSETS = import.meta.glob(['./city.js', './terrain.js', './west.js', './lantern.js', './bridge.js', './east.js', './tower.js', './slide.js', './river.js', '../downtown-haven/cars.js']);
 async function asset(name) { const l = ASSETS[name]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 // =====================================================================================
@@ -56,11 +56,14 @@ export class LightsWorld {
     this.bridge = await take(by['./bridge.js']?.buildBridges, 'bridge');
     this.east = await take(by['./east.js']?.buildEast, 'east');
     this.tower = await take(by['./tower.js']?.buildTower, 'tower');
+    this.slide = await take(by['./slide.js']?.buildSlide, 'slide');
     this.river = await take(by['./river.js']?.buildRiver, 'river');
     this.props = await take(by['./props.js']?.buildProps, 'props');
     // the war in the city: smoke columns standing over fires across Longwu (game.js feeds them), a fire glow at each foot
     this.named.smokeColumns = [[210, 64, 780, 1.4], [-420, 52, 690, 1.1], [520, 96, -180, 1.3], [-360, 88, -220, 1.0], [900, 70, 640, 1.2]];
     for (const [x, y, z, k] of this.named.smokeColumns) this.glowList.push({ p: [x, y + 2, z], color: [2.4, 0.9, 0.25], size: 18 * k, flick: true, code: 16 + 15, far: true });
+    // the batch is capped: the set pieces' halos (the landslide, Jinlong's crown) go first so they are never the ones dropped
+    this.glowList.sort((a, b) => (b.prio | 0) - (a.prio | 0));
     this._bounds();
     try { this.baker.bake(); } catch (e) { console.warn('light bake', e); }
     this.glows = new BillboardBatch(Math.max(64, Math.min(1400, this.glowList.length + 32)), E.atlas, { boost: 1, renderOrder: 19, fog: this.scene.fog });

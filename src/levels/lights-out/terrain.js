@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { Buckets, hexc, mul3, em, DIST, DUSK, SODIUM } from './kit.js';
 import { materials } from './mats.js';
-import { RIVER, QUAY, FARBANK, CLIFF_W, LSTREET, ROOF, RAVINE, BRIDGE, PLAZA, SKYST, TOWER, CLIMB, G40, WATER_Y } from './layout.js';
+import { RIVER, QUAY, FARBANK, CLIFF_W, LSTREET, ROOF, RAVINE, BRIDGE, PLAZA, SKYST, TOWER, CLIMB, G40, WATER_Y, SLIDE } from './layout.js';
 import { hillW, hillE } from './city.js';
 
 // =====================================================================================
@@ -36,18 +36,24 @@ export function gridFace(A, P, nu, nv, { col = A.col, colFn = null, emFn = null 
   }
 }
 
+// the east bank's river face (the shelf under the plaza / Sky Street / the tower): v 0 = the quay, 1 = the top
+export function eastP(x, v) {
+  const top = x > SKYST.x0 ? 55.4 : 39.4;
+  const y = QUAY.y - 1 + (top - QUAY.y + 1) * v;
+  const z = QUAY.z0 - 1 + (PLAZA.z1 + 1 - QUAY.z0 + 1) * Math.pow(v, 0.8) + (fbm(x * 0.04, y * 0.06) - 0.5) * 3 + Math.sin(y * 0.9 + fbm(x * 0.03, y * 0.05) * 3) * 0.5;
+  return [x, y, z];
+}
+// the rock's colour / floodlight (shared with slide.js)
+export const rockCol = (p) => { const k = 0.75 + fbm(p[0] * 0.05, p[1] * 0.08) * 0.5; const wet = p[1] < 10 ? 0.75 : 1; const c = [0.52 * k * wet, 0.46 * k * wet, 0.4 * k * wet];
+  const g = Math.max(0, fbm(p[0] * 0.09 + 7, p[1] * 0.14 + 3) - 0.56) * 3.2; return [c[0] * (1 - g) + 0.16 * g, c[1] * (1 - g) + 0.22 * g, c[2] * (1 - g) + 0.1 * g]; };
+export const rockEm = (code) => (p) => { const k = Math.max(0, 1 - (p[1] - QUAY.y) / 34); return [1.0 * 0.12 * k * k, 0.62 * 0.12 * k * k, 0.32 * 0.12 * k * k, DUSK + code]; };
+
 export function buildTerrain(ctx = {}) {
   const M = materials();
   const B = new Buckets(); for (const [k, m] of Object.entries(M)) B.mat(k, m);
   const root = new THREE.Group(); root.name = 'terrain';
   const glows = [], colliders = [];
   const r = makeRng(4242);
-  // rock: stained sandstone, wet at the foot, with ferns / moss in the ledges (Chongqing's cliffs are green)
-  const rockCol = (p) => { const k = 0.75 + fbm(p[0] * 0.05, p[1] * 0.08) * 0.5; const wet = p[1] < 10 ? 0.75 : 1; const c = [0.52 * k * wet, 0.46 * k * wet, 0.4 * k * wet];
-    const g = Math.max(0, fbm(p[0] * 0.09 + 7, p[1] * 0.14 + 3) - 0.56) * 3.2; return [c[0] * (1 - g) + 0.16 * g, c[1] * (1 - g) + 0.22 * g, c[2] * (1 - g) + 0.1 * g]; };
-  // floodlit from the quay: a warm wash fading up the face (dims with the cliff's district in the blackout)
-  const rockEm = (code) => (p) => { const k = Math.max(0, 1 - (p[1] - QUAY.y) / 34); return [1.0 * 0.12 * k * k, 0.62 * 0.12 * k * k, 0.32 * 0.12 * k * k, DUSK + code]; };
-
   // ---------------------------------------------------------------- the west bank cliff (behind Lantern Cliff and the store)
   {
     const A = B.get('rock', 'cliffw'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
@@ -74,13 +80,8 @@ export function buildTerrain(ctx = {}) {
       }, 110, 16, { colFn: rockCol, emFn: rockEm(DIST.ARCH) });
     }
     // the east bank cliff under the plaza / Sky Street / the tower's shelf
-    gridFace(A, (u, v) => {
-      const x = RAVINE.x1 + (900 - RAVINE.x1) * u;
-      const top = x > SKYST.x0 ? 55.4 : 39.4;
-      const y = QUAY.y - 1 + (top - QUAY.y + 1) * v;
-      const z = QUAY.z0 - 1 + (PLAZA.z1 + 1 - QUAY.z0 + 1) * Math.pow(v, 0.8) + (fbm(x * 0.04, y * 0.06) - 0.5) * 3 + Math.sin(y * 0.9 + fbm(x * 0.03, y * 0.05) * 3) * 0.5;
-      return [x, y, z];
-    }, 100, 14, { colFn: rockCol, emFn: rockEm(DIST.EAST) });
+    // (the stretch over the landslide is built by slide.js, on the pieces that go)
+    for (const [xa, xb, nu] of [[RAVINE.x1, SLIDE.x0, 28], [SLIDE.x1, 900, 42]]) gridFace(A, (u, v) => eastP(xa + (xb - xa) * u, v), nu, 14, { colFn: rockCol, emFn: rockEm(DIST.EAST) });
   }
   // ---------------------------------------------------------------- the ravine floor: a stream over boulders, mist
   {
@@ -92,7 +93,7 @@ export function buildTerrain(ctx = {}) {
     const As = B.get('asphalt', 'quay'), Ac = B.get('concrete', 'quay'), Am = B.get('metal', 'quay');
     As.set({ col: [0.55, 0.55, 0.56], rm: [0.35, 0, 0], em: [0, 0, 0, 0] });
     Ac.set({ col: [0.55, 0.55, 0.53], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
-    for (const [x0, x1] of [[-1400, RAVINE.x0], [RAVINE.x1, 1600]]) {
+    for (const [x0, x1] of [[-1400, RAVINE.x0], [RAVINE.x1, SLIDE.x0], [SLIDE.x1, 1600]]) {
       As.box(x0, QUAY.y - 0.5, QUAY.z0, x1, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
       Ac.box(x0, WATER_Y - 3, RIVER.z0, x1, QUAY.y + 0.05, RIVER.z0 + 1.2, { faces: 'YzZ', s: 1 });      // the river wall
       Ac.box(x0, QUAY.y, RIVER.z0 - 0.4, x1, QUAY.y + 1.0, RIVER.z0, { faces: 'yYzZ', s: 1 });          // its parapet
@@ -102,6 +103,7 @@ export function buildTerrain(ctx = {}) {
     Am.set({ col: [0.25, 0.26, 0.27], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
     for (let x = -1380; x < 1580; x += 28) {
       if (x > RAVINE.x0 - 4 && x < RAVINE.x1 + 4) continue;
+      if (x > SLIDE.x0 && x < SLIDE.x1) continue;   // slide.js has its own (they go with it)
       const z = RIVER.z0 - 0.8;
       Am.cyl(x, QUAY.y, z, 0.1, 0.07, QUAY.y + 6.5, 6, { cap: false });
       Am.beam([x, QUAY.y + 6.4, z], [x, QUAY.y + 6.6, z - 1.4], 0.12, 0.12);
@@ -125,8 +127,9 @@ export function buildTerrain(ctx = {}) {
     const bandsE = [[-60, 40, 64], [-180, -60, 82], [-700, -180, 104]];
     for (const [z0, z1, y] of bandsE) { Ae.box(RAVINE.x1 + 1, y - 0.4, z0, 1600, y, z1, { faces: 'Y', s: 1 }); Aec.box(RAVINE.x1 + 1, y - 30, z1 - 0.6, 1600, y, z1, { faces: 'Z', s: 1 }); }
     // the east bank's riverside terrace beyond the play space (y 40 / 56)
-    Ae.box(SKYST.x1 + 6, 55.6, 40, 1600, 56, PLAZA.z1, { faces: 'Y', s: 1 });
-    Aec.box(SKYST.x1 + 6, QUAY.y, PLAZA.z1 - 0.6, 1600, 56, PLAZA.z1, { faces: 'Z', s: 1 });
+    Ae.box(SLIDE.x1, 55.6, 40, 1600, 56, PLAZA.z1, { faces: 'Y', s: 1 });
+    Aec.box(SLIDE.x1, QUAY.y, PLAZA.z1 - 0.6, 1600, 56, PLAZA.z1, { faces: 'Z', s: 1 });
+    Ae.box(SLIDE.x0, 55.6, 40, SLIDE.x1, 56, SLIDE.crack, { faces: 'Y', s: 1 });     // behind the crack (the rest is on the slide)
     // the up/downstream north bank terraces (the glide sees these)
     Ac.box(-1400, 30, 60, -620, 34, QUAY.z0, { faces: 'YZ', s: 1 });
   }

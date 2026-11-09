@@ -75,6 +75,11 @@ export const CLIMB = { x0: 290, x1: 328, z0: 92, z1: 104 };
 export const CLIMB_PROFILE = [[290, 40], [294, 40], [308, 48], [314, 48], [328, 56]];
 export const SKYST = { x0: 328, x1: 364, z0: 36, z1: 108, y: 56 };
 export const FOOTB = { x0: 336, x1: 346, z0: 108, z1: 120, y: 56 };                      // the footbridge into the tower
+// the landslide: the riverside block east of Jinlong (terrace, cliff face, quay) breaks off along a crack at z = crack and
+// slides into the river in four pieces (cuts), the towers on it toppling; the scar left behind is a steep head scarp
+// curving out under the water (scarY). gone = it has happened (debris then falls into the water there)
+export const SLIDE = { x0: 370, x1: 592, crack: 50, toe: 172, depth: 70, cuts: [370, 426, 480, 536, 592], gone: false };
+export const scarY0 = (z) => { const w = Math.min(1, Math.max(0, (z - SLIDE.crack) / (SLIDE.toe - SLIDE.crack))); return 56 - SLIDE.depth * (1 - Math.pow(1 - w, 2.4)); };
 export const TOWER = { x0: 320, x1: 360, z0: 120, z1: 160, base: 3, h: 236, lobby: 56, floorH: 4.2 };
 export const LOBBY = { x0: 323, x1: 357, z0: 121, z1: 150, y: 56 };
 export const TERRACE = { x0: 323, x1: 357, z0: 150, z1: 158.6, y: 56, gap: [334, 346] };  // glass balustrade with a gap: the jump
@@ -123,6 +128,7 @@ export const gstairY = (x) => x >= GSTAIR.xTop ? GSTAIR.y0 : x <= GSTAIR.x0 ? GS
 // the ravine, the far bank. Only used for particles / debris / bodies and the art.
 export function terrainAt(x, z) {
   if (z >= RIVER.z0 && z <= FARBANK.z) return WATER_Y - 4;
+  if (SLIDE.gone && x > SLIDE.x0 && x < SLIDE.x1 && z > SLIDE.crack) return Math.max(WATER_Y - 4, scarY0(z));
   if (z > FARBANK.z) return Math.min(64, (z - FARBANK.z) * 2.2);
   if (x > RAVINE.x0 && x < RAVINE.x1 && z > RAVINE.z0) return RAVINE.floor;
   if (z > QUAY.z0) return QUAY.y;

@@ -9,6 +9,7 @@ import { buildSpanMeshes } from './east.js';
 import { HINGE } from './tower.js';
 import { Searchlights } from './searchlights.js';
 import { buildCanopy, GlideRail, buildGunboat } from './glide.js';
+import { Landslide } from './slide.js';
 import { F1, F2, PSPAN, TANKER, SUBST, PLAZA, TOWER, TERRACE, LOBBY, LOCKER, CHAOTIAN, BOAT, WATER_Y, GLIDE_SPEED, CLIMB, SKYST, FOOTB, groundAt } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
@@ -42,6 +43,7 @@ export class SetPieces {
     this._buildSpans();
     this._buildTanker();
     this.tw = g.world.named.tower || null;
+    this.slide = new Landslide(g, g.world.named.slide || null);
     this.mono = g.world.named.mono || null;
     this.rail = new GlideRail();
     this.canopy = buildCanopy({ top: [0.16, 0.17, 0.15], stripe: [0.85, 0.3, 0.06], lit: true });
@@ -353,11 +355,15 @@ export class SetPieces {
     g.events.push({ type: 'jump' });
     void r0;
   }
-  // the tower comes down (east, downstream), body pivoting on its base, the crown section lagging and folding
-  towerFall() {
+  // the bank goes first: the riverside block east of Jinlong slides into the river piece by piece, running along the
+  // bank toward the tower; then the tower (its footing gone) comes over — body pivoting on its base, the crown section
+  // lagging and folding — and once it is well over it tears off the stump and drops into the hole in the bank
+  landslide(fast = false) { if (this.slide.active) return; this.slide.start(fast); if (fast) this.towerFall(true); else this.g.fx.later(7.6, () => this.towerFall()); }
+  towerFall(fast = false) {
     if (this.fall) return;
-    this.fall = { t: 0, a: 0, av: 0.02, c: 0, cv: 0, hit: false };
+    this.fall = { t: 0, a: 0, av: 0.045, c: 0, cv: 0, hit: false };
     POWER.pow.value[DIST.TOWER] = 1; POWER.cut.value[DIST.TOWER] = 9999;
+    if (fast) { Object.assign(this.fall, { hit: true, free: true, gone: true }); POWER.pow.value[DIST.TOWER] = 0; if (this.tw) this.tw.body.visible = false; return; }
     this.audio.play('collapse_rumble', { x: 340, y: 60, z: 140, volume: 1 });
     this.audio.play('metal_groan', { x: 340, y: 60, z: 140, volume: 1 });
     // the shear at the base: a ring of blasts and dust where the body tears off the stump
@@ -371,17 +377,36 @@ export class SetPieces {
     const g = this.g, tw = this.tw;
     F.t += dt;
     // a falling rod: a'' = 1.5 g / L · sin a (L ~ 190 m), plus the shear's kick
-    const L = 190;
-    if (!F.hit) {
+    if (F.gone) return;
+    const L = 190, axis = _v.set(0.35, 0, -1).normalize();
+    if (!F.free) {
       F.av += (1.5 * 9.8 / L * Math.sin(F.a + 0.04)) * dt;
       F.a += F.av * dt;
-      // the crown section lags then whips: a damped spring on its own hinge
-      F.cv += (-(F.c - F.av * -0.55) * 6 - F.cv * 2.2) * dt;
-      F.c += F.cv * dt;
+      // well over: it tears off the stump — a free body now (spinning on, its centre of mass falling) into the river
+      if (F.a > 0.95) {
+        F.free = true; F.rc = new THREE.Vector3(-20, 95, 0);
+        const q = _q.setFromAxisAngle(axis, F.a);
+        F.com = F.rc.clone().applyQuaternion(q).add(HINGE);
+        F.vc = axis.clone().multiplyScalar(F.av).cross(F.com.clone().sub(HINGE));
+        F.w = F.av; F.vc.y -= 7;   // the stump crushes under it: it drops as it goes
+        this.audio.play('metal_groan', { x: HINGE.x, y: 50, z: HINGE.z, volume: 1, pitch: 0.6 });
+        for (let i = 0; i < 5; i++) g.fx.later(i * 0.1, () => g.fx.explosion(new THREE.Vector3(HINGE.x - range(0, 30), 50 + range(-1, 3), HINGE.z + range(-18, 18)), 1.3, { noRing: true }));
+        g.events.push({ type: 'towerFree' });
+      }
     }
-    const axis = _v.set(0.35, 0, -1).normalize();
+    if (F.free) {
+      const wet = F.com.y < WATER_Y + 8;
+      F.vc.y -= 9.8 * dt;
+      if (wet) { F.vc.multiplyScalar(Math.exp(-1.4 * dt)); F.w *= Math.exp(-1.2 * dt); }
+      if (F.a > 1.2) F.w *= Math.exp(-4 * dt);
+      F.com.addScaledVector(F.vc, dt); F.a += F.w * dt;
+      if (F.com.y < WATER_Y - 70) { F.gone = true; tw.body.visible = false; return; }
+    }
+    // the crown section lags then whips: a damped spring on its own hinge
+    if (!F.hit) { F.cv += (-(F.c - (F.free ? F.w : F.av) * -0.55) * 6 - F.cv * 2.2) * dt; F.c += F.cv * dt; }
     tw.body.quaternion.setFromAxisAngle(axis, F.a);
-    tw.crown.quaternion.setFromAxisAngle(axis, F.c * 0.6);
+    if (F.free) tw.body.position.copy(F.rc).applyQuaternion(tw.body.quaternion).multiplyScalar(-1).add(F.com);
+    tw.crown.quaternion.setFromAxisAngle(axis, F.c * 0.25);
     tw.body.updateMatrixWorld(true);
     // the top: where it is now
     const top = _v2.set(TOWER.x0 + 20, TOWER.base + TOWER.h, (TOWER.z0 + TOWER.z1) / 2).sub(tw.crown.position.clone().add(HINGE)).applyMatrix4(tw.crown.matrixWorld);
@@ -395,30 +420,44 @@ export class SetPieces {
       if (rand() < dt * 6) g.clouds.spawn({ x: HINGE.x + range(-20, 0), y: 50 + range(-2, 4), z: HINGE.z + range(-20, 20), vx: range(-3, 3), vy: range(1, 4), vz: range(-3, 3), drag: 0.6, buoy: 0.2, s0: 6, s1: 22, life: range(8, 12), a: 0.8, fadeIn: 0.05, fadeOut: 0.5, r: 0.12, g: 0.11, b: 0.1, r1: 0.2, g1: 0.18, b1: 0.16, glow: 0.8, glowFade: 3 });
     }
     // two floors burning where the shear tore the risers, smoke trailing off them as it goes over
-    if (!F.hit && F.a > 0.03) for (const [hy, k] of [[88, 1.4], [121, 1.1]]) if (rand() < dt * 14) {
+    if (!F.hit && !F.free && F.a > 0.03) for (const [hy, k] of [[88, 1.4], [121, 1.1]]) if (rand() < dt * 8) {
       const p = _v3.set(range(TOWER.x0 + 2, TOWER.x1 - 2), hy, rand() < 0.5 ? TOWER.z0 - 0.5 : TOWER.z1 + 0.5).sub(HINGE).applyMatrix4(tw.body.matrixWorld);
       g.fx.flame(p, range(1.4, 2.2) * k);
-      if (rand() < 0.4) g.clouds.spawn({ x: p.x, y: p.y + 2, z: p.z, vx: range(-2, 2), vy: range(2, 5), vz: range(-2, 2), drag: 0.5, buoy: 0.3, s0: 4, s1: 18, life: range(6, 9), a: 0.8, fadeIn: 0.05, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.1, g1: 0.09, b1: 0.08, glow: 1.5, glowFade: 2.5 });
+      if (rand() < 0.4) g.clouds.spawn({ x: p.x, y: p.y + 2, z: p.z, vx: range(-2, 2), vy: range(2, 5), vz: range(-2, 2), drag: 0.5, buoy: 0.3, s0: 4, s1: 18, life: range(6, 9), a: 0.8, fadeIn: 0.05, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.1, g1: 0.09, b1: 0.08, glow: 0.6, glowFade: 2.5 });
     }
     // impact: the top hits the river / the east bank
-    if (!F.hit && (top.y < 6 || F.a > 1.48)) {
-      F.hit = true; F.av = 0;
+    if (!F.hit && top.y < WATER_Y + 3) {
+      F.hit = true;
       const P = top.clone(); P.y = Math.max(WATER_Y + 1, P.y);
       g.slowmo(2.0, 0.3, true);
       g.lastExplosionT = g.time; g.lastExplosionShake = 0.9;
       this.audio.play('collapse_impact', { x: P.x, y: P.y, z: P.z, volume: 1 });
       this.audio.play('explosion_big', { x: P.x, y: P.y, z: P.z, volume: 1 });
-      // a wall of white water and spray along the body's length, then dust and black smoke
-      for (let k = 0; k <= 10; k++) {
-        const q = new THREE.Vector3().lerpVectors(new THREE.Vector3(HINGE.x, WATER_Y, HINGE.z), new THREE.Vector3(P.x, WATER_Y, P.z), k / 10);
-        g.fx.later(k * 0.06, () => {
-          for (let i = 0; i < 4; i++) { const s0 = range(5, 9); g.clouds.spawn({ x: q.x + range(-6, 6), y: q.y + range(1, 6), z: q.z + range(-6, 6), vx: range(-4, 4), vy: range(8, 18), vz: range(-4, 4) + 3, drag: 0.7, buoy: 0.1, s0, s1: s0 * range(3, 4.5), life: range(6, 9), a: 0.85, fadeIn: 0.03, fadeOut: 0.6, r: 0.55, g: 0.57, b: 0.6, r1: 0.42, g1: 0.43, b1: 0.45, glow: 0.2, glowFade: 2 }); }
-          for (let i = 0; i < 16; i++) g.fx.main.spawn({ x: q.x + range(-5, 5), y: q.y + 1, z: q.z + range(-5, 5), vx: range(-6, 6), vy: range(10, 26), vz: range(-6, 6), grav: 9.8, drag: 0.4, frame: CELL.WISP, s0: 1.5, s1: 5, life: range(1.5, 3), rot: rand() * 6, r: 0.8, g: 0.82, b: 0.85, a: 0.55, fadeOut: 0.5 });
-          g.fx.ring?.(q, 18, 1.4, WATER_Y + 0.3);
-        });
-      }
+      // a wall of white water and spray along the body's length (the stump end to the top)
+      this._waterLine(_v3.set(TOWER.x0 + 20, 52, (TOWER.z0 + TOWER.z1) / 2).sub(HINGE).applyMatrix4(tw.body.matrixWorld).clone(), P, 1.1);
       g.events.push({ type: 'towerDown' });
       g.addScore(5000, null);
+    }
+    // the body slaps down flat: a second, longer wall of water
+    if (F.free && !F.slap && F.com.y < WATER_Y + 6) {
+      F.slap = true;
+      const a = _v3.set(TOWER.x0 + 20, 52, (TOWER.z0 + TOWER.z1) / 2).sub(HINGE).applyMatrix4(tw.body.matrixWorld).clone();
+      this._waterLine(a, top.clone(), 1.4);
+      this.audio.play('collapse_impact', { x: F.com.x, y: 2, z: F.com.z, volume: 1, pitch: 0.7 });
+      g.lastExplosionT = g.time; g.lastExplosionShake = 0.7;
+    }
+  }
+  // white water along a line on the river (a, b: world points; k: size)
+  _waterLine(a, b, k = 1) {
+    const g = this.g, n = Math.max(3, Math.min(9, Math.round(a.distanceTo(b) / 22)));
+    for (let j = 0; j <= n; j++) {
+      const q = new THREE.Vector3().lerpVectors(a, b, j / n); q.y = WATER_Y;
+      if (q.z < 150) continue;
+      g.fx.later(j * 0.07 + rand() * 0.06, () => {
+        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: q.x + range(-6, 6), y: q.y + range(5, 10), z: q.z + range(-6, 6), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(-3, 3) + 2, drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.65, fadeIn: 0.04, fadeOut: 0.6, r: 0.2, g: 0.19, b: 0.18, r1: 0.15, g1: 0.14, b1: 0.13, glow: 0.3, glowFade: 2 }); }
+        for (let i = 0; i < 12; i++) g.fx.main.spawn({ x: q.x + range(-7, 7), y: q.y + 1, z: q.z + range(-7, 7), vx: range(-7, 7), vy: range(14, 32) * k, vz: range(-7, 7), grav: 9.8, drag: 0.35, frame: CELL.WISP, s0: 3 * k, s1: 9 * k, life: range(2, 3.4), rot: rand() * 6, r: 0.42, g: 0.42, b: 0.42, a: 0.4, fadeOut: 0.5 });
+        if (j % 3 === 0) g.fx.ring?.(q, 22 * k, 1.6, WATER_Y + 0.3);
+      });
     }
   }
 
@@ -619,6 +658,7 @@ export class SetPieces {
     this._updatePancake(dt);
     this._updateBlackout(dt);
     this._updateFall(dt);
+    this.slide.update(dt);
     this._updateJumpers(dt);
     this._updateGlide(dt, dt);
     this.search.update(dt);

@@ -1108,6 +1108,16 @@
   ]
  },
  {
+  "key": "d2e3159d",
+  "text": "The BANK — the whole riverside's going with it!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
   "key": "1538be83",
   "text": "Jumpers! Behind you — they followed you off the roof!",
   "levels": [

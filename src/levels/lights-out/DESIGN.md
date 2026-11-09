@@ -28,15 +28,21 @@ searchlights. Every number lives in `layout.js`.
 9. **climb** — up to Sky Street in the dark: generator searchlights (shoot the lamps), lasers, fires.
 10. **lobby** — over the footbridge into Jinlong's sky lobby (marble, gold, the 金龙 bulkhead); the building groans.
 11. **jump** — grab the BASE rig from the locker; run for the gap in the terrace balustrade; slow-mo jump.
-12. **glide** — "LOOK BACK": the tower shears off and falls (gold until it hits the river; look-gated). Jumpers on
-    canopies (shoot the canopy), gunners on the Chaotian bridge, searchlights, barges; the gunboat (shoot the drums
-    on its stern, marker on them), then you land on its deck.
+12. **glide** — "LOOK BACK" (look-gated at the bank east of the tower): the **landslide** — the whole riverside block
+    east of Jinlong (Binjiang Road's terrace, its shop row, hanging houses on the cliff face, the quay blocks, five
+    towers) cracks along the road and slides into the river in four pieces, running along the bank toward the
+    tower; the towers on them topple off the moving ground, dust rolls out across the water, a raw scar of broken
+    earth is left with fires burning in it. Then Jinlong (its footing gone) goes over — gold until it hits — tears off
+    its stump at ~55° and drops into the hole in the bank. Jumpers on canopies (shoot the canopy), gunners on the
+    Chaotian bridge, searchlights, barges; the gunboat (shoot the drums on its stern, marker on them), then you land
+    on its deck.
 13. **outro** / **credits** — stats card, then the credits for all nine levels.
 
 ## Comfort (VR)
 - No free fall: the canopy opens 0.7 s after the jump, in slow-mo. Steady descent on a rail (`GlideRail`), sideways
   nudge only, yaw follows the line at ≤ 3°/s, no roll. The canopy is a fixed frame over you (lines to your shoulders).
-- Big moments are look-gated (tanker, blackout, tower fall) with a timeout; markers point at them.
+- Big moments are look-gated (tanker, blackout, landslide + tower fall) with a timeout; markers point at them. The
+  landslide and the tower are 150–300 m away and move away from / alongside the rail, never at the player.
 
 ## Systems
 - `kit.js`: the shared material patch (vertex colour albedo, per-vertex rough/metal, emissive with a power code,
@@ -50,7 +56,15 @@ searchlights. Every number lives in `layout.js`.
   wall, gallery, atrium stair, pavilion towers, banners); `bridge.js` (Qiansi arch, Chaotian cable-stayed, far arches);
   `east.js` (plaza, interchange spans, substation, climb, Sky Street, footbridge); `tower.js` (Jinlong: stump, body on a
   hinge, crown on its own hinge, lobby, terrace); `river.js` (water, mist, boats, reflections on water and wet streets).
-- `setpieces.js`: fires, the pancake, the blackout + arcs, the tower fall, the glide (rail, jumpers, gunboat, landing).
+- `setpieces.js`: fires, the pancake, the blackout + arcs, the tower fall (a rod on its hinge, then a free body once it
+  tears off the stump), the glide (rail, jumpers, gunboat, landing).
+- `slide.js`: the landslide. `SLIDE` / `scarY0` in `layout.js`. Four pieces + five toppling towers are **bones**; all of
+  their geometry (built in world space with the city kit, `towerBlock`, `shopRow`) is merged into one `SkinnedMesh`
+  per material (~12 draw calls for the whole thing). The scar (slip surface, side scarps, rubble, torn road slabs) is
+  static, hidden inside the rock until the pieces leave; its emissive bakes the light of the fires burning on it so the
+  relief reads at night. Everything on the pieces is district TOWER (Jinlong's generators: lit below y 70 after the
+  blackout, full and flickering while it goes, dark when the tower hits). Riding glows follow their bones (and their
+  river reflections move with them); `world.glowList` is sorted so `prio` halos are never the ones the capped batch drops.
 - `glide.js`: canopy, rail, gunboat (lofted hull, mast, nav lights, wake). `searchlights.js`: instanced beams that lock on.
 - Shared code reused: `whiteout/ai.js` (copied as `ai.js` with the jumper role), `whiteout/auto.js`,
   `iron-lady/reflections.js`, `downtown-haven/{glass,cars,...}.js` (cars got a `city: 'longwu'` livery: blue 渝 plates,

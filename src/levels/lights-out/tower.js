@@ -190,6 +190,6 @@ export function buildTower(ctx = {}) {
     { local: new THREE.Vector3(cx, top + 47, cz), p: new THREE.Vector3(cx, top + 47, cz), color: [3, 0.2, 0.1], size: 5, blink: true, rate: 1.4, code: DUSK + code, far: true, crown: true },
     
   ];
-  for (const g of riding) glows.push(g);
+  for (const g of riding) { g.prio = 1; glows.push(g); }
   return { root, anchors: { glows, lights, named: { tower: { root, body, crown, crownHinge, riding } } }, colliders, panes, tris: 0 };
 }
