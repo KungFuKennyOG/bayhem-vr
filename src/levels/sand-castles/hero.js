@@ -216,7 +216,9 @@ export class HeroTower {
     c.w.copy(S.ax).multiplyScalar(S.om * range(0.5, 1.8)).add(_v.set(range(-0.25, 0.25), range(-0.3, 0.3), range(-0.25, 0.25)));
     c.state = 'fly'; c.hit = 0; c.sink = 0;
     if (c.kind === 'face' && this.glass && chance(0.6)) this.glass.burst(c.p, _v.copy(c.v).normalize().multiplyScalar(0.3), 18, { spread: c.h.x, speed: 4, size: 2.5, life: 12 });
-    if (chance(0.5)) this.dust.plume(c.p.x, c.p.y, c.p.z, c.v.x * 0.4, c.v.z * 0.4, 0.8);
+    // every piece tears out in its own burst of pulverised concrete: the break-up reads as a collapsing mass, not loose blocks
+    this.dust.plume(c.p.x, c.p.y, c.p.z, c.v.x * 0.4, c.v.z * 0.4, range(1.4, 2.4));
+    if (chance(0.35)) this.dust.plume(c.p.x, c.p.y, c.p.z, c.v.x * 0.2, c.v.z * 0.2, range(1.0, 1.8), true);
     g.events.push({ type: 'detach' });
   }
   _shearSpire() {
