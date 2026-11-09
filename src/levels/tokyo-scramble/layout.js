@@ -128,6 +128,10 @@ export const CARS = [
   // the expressway jam: westbound (south half, facing -x) and eastbound (north half, facing +x)
   [98, -145, 92, 'van', 'x'], [86, -154, 268, 'sedan', 'x'], [78, -155.5, 274, 'suv', 'x'], [68, -145.5, 86, 'sedan', 'x alarm'], [58, -152.5, 262, 'taxi', 'x'],
   [50, -146, 94, 'sedan', 'x'], [44, -155.5, 270, 'van', 'x haz'], [36, -145.6, 80, 'sedan', 'x'], [31, -153, 258, 'suv', 'x'],
+  // ...bumper to bumper: the inner lanes filled in, a coach broadside-ish as a wall, doors left open
+  [84, -143.2, 91, 'sedan', 'x'], [56, -143, 87, 'suv', 'x haz'], [92, -147.4, 88, 'taxi', 'x open'], [77, -147.6, 91, 'bus', ''],
+  [60, -147.4, 95, 'sedan', 'x open'], [42, -147.2, 84, 'taxi', 'x'], [96, -152.6, 272, 'sedan', 'x'], [70, -153, 266, 'van', 'x'],
+  [50, -152.6, 275, 'sedan', 'x open'], [94, -156.4, 270, 'suv', 'x'], [66, -156.6, 263, 'taxi', 'x alarm'], [36, -156.8, 271, 'sedan', 'x'],
   // the cross street under the expressway (seen from above)
   [70, -152, 92, 'sedan', 'x'], [-40, -150, 268, 'taxi', 'x'],
 ];
