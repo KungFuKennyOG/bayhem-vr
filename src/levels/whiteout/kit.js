@@ -109,6 +109,17 @@ export function driftWedge(len, h = 1.0, d = 1.8, seed = 1) {
   return g;
 }
 
+// the solid core of a drift (where it is knee-high or more) as a world AABB [x0, y0, z0, x1, y1, z1], for a collider:
+// you walk up to a drift, not through it. m = the drift's placement matrix (as passed to Bucket.add)
+export function driftBox(len, h, m) {
+  const e = Math.min(len * 0.25, 1.2), a = new THREE.Vector3(), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (let k = 0; k < 8; k++) {
+    a.set(k & 1 ? len / 2 - e : -len / 2 + e, k & 2 ? h * 0.8 : 0.05, k & 4 ? h * 0.85 : 0).applyMatrix4(m);
+    for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], a.getComponent(i)); hi[i] = Math.max(hi[i], a.getComponent(i)); }
+  }
+  return [lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]];
+}
+
 // ---------------------------------------------------------------- the snow patch (any MeshStandardMaterial)
 // amt: how much settles on the top faces; rime: frost on the windward faces; the cap colour is the snow's own
 const SNOWU = { uWind: { value: WIND }, uSnowAmt: { value: 1 } };

@@ -115,7 +115,15 @@ export class SetPieces {
     g.fx.explosion(P.clone(), 1.8); g.fx.light(P, 3000, 0.8, 0xff7a2a, false, 500);
     for (let i = 0; i < 10; i++) g.fx.flame(_v.set(P.x + range(-12, 12), P.y + range(-6, 8), P.z + range(-12, 12)), range(6, 10));
     for (let i = 0; i < 6; i++) this.dust.plume(P.x + range(-10, 10), P.y + range(-8, 8), P.z + range(-10, 10), range(-6, 6), range(-6, 6), 1.1, i < 4);
-    if (k === 2) g.fx.later(0.7, () => { if (this.fallTower(tower.id, g.headPos)) { g.addScore(2500, 'TOWER DOWN', g.calloutAt(P.clone().setY(P.y + 30)), 'huge'); g.slowmoReq(1.6, 0.4); } });
+    // it goes once it's in front of the door (the director's gate; the pilot is turning to it), burning till then
+    if (k === 2) {
+      const t0 = g.time;
+      const go = () => {
+        if ((this.fallGate?.(tower) ?? true) || g.time - t0 > 12) { if (this.fallTower(tower.id, g.headPos)) { g.addScore(2500, 'TOWER DOWN', g.calloutAt(P.clone().setY(P.y + 30)), 'huge'); g.slowmoReq(1.6, 0.4); } }
+        else { g.fx.flame(_v.set(P.x + range(-10, 10), P.y + range(-4, 6), P.z + range(-10, 10)), range(6, 9)); g.fx.later(0.25, go); }
+      };
+      g.fx.later(0.7, go);
+    }
   }
   update(dt, rdt, eye) {
     const g = this.g;

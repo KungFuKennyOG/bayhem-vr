@@ -8,6 +8,7 @@ import { CELL } from '../../particles.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildHammer, heliMaterials } from './helimodel.js';
 import { HERO } from './layout.js';
+import { Threats } from './threats.js';
 
 // =====================================================================================
 //  SAND CASTLES — combat. The player is a door gunner on a rail; everything shoots up at you
@@ -68,6 +69,7 @@ export class SandGame {
     Ragdoll.world = this.col;
     this.towerList = W.plan.towers;
     this.wing = null;
+    this.threats = new Threats(this); // drones, Vipers, fuel that goes up (threats.js)
   }
 
   // ------------------------------------------------------------------ HUD + helpers
@@ -151,6 +153,7 @@ export class SandGame {
     }
     for (const r of this.rockets) { if (r.dead) continue; const t = raySphere(origin, dir, r.pos, 2.2 + r.pos.distanceTo(origin) * 0.006); if (t > 0 && t < best.t) best = { t, kind: 'rocket', r }; }
     for (const a of this.aas) { if (!a.alive) continue; const t = raySphere(origin, dir, a.center, 3.2); if (t > 0 && t < best.t) best = { t, kind: 'aa', a }; }
+    best = this.threats.ray(origin, dir, best);
     const g = this.gunship;
     if (g && g.phase !== 'gone' && g.phase !== 'enter') { const n = new THREE.Vector3(); g.m.root.updateMatrixWorld(); _m.compose(g.pos, g.m.root.quaternion, _v2.set(2.1, 2.1, 2.1)); const t = rayOBB(origin, dir, _m.multiply(new THREE.Matrix4().makeTranslation(0, 0.05, 0.6)), _v3.set(2.4, 1.6, 6.5), n); if (t > 0 && t < best.t) best = { t, kind: 'gunship', n: n.clone() }; }
     const tw = this.towerRay(origin, dir, best.t);
@@ -186,6 +189,7 @@ export class SandGame {
         this.fx.impact(P, hit.n, rand() < 0.5 ? 'glass' : 'concrete');
         break;
       }
+      case 'threat': this.threats.shot(hit, dir, P); break;
       case 'ground': this.fx.impact(P, _v.set(0, 1, 0), 'ground'); break;
     }
     // suppressive splash: rounds landing round a gunman still put him down
@@ -355,13 +359,14 @@ export class SandGame {
       this.fx.trailEmit(n, n.pos, 0.8, (q) => this.fx.smoke(q, 0.6, 0.6, 1.4, 0.4, 0.45), 0);
       const g = this.gunship;
       const nearG = g && g.phase === 'fight' && n.pos.distanceTo(g.pos) < 9;
-      if (tw || n.pos.y < 0.3 || n.t > 9 || nearG || this.men.some(m => m.alive && m.delay <= 0 && m.pos.distanceTo(n.pos) < 2.5)) {
+      if (tw || n.pos.y < 0.3 || n.t > 9 || nearG || this.threats.nadeHits(n.pos) || this.men.some(m => m.alive && m.delay <= 0 && m.pos.distanceTo(n.pos) < 2.5)) {
         n.dead = true;
         const P = n.pos.clone(); if (P.y < 0.5) P.y = 0.5;
         this.fx.explosion(P, 1.25);
         this.lastExplosionT = this.time; this.lastExplosionShake = 0.2;
         for (const m of this.men) if (m.alive && m.delay <= 0 && m.pos.distanceTo(P) < 9) this.killMan(m, _v2.subVectors(m.pos, P).setY(2).normalize(), false);
         for (const a of this.aas) if (a.alive && a.center.distanceTo(P) < 10) { a.hp -= 40; if (a.hp <= 0) this.killAA(a, 'nade'); }
+        this.threats.nade(P);
         if (g && g.phase === 'fight' && g.pos.distanceTo(P) < 14) { g.hp -= 45; g.hit = 1; this.hitMarker(true); if (g.hp <= 0) this.killGunship(); }
       }
     }
@@ -505,7 +510,8 @@ export class SandGame {
       const T = g.crashAt || g.pos.clone().setY(0);
       const to = _v.subVectors(T, g.pos);
       const dist = to.length();
-      g.vel.lerp(to.normalize().multiplyScalar(Math.min(48, 20 + g.t * 14)), Math.min(1, dt * 1.2));
+      // fast enough to reach it in ~5 s (so it never times out and blows up in mid-air short of the tower)
+      g.vel.lerp(to.normalize().multiplyScalar(Math.min(75, Math.max(20 + g.t * 14, dist / Math.max(1.2, 5 - g.t)))), Math.min(1, dt * 1.6));
       g.pos.addScaledVector(g.vel, dt);
       g.spin = Math.min(5, g.spin + dt * 2.2); g.yaw += g.spin * dt;
       m.root.position.copy(g.pos); m.root.rotation.set(0.25, g.yaw, 0.35 * Math.sin(g.t * 3), 'YXZ');
@@ -582,6 +588,7 @@ export class SandGame {
     for (const m of this.men) if (m.alive && m.delay <= 0) tryP(m.gm.chestCenter.getWorldPosition(new THREE.Vector3()));
     for (const r of this.rockets) tryP(r.pos);
     if (this.gunship?.phase === 'fight') tryP(this.gunship.pos);
+    this.threats.aimPoints(tryP);
   }
   autoTargets(A, head) {
     const c = [];
@@ -593,14 +600,20 @@ export class SandGame {
       c.push({ kind: 'gunman', p: m.pos, score: 70 - d * 0.12 + (m.role === 'rpg' ? 25 : 0) + (A.target?.ref === m ? 25 : 0), ref: m, tol: 0.06, heavy: false }); // a minigun hoses: fire when roughly on
     }
     for (const a of this.aas) if (a.alive && a.active) { const d = a.center.distanceTo(head); if (d < 500) c.push({ kind: 'aa', p: a.center, score: 30 - d * 0.03, ref: a, tol: 0.06, heavy: false }); }
+    this.threats.autoTargets(c, A, head);
     const g = this.gunship;
     if (g && g.phase === 'fight') c.push({ kind: 'heli', p: g.pos, score: 60 + (A.target?.ref === g ? 25 : 0), ref: g, tol: 0.08, heavy: false });
     if (g && g.phase === 'dying') { c.length = 0; c.push({ kind: 'look', p: g.pos, score: 999, ref: g, w: 6 }); }
-    else if (this.cinematicLook && !c.some(x => x.kind === 'rocket')) { c.length = 0; c.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: this.cinematicW ?? 3 }); }
-    if (this.paintTarget) { c.length = 0; c.push({ kind: 'paint', p: this.paintTarget, score: 999, ref: this.paintTarget, tol: 0.03, w: 4 }); }
+    else if (this.cinematicLook && !c.some(x => x.kind === 'rocket' || (x.kind === 'drone' && x.p.distanceTo(head) < 230))) { c.length = 0; c.push({ kind: 'look', p: this.cinematicLook, score: 999, ref: this.cinematicLook, w: this.cinematicW ?? 3 }); }
+    // painting: unless something is about to hit you (a drone on its way in, a rocket, a Viper on a strafing run)
+    if (this.paintTarget) {
+      const urgent = c.filter(x => x.kind === 'rocket' || (x.kind === 'drone' && x.p.distanceTo(head) < 230) || (x.kind === 'viper' && x.p.distanceTo(head) < 170));
+      c.length = 0;
+      if (urgent.length) c.push(...urgent); else c.push({ kind: 'paint', p: this.paintTarget, score: 999, ref: this.paintTarget, tol: 0.03, w: 4 });
+    }
     return c;
   }
-  autoTargetDead(t) { return (t.kind === 'gunman' && !t.ref.alive) || (t.kind === 'rocket' && t.ref.dead) || (t.kind === 'aa' && !t.ref.alive) || (t.kind === 'heli' && t.ref.phase !== 'fight'); }
+  autoTargetDead(t) { const th = this.threats.autoDead(t); if (th !== null) return th; return (t.kind === 'gunman' && !t.ref.alive) || (t.kind === 'rocket' && t.ref.dead) || (t.kind === 'aa' && !t.ref.alive) || (t.kind === 'heli' && t.ref.phase !== 'fight'); }
   // the shared autopilot turns a world point into yaw / pitch as if the rig were unrotated; ours flies a
   // rotated rig, so hand it the point rotated into the rig's frame (about the eye)
   autoAimPoint(t, out) {
@@ -630,6 +643,7 @@ export class SandGame {
     this._updateRockets(dt);
     this._updateNades(dt);
     this._updateAA(dt);
+    this.threats.update(dt);
     this._updateGunship(dt);
     this._updateWing(dt);
     this._updateBodies(dt);

@@ -142,7 +142,8 @@ const PANEL = /* glsl */`
 varying vec3 vObj;
 float hpl(float x, float p, float w){ float f = fract(x / p); return 1.0 - smoothstep(0.0, w, min(f, 1.0 - f)); }
 `;
-export function heliMaterials() {
+// enemy: the same airframe in a dark charcoal-grey scheme (yours and HAMMER TWO are khaki-olive), so a bad guy reads at a glance
+export function heliMaterials({ enemy = false } = {}) {
   const body = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.15 });
   body.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vObj;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;');
@@ -152,10 +153,10 @@ export function heliMaterials() {
       float wear = smoothstep(0.62, 0.8, fract(sin(dot(floor(vObj * 3.0), vec3(12.9, 78.2, 37.7))) * 43758.5));
       diffuseColor.rgb *= 1.0 - 0.65 * pl;
       // a darker, dirtier khaki-olive (the clean sand paint read as a toy), exhaust-stained and grimy underneath
-      diffuseColor.rgb *= vec3(0.7, 0.72, 0.58) * (0.72 + 0.28 * smoothstep(-1.0, 1.4, vObj.y));
+      diffuseColor.rgb *= ${enemy ? 'vec3(0.36, 0.37, 0.36)' : 'vec3(0.7, 0.72, 0.58)'} * (0.72 + 0.28 * smoothstep(-1.0, 1.4, vObj.y));
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.25 + 0.02, wear * 0.25);`);
   };
-  body.customProgramCacheKey = () => 'hammer-body';
+  body.customProgramCacheKey = () => enemy ? 'hammer-body-enemy' : 'hammer-body';
   const glass = new THREE.MeshStandardMaterial({ color: 0x0a0f12, roughness: 0.06, metalness: 0.9, transparent: true, opacity: 0.88 });
   const rotor = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.3 });
   // blur disc: dark rotating sectors (one per blade) over a faint disc, alpha by radius

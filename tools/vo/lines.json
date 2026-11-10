@@ -1478,6 +1478,56 @@
   ]
  },
  {
+  "key": "1f273bd1",
+  "text": "Drones off the door! Shoot them before they reach us!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "a6f63111",
+  "text": "Enemy chopper on our left — he's making a gun run!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "3a02616c",
+  "text": "Chopper down! Scratch one!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "dca917a8",
+  "text": "Did you just chain that?! Beautiful.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "c7a82ed3",
+  "text": "That was a fuel depot. WAS.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
   "key": "3057f97d",
   "text": "...And that was a forty-storey building. Insurance is going to love us.",
   "levels": [
@@ -1690,6 +1740,16 @@
  {
   "key": "0c16b169",
   "text": "Bombers have the rest. Come about — the Spire.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "8974242d",
+  "text": "Fuel tankers on the street below — light them up!",
   "levels": [
    "sand-castles"
   ],
