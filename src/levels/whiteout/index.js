@@ -41,7 +41,7 @@ export async function create(E) {
   const col = world.col;
   const walkWorld = {
     pushCircle: (...a) => col.pushCircle(...a),
-    groundAt: (x, z, y, s) => (world.walkable(x, z) || setp.extraWalk?.(x, z)) ? col.groundAt(x, z, y, s) : -1e9,
+    groundAt: (x, z, y, s) => { const cf = setp.cabFloor?.(x, z); if (cf !== undefined) return cf; return (world.walkable(x, z) || setp.extraWalk?.(x, z)) ? col.groundAt(x, z, y, s) : -1e9; },
   };
   const loco = new Locomotion(rig, walkWorld, { walk: 3.1, sprint: 5.3 });
   player.enableLocomotion(loco);

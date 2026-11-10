@@ -37,6 +37,9 @@ export class Traffic {
         alarm: f.includes('alarm'), haz: f.includes('haz') || type === 'police', fuse: 0, burn: type === 'wreck' ? 999 : 0, smoke: 0,
         boxes: [], rb: null, holes: 0, alarmT: 0,
       };
+      // 'burn': already a burning wreck when the level starts (the plaza coach, a car in the jam) — set dressing
+      // with fire in it, still cover
+      if (f.includes('burn')) { c.m.setBurnt?.(); c.state = 'wreck'; c.burn = 998; c.explosive = false; c.alarm = false; }
       this._addBoxes(c);
       this.cars.push(c);
     }

@@ -1,12 +1,13 @@
+import { vendAtlas } from './vending.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
-import { Acc, rmMat, hex, signMat, zelkova } from './kit.js';
+import { Acc, rmMat, hex, signMat, zelkova, leafMaterial, bush, roadDecalMaterial, scatterDecals } from './kit.js';
 import { facadeMaterial, cellRect, FCELL } from './facade.js';
 import { signAtlas, JP } from './signs.js';
 import { signAtlas2 } from './signs2.js';
 import { signQuad } from './city.js';
-import { plazaTex } from './street.js';
+import { plazaTex, asphaltTex } from './street.js';
 import { PLAZA_E, EDECK, STAIR_W, STAIR_E, R2, R2LAND, DECK_B, ETOWER, GORE, CURB } from './layout.js';
 
 // =====================================================================================
@@ -51,7 +52,7 @@ function stationSignTex() {
     g.font = '400 40px Anton, sans-serif'; g.fillStyle = '#c8d0dc'; g.fillText('KUROGANE STA.  EAST EXIT', off + 382, 124);
     g.fillStyle = '#f2c21a'; g.font = '700 70px Anton, sans-serif'; g.fillText('→', off + 930, 84);
   }
-  return canvasTex(c, { repeat: false, aniso: 8 });
+  return canvasTex(c, { repeat: true, aniso: 8 });
 }
 // the blue pedestrian direction sign on the decks
 function dirSignTex() {
@@ -73,7 +74,7 @@ function deckNameTex() {
   g.font = `900 64px ${JP}`; g.textAlign = 'left'; g.fillText('黒金イーストデッキ', 60, 58);
   g.font = '400 46px Anton, sans-serif'; g.fillText('KUROGANE EAST DECK', 700, 60);
   g.font = `700 44px ${JP}`; g.textAlign = 'right'; g.fillText('← 銀鶏坂   ハチ口 →', W - 60, 58);
-  return canvasTex(c, { repeat: false, aniso: 8 });
+  return canvasTex(c, { repeat: true, aniso: 8 });   // tiled along the fascia at its own aspect (one copy ≈ 9.9 m at 0.62 m tall)
 }
 
 export function buildEastExit(ctx = {}) {
@@ -83,7 +84,9 @@ export function buildEastExit(ctx = {}) {
   const colliders = [], glows = [], lights = [], walks = [], shade = [];
   const fac = new Acc({ cell: true, info: true }), prop = new Acc({ rm: true }), glass = new Acc({ rm: true }), sign = new Acc(), sign2 = new Acc();
   const top = new Acc(), pave = new Acc(), tact = new Acc();
+  const leaves = new Acc();   // tree crowns (leaf cards)
   const { E: SE } = signAtlas(); const { E: E2 } = signAtlas2();
+  const { E: VE } = vendAtlas(), vacc = new Acc();   // vending fronts: their own hi-res atlas
   const Y = EDECK.y, T = EDECK.t, B = DECK_B.y;
   const col = (min, max, data = {}) => colliders.push({ min, max, data: { mat: 'concrete', ...data } });
   const wall = (O, Tn, L, y0, y1, cell, info, bay = 3, floorH = 3, c = [1, 1, 1]) => { fac.set({ cell: cellRect(cell), info, col: c }); const a = [O[0], y0, O[2]], b = [O[0] + Tn[0] * L, y0, O[2] + Tn[2] * L]; fac.quad(a, b, [b[0], y1, b[2]], [a[0], y1, a[2]], [0, 0, Math.max(1, Math.round(L / bay)), (y1 - y0) / floorH]); };
@@ -229,15 +232,78 @@ export function buildEastExit(ctx = {}) {
     bal(ETOWER.x1, zN + e, GORE.x0 + 6, zN + e, B); bal(GORE.x1, zN + e, x1, zN + e, B);
     const planter = (cx, cz, w, d, tree) => {
       prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(cx - w / 2, B, cz - d / 2, cx + w / 2, B + 0.7, cz + d / 2);
-      prop.set({ col: hex(0x3a4a26), rm: [0.95, 0, 0] }); prop.box(cx - w / 2 + 0.12, B + 0.7, cz - d / 2 + 0.12, cx + w / 2 - 0.12, B + 1.05, cz + d / 2 - 0.12, { faces: 'Y' });
+      prop.set({ col: hex(0x2e2418), rm: [0.95, 0, 0] }); prop.box(cx - w / 2 + 0.12, B + 0.7, cz - d / 2 + 0.12, cx + w / 2 - 0.12, B + 0.74, cz + d / 2 - 0.12, { faces: 'Y' });   // soil
+      { const L_ = Math.max(w, d), n_ = Math.max(2, Math.round(L_ / 1.4)); for (let i = 0; i < n_; i++) { const t_ = (i + 0.5) / n_ - 0.5; bush(leaves, cx + (w > d ? t_ * (w - 0.6) : 0), B + 0.62, cz + (w > d ? 0 : t_ * (d - 0.6)), 0.62, cx * 5 + cz + i); } }
       col([cx - w / 2, B, cz - d / 2], [cx + w / 2, B + 1.05, cz + d / 2], { kind: 'planter' });
       if (tree) for (const [tx, tz] of tree) {
-        zelkova(prop, tx, B + 0.7, tz, 0.75, tx + tz);
+        zelkova(prop, tx, B + 0.7, tz, 0.75, tx + tz, leaves);
         col([tx - 0.2, B, tz - 0.2], [tx + 0.2, B + 3.6, tz + 0.2], { kind: 'tree', mat: 'wood' });
       }
     };
     planter(86, -98, 8, 2.2, [[83, -98], [89, -98]]); planter(100, -112, 2.2, 8, [[100, -110]]); planter(80, -118, 6, 2.2, null); planter(60, -94, 8, 2.2, [[57, -94], [63, -94]]);
     for (const [bx, bz] of [[92, -106], [72, -94]]) { prop.set({ col: hex(0x6a5a46), rm: [0.8, 0, 0] }); prop.box(bx - 1.2, B + 0.42, bz - 0.25, bx + 1.2, B + 0.5, bz + 0.25); prop.set({ col: hex(0x8a8e92), rm: [0.4, 0.7, 0] }); prop.box(bx - 1.1, B, bz - 0.2, bx - 1.0, B + 0.42, bz + 0.2); prop.box(bx + 1.0, B, bz - 0.2, bx + 1.1, B + 0.42, bz + 0.2); }
+    // the sky garden: a timber deck with café tables and parasols by the kiosk, a lawn strip with a clipped hedge,
+    // the roof plant (a bank of AC condensers, a cooling tower) along the north edge — cover with a reason to exist
+    { prop.set({ col: hex(0x7a5a3a), rm: [0.85, 0, 0] });
+      prop.box(86, B, -126, 108, B + 0.025, -110, { faces: 'YxXzZ' });
+      prop.set({ col: hex(0x5a4028), rm: [0.9, 0, 0] }); for (let z = -125.6; z < -110; z += 0.6) prop.box(86, B + 0.026, z, 108, B + 0.028, z + 0.03, { faces: 'Y' });
+      for (const [tx, tz, pc] of [[89, -122, 0xe8e4dc], [89, -114, 0x2a6a4a], [109.5 - 2.5, -112.5, 0xc8402a], [91.5, -118, 0xe8e4dc]]) {
+        prop.set({ col: hex(0xd8d6d0), rm: [0.5, 0.4, 0] }); prop.cyl(tx, B + 0.08, tz, 0.45, 0.45, B + 0.76, 12); prop.cyl(tx, B + 0.08, tz, 0.05, 0.05, B + 0.72, 6, { cap: false });
+        prop.set({ col: hex(0x8a8e92), rm: [0.4, 0.7, 0] }); prop.cyl(tx, B + 0.76, tz, 0.03, 0.03, B + 2.3, 6, { cap: false });
+        prop.set({ col: hex(pc), rm: [0.8, 0, 0] }); prop.cyl(tx, B + 2.05, tz, 1.4, 0.05, B + 2.45, 10, { cap: false });
+        for (const a_ of [0.4, 2.2, 4.0]) { const cx_ = tx + Math.cos(a_) * 0.85, cz_ = tz + Math.sin(a_) * 0.85; prop.set({ col: hex(0x3a3c40), rm: [0.5, 0.5, 0] }); prop.box(cx_ - 0.22, B + 0.42, cz_ - 0.22, cx_ + 0.22, B + 0.47, cz_ + 0.22); prop.box(cx_ - 0.03, B + 0.08, cz_ - 0.03, cx_ + 0.03, B + 0.42, cz_ + 0.03); }
+        col([tx - 0.5, B, tz - 0.5], [tx + 0.5, B + 0.76, tz + 0.5], { kind: 'table', mat: 'metal' });
+      }
+      // a rooftop Inari shrine (department-store roofs keep one): a row of vermilion torii leading north to a
+      // small hokora on a stone base, two white foxes with red bibs, a stone lantern
+      { const sx = 81.5, R_ = 0xb8341a, ink = 0x1a1a1a;
+        prop.set({ col: hex(0x9a968c), rm: [0.85, 0, 0] }); prop.box(sx - 1.1, B, -110.6, sx + 1.1, B + 0.06, -103.6, { faces: 'YxXzZ' });   // the stone path
+        for (const tz of [-104.2, -106.0, -107.8]) {
+          prop.set({ col: hex(R_), rm: [0.55, 0, 0] });
+          for (const d of [-0.85, 0.85]) prop.cyl(sx + d, B, tz, 0.11, 0.1, B + 2.5, 10, { cap: false });
+          prop.box(sx - 1.15, B + 2.05, tz - 0.08, sx + 1.15, B + 2.2, tz + 0.08);                          // nuki
+          prop.box(sx - 1.4, B + 2.5, tz - 0.12, sx + 1.4, B + 2.62, tz + 0.12);                             // shimaki
+          prop.set({ col: hex(ink), rm: [0.6, 0, 0] }); prop.box(sx - 1.55, B + 2.62, tz - 0.14, sx + 1.55, B + 2.76, tz + 0.14);   // kasagi (black cap)
+          prop.box(sx - 1.6, B + 2.7, tz - 0.14, sx - 1.35, B + 2.84, tz + 0.14); prop.box(sx + 1.35, B + 2.7, tz - 0.14, sx + 1.6, B + 2.84, tz + 0.14);   // upturned ends
+          for (const d of [-0.85, 0.85]) prop.cyl(sx + d, B, tz, 0.14, 0.14, B + 0.25, 10);                // black feet
+          col([sx - 0.98, B, tz - 0.12], [sx - 0.72, B + 2.5, tz + 0.12], { kind: 'pole', thin: true, mat: 'wood' }); col([sx + 0.72, B, tz - 0.12], [sx + 0.98, B + 2.5, tz + 0.12], { kind: 'pole', thin: true, mat: 'wood' });
+        }
+        // the hokora: stone plinth, a timber box, a dark gabled roof, a red front
+        prop.set({ col: hex(0x8a867e), rm: [0.85, 0, 0] }); prop.box(sx - 0.9, B, -111.6, sx + 0.9, B + 0.8, -110.2);
+        prop.set({ col: hex(0x6a4a2a), rm: [0.8, 0, 0] }); prop.box(sx - 0.55, B + 0.8, -111.4, sx + 0.55, B + 1.7, -110.5);
+        prop.set({ col: hex(R_), rm: [0.6, 0, 0] }); prop.box(sx - 0.45, B + 0.9, -110.5, sx + 0.45, B + 1.55, -110.46, { faces: 'Z' });
+        prop.set({ col: hex(0x2a2c2e), rm: [0.6, 0.2, 0] });
+        prop.quad([sx - 0.8, B + 1.65, -110.2], [sx + 0.8, B + 1.65, -110.2], [sx + 0.8, B + 2.15, -110.95], [sx - 0.8, B + 2.15, -110.95]);
+        prop.quad([sx + 0.8, B + 1.65, -111.7], [sx - 0.8, B + 1.65, -111.7], [sx - 0.8, B + 2.15, -110.95], [sx + 0.8, B + 2.15, -110.95]);
+        col([sx - 0.9, B, -111.7], [sx + 0.9, B + 1.7, -110.2], { kind: 'shrine', mat: 'wood' });
+        // foxes on little plinths either side of the path, red bibs
+        for (const d of [-1, 1]) { const fx_ = sx + d * 1.0, fz = -109.4;
+          prop.set({ col: hex(0x8a867e), rm: [0.85, 0, 0] }); prop.box(fx_ - 0.22, B, fz - 0.22, fx_ + 0.22, B + 0.5, fz + 0.22);
+          prop.set({ col: hex(0xeeeeea), rm: [0.7, 0, 0] }); prop.box(fx_ - 0.12, B + 0.5, fz - 0.18, fx_ + 0.12, B + 0.82, fz + 0.14); prop.box(fx_ - 0.09, B + 0.82, fz - 0.02, fx_ + 0.09, B + 1.0, fz + 0.16);
+          prop.box(fx_ - 0.08, B + 1.0, fz + 0.02, fx_ - 0.03, B + 1.08, fz + 0.08); prop.box(fx_ + 0.03, B + 1.0, fz + 0.02, fx_ + 0.08, B + 1.08, fz + 0.08);
+          prop.set({ col: hex(0xd8281c), rm: [0.8, 0, 0] }); prop.box(fx_ - 0.1, B + 0.72, fz + 0.12, fx_ + 0.1, B + 0.82, fz + 0.16, { faces: 'Z' });
+          col([fx_ - 0.22, B, fz - 0.22], [fx_ + 0.22, B + 1.0, fz + 0.22], { kind: 'statue' }); }
+        // a stone lantern
+        prop.set({ col: hex(0x8a867e), rm: [0.85, 0, 0] }); prop.box(sx + 2.0, B, -105.3, sx + 2.4, B + 0.9, -104.9); prop.box(sx + 1.85, B + 0.9, -105.45, sx + 2.55, B + 1.25, -104.75); prop.box(sx + 1.75, B + 1.25, -105.55, sx + 2.65, B + 1.4, -104.65);
+      }
+      // lawn + hedge in front of the tower
+      prop.set({ col: hex(0x34481e), rm: [0.95, 0, 0] }); prop.box(50, B, -101, 74, B + 0.06, -92, { faces: 'Y' });
+      { const r2 = makeRng(5150); for (let i = 0; i < 90; i++) { const x = 50.4 + r2() * 23.2, z = -100.6 + r2() * 8.2, h = 0.08 + r2() * 0.18, w = 0.15 + r2() * 0.35;
+        prop.set({ col: hex([0x2a3c18, 0x40562a, 0x4a5e26, 0x5a6a30][i % 4]), rm: [0.95, 0, 0] }); prop.obox(x, B + 0.06 + h / 2, z, w, h / 2, w * 0.8, r2() * 3); } }
+      for (const [sx, sz] of [[54, -95], [61, -97.5], [68, -94.5], [72, -98]]) bush(leaves, sx, B + 0.05, sz, 0.75, sx + sz);
+      prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(49.8, B, -101.2, 74.2, B + 0.18, -101, { faces: 'zZY' }); prop.box(49.8, B, -92, 74.2, B + 0.18, -91.8, { faces: 'zZY' });
+      prop.set({ col: hex(0x2e4a1e), rm: [0.95, 0, 0] }); prop.box(50.2, B + 0.06, -100.9, 74, B + 0.9, -100.1);
+      col([50.2, B, -100.9], [74, B + 0.9, -100.1], { kind: 'hedge', mat: 'wood' });
+      for (let hx = 51; hx < 74; hx += 1.6) bush(leaves, hx, B + 0.35, -100.5, 0.5, hx * 3);
+      // roof plant along the north parapet, east of the gore link: condensers, ducts, a cooling tower
+      for (let i = 0; i < 5; i++) { const x = GORE.x1 + 1.5 + i * 1.5;
+        prop.set({ col: hex(0xd8d8d2), rm: [0.5, 0.3, 0] }); prop.box(x - 0.65, B, -127.4, x + 0.65, B + 1.3, -126.2);
+        prop.set({ col: hex(0x3a3c40), rm: [0.5, 0.5, 0] }); prop.cyl(x, B + 0.65, -126.19, 0.48, 0.48, B + 0.66, 12); }
+      col([GORE.x1 + 0.8, B, -127.4], [GORE.x1 + 8.2, B + 1.3, -126.2], { kind: 'plant', mat: 'metal' });
+      prop.set({ col: hex(0x9aa0a4), rm: [0.5, 0.5, 0] }); prop.box(GORE.x1 + 0.8, B + 1.4, -127.2, 112, B + 1.75, -126.5);
+      prop.set({ col: hex(0xb8bcbc), rm: [0.6, 0.3, 0] }); prop.cyl(110.2, B, -104, 1.4, 1.4, B + 2.6, 14); prop.set({ col: hex(0x3a3c40), rm: [0.5, 0.5, 0] }); prop.cyl(110.2, B + 2.6, -104, 1.4, 0.95, B + 3.1, 14, { cap: false });
+      col([108.8, B, -105.4], [111.6, B + 2.6, -102.6], { kind: 'plant', mat: 'metal' });
+    }
     // a kiosk pavilion (glass + white canopy) on the terrace — cover
     prop.set({ col: hex(0xe6e4de), rm: [0.6, 0, 0] }); prop.box(94, B + 3, -124, 106, B + 3.25, -116);
     prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); for (const [px, pz] of [[94.3, -123.7], [105.7, -123.7], [94.3, -116.3], [105.7, -116.3]]) prop.box(px - 0.08, B, pz - 0.08, px + 0.08, B + 3, pz + 0.08);
@@ -253,7 +319,7 @@ export function buildEastExit(ctx = {}) {
     colliders.push({ min: [cx - w / 2, y0 - 0.1, z - 0.15], max: [cx + w / 2, y0 + hh, z + 0.15], data: { mat: 'metal', kind: 'billboard', noBlock: true } });
     for (const dx of [-5, 0, 5]) col([cx + dx - 0.15, B, z - 0.15], [cx + dx + 0.15, y0 + hh, z + 0.15], { mat: 'metal', kind: 'pole', thin: true });
     // a vending pair against the tower's base
-    for (const [i, xx] of [[0, 79.2], [1, 80.3]]) { const v = SE.vend[(i * 3 + 1) % SE.vend.length]; prop.set({ col: hex(0xd8d6d0), rm: [0.4, 0.3, 0] }); prop.box(xx - 0.5, B, ETOWER.z1 - 0.1, xx + 0.5, B + 1.9, ETOWER.z1 + 0.9); signQuad(sign, [xx, B + 0.95, ETOWER.z1 + 0.91], [0, 0, 1], 0.98, 1.84, v.uv, 1.1); col([xx - 0.5, B, ETOWER.z1 - 0.1], [xx + 0.5, B + 1.9, ETOWER.z1 + 0.9], { mat: 'metal', kind: 'vending' }); }
+    for (const [i, xx] of [[0, 79.2], [1, 80.3]]) { const v = VE.vend[(i * 3 + 1) % SE.vend.length]; prop.set({ col: hex(0xd8d6d0), rm: [0.4, 0.3, 0] }); prop.box(xx - 0.5, B, ETOWER.z1 - 0.1, xx + 0.5, B + 1.9, ETOWER.z1 + 0.9); signQuad(vacc, [xx, B + 0.95, ETOWER.z1 + 0.91], [0, 0, 1], 0.98, 1.84, v.uv, 1.1); col([xx - 0.5, B, ETOWER.z1 - 0.1], [xx + 0.5, B + 1.9, ETOWER.z1 + 0.9], { mat: 'metal', kind: 'vending' }); }
     // a big poster billboard on the set-back face above the stair (seen from the plaza and the avenue)
     { const bw = 22, bh = 5, bx = 76, by = 9.6; prop.set({ col: hex(0x2a2c30), rm: [0.6, 0.4, 0] }); prop.box(bx - bw / 2 - 0.2, by - bh / 2 - 0.2, R2.z0 + 0.02, bx + bw / 2 + 0.2, by + bh / 2 + 0.2, R2.z0 + 0.2);
       signQuad(sign2, [bx - bw / 4, by, R2.z0 + 0.22], [0, 0, 1], bw / 2 - 0.1, bh, E2.band[1].uv, 1.0); signQuad(sign2, [bx + bw / 4, by, R2.z0 + 0.22], [0, 0, 1], bw / 2 - 0.1, bh, E2.band[3].uv, 1.0); }
@@ -304,14 +370,14 @@ export function buildEastExit(ctx = {}) {
     const bench = (x, z, alongX) => { prop.set({ col: hex(0x7a5a3a), rm: [0.8, 0, 0] }); if (alongX) prop.box(x - 1.2, Y + 0.42, z - 0.25, x + 1.2, Y + 0.5, z + 0.25); else prop.box(x - 0.25, Y + 0.42, z - 1.2, x + 0.25, Y + 0.5, z + 1.2);
       prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); for (const d of [-1, 1]) { if (alongX) prop.box(x + d * 1.0 - 0.05, Y, z - 0.22, x + d * 1.0 + 0.05, Y + 0.42, z + 0.22); else prop.box(x - 0.22, Y, z + d * 1.0 - 0.05, x + 0.22, Y + 0.42, z + d * 1.0 + 0.05); }
       col(alongX ? [x - 1.2, Y, z - 0.25] : [x - 0.25, Y, z - 1.2], alongX ? [x + 1.2, Y + 0.5, z + 0.25] : [x + 0.25, Y + 0.5, z + 1.2], { kind: 'bench', mat: 'wood', ...dk }); };
-    const pot = (x, z) => { prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(x - 0.9, Y, z - 0.9, x + 0.9, Y + 0.8, z + 0.9); prop.set({ col: hex(0x3c5226), rm: [0.95, 0, 0] }); prop.cyl(x, Y + 0.8, z, 0.85, 0.3, Y + 1.9, 8); col([x - 0.9, Y, z - 0.9], [x + 0.9, Y + 1.0, z + 0.9], { kind: 'planter', ...dk }); };
+    const pot = (x, z) => { prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(x - 0.9, Y, z - 0.9, x + 0.9, Y + 0.8, z + 0.9); prop.set({ col: hex(0x24341a), rm: [0.95, 0, 0] }); prop.box(x - 0.75, Y + 0.8, z - 0.75, x + 0.75, Y + 0.86, z + 0.75, { faces: 'Y' }); bush(leaves, x, Y + 0.75, z, 0.85, x * 7 + z); col([x - 0.9, Y, z - 0.9], [x + 0.9, Y + 1.0, z + 0.9], { kind: 'planter', ...dk }); };
     const pillar = (x, z, k) => { prop.set({ col: hex(0x8a857c), rm: [0.8, 0, 0] }); prop.box(x - 0.7, Y, z - 0.7, x + 0.7, Y + 0.25, z + 0.7); prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] }); prop.box(x - 0.55, Y + 0.25, z - 0.55, x + 0.55, Y + 2.6, z + 0.55); prop.box(x - 0.6, Y + 2.6, z - 0.6, x + 0.6, Y + 2.75, z + 0.6); for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) signQuad(sign2, [x + nx * 0.56, Y + 1.45, z + nz * 0.56], [nx, 0, nz], 0.95, 1.9, E2.poster[(k + Math.abs(nx) * 2 + (nz > 0 ? 1 : 0)) % 4].uv, 1.0); col([x - 0.55, Y, z - 0.55], [x + 0.55, Y + 2.6, z + 0.55], { kind: 'pillar', ...dk }); };
-    bench(49, -46, false); bench(107, -48, false); bench(70, -76.4, true); pot(49, -62); pot(107, -66); pot(60, -53); pot(98, -53);
+    bench(49, -46, false); bench(107, -48, false); bench(70, -76.4, true); pot(49, -62); pot(108.6, -66);   // (to the side: it sat on the walking line down the east arm) pot(60, -53); pot(98, -53);
     pillar(46.9, -38, 0); pillar(109.1, -42, 2); pillar(80, -55.1, 1);
     // ticket machines + a vending pair against the station face under the canopy
     for (let i = 0; i < 4; i++) { const x = 84 + i * 1.3; prop.set({ col: hex(0xd8d8d4), rm: [0.4, 0.3, 0] }); prop.box(x - 0.6, Y, A.n[1] + 0.05, x + 0.6, Y + 1.8, A.n[1] + 0.75); prop.set({ col: hex(0x1a3a6a), rm: [0.3, 0, 0.6] }); prop.box(x - 0.45, Y + 1.0, A.n[1] + 0.76, x + 0.45, Y + 1.55, A.n[1] + 0.77, { faces: 'Z' }); }
     col([83.4, Y, A.n[1]], [89.1, Y + 1.8, A.n[1] + 0.8], { kind: 'vending', mat: 'metal', ...dk });
-    for (const [i, x] of [[0, 92], [1, 93.1]]) { const v = SE.vend[(i * 5 + 3) % SE.vend.length]; prop.set({ col: hex(0xc63a32), rm: [0.4, 0.3, 0] }); prop.box(x - 0.5, Y, A.n[1] + 0.05, x + 0.5, Y + 1.9, A.n[1] + 0.9); signQuad(sign, [x, Y + 0.95, A.n[1] + 0.91], [0, 0, 1], 0.98, 1.84, v.uv, 1.0); }
+    for (const [i, x] of [[0, 92], [1, 93.1]]) { const v = VE.vend[(i * 5 + 3) % SE.vend.length]; prop.set({ col: hex(0xc63a32), rm: [0.4, 0.3, 0] }); prop.box(x - 0.5, Y, A.n[1] + 0.05, x + 0.5, Y + 1.9, A.n[1] + 0.9); signQuad(vacc, [x, Y + 0.95, A.n[1] + 0.91], [0, 0, 1], 0.98, 1.84, v.uv, 1.0); }
     col([91.5, Y, A.n[1]], [93.6, Y + 1.9, A.n[1] + 0.9], { kind: 'vending', mat: 'metal', ...dk });
     // dropped in the rush: umbrellas, shopping bags, a shoe
     for (const [x, z, k] of [[50, -52, 0], [106, -31, 1], [72, -54, 2], [90, -76, 0], [49.5, -70, 1], [101, -52, 2], [64, -77, 1]]) {
@@ -327,6 +393,7 @@ export function buildEastExit(ctx = {}) {
   // the station sign along the north arm's fascia (facing the plaza and the avenue)
   {
     const t = stationSignTex(), m = new THREE.Mesh(new THREE.PlaneGeometry(A.e[0] - A.w[2] - 6, 1.6), signMat(t, { color: 1.2, vc: false }));
+    t.repeat.set(Math.max(1, Math.round((A.e[0] - A.w[2] - 6) / (1.6 * 2048 / 160))), 1);   // keep the lettering's aspect
     m.position.set((A.w[2] + A.e[0]) / 2, Y - 1.25, A.n[3] + 0.06); root.add(m);
     prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] }); prop.box(A.w[2] + 2.8, Y - 2.1, A.n[3] - 0.02, A.e[0] - 2.8, Y - 0.4, A.n[3] + 0.04);
     for (let x = A.w[2] + 6; x < A.e[0] - 4; x += 9) prop.box(x - 0.04, Y - 0.85, A.n[3] - 0.02, x + 0.04, Y - 0.4, A.n[3] + 0.02);
@@ -334,6 +401,7 @@ export function buildEastExit(ctx = {}) {
   // the deck's name band on the centre bridge (both faces)
   {
     const t = deckNameTex(), L = A.c[2] - A.c[0] - 2, g = new THREE.PlaneGeometry(L, 0.62), m = signMat(t, { color: 1.0, vc: false });
+    t.repeat.set(Math.max(1, Math.round(L / (0.62 * 2048 / 128))), 1);   // (it was one copy stretched 5× over 50 m)
     const a = new THREE.Mesh(g, m); a.position.set((A.c[0] + A.c[2]) / 2, Y - 0.42, A.c[3] + 0.05); root.add(a);
     const b = new THREE.Mesh(g, m); b.position.set((A.c[0] + A.c[2]) / 2, Y - 0.42, A.c[1] - 0.05); b.rotation.y = Math.PI; root.add(b);
   }
@@ -354,9 +422,9 @@ export function buildEastExit(ctx = {}) {
   {
     const y = CURB;
     // zelkova trees in round granite planters
-    for (const [x, z] of [[62, -42], [96, -42], [62, -66], [96, -66]]) {
+    for (const [x, z] of [[70.6, -42.6], [87.4, -42.6], [70.6, -61.4], [87.4, -61.4]]) {   // on the island's corners
       prop.set({ col: hex(0x8a857c), rm: [0.75, 0, 0] }); prop.cyl(x, y, z, 1.3, 1.3, y + 0.55, 14);
-      zelkova(prop, x, y + 0.5, z, 0.82, x * 3 + z);
+      zelkova(prop, x, y + 0.5, z, 0.82, x * 3 + z, leaves);
       col([x - 1.3, 0, z - 1.3], [x + 1.3, y + 0.55, z + 1.3], { kind: 'planter' });
       col([x - 0.25, 0, z - 0.25], [x + 0.25, 4.4, z + 0.25], { kind: 'tree', mat: 'wood' });
     }
@@ -379,7 +447,7 @@ export function buildEastExit(ctx = {}) {
       signQuad(sign2, [kx - 1.62, y + 1.3, kz], [-1, 0, 0], 1.6, 1.8, E2.poster[2].uv, 1.0);
       col([kx - 1.6, 0, kz - 1.2], [kx + 1.6, y + 2.3, kz + 1.2], { kind: 'kiosk' }); }
     // a vending bank under the west arm, against the building, in the deck's shade
-    for (let i = 0; i < 5; i++) { const zz = -70 + i * 1.05, v = SE.vend[i % SE.vend.length]; prop.set({ col: hex(i % 2 ? 0xd8d6d0 : 0xc63a32), rm: [0.4, 0.3, 0] }); prop.box(44.05, y, zz - 0.5, 44.9, y + 1.9, zz + 0.5); signQuad(sign, [44.91, y + 0.95, zz], [1, 0, 0], 0.98, 1.84, v.uv, 1.0); }
+    for (let i = 0; i < 5; i++) { const zz = -70 + i * 1.05, v = VE.vend[i % SE.vend.length]; prop.set({ col: hex(i % 2 ? 0xd8d6d0 : 0xc63a32), rm: [0.4, 0.3, 0] }); prop.box(44.05, y, zz - 0.5, 44.9, y + 1.9, zz + 0.5); signQuad(vacc, [44.91, y + 0.95, zz], [1, 0, 0], 0.98, 1.84, v.uv, 1.0); }
     col([44, 0, -70.6], [44.9, y + 1.9, -65.3], { kind: 'vending', mat: 'metal' });
     // bike rack with bikes (under the east arm)
     for (let i = 0; i < 9; i++) { const zz = -70 + i * 0.75; prop.set({ col: hex([0x2a2c30, 0xc8c8c8, 0x8a2a2a, 0x2a4a8a][i % 4]), rm: [0.5, 0.6, 0] }); prop.box(110.4, y + 0.35, zz - 0.03, 111.8, y + 0.95, zz + 0.03); prop.cyl(110.6, y + 0.35, zz, 0.33, 0.33, y + 0.36, 10); prop.cyl(111.6, y + 0.35, zz, 0.33, 0.33, y + 0.36, 10); }
@@ -393,18 +461,137 @@ export function buildEastExit(ctx = {}) {
     col([86, 0, -35.2], [88, y + 2.0, -34.8], { kind: 'board' });
     for (const [bx, bz] of [[74, -46], [84, -58]]) { prop.set({ col: hex(0x5a6a5e), rm: [0.6, 0.3, 0] }); prop.box(bx - 0.4, y, bz - 0.3, bx + 0.4, y + 0.95, bz + 0.3); }
   }
+
+  // ================================================================ the bus pool proper (the plaza was one big empty
+  // granite sheet): an asphalt loop round a raised island, lane paint, zebra crossings on the tactile line,
+  // バス専用 / 止まれ on the road, numbered stop poles, tall lamp posts, cones and barriers from the evacuation
+  const road = new Acc(), mark = new Acc(), roadTxt = new Acc(), dec = new Acc();
+  {
+    const y = CURB, O = { x0: 54, x1: 102, z0: -72, z1: -32 }, I = { x0: 68, x1: 90, z0: -64, z1: -40 };
+    const ry = y + 0.006, my = y + 0.012;
+    const rq = (x0, z0, x1, z1) => rect(road, x0, z0, x1, z1, ry, 8);
+    rq(O.x0, O.z0, O.x1, I.z0); rq(O.x0, I.z1, O.x1, O.z1); rq(O.x0, I.z0, I.x0, I.z1); rq(I.x1, I.z0, O.x1, I.z1);
+    // oil, patches, skids, manholes: the loop is a working road, not a fresh sheet
+    scatterDecals(dec, [O.x0 + 1, O.z0 + 1, O.x1 - 1, I.z0 - 1], y + 0.009, 10, 71); scatterDecals(dec, [O.x0 + 1, I.z1 + 1, O.x1 - 1, O.z1 - 1], y + 0.009, 10, 72);
+    scatterDecals(dec, [O.x0 + 1, I.z0, I.x0 - 1, I.z1], y + 0.009, 8, 73); scatterDecals(dec, [I.x1 + 1, I.z0, O.x1 - 1, I.z1], y + 0.009, 8, 74);
+    const mq = (x0, z0, x1, z1) => mark.quad([x0, my, z1], [x1, my, z1], [x1, my, z0], [x0, my, z0]);
+    // edge lines round the outside and the island, a dashed centre line down the loop
+    for (const [a0, a1, a2, a3] of [[O.x0, O.z0, O.x1, O.z1], [I.x0, I.z0, I.x1, I.z1]]) { const o = a0 === O.x0 ? 0.3 : -0.3;
+      mq(a0 + o - 0.075, a1 + o, a0 + o + 0.075, a3 - o); mq(a2 - o - 0.075, a1 + o, a2 - o + 0.075, a3 - o); mq(a0 + o, a1 + o - 0.075, a2 - o, a1 + o + 0.075); mq(a0 + o, a3 - o - 0.075, a2 - o, a3 - o + 0.075); }
+    const cx0 = (O.x0 + I.x0) / 2, cx1 = (O.x1 + I.x1) / 2, cz0 = (O.z0 + I.z0) / 2, cz1 = (O.z1 + I.z1) / 2;
+    for (let z = cz0 + 1; z < cz1 - 2; z += 4) { mq(cx0 - 0.07, z, cx0 + 0.07, z + 2); mq(cx1 - 0.07, z, cx1 + 0.07, z + 2); }
+    for (let x = cx0 + 1; x < cx1 - 2; x += 4) { mq(x, cz0 - 0.07, x + 2, cz0 + 0.07); mq(x, cz1 - 0.07, x + 2, cz1 + 0.07); }
+    // zebras where the station-door tactile line crosses the loop (north and south)
+    for (const [z0, z1] of [[O.z0 + 0.6, I.z0 - 0.6], [I.z1 + 0.6, O.z1 - 0.6]]) for (let x = 76.2; x < 81.8; x += 0.9) mq(x, z0, x + 0.45, z1);
+    // stop lines before the zebras
+    mq(75.1, O.z0 + 0.4, 75.5, I.z0 - 0.4); mq(82.5, I.z1 + 0.4, 82.9, O.z1 - 0.4);   // (left-hand traffic: clockwise round the island)
+    // the island: a granite curb all round (visual: it's only 12 cm)
+    prop.set({ col: hex(0xa8a49c), rm: [0.8, 0, 0] });
+    prop.box(I.x0, y, I.z0, I.x1, y + 0.12, I.z0 + 0.25, { faces: 'zY' }); prop.box(I.x0, y, I.z1 - 0.25, I.x1, y + 0.12, I.z1, { faces: 'ZY' });
+    prop.box(I.x0, y, I.z0, I.x0 + 0.25, y + 0.12, I.z1, { faces: 'xY' }); prop.box(I.x1 - 0.25, y, I.z0, I.x1, y + 0.12, I.z1, { faces: 'XY' });
+    // road lettering (read from a bus coming round the loop)
+    const word = (cx, cz, ang, k) => { const c = Math.cos(ang), s_ = Math.sin(ang), hw = 1.5, hl = 2.6;
+      const P = (u, v) => [cx + c * u - s_ * v, my + 0.002, cz + s_ * u + c * v];
+      const t = RT[k]; roadTxt.quad(P(-hw, hl), P(hw, hl), P(hw, -hl), P(-hw, -hl), t); };
+    word(cx0, -48, 0, 0); word(cx1, -56, Math.PI, 0); word(84, cz1, -Math.PI / 2, 1); word(73, cz0, Math.PI / 2, 1);
+    // numbered stop poles along the island (the round-topped bus-stop sign), facing the lanes
+    const ttM = new THREE.MeshStandardMaterial({ map: timetableTex(), roughness: 0.6 });
+    const stopTex = busStopTex(), stopM = signMat(stopTex, { color: 1.0, vc: false }); stopM.alphaTest = 0.5; stopM.side = THREE.DoubleSide;
+    [[I.x0 - 0.4, -46, -Math.PI / 2, 0], [I.x0 - 0.4, -58, -Math.PI / 2, 1], [I.x1 + 0.4, -46, Math.PI / 2, 2], [I.x1 + 0.4, -58, Math.PI / 2, 3]].forEach(([x, z, ry_, k]) => {
+      prop.set({ col: hex(0x8a8e92), rm: [0.4, 0.7, 0] }); prop.cyl(x, y, z, 0.05, 0.05, y + 2.3, 8, { cap: false });
+      prop.set({ col: hex(0x6a6e72), rm: [0.5, 0.5, 0] }); prop.cyl(x, y, z, 0.28, 0.28, y + 0.12, 10);
+      for (const sd of [1, -1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), stopM); m.geometry.translate(0, 0, 0);
+        m.position.set(x + Math.sin(ry_) * 0.03 * sd, y + 2.6, z + Math.cos(ry_) * 0.03 * sd); m.rotation.y = ry_ + (sd < 0 ? Math.PI : 0);
+        const u0 = (k % 4) * 0.25; const uv = m.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, u0 + uv.getX(i) * 0.25); root.add(m); }
+      prop.set({ col: hex(0xe8e6e0), rm: [0.6, 0.1, 0] }); prop.box(x - 0.05, y + 1.0, z - 0.3, x + 0.05, y + 1.7, z + 0.3);   // the timetable
+      for (const sd of [1, -1]) { const tt = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.66), ttM); tt.position.set(x + 0.052 * sd, y + 1.35, z); tt.rotation.y = sd > 0 ? Math.PI / 2 : -Math.PI / 2; root.add(tt); }
+      col([x - 0.15, 0, z - 0.15], [x + 0.15, y + 2.3, z + 0.15], { kind: 'pole', mat: 'metal', thin: true });
+    });
+    // tall lamp posts round the loop (a slim mast, a long arm, a flat LED head)
+    for (const [x, z, d] of [[56, -36, 1], [56, -68, 1], [100, -36, -1], [100, -68, -1], [79, -73.4, 0], [72.5, -30.6, 0]]) {
+      prop.set({ col: hex(0x6a6e72), rm: [0.4, 0.7, 0] }); prop.cyl(x, y, z, 0.12, 0.09, y + 8.5, 8, { cap: false });
+      const ax = d ? x + d * 2.2 : x, az = d ? z : z + (z < -50 ? 2.2 : -2.2);
+      prop.tube([x, y + 8.4, z], [ax, y + 8.6, az], 0.06, 6);
+      prop.box(ax - 0.45, y + 8.5, az - 0.2, ax + 0.45, y + 8.66, az + 0.2);
+      prop.set({ col: [1.0, 0.98, 0.92], rm: [0.4, 0, 0.6] }); prop.box(ax - 0.38, y + 8.48, az - 0.15, ax + 0.38, y + 8.5, az + 0.15, { faces: 'y' });
+      col([x - 0.15, 0, z - 0.15], [x + 0.15, y + 8.5, z + 0.15], { kind: 'pole', mat: 'metal', thin: true });
+    }
+    // the evacuation: a run of crowd barriers knocked askew, cones, a dropped traffic baton
+    for (const [x, z, a] of [[60, -38, 0.2], [62.5, -38.6, 0.5], [65.2, -38.1, -0.3], [98, -66, 1.4], [97.4, -63.2, 1.9]]) {
+      const c = Math.cos(a), s_ = Math.sin(a), L = 1.0;
+      prop.set({ col: hex(0xe8e6e0), rm: [0.6, 0.2, 0] }); prop.tube([x - c * L, y + 0.95, z + s_ * L], [x + c * L, y + 0.95, z - s_ * L], 0.03, 5);
+      prop.tube([x - c * L, y + 0.25, z + s_ * L], [x + c * L, y + 0.25, z - s_ * L], 0.03, 5);
+      for (let k = -2; k <= 2; k++) prop.tube([x + c * k * 0.45, y + 0.25, z - s_ * k * 0.45], [x + c * k * 0.45, y + 0.95, z - s_ * k * 0.45], 0.015, 4);
+      prop.set({ col: hex(0x2a2c30), rm: [0.6, 0.3, 0] }); for (const e_ of [-1, 1]) prop.obox(x + c * e_ * 0.95, y + 0.03, z - s_ * e_ * 0.95, 0.12, 0.03, 0.35, a);
+    }
+    for (const [x, z] of [[66.5, -36], [67.2, -33.6], [91, -69], [92.4, -70.6], [101, -47], [55.4, -55], [86, -33]]) {
+      prop.set({ col: hex(0xe8501a), rm: [0.7, 0, 0] }); prop.cyl(x, y + 0.04, z, 0.2, 0.04, y + 0.72, 8, { cap: false });
+      prop.set({ col: hex(0xf2f2ee), rm: [0.5, 0, 0] }); prop.cyl(x, y + 0.36, z, 0.12, 0.09, y + 0.5, 8, { cap: false });
+      prop.set({ col: hex(0x2a2a2a), rm: [0.8, 0, 0] }); prop.box(x - 0.25, y, z - 0.25, x + 0.25, y + 0.04, z + 0.25);
+    }
+  }
+  // ================================================================ the decks: roofed walkways (Shibuya's decks are mostly
+  // covered), hanging direction signs under the roofs, lit ad boxes along the balustrades
+  {
+    const dk = { layer: 'deck' };
+    const roofed = (x0, x1, z0, z1, postX) => {
+      prop.set({ col: hex(0xeceae6), rm: [0.5, 0.15, 0] }); prop.box(x0, Y + 3.5, z0, x1, Y + 3.72, z1, { faces: 'YxXzZ' });
+      prop.set({ col: hex(0x8e8e8a), rm: [0.7, 0.1, 0] }); prop.box(x0, Y + 3.5, z0, x1, Y + 3.72, z1, { faces: 'y' });      // the soffit: aluminium slats in shade
+      prop.set({ col: hex(0x6e6e6a), rm: [0.7, 0.2, 0] }); for (let z = z0 + 0.6; z < z1 - 0.3; z += 1.2) prop.box(x0 + 0.1, Y + 3.44, z, x1 - 0.1, Y + 3.5, z + 0.08, { faces: 'yzZ' });
+      prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] }); prop.box(x0 - 0.05, Y + 3.38, z0, x0 + 0.12, Y + 3.5, z1); prop.box(x1 - 0.12, Y + 3.38, z0, x1 + 0.05, Y + 3.5, z1);
+      prop.set({ col: [1.0, 0.98, 0.94], rm: [0.4, 0, 1.4] }); prop.box((x0 + x1) / 2 - 0.08, Y + 3.48, z0 + 0.5, (x0 + x1) / 2 + 0.08, Y + 3.5, z1 - 0.5, { faces: 'y' });   // the light strip
+      prop.set({ col: hex(0x8a8e92), rm: [0.4, 0.7, 0] });
+      for (let z = z0 + 1.5; z < z1; z += 7.5) { prop.cyl(postX, Y, z, 0.09, 0.09, Y + 3.5, 8, { cap: false }); col([postX - 0.12, Y, z - 0.12], [postX + 0.12, Y + 3.5, z + 0.12], { kind: 'pole', mat: 'metal', thin: true, ...dk }); }
+      // the roof: shades the deck (sun map) but is not a floor anyone reaches
+      col([x0, Y + 3.5, z0], [x1, Y + 3.72, z1], { kind: 'canopy', noBlock: true, ...dk });
+    };
+    roofed(A.w[0] + 0.3, A.w[2] - 0.2, -72, -34, A.w[0] + 0.55);
+    roofed(A.e[0] + 0.2, A.e[2] - 0.3, -72, -34, A.e[2] - 0.55);
+    // the north arm's existing canopy gets a collider too, so it shades its deck
+    col([A.n[0] + 6, Y + 3.6, A.n[1] + 0.3], [A.n[2] - 2, Y + 3.8, A.n[3] - 0.4], { kind: 'canopy', noBlock: true, ...dk });
+    // direction signs hung under the roofs (both faces), at the junctions and halfway
+    const t = dirSignTex(), g = new THREE.PlaneGeometry(2.2, 0.82), m = signMat(t, { color: 1.05, vc: false });
+    for (const [x, z] of [[49, -40], [49, -62], [107, -40], [107, -62], [70, -77], [92, -77]]) {
+      const facesZ = z > -74;                 // on the arms you walk along z: the sign faces you (normal ±z)
+      prop.set({ col: hex(0x5e6266), rm: [0.4, 0.7, 0] });
+      for (const e_ of [-0.9, 0.9]) facesZ ? prop.box(x + e_ - 0.02, Y + 3.1, z - 0.02, x + e_ + 0.02, Y + 3.5, z + 0.02) : prop.box(x - 0.02, Y + 3.1, z + e_ - 0.02, x + 0.02, Y + 3.6, z + e_ + 0.02);
+      for (const sd of [1, -1]) {
+        const p = new THREE.Mesh(g, m);
+        if (facesZ) { p.position.set(x, Y + 2.75, z + 0.03 * sd); p.rotation.y = sd > 0 ? 0 : Math.PI; }
+        else { p.position.set(x + 0.03 * sd, Y + 2.75, z); p.rotation.y = sd > 0 ? Math.PI / 2 : -Math.PI / 2; }
+        root.add(p);
+      }
+    }
+    // lit ad boxes standing against the outer balustrades, facing in (a dark steel frame, the poster)
+    for (const [x, z, nx, k] of [[A.w[0] + 0.45, -52, 1, 0], [A.w[0] + 0.45, -67, 1, 2], [A.e[2] - 0.45, -52, -1, 1], [A.e[2] - 0.45, -59.5, -1, 3], [A.w[0] + 0.45, -44, 1, 3], [A.e[2] - 0.45, -44, -1, 0]]) {
+      prop.set({ col: hex(0x2a2c30), rm: [0.5, 0.5, 0] }); prop.box(x - 0.18, Y, z - 0.75, x + 0.18, Y + 2.25, z + 0.75);
+      signQuad(sign2, [x + nx * 0.19, Y + 1.2, z], [nx, 0, 0], 1.3, 1.85, E2.poster[k].uv, 1.15);
+      col([x - 0.2, Y, z - 0.75], [x + 0.2, Y + 2.25, z + 0.75], { kind: 'board', ...dk });
+    }
+  }
   // ================================================================ meshes
   root.add(fac.mesh(facadeMaterial()));
-  const tm = new THREE.MeshStandardMaterial({ map: deckTex(), color: 0xd4d0c8, roughness: 0.75 });
+  // a little warm bounce: in the decks' shade the sky ambient alone turned the pale pavers navy
+  const tm = new THREE.MeshStandardMaterial({ map: deckTex(), color: 0xd4d0c8, roughness: 0.75, emissive: 0x2c2216, emissiveMap: null });
   const mt = top.mesh(tm); mt.receiveShadow = true; root.add(mt);
-  const pm = new THREE.MeshStandardMaterial({ map: plazaTex(), color: 0xe4ddd2, roughness: 0.62 });
+  const pm = new THREE.MeshStandardMaterial({ map: plazaTex(), color: 0xe4ddd2, roughness: 0.62, emissive: 0x18130d });
   const mp = pave.mesh(pm); mp.receiveShadow = true; root.add(mp);
   const ym = new THREE.MeshStandardMaterial({ color: 0xd8b21a, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   root.add(tact.mesh(ym));
+  { const rm_ = new THREE.MeshStandardMaterial({ map: asphaltTex(), color: 0xa49e96, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const mr = road.mesh(rm_); mr.receiveShadow = true; root.add(mr);
+    const pm_ = new THREE.MeshStandardMaterial({ color: 0xe8e8e2, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const mm = mark.mesh(pm_); mm.receiveShadow = true; root.add(mm);
+    const tm_ = new THREE.MeshStandardMaterial({ map: roadTextTex(), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, depthWrite: false });
+    const mt_ = roadTxt.mesh(tm_); mt_.receiveShadow = true; root.add(mt_);
+    if (dec.vn) { const md = dec.mesh(roadDecalMaterial()); md.receiveShadow = true; root.add(md); }
+    rm_.userData.noAO = false; }
   root.add(prop.mesh(rmMat({}), { shadow: false }));
   root.add(glass.mesh(rmMat({ envMapIntensity: 1.3 })));
   if (sign.vn) root.add(sign.mesh(signMat(signAtlas().tex)));
   if (sign2.vn) root.add(sign2.mesh(signMat(signAtlas2().tex)));
+  if (vacc.vn) root.add(vacc.mesh(signMat(vendAtlas().tex)));
+  if (leaves.vn) root.add(leaves.mesh(leafMaterial(), { shadow: true }));
   tm.userData.noAO = true; ym.userData.noAO = false;
   return { root, colliders, walks, shade, groundMats: [tm, pm, ym], anchors: { glows, lights } };
 }
@@ -414,5 +601,51 @@ function gateSignTex() {
   g.fillStyle = '#1d2a44'; g.fillRect(0, 0, W, H); g.fillStyle = '#e8e6e0'; g.fillRect(0, H - 6, W, 6);
   g.fillStyle = '#fff'; g.textBaseline = 'middle'; g.textAlign = 'left'; g.font = `900 64px ${JP}`; g.fillText('東口改札  ↑ 屋上・首都高', 30, 62);
   g.font = '400 30px Anton, sans-serif'; g.fillStyle = '#c8d0dc'; g.fillText('EAST GATES  •  ROOF TERRACE  •  EXPRESSWAY LINK', 34, 118);
+  return canvasTex(c, { repeat: false, aniso: 4 });
+}
+
+// road lettering, 2 cells side by side: バス専用 (bus only) and 止まれ (stop), white paint, worn
+const RT = [[0, 0, 0.5, 1], [0.5, 0, 1, 1]];   // [u0, v0, u1, v1]
+function roadTextTex() {
+  const W = 512, H = 512, c = makeCanvas(W, H), g = c.getContext('2d'), rng = makeRng(919);
+  g.clearRect(0, 0, W, H);
+  const col = (cx, words) => { g.save(); g.translate(cx, H / 2); g.fillStyle = 'rgba(240,240,236,0.92)'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const n = words.length, step = H / n; words.forEach((w, i) => { g.font = `900 ${Math.floor(step * 0.92)}px ${JP}`; g.save(); g.translate(0, -H / 2 + step * (i + 0.5)); g.scale(0.62, 1.0); g.fillText(w, 0, 0); g.restore(); }); g.restore(); };
+  col(W * 0.25, ['バ', 'ス', '専', '用']); col(W * 0.75, ['止', 'ま', 'れ']);
+  // wear: knock holes in the paint
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(0,0,0,${0.3 + rng() * 0.6})`; g.fillRect(rng() * W, rng() * H, 1 + rng() * 4, 1 + rng() * 3); }
+  g.globalCompositeOperation = 'source-over';
+  return canvasTex(c, { repeat: false, aniso: 8 });
+}
+// the round bus-stop plates (4 cells across): a white disc, a green ring, a bus pictogram, the stop number
+function busStopTex() {
+  const S = 128, c = makeCanvas(S * 4, S), g = c.getContext('2d');
+  g.clearRect(0, 0, S * 4, S);
+  for (let k = 0; k < 4; k++) {
+    const cx = k * S + S / 2, cy = S / 2;
+    g.fillStyle = '#1f7a46'; g.beginPath(); g.arc(cx, cy, S * 0.48, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(cx, cy, S * 0.4, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#1f7a46'; g.fillRect(cx - 26, cy - 34, 52, 30); g.fillStyle = '#fff'; g.fillRect(cx - 21, cy - 30, 18, 12); g.fillRect(cx + 3, cy - 30, 18, 12);
+    g.fillStyle = '#1f7a46'; g.beginPath(); g.arc(cx - 15, cy - 3, 5, 0, Math.PI * 2); g.arc(cx + 15, cy - 3, 5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#111'; g.font = `900 30px ${JP}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`${k + 1}番`, cx, cy + 26);
+  }
+  const t = canvasTex(c, { repeat: false, aniso: 4 });
+  return t;
+}
+
+// a bus timetable: route number + destination header, hour column, minutes in rows (tiny but it's text)
+function timetableTex() {
+  const W = 128, H = 152, c = makeCanvas(W, H), g = c.getContext('2d'), rng = makeRng(313);
+  g.fillStyle = '#f4f4f0'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1f7a46'; g.fillRect(0, 0, W, 22);
+  g.fillStyle = '#fff'; g.font = `900 13px ${JP}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('都01 渋谷駅前 行', 6, 11);
+  g.font = '700 9px Arial, sans-serif'; g.fillStyle = '#222';
+  for (let h = 6, r = 0; h <= 23; h++, r++) {
+    const y = 28 + r * 6.8; if (y > H - 6) break;
+    g.fillStyle = r % 2 ? '#e8ece8' : '#f4f4f0'; g.fillRect(0, y - 3.4, W, 6.8);
+    g.fillStyle = '#1f7a46'; g.fillText(String(h), 4, y);
+    g.fillStyle = '#222'; let x = 22; for (let m = Math.floor(rng() * 8); m < 60 && x < W - 12; m += 6 + Math.floor(rng() * 12)) { g.fillText(String(m).padStart(2, '0'), x, y); x += 13; }
+  }
   return canvasTex(c, { repeat: false, aniso: 4 });
 }

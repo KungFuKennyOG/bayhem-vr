@@ -78,6 +78,17 @@ low gold sun in the south-south-west, the lit face, a lenticular cap, the cloud 
 - `sky.js` — one sky shader for storm and clear (the deck tears open from the top), the environment re-bake, the
   cloud sea.
 - `road.js`, `props.js`, `flora.js`, `station.js`, `fortress.js`, `cabin.js` — the art (see their headers).
+- `groomer.js` — `buildGroomer({ paint, burnt, seed })`: the piste basher (belts on stadium extrusions with cleats,
+  glasshouse cab, curved blade, tiller), used for the yard's machine, the burning wreck on the road and the court's cover.
+- `interior.js` — `dressStation(ctx)`: the shared fit-out of the two cable-car halls (trusses, wainscot, cabinet bank,
+  doors + signs, extinguishers, benches, ski rack, route map, clock, ticket gates, dock guide rails, floor light pools).
+- `cabin.js` — the car is lofted from a rounded-rect plan (belly, bumper, cream belt, crown roof, carriage with bogies,
+  6 glass panes, a framed sliding door); the interior is the riveted-lining canvas texture.
+- `billow.js` — **BillowCloud**: the avalanche's powder cloud as lit billow impostors (a noisy sphere per quad, cauliflower
+  edge, normal from the sphere + the noise gradient, sun-lit tops / blue self-shadowed undersides, graded THEN
+  premultiplied — premultiplying first made thin edges glow as halos), sorted back to front, one draw.
+- `cliffs.js` — rock bodies the heightfield can't make: buttresses along the face's rib crests, cliff bands, the
+  cornice lip on the ridge, rock walls in the gorge beside the cable line.
 - `avalanche.js` — the **BillowFront**: a terrain-hugging band, cross-section toe → nose → crest → back; vertex
   lumps from 3D noise whose coordinates roll along the profile (it tumbles forward); fragment billows with a
   surface-gradient bump, smooth analytic normals (finite differences in the vertex shader), blue folds, AO, an eroded
@@ -86,6 +97,11 @@ low gold sun in the south-south-west, the lit face, a lenticular cap, the cloud 
   crest, blue-grey low / white high, plus a dust skirt ahead of the toe); the translucent plume band is built but off
   (it read as glacier ice). Slab blocks, the crown crack, the Gazex ridge (gunmetal tubes on dark rock outcrops,
   beacons with halos), the convoy, the gallery curtain.
+
+## The cable car
+You can walk round inside it during the ride: `setpieces.cabFloor` gives the locomotion the cabin floor inside its
+walls and a drop everywhere else, and `afterPlayer` carries your spot in the cabin's own frame (the stick's motion is
+turned into cabin space, clamped to the floor). The roll-back after docking waits until you're out.
 
 ## Conventions
 Same as the other levels: deterministic rng, no runtime lights (2 warm point lights created at load hop to the nearest

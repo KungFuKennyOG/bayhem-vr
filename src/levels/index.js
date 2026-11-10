@@ -46,6 +46,12 @@ const ALL = [
     help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: grenade launcher, and later the laser designator (hold on a target).',
   },
   {
+    id: 'lights-out', game: 2, num: '05', code: 'LWU', loc: 'LONGWU', time: '18:40', title: 'LIGHTS OUT', final: true,
+    tagline: 'TWENTY STOREYS UP IS GROUND FLOOR.',
+    blurb: 'A city stacked on cliffs. The power goes, district by district. You BASE\u2011jump off the tallest tower, and the hillside follows you into the river.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Look UP and DOWN — they hold every level of the city. In the glide: just shoot (left stick / A-D nudges your line).',
+  },
+  {
     id: 'dubai-proto', game: 2, num: '04', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true, hidden: true,
     blurb: 'Door-gunner heli loop around a collapsing grey-box skyline. Measures the Level 8 finale on the headset.',
     help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',
@@ -55,11 +61,6 @@ const ALL = [
 // announced but not built yet: shown in their game's menu as a locked card (and on BAYHEM 2's route line), never
 // loadable and never offered as the next level. When a level gets built, move it into ALL with the same fields.
 export const SOON = [
-  {
-    id: 'lights-out', game: 2, num: '05', code: 'LWU', loc: 'LONGWU', time: '18:40', title: 'LIGHTS OUT', final: true,
-    tagline: 'TWENTY STOREYS UP IS GROUND FLOOR.',
-    blurb: 'A city stacked on cliffs. The power goes, district by district. You BASE\u2011jump off the tallest tower, and the hillside follows you into the river.',
-  },
 ];
 export const soonOf = (game) => SOON.filter(l => l.game === game);
 

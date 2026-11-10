@@ -52,7 +52,7 @@ function frontMaterial({ plume = false } = {}) {
         vec3 q = vec3(uv.x / 34.0, (uv.y - uRoll) / 26.0, uTime * 0.05);
         float lump = bill(q);
         float big = an3(vec3(uv.x / 70.0, uTime * 0.03, 0.5));
-        return (lump - 0.55) * uH * ${plume ? '0.5' : '0.4'} + (big - 0.5) * uH * 0.26;
+        return (lump - 0.55) * uH * ${plume ? '0.5' : '0.24'} + (big - 0.5) * uH * 0.18;
       }
       void main(){
         // noise coords: across the front, and ROLLING along the profile (over the crest, down the face)
@@ -88,7 +88,7 @@ function frontMaterial({ plume = false } = {}) {
         vec3 r1 = cross(dpy, N), r2 = cross(N, dpx);
         float det = dot(dpx, r1);
         vec3 grad = sign(det) * (dhx * r1 + dhy * r2);
-        N = normalize(abs(det) * N - grad * ${plume ? '0.8' : '1.1'});
+        N = normalize(abs(det) * N - grad * ${plume ? '0.8' : '0.45'});
         // crest erosion: the top and the back tear into wisps
         float er = smoothstep(${plume ? '0.25' : '0.62'}, 1.0, vV) * 0.9;
         float edge = h + vLump * 0.3 - er;
@@ -143,7 +143,7 @@ class Band {
     for (let i = 0; i < NX; i++) {
       const x = this.x0 + (this.x1 - this.x0) * i / (NX - 1);
       const zf = zfAt(x) - lag;
-      const hh = H * (0.62 + 0.25 * Math.sin(x * 0.021 + 1.3) + 0.18 * Math.sin(x * 0.053 + 4.1)) * (this.plume ? 2.5 : 1);
+      const hh = H * (0.62 + 0.25 * Math.sin(x * 0.021 + 1.3) + 0.18 * Math.sin(x * 0.053 + 4.1)) * (this.plume ? 2.5 : 0.6);   // a low dense flow; the billow cloud stands on it
       let arc = 0, px = 0, py = 0;
       for (let j = 0; j < NV; j++) {
         const t = j / (NV - 1);
@@ -277,7 +277,7 @@ export function buildRidge() {
     // the tube points down the fall line (south), on an A-frame over a concrete footing: gunmetal, a red band,
     // big enough to read from the terrace 300 m away (and dark against the snow)
     P.add(rbox(10, 3, 9, 0.2), M4(x, y + 0.5, z - 1), [0.3, 0.3, 0.31]);
-    P.add(new THREE.CylinderGeometry(3.6, 4.0, 22, 18).rotateX(Math.PI / 2 - 0.5), M4(x, y + 10, z + 3.6), (q, n, l) => (Math.abs(l.y + 2) < 1.6 ? [0.7, 0.1, 0.04] : [0.17, 0.18, 0.2]));
+    P.add(new THREE.CylinderGeometry(4.2, 4.6, 26, 18).rotateX(Math.PI / 2 - 0.5), M4(x, y + 11.5, z + 4.2), (q, n, l) => (Math.abs(l.y + 2) < 1.6 ? [0.12, 0.12, 0.13] : Math.abs(l.y - 6) < 0.8 ? [0.85, 0.82, 0.75] : [0.86, 0.3, 0.05]));   // hazard orange (reads against snow AND rock), dark collar
     P.add(new THREE.CylinderGeometry(4.2, 4.2, 1.8, 18).rotateX(Math.PI / 2 - 0.5), M4(x, y + 5.6, z + 12.6), [0.09, 0.09, 0.1]);
     for (const s of [-1, 1]) Mt.add(new THREE.BoxGeometry(1.0, 16, 1.0), M4(x + s * 5, y + 7, z, 0.15, 0, s * 0.2), [0.3, 0.3, 0.32]);
     // the gas shelter beside it (two tanks)

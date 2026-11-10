@@ -7,6 +7,7 @@ import { Auto } from '../iron-lady/auto.js';
 import { START } from './layout.js';
 import { DAY } from './tod.js';
 import { buildCrowd } from './crowd.js';
+import { buildJam } from './jam.js';
 import { patchSun } from './sunshadow.js';
 import { createTokyoSky, createTokyoEnvironment } from './sky.js';
 import { Player } from '../../player.js';
@@ -43,6 +44,7 @@ export async function create(E) {
   // the last of the crowd running out of the scramble as the level opens (not on a beat jump past it)
   const jb = params.get('beat');
   if (!flags.SANDBOX && (!jb || jb === 'crossing')) { game.crowd = buildCrowd(scene); patchSun(game.crowd.mat); }
+  game.jam = buildJam(scene, { patchSun });   // the gridlock past where you fight (instanced stand-ins)
   const setp = new SetPieces(game);
   game.setpieces = setp;
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });

@@ -2,7 +2,8 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { terrainAt, groundAt, roadAt, roadNearest, ROAD_W, PULLOUT, CHAPEL, HUT, LEG1, LEG2, LEG3 } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, hexc, footAO } from './kit.js';
+import { Bucket, M4, mats, rbox, snowCap, hexc, footAO, lightCone } from './kit.js';
+import { buildGroomer } from './groomer.js';
 import { signTexture } from './tex.js';
 
 // =====================================================================================
@@ -29,36 +30,12 @@ export function buildProps(ctx) {
   {
     const x = -82, z = 113.4, y = groundAt(x, z), yaw = 0.55;
     const M = (lx, ly, lz, rx = 0, ry = 0, rz = 0) => M4(0, 0, 0).multiplyMatrices(M4(x, y, z, 0, yaw, 0.04), M4(lx, ly, lz, rx, ry, rz));
-    const burnt = [0.06, 0.055, 0.05], charred = [0.12, 0.08, 0.06], red = [0.35, 0.07, 0.05];
-    // tracks: rubber belts with rounded ends and steel grouser bars across them, the road wheels hidden inside
-    for (const s of [-1, 1]) {
-      B.dark.add(rbox(0.95, 1.0, 4.7, 0.46, 3), M(s * 1.55, 0.5, 0), burnt);
-      for (let k = 0; k < 15; k++) B.metal.add(new THREE.BoxGeometry(1.0, 0.07, 0.1), M(s * 1.55, 1.02, -2.05 + k * 0.29), [0.2, 0.19, 0.17]);
-      for (let k = 0; k < 9; k++) B.metal.add(new THREE.BoxGeometry(0.07, 0.62, 0.1), M(s * 2.04, 0.5, -1.45 + k * 0.36), [0.15, 0.14, 0.13]);
-      for (let k = 0; k < 4; k++) B.dark.add(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 12).rotateZ(PI / 2), M(s * 2.05, 0.45, -1.2 + k * 0.8), [0.08, 0.08, 0.08]);
-    }
-    // hull + cab (paint blistered from red to black)
-    B.paint.add(rbox(2.3, 0.8, 4.2, 0.08), M(0, 1.25, 0.1), (p, n, l) => { const t = Math.max(0, Math.sin(l.z * 1.3 + l.x) * 0.5 + 0.3); return [red[0] * t + burnt[0] * (1 - t), red[1] * t + burnt[1] * (1 - t), red[2] * t + burnt[2] * (1 - t)]; });
-    B.paint.add(rbox(2.0, 1.25, 1.9, 0.07), M(0, 2.2, -0.45), charred);
-    B.dark.add(new THREE.BoxGeometry(1.9, 0.9, 0.05), M(0, 2.3, -1.4, -0.12), [0.02, 0.02, 0.02]);   // windscreen gone: a black hole
-    B.metal.add(new THREE.BoxGeometry(2.1, 0.06, 2.0), M(0, 2.86, -0.45), [0.2, 0.18, 0.16]);
-    // cab detail: blown-out side windows, a door hanging open, the roof light bar, exhaust stack, tow hooks
-    for (const s of [-1, 1]) B.dark.add(new THREE.BoxGeometry(0.05, 0.62, 1.3), M(s * 1.01, 2.42, -0.4), [0.02, 0.02, 0.02]);
-    B.paint.add(rbox(0.07, 1.05, 0.9, 0.02), M(1.45, 2.1, 0.05, 0, -0.9, 0), charred);
-    B.metal.add(new THREE.BoxGeometry(1.7, 0.16, 0.26), M(0, 3.0, -1.1), [0.14, 0.13, 0.12]);
-    for (let k = 0; k < 4; k++) B.dark.add(new THREE.BoxGeometry(0.26, 0.12, 0.06), M(-0.6 + k * 0.4, 3.0, -1.25), k === 1 ? [0.35, 0.2, 0.05] : [0.05, 0.05, 0.05]);
-    B.metal.add(new THREE.CylinderGeometry(0.09, 0.09, 1.3, 8), M(0.85, 3.1, 0.4, 0, 0, 0.08), [0.1, 0.09, 0.08]);
-    B.metal.add(new THREE.BoxGeometry(2.6, 0.12, 0.25), M(0, 1.0, 2.25), [0.15, 0.14, 0.13]);
-    // the plough blade at the front, pushed askew
-    B.paint.add(rbox(3.9, 1.15, 0.32, 0.12, 2), M(0.2, 0.78, -2.88, -0.25, 0.12, 0.05), (q, n, l) => (l.y < -0.42 ? [0.09, 0.08, 0.07] : Math.abs(l.x) > 1.7 ? [0.2, 0.14, 0.04] : [0.34, 0.24, 0.05]));
-    for (const s of [-1, 1]) B.paint.add(rbox(0.12, 1.0, 0.7, 0.03), M(0.2 + s * 1.98, 0.78, -2.65, -0.25, 0.12 + s * 0.5, 0.05), [0.26, 0.18, 0.04]);
-    for (const s of [-1, 1]) B.metal.add(new THREE.BoxGeometry(0.14, 0.14, 1.1), M(s * 0.8, 0.9, -2.3), [0.12, 0.12, 0.12]);
-    // tiller at the back
-    B.dark.add(rbox(3.4, 0.5, 0.9, 0.12), M(0, 0.45, 2.6), burnt);
-    ocol(x, y, z, 1.9, 2.8, 2.9, yaw, { kind: 'wreck', mat: 'metal' });
+    // the burnt-out groomer (the full model, charred, its glass blown out)
+    { const G = buildGroomer({ burnt: 0.72, seed: 7, paint: [0.6, 0.08, 0.05] }); G.root.position.set(x, y - 0.15, z); G.root.rotation.set(-0.1, yaw, 0.05, "YXZ"); root.add(G.root); }
+    ocol(x, y, z, 2.2, 3.4, 2.9, yaw, { kind: 'wreck', mat: 'metal' });
     // it burns from inside the cab: out of the windscreen hole and the side windows
-    { const Mw = M4(x, y, z, 0, yaw, 0.04), at = (lx, ly, lz) => new THREE.Vector3(lx, ly, lz).applyMatrix4(Mw);
-      named.snowcatFire = [at(0, 2.3, -1.5), at(1.05, 2.3, -0.4), at(-0.4, 1.4, 1.6)]; }
+    { const Mw = M4(x, y - 0.15, z, -0.1, yaw, 0.05), at = (lx, ly, lz) => new THREE.Vector3(lx, ly, lz).applyMatrix4(Mw);
+      named.snowcatFire = [at(0, 2.5, -0.85), at(1.0, 2.6, -0.6), at(-0.3, 2.1, 1.3)]; }
     pools.push({ p: [x, y + 1, z], c: [0.75, 0.42, 0.16], r: 9, k: 1 });
     // its crash trail: a gouged bank, scattered bits
     for (let k = 0; k < 6; k++) B.metal.add(rbox(0.3 + rng() * 0.5, 0.06, 0.2 + rng() * 0.4, 0.02), M4(x + 3 + rng() * 9, groundAt(x + 3, z) + 0.05, z - 2 + rng() * 4, rng(), rng() * 6, rng()), [0.12, 0.1, 0.09]);
@@ -110,6 +87,7 @@ export function buildProps(ctx) {
     glows.push({ p: [top[0] - t.nx * 0.8, top[1] - 0.2, top[2] - t.nz * 0.8], color: [0.9, 0.55, 0.25], size: 3.2 });
     pools.push({ p: [t.x - t.nx * 7, y, t.z - t.nz * 7], c: [0.85, 0.6, 0.28], r: 9, k: 1 });
     named.lightTower = new THREE.Vector3(top[0], top[1], top[2]);
+    root.add(lightCone(new THREE.Vector3(top[0] - t.nx * 0.3, top[1], top[2] - t.nz * 0.3), new THREE.Vector3(t.x - t.nx * 8, y, t.z - t.nz * 8), { spread: 0.45, k: 0.08 }));
     ocol(t.x, y, t.z, 1.1, 0.7, 1.3, t.yaw, { kind: 'trailer', mat: 'metal' });
     // fuel drums by the trailer (explosive)
     for (let i = 0; i < 3; i++) {

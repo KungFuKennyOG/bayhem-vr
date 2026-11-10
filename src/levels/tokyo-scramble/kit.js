@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { DAY } from './tod.js';
+import { makeCanvas, canvasTex } from '../../textures.js';
+import { makeRng } from '../../rng.js';
 
 // =====================================================================================
 //  Geometry accumulator for the level's merged static meshes. Quads / boxes / cylinders / prisms
@@ -137,13 +139,42 @@ export function signMat(tex, { color = null, rough = 0.55, vc = true } = {}) {
 
 // A zelkova (keyaki, Tokyo's street tree): a short trunk forking into a vase of branches, a broad
 // rounded crown of leaf clusters (each an ellipsoid of three frusta), darker and denser underneath.
-export function zelkova(A, x, y, z, s = 1, seed = 0) {
+export function zelkova(A, x, y, z, s = 1, seed = 0, L = null) {
   const h = (k) => { const t = Math.sin((seed + 1) * 12.9898 + k * 78.233) * 43758.5453; return t - Math.floor(t); };
   A.set({ col: hex(0x4a3e32), rm: [0.9, 0, 0] });
   const ty = y + 2.6 * s;
   A.tube([x, y, z], [x + 0.1 * s, ty, z], 0.2 * s, 7);
   const tips = [];
-  for (let k = 0; k < 5; k++) { const a = k * 1.26 + h(k) * 0.5, r = (1.3 + h(k + 9) * 0.6) * s; const tip = [x + Math.cos(a) * r, ty + (1.6 + h(k + 3) * 0.8) * s, z + Math.sin(a) * r]; A.tube([x + 0.1 * s, ty - 0.2 * s, z], tip, 0.09 * s, 5); tips.push(tip); }
+  for (let k = 0; k < 5; k++) { const a = k * 1.26 + h(k) * 0.5, r = (1.3 + h(k + 9) * 0.6) * s; const tip = [x + Math.cos(a) * r, ty + (1.6 + h(k + 3) * 0.8) * s, z + Math.sin(a) * r]; A.tube([x + 0.1 * s, ty - 0.2 * s, z], tip, 0.09 * s, 5); tips.push(tip);
+    // a couple of twigs off each limb, up into the crown
+    for (let j = 0; j < 2; j++) { const b = 0.5 + 0.3 * j, m = [x + (tip[0] - x) * b, ty + (tip[1] - ty) * b, z + (tip[2] - z) * b]; A.tube(m, [m[0] + (h(k * 7 + j) - 0.5) * 1.6 * s, m[1] + (0.8 + h(k * 5 + j) * 0.7) * s, m[2] + (h(k * 3 + j + 40) - 0.5) * 1.6 * s], 0.045 * s, 4); } }
+  if (L) {
+    // leaf clumps: alpha-tested cards of a painted leaf texture, several per clump at random angles, their
+    // normals bent outward from the crown's centre so the crown shades like a soft dome (lit side / shade side),
+    // darker underneath; one per limb tip + the top, plus a few filling the gaps
+    const cx = x, cy = ty + 2.0 * s, cz = z, tint = [[0.86, 0.95, 0.82], [1.0, 1.0, 1.0], [0.78, 0.86, 0.72], [1.05, 1.08, 0.95]];
+    const clumps = tips.map(([tx, tyy, tz], k) => [tx, tyy + 0.2 * s, tz, (1.25 + h(k + 20) * 0.5) * s]);
+    clumps.push([x, ty + 2.6 * s, z, 1.7 * s]);
+    for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.7 + h(k + 60) * 0.4; clumps.push([x + Math.cos(a) * 1.0 * s, ty + (1.2 + h(k + 70) * 1.2) * s, z + Math.sin(a) * 1.0 * s, 1.1 * s]); }
+    clumps.forEach(([px, py, pz, r], k) => {
+      for (let c = 0; c < 5; c++) {
+        const yaw = h(k * 11 + c) * Math.PI * 2, pit = (h(k * 13 + c + 5) - 0.5) * 1.6, R = r * (1.05 + h(k * 17 + c) * 0.35);
+        const ux = Math.cos(yaw), uz = -Math.sin(yaw), vx = Math.sin(yaw) * Math.sin(pit), vy = Math.cos(pit), vz = Math.cos(yaw) * Math.sin(pit);
+        const ox = px + (h(k * 19 + c) - 0.5) * r * 0.5, oy = py + (h(k * 23 + c) - 0.5) * r * 0.4, oz = pz + (h(k * 29 + c) - 0.5) * r * 0.5;
+        const t = tint[(k + c) % 4], i0 = L.vn;
+        for (const [a, b, u, v] of [[-1, -1, 0, 0], [1, -1, 1, 0], [1, 1, 1, 1], [-1, 1, 0, 1]]) {
+          const X = ox + (ux * a + vx * b) * R, Y = oy + vy * b * R, Z = oz + (uz * a + vz * b) * R;
+          let nx = X - cx, ny = (Y - cy) * 0.8 + 0.6 * s, nz = Z - cz; const nl = Math.hypot(nx, ny, nz) || 1;
+          const shade = 0.55 + 0.45 * Math.min(1, Math.max(0, (Y - (cy - 2.2 * s)) / (3.6 * s)));
+          L.vert(X, Y, Z, nx / nl, ny / nl, nz / nl, u, v, [t[0] * shade, t[1] * shade, t[2] * shade]);
+        }
+        L.idx.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
+      }
+    });
+    // a dark core so you never see straight through the crown
+    A.set({ col: hex(0x1e2c14), rm: [0.95, 0, 0] }); A.cyl(x, ty + 0.6 * s, z, 1.2 * s, 1.4 * s, ty + 2.8 * s, 7);
+    return;
+  }
   const blob = (cx, cy, cz, r, ry, c) => {
     A.set({ col: c, rm: [0.95, 0, 0] });
     A.cyl(cx, cy - ry, cz, r * 0.35, r * 0.95, cy - ry * 0.35, 9, { cap: false });
@@ -153,4 +184,97 @@ export function zelkova(A, x, y, z, s = 1, seed = 0) {
   const greens = [hex(0x3a5226), hex(0x456230), hex(0x2f4620), hex(0x50703a)];
   for (let k = 0; k < tips.length; k++) { const [tx, tyy, tz] = tips[k]; blob(tx, tyy + 0.2 * s, tz, (1.25 + h(k + 20) * 0.5) * s, (0.95 + h(k + 30) * 0.3) * s, greens[k % 4]); }
   blob(x, ty + 2.6 * s, z, 1.7 * s, 1.1 * s, greens[3]);
+}
+// a shrub out of the same leaf cards: a few clumps in a low dome (planters, pots, the terrace beds)
+export function bush(L, x, y, z, r = 0.8, seed = 0) {
+  const h = (k) => { const t = Math.sin((seed + 3) * 12.9898 + k * 78.233) * 43758.5453; return t - Math.floor(t); };
+  const n = 3 + Math.round(r * 2);
+  for (let k = 0; k < n; k++) {
+    const a = h(k) * 6.28, d = k === 0 ? 0 : r * (0.35 + h(k + 9) * 0.4), px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, py = y + r * (0.55 + h(k + 4) * 0.35), R = r * (0.55 + h(k + 7) * 0.25);
+    for (let c = 0; c < 4; c++) {
+      const yaw = h(k * 11 + c) * 6.28, pit = (h(k * 13 + c) - 0.5) * 1.4, ux = Math.cos(yaw), uz = -Math.sin(yaw), vx = Math.sin(yaw) * Math.sin(pit), vy = Math.cos(pit), vz = Math.cos(yaw) * Math.sin(pit);
+      const i0 = L.vn;
+      for (const [aa, bb, u, v] of [[-1, -1, 0, 0], [1, -1, 1, 0], [1, 1, 1, 1], [-1, 1, 0, 1]]) {
+        const X = px + (ux * aa + vx * bb) * R, Y = py + vy * bb * R, Z = pz + (uz * aa + vz * bb) * R;
+        let nx = X - x, ny = (Y - y) + 0.3, nz = Z - z; const nl = Math.hypot(nx, ny, nz) || 1;
+        const sh = 0.6 + 0.4 * Math.min(1, Math.max(0, (Y - y) / (r * 1.4)));
+        L.vert(X, Y, Z, nx / nl, ny / nl, nz / nl, u, v, [0.9 * sh, 0.98 * sh, 0.85 * sh]);
+      }
+      L.idx.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
+    }
+  }
+}
+// the painted leaf texture for the clumps: a few hundred small serrated-oval zelkova leaves, light on the
+// upper side, overlapping densely in the middle and thinning to single leaves at the edge (alpha cut-out)
+let _leafTex = null;
+export function leafMaterial() {
+  if (!_leafTex) {
+    const S = 256, c = makeCanvas(S, S), g = c.getContext('2d'), rng = makeRng(2718);
+    g.clearRect(0, 0, S, S);
+    for (let i = 0; i < 520; i++) {
+      const rr = Math.sqrt(rng()) * S * 0.47 * (0.7 + 0.3 * rng()), a = rng() * Math.PI * 2;
+      const lx = S / 2 + Math.cos(a) * rr, ly = S / 2 + Math.sin(a) * rr * 0.92;
+      const len = 11 + rng() * 9, wid = 4.5 + rng() * 3, rot = rng() * Math.PI * 2;
+      const depth = 1 - rr / (S * 0.47), hue = 88 + rng() * 26, sat = 32 + rng() * 26, lit = 16 + rng() * 14 + (1 - ly / S) * 16 - depth * 4;
+      g.save(); g.translate(lx, ly); g.rotate(rot);
+      g.fillStyle = `hsl(${hue},${sat}%,${lit}%)`; g.beginPath(); g.ellipse(0, 0, len / 2, wid / 2, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = `hsla(${hue - 6},${sat + 8}%,${lit + 14}%,0.55)`; g.beginPath(); g.ellipse(-len * 0.08, -wid * 0.12, len * 0.36, wid * 0.24, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = `hsla(${hue},${sat}%,${lit - 8}%,0.7)`; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-len / 2, 0); g.lineTo(len / 2, 0); g.stroke();
+      g.restore();
+    }
+    // twigs
+    g.strokeStyle = 'rgba(60,46,34,0.9)'; g.lineWidth = 1.4;
+    for (let i = 0; i < 10; i++) { const a = rng() * Math.PI * 2; g.beginPath(); g.moveTo(S / 2, S / 2); g.lineTo(S / 2 + Math.cos(a) * S * 0.3, S / 2 + Math.sin(a) * S * 0.3); g.stroke(); }
+    _leafTex = canvasTex(c, { repeat: false, aniso: 4 });
+  }
+  return new THREE.MeshStandardMaterial({ map: _leafTex, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, roughness: 0.88, metalness: 0 });
+}
+
+// =====================================================================================
+//  Road decals (one 1024×256 atlas, 4 cells): oil stain, a cut-and-patched rectangle, a pair of tyre
+//  skids, a cast-iron manhole cover. Flat quads laid on asphalt with polygon offset; they break up the
+//  big flat road sheets (the bus loop, the expressway deck, the gore).
+// =====================================================================================
+let _decalTex = null;
+export function roadDecalMaterial() {
+  if (!_decalTex) {
+    const S = 256, c = makeCanvas(S * 4, S), g = c.getContext('2d'), rng = makeRng(4040);
+    g.clearRect(0, 0, S * 4, S);
+    // 0: oil stain — a few overlapping soft dark blotches, a rainbow-less sheen ring
+    for (let i = 0; i < 9; i++) { const x = S / 2 + (rng() - 0.5) * 90, y = S / 2 + (rng() - 0.5) * 90, r = 30 + rng() * 60; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(12,10,8,0.55)'); gr.addColorStop(0.7, 'rgba(14,12,10,0.25)'); gr.addColorStop(1, 'rgba(14,12,10,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
+    // 1: a patch — a darker, smoother rectangle with a sealed (tar) border and a few cracks
+    g.fillStyle = 'rgba(28,28,30,0.55)'; g.fillRect(S + 26, 40, S - 52, S - 80);
+    g.strokeStyle = 'rgba(10,10,10,0.8)'; g.lineWidth = 6; g.strokeRect(S + 26, 40, S - 52, S - 80);
+    g.strokeStyle = 'rgba(12,12,12,0.6)'; g.lineWidth = 2; for (let i = 0; i < 5; i++) { g.beginPath(); let x = S + 30 + rng() * (S - 60), y = 44 + rng() * (S - 88); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (rng() - 0.5) * 30; y += (rng() - 0.5) * 30; g.lineTo(x, y); } g.stroke(); }
+    // 2: tyre skids — two long dark streaks (the quad is stretched along them)
+    for (const ox of [S * 2 + 70, S * 2 + 186]) { const gr = g.createLinearGradient(ox - 16, 0, ox + 16, 0); gr.addColorStop(0, 'rgba(8,8,8,0)'); gr.addColorStop(0.5, 'rgba(8,8,8,0.6)'); gr.addColorStop(1, 'rgba(8,8,8,0)'); g.fillStyle = gr;
+      g.beginPath(); g.moveTo(ox - 14, 8); g.lineTo(ox + 14, 8); g.quadraticCurveTo(ox + 24, S / 2, ox + 10, S - 8); g.lineTo(ox - 6, S - 8); g.quadraticCurveTo(ox + 6, S / 2, ox - 14, 8); g.fill(); }
+    // 3: manhole — cast iron disc, a ring, the radial / hex relief, a little rust
+    { const cx = S * 3 + S / 2, cy = S / 2, R = S * 0.46;
+      g.fillStyle = '#2c2a28'; g.beginPath(); g.arc(cx, cy, R, 0, 6.283); g.fill();
+      g.strokeStyle = '#4a4744'; g.lineWidth = 8; g.beginPath(); g.arc(cx, cy, R - 6, 0, 6.283); g.stroke();
+      g.strokeStyle = '#3e3b38'; g.lineWidth = 3;
+      for (let k = 0; k < 12; k++) { const a = k * 0.5236; g.beginPath(); g.moveTo(cx + Math.cos(a) * 26, cy + Math.sin(a) * 26); g.lineTo(cx + Math.cos(a) * (R - 16), cy + Math.sin(a) * (R - 16)); g.stroke(); }
+      for (const r of [26, 60, 90]) { g.beginPath(); g.arc(cx, cy, r, 0, 6.283); g.stroke(); }
+      g.fillStyle = 'rgba(120,70,40,0.25)'; for (let i = 0; i < 40; i++) g.fillRect(cx + (rng() - 0.5) * R * 1.6, cy + (rng() - 0.5) * R * 1.6, 3 + rng() * 6, 2 + rng() * 4); }
+    _decalTex = canvasTex(c, { repeat: false, aniso: 8 });
+  }
+  return new THREE.MeshStandardMaterial({ map: _decalTex, transparent: true, depthWrite: false, roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
+// lay one decal: centre, rotation about y, width × length (m), atlas cell 0..3
+export function roadDecal(A, x, y, z, ang, w, l, cell) {
+  const c = Math.cos(ang), s = Math.sin(ang), hw = w / 2, hl = l / 2;
+  const P = (u, v) => [x + c * u + s * v, y, z - s * u + c * v];
+  A.quad(P(-hw, hl), P(hw, hl), P(hw, -hl), P(-hw, -hl), [cell * 0.25, 0, cell * 0.25 + 0.25, 1]);
+}
+// scatter decals over a rectangle (deterministic)
+export function scatterDecals(A, rect, y, n, seed, { skids = true } = {}) {
+  const rng = makeRng(seed), [x0, z0, x1, z1] = rect, alongX = (x1 - x0) > (z1 - z0);
+  for (let i = 0; i < n; i++) {
+    const x = x0 + rng() * (x1 - x0), z = z0 + rng() * (z1 - z0), r = rng();
+    if (r < 0.4) roadDecal(A, x, y, z, rng() * 6.28, 1.2 + rng() * 1.6, 1.2 + rng() * 1.6, 0);
+    else if (r < 0.65) roadDecal(A, x, y, z, (alongX ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.1, 1.6 + rng() * 2.4, 1.2 + rng() * 2.0, 1);
+    else if (r < 0.85 && skids) roadDecal(A, x, y, z, (alongX ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.5, 1.7, 6 + rng() * 8, 2);
+    else roadDecal(A, x, y, z, rng() * 6.28, 0.9, 0.9, 3);
+  }
 }

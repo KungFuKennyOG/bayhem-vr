@@ -67,7 +67,7 @@ export const RAILCAR = { x: 222, z: -390.5 };          // the driver waits here 
 // ---------------------------------------------------------------- the face + the avalanche
 export const FACE = { z0: -414, zTop: -740, yTop: 440, x0: -260, x1: 420 };
 export const CORNICE = { z: -705, x0: -40, x1: 260 };   // crown line of the slab (Gazex line just below it)
-export const GAZEX = [[30, -690], [90, -684], [150, -688], [208, -694]];   // avalanche-cannon tubes (x, z)
+export const GAZEX = [[34, -628], [92, -616], [150, -624], [206, -632]];   // (lower on the face than the cornice: they have to read from the terrace)   // avalanche-cannon tubes (x, z)
 export const CONVOY = [[60, -600], [118, -585], [176, -596]];             // snowcats coming down the face
 
 // ---------------------------------------------------------------- start / snipers / props

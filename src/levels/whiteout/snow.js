@@ -22,7 +22,7 @@ export class Weather {
     this.wind = new THREE.Vector3();
     this.speed = 9;
     this.quest = quest;
-    const N = quest ? 1800 : 4200;
+    const N = quest ? 1400 : 3000;   // fewer, more varied flakes (the uniform dashes read as scratches on the lens)
     const rng = makeRng(707);
     const base = new THREE.InstancedBufferGeometry();
     base.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3));
@@ -61,7 +61,7 @@ export class Weather {
           dir = L > 1e-3 ? dir / L : vec2(0.0, 1.0);
           float rr = fract(aPh.x * 7.13), d0 = length(p - uEye);
           // three layers by distance: big soft flakes close, mid streaks, fine far noise; streak length varies per flake
-          float size = (0.006 + 0.013 * aPh.y * aPh.y) * mix(1.7, 1.0, smoothstep(2.0, 6.0, d0));
+          float size = (0.006 + 0.013 * aPh.y * aPh.y) * mix(1.15, 1.0, smoothstep(2.0, 6.0, d0));
           float stretch = 1.0 + L * 0.04 / size * 0.5 * (0.4 + 1.1 * rr) * mix(0.45, 1.0, smoothstep(2.0, 6.0, d0));
           vec2 side = vec2(dir.y, -dir.x);   // (side, dir) right-handed: the quad stays front-facing
           mv.xy += side * position.x * size + dir * position.y * size * stretch;
