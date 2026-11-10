@@ -18,6 +18,9 @@ export const POWER = {
   cut: { value: new Float32Array(16).fill(9999) },
   night: { value: 0.2 },
   time: { value: 0 },
+  // Jinlong dying as it falls: die 0..1 = how far the failure has run; dieRow = the row of its inverse transform that
+  // gives a fragment's height on the standing tower (so sections go dark by floor, whatever angle it is at)
+  die: { value: 0 }, dieRow: { value: new THREE.Vector4(0, 1, 0, 0) },
 };
 // CPU mirror of the shader's light gain (glow sprites, reflections)
 export function powK(code, y = 0) {
@@ -33,12 +36,28 @@ uniform float uPow[16];
 uniform float uCut[16];
 uniform float uNight;
 uniform float uTime;
+uniform float uDie;
+uniform vec4 uDieRow;
 float powK(float code, float wy){
   float id = mod(code + 0.5, 16.0) - 0.5;
   int i = int(id + 0.5);
   float dusk = step(15.5, code);
   float nk = mix(smoothstep(0.04, 0.32, uNight), 1.0, dusk);
   return uPow[i] * nk * step(wy, uCut[i]);
+}
+// the falling tower loses its lights section by section (five floors at a time), roughly from the break at its base
+// upward but out of order, each section stuttering before it goes dark
+float dieK(float code, vec3 wp){
+  if (uDie <= 0.0) return 1.0;
+  float id = mod(code + 0.5, 16.0) - 0.5;
+  if (abs(id - 10.0) > 0.5) return 1.0;
+  float ry = dot(uDieRow.xyz, wp) + uDieRow.w;
+  float b = floor(ry / 21.0), h = fract(sin(b * 12.9898) * 43758.5453);
+  float thr = mix(clamp(((b + 0.5) * 21.0 - 50.0) / 190.0, 0.0, 1.0), h, 0.5) * 0.9 + 0.04;
+  float e = thr - uDie;
+  if (e > 0.08) return 1.0;
+  if (e < 0.0) return 0.0;
+  return step(0.45, fract(uTime * (8.0 + h * 9.0) + h * 5.0)) * 0.85;
 }
 float lh21(vec2 p){ p = fract(p * vec2(234.34, 435.345)); p += dot(p, p + 34.23); return fract(p.x * p.y); }
 `;
@@ -142,7 +161,7 @@ export function litMat(key, o = {}) {
   if (o.normalMap) m.normalScale.set(o.nScale ?? 0.8, o.nScale ?? 0.8);
   const emMap = o.emMap ?? 0, win = !!o.win;
   m.onBeforeCompile = (s) => {
-    s.uniforms.uPow = POWER.pow; s.uniforms.uCut = POWER.cut; s.uniforms.uNight = POWER.night; s.uniforms.uTime = POWER.time;
+    s.uniforms.uPow = POWER.pow; s.uniforms.uCut = POWER.cut; s.uniforms.uNight = POWER.night; s.uniforms.uTime = POWER.time; s.uniforms.uDie = POWER.die; s.uniforms.uDieRow = POWER.dieRow;
     s.uniforms.uHF = HFOG.p; s.uniforms.uHFC = HFOG.c;
     if (win) { s.uniforms.uWinA = WINTEX.a; s.uniforms.uWinB = WINTEX.b; }
     s.uniforms.uLM = LM.tex; s.uniforms.uLMC = LM.col; s.uniforms.uLMH = LM.hgt; s.uniforms.uLMR = LM.rect; s.uniforms.uLMG = LM.grp; s.uniforms.uLMK = LM.k;
@@ -156,14 +175,14 @@ export function litMat(key, o = {}) {
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
       .replace('#include <emissivemap_fragment>', `
-  float pk = powK(vInfo.w, vWP.y);
+  float pk = powK(vInfo.w, vWP.y) * dieK(vInfo.w, vWP);
   // codes >= 32: an LED facade show — light sweeping up the tower in waves (Chongqing's riverfront at night)
   if (vInfo.w > 31.5) pk *= 0.25 + 0.75 * smoothstep(-0.3, 0.7, sin(uTime * 1.7 - vWP.y * 0.08 + vWP.x * 0.006 + vWP.z * 0.004));
   vec3 em = vInfo.rgb * pk;
   ${emMap > 0 ? `#ifdef USE_MAP\n  em *= mix(vec3(1.0), sampledDiffuseColor.rgb * 2.0, ${emMap.toFixed(2)});\n#endif` : ''}
   ${win ? `if (vCell.x > 0.0) {
     float gm, fm, dm;
-    vec3 we = windows(vWin, vCell, powK(vInfo.w, vWP.y), vWP.y, vInfo.w, gm, fm, dm);
+    vec3 we = windows(vWin, vCell, pk, vWP.y, vInfo.w, gm, fm, dm);
     diffuseColor.rgb *= 1.0 + dm;
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.035, 0.04, 0.05), gm * 0.9);
     roughnessFactor = mix(roughnessFactor, 0.12, gm);

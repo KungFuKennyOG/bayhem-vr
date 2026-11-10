@@ -545,14 +545,14 @@ export class Landslide {
     for (let j = 0; j <= n; j++) {
       const x = x0 + (x1 - x0) * j / n;
       g.fx.later(j * 0.06 + rand() * 0.08, () => {
-        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: x + range(-5, 5), y: WATER_Y + range(5, 10), z: z + range(-3, 7), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(2, 7), drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.65, fadeIn: 0.04, fadeOut: 0.6, r: 0.25, g: 0.2, b: 0.14, r1: 0.19, g1: 0.16, b1: 0.12, glow: 0.3, glowFade: 2 }); }
+        for (let i = 0; i < 2; i++) { const s0 = range(9, 14) * k; g.clouds.spawn({ x: x + range(-5, 5), y: WATER_Y + range(5, 10), z: z + range(-3, 7), vx: range(-3, 3), vy: range(14, 26) * k, vz: range(2, 7), drag: 0.8, buoy: 0.3, s0, s1: s0 * range(3.2, 4.2), life: range(6, 8), a: 0.4, fadeIn: 0.04, fadeOut: 0.6, r: 0.25, g: 0.2, b: 0.14, r1: 0.19, g1: 0.16, b1: 0.12, glow: 0.3, glowFade: 2 }); }
         for (let i = 0; i < 16; i++) g.fx.main.spawn({ x: x + range(-7, 7), y: WATER_Y + 1, z: z + range(-3, 8), vx: range(-4, 4), vy: range(10, 22) * k, vz: range(0, 6), grav: 9.8, drag: 0.6, frame: CELL.WISP, s0: 5 * k, s1: 16 * k, life: range(1.8, 2.8), rot: rand() * 6, r: 0.4, g: 0.34, b: 0.26, a: 0.4, fadeOut: 0.6 });
       });
     }
   }
   // a big rolling cloud of dust (brown-grey, lit from below by the fires)
   _dust(x, y, z, vx, vy, vz, s0, s1, life = range(14, 18)) {
-    this.g.clouds.spawn({ x, y, z, vx, vy, vz, drag: 0.55, buoy: 0.12, s0, s1, life: life * 0.75, a: 0.62, fadeIn: 0.06, fadeOut: 0.55, r: 0.22, g: 0.15, b: 0.08, r1: 0.2, g1: 0.15, b1: 0.1, glow: 1.0, glowFade: 5 });
+    this.g.clouds.spawn({ x, y, z, vx, vy, vz, drag: 0.55, buoy: 0.12, s0, s1, life: life * 0.7, a: 0.42, fadeIn: 0.06, fadeOut: 0.55, r: 0.22, g: 0.15, b: 0.08, r1: 0.2, g1: 0.15, b1: 0.1, glow: 1.0, glowFade: 5 });
   }
   _ring(x, z, k, delay) { const R = this.S.rings.find(q => !q.go); if (R) { R.go = true; R.t = -delay - 1e-3; R.k = k; R.m.position.set(x, WATER_Y + 0.12, z); } }
   update(dt) {
@@ -586,6 +586,8 @@ export class Landslide {
       const W = B.grp.matrixWorld;
       for (const gl of B.glows) {
         if (gl.dead) continue;
+        // the street lights die as their piece breaks up (the blackout reaches the hill)
+        if (tau > (gl._dt ??= 0.3 + rand() * 4.5)) { this._killGlow(gl); continue; }
         gl.p.copy(gl.local).applyMatrix4(gl.obj.matrixWorld);
         const refl = g.world._refl; if (refl && gl._refl >= 0) refl.set(gl._refl, { p: gl.p.toArray() });
         if (gl.p.y < WATER_Y + (gl.quay ? 6.5 : -0.3)) this._killGlow(gl);
@@ -612,7 +614,7 @@ export class Landslide {
       if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * wk * (B.rw === 0 ? 0.8 : 0.3)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
       if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.3 * wk) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
       // the rolling front: low, wide dust pushed ahead of the moving toe (it is what says 'the ground is moving')
-      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 0.7 * wk) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(6, 8), a: 0.6, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
+      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 0.7 * wk) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(5, 7), a: 0.42, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
       // rock and wreckage pouring off its front; fires catching in the housing
       if (tau > 0.6 && fy > WATER_Y + 2 && rand() < dt * 14 * wk) g.fx.spawnDebris(new THREE.Vector3(range(B.xa, B.xb), fy + range(-2, 1), fz + range(0, 2)), B.vel.x + range(-3, 3), B.vel.y + range(-1, 4), B.vel.z + range(1, 6), range(0.8, 2.2), rand() < 0.12);
       if (tau > 1 && fy > WATER_Y + 4 && rand() < dt * 1.5 * wk) { const zz = range(B.za + 2, B.zb - 2); g.fx.flame(local(range(B.xa + 4, B.xb - 4), hillY(zz) + 2, zz).clone(), range(1.4, 2.4)); }
