@@ -457,7 +457,7 @@ export class SetPieces {
     // the generators hold until the impact: a gold tower going over (it flickers as the risers tear), dark after
     // like a tower coming down at night in the movies: it loses its lights slowly, section by section (kit.js dieK)
     POWER.pow.value[DIST.TOWER] = F.hit ? 0 : 1;
-    POWER.die.value = F.hit ? 1 : Math.min(1, Math.max(0.001, (F.a - 0.04) / 1.08));
+    POWER.die.value = F.hit ? 1 : Math.max(0.001, Math.pow(Math.min(1, Math.max(0, (F.a - 0.15) / 1.05)), 1.4));   // slow at first: most of it is still lit half-way over
     { const e = _m4d.copy(tw.body.matrixWorld).invert().elements; POWER.dieRow.value.set(e[1], e[5], e[9], e[13] + HINGE.y); }
     for (const gl of tw.riding) { const loc = _v3.copy(gl.local).sub(gl.crown ? tw.crown.position.clone().add(HINGE) : HINGE); gl.p.copy(loc).applyMatrix4(gl.crown ? tw.crown.matrixWorld : tw.body.matrixWorld); }
     // it sheds: glass, chunks, dust off the leading face and the shear
