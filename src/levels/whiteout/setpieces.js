@@ -5,6 +5,9 @@ import { RigidBox } from '../../physics.js';
 import { Driver } from '../../characters.js';
 import { buildCabin } from './cabin.js';
 import { Avalanche, buildRidge, buildCurtain } from './avalanche.js';
+import { BillowCloud } from './billow.js';
+import { scourU } from './terrain.js';
+import { SUN_DIR } from '../../atmosphere.js';
 import { Bucket, M4, mats, rbox } from './kit.js';
 import { skyShared } from './sky.js';
 import { TRACK_X, LINE, DOCK, HANG, PYLON, CABIN, GALLERY, RAILCAR, BLOCK, TOWER, CORNICE, GAZEX, lineY, terrainAt, groundAt, SUMMIT_Y, MID } from './layout.js';
@@ -105,10 +108,26 @@ export class SetPieces {
     g.targets.push(this.gazexTarget);
     this.av = new Avalanche(g);
     this.curtain = buildCurtain(); g.scene.add(this.curtain.mesh);
+    this.billow = new BillowCloud(g.scene, { max: g.E.isQuest ? 130 : 320 });
+    // snow heaps that pile up in the gallery openings as it pours (one mesh, grows from the floor)
+    {
+      const b = new Bucket(), hr = makeRng(808);
+      for (let x = GALLERY.x0 + 6; x < GALLERY.x1; x += 6.5) {
+        for (let k = 0; k < 3; k++) {
+          const gq = new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+          const P = gq.attributes.position; for (let i = 0; i < P.count; i++) { const vx = P.getX(i), vy = P.getY(i), vz = P.getZ(i); P.setXYZ(i, vx, vy * (1 + Math.sin(vx * 5 + x) * 0.15), vz); } gq.computeVertexNormals();
+          const cx = x + 1.2 + k * 1.6 + hr() * 0.6, cz = GALLERY.z1 + 0.6 - k * 0.5 - hr() * 0.8;
+          b.add(gq, M4(cx, 0, cz, 0, hr() * 6, 0, 1.4 + hr() * 1.2, 0.9 + hr() * 1.1 - k * 0.2, 1.4 + hr()), (q) => { const kk = 0.84 + 0.14 * Math.min(1, q.y / 1.5); return [kk * 0.94, kk * 0.97, kk]; });
+        }
+      }
+      this.heaps = b.mesh(mats.snow(), { shadow: false });
+      this.heaps.position.y = GALLERY.y; this.heaps.scale.y = 0.01; this.heaps.visible = false;
+      g.scene.add(this.heaps);
+    }
     this.railcar = this._makeRailcar();
     this.extraWalk = (x, z) => this.ride && this.ride.state === 'arrived' && Math.abs(x - this.cab.root.position.x) < CABIN.w / 2 - 0.25 && Math.abs(z - this.cab.root.position.z) < CABIN.l / 2 - 0.25;
   }
-  warmMaterials() { return [...this.av.warmMaterials(), this.curtain.mesh.material, this.cab.m.glassM]; }
+  warmMaterials() { return [...this.av.warmMaterials(), this.curtain.mesh.material, this.cab.m.glassM, this.billow.material]; }
 
   // ================================================================== explosives
   damageExp(e, d, P, fuse = 0) {
@@ -163,9 +182,16 @@ export class SetPieces {
     const g = this.g;
     this.ride = { state: 'close', t: 0, v: 0, d: 0, snapped: false, gunmen: [] };
     for (const b of this.cab.dockBoxes) g.col.remove(b);
-    g.loco.enabled = false;
+    // you keep your legs: walk round the cabin during the ride (afterPlayer carries your spot in the cabin's frame)
+    this.cabLocal = null;
     g.events.push({ type: 'boarded' });
     g.audio.play('crane_alarm', { x: this.cab.root.position.x, y: this.cab.root.position.y + 2, z: this.cab.root.position.z, volume: 0.6 });
+  }
+  // the locomotion's ground while the cabin carries you: its floor inside, a drop everywhere else (you can't step out)
+  cabFloor(x, z) {
+    if (!this.riding) return undefined;
+    const R = this.cab.root; _inv.copy(R.matrixWorld).invert(); const l = _v4.set(x, R.position.y, z).applyMatrix4(_inv);
+    return Math.abs(l.x) < CABIN.w / 2 - 0.2 && Math.abs(l.z) < CABIN.l / 2 - 0.2 ? R.position.y : -1e9;
   }
   // only while it's carrying you (rolling back down the line it must never take you with it)
   get riding() { const R = this.ride; return !!R && (R.state === 'close' || R.state === 'go' || R.state === 'brake'); }
@@ -249,7 +275,7 @@ export class SetPieces {
       const P = _v.copy(C.m.anchors.carriage).applyMatrix4(C.root.matrixWorld);
       if (rand() < dt * 30) g.fx.sparks.spawn({ x: P.x + range(-0.2, 0.2), y: P.y + 0.1, z: P.z + range(-1.2, 1.2), vx: range(-2, 2), vy: range(-1, 3), vz: range(2, 8), grav: -9.8, drag: 0.4, frame: CELL.SPARK, s0: 1, w: 0.04, len: 0.12, life: range(0.4, 1.0), r: 2.6, g: 1.4, b: 0.5, a: 1, fadeOut: 0.5 });
       g.audio.setLoop('crane_motor', { x: P.x, y: P.y, z: P.z, volume: 0.6, intensity: 1 });
-      if (R.d >= total - 0.01) { R.state = 'arrived'; R.t = 0; R.v = 0; g.audio.stopLoop('crane_motor'); g.audio.play('container_slam', { x: P.x, y: P.y, z: P.z, volume: 0.6 }); C.m.setDoor(true); g.loco.enabled = true; this.cab.dockBoxes = this._dockColliders(C); g.events.push({ type: 'arrived' }); if (g.player) g.player.shake = Math.min(1.2, (g.player.shake || 0) + 0.6); }
+      if (R.d >= total - 0.01) { R.state = 'arrived'; R.t = 0; R.v = 0; g.audio.stopLoop('crane_motor'); g.audio.play('container_slam', { x: P.x, y: P.y, z: P.z, volume: 0.6 }); C.m.setDoor(true); this.cab.dockBoxes = this._dockColliders(C); g.events.push({ type: 'arrived' }); if (g.player) g.player.shake = Math.min(1.2, (g.player.shake || 0) + 0.6); }
     } else if (R.state === 'arrived') {
       // once you're off, the brakes let go: it rolls back out of the station, down the line, into the pylon
       const out = !this.inCabin(g.headPos);
@@ -392,9 +418,15 @@ export class SetPieces {
         const x = -60 + rand() * 340;
         const P = this.av.crest(x, _v);
         const H = this.av.H, near = Math.abs(x - head.x) < 140;
-        if (near || rand() < 0.45) { const yo = range(-0.8, 0.7), up = clamp((yo + 0.8) / 1.5, 0, 1), s0 = (0.35 + 0.4 * up) * H + 8; const lo = [0.6, 0.67, 0.8], hi = [1.0, 0.99, 0.97]; const c0 = lo.map((v, i) => v + (hi[i] - v) * up); g.clouds.spawn({ x: P.x, y: P.y + yo * H, z: P.z - range(0, 0.6) * H, vx: range(-2, 2), vy: range(3, 9) * (0.6 + up), vz: this.av.v * range(0.55, 0.8), drag: 0.35, buoy: 0, s0, s1: s0 * range(1.9, 2.6), st: range(1.4, 2.0), life: range(5, 7.5), a: 0.88, fadeIn: 0.08, fadeOut: 0.45, vrot: range(-0.15, 0.15), r: c0[0], g: c0[1], b: c0[2], r1: c0[0] * 0.82, g1: c0[1] * 0.86, b1: c0[2] * 0.92, glow: 0, glowFade: 1, spray: true }); }
+        if (near || rand() < 0.5) {
+          // the head: tight rolling billows low on the front, bright tops / steel-blue undersides
+          const yo = range(-0.85, 0.15), up = clamp((yo + 0.85) / 1.0, 0, 1), s0 = (0.1 + 0.12 * up) * H + 3;
+          this.billow.spawn({ x: P.x + range(-5, 5), y: P.y + yo * H, z: P.z + range(-2, 6), vx: range(-2, 2), vy: range(1, 5), vz: this.av.v * range(0.75, 0.95), s0, s1: s0 * range(1.5, 1.9), life: range(3.5, 5), tone: up * 0.8, a: 1, drag: 0.4, rise: 0.4 });
+          // the powder above it: bigger, thinner, boiling up behind
+          if (rand() < 0.45) { const s1 = (0.25 + 0.2 * rand()) * H + 6; this.billow.spawn({ x: P.x + range(-6, 6), y: P.y + range(0.3, 1.1) * H, z: P.z - range(0.2, 0.8) * H, vx: range(-2, 2), vy: range(5, 10), vz: this.av.v * range(0.45, 0.65), s0: s1 * 0.6, s1: s1 * 2.0, life: range(6, 8), tone: 1, a: 0.55, drag: 0.3, rise: 0.8 }); }
+        }
         // the dust skirt: a ground-hugging blast running ahead of the toe
-        if (rand() < 0.6) { const T = this.av.toe(-40 + rand() * 300, _v2); g.clouds.spawn({ x: T.x, y: T.y + range(0.5, 3), z: T.z + range(3, 18), vx: range(-3, 3), vy: range(0.5, 2), vz: this.av.v * range(0.8, 1.05), drag: 0.6, buoy: 0, s0: range(6, 10), s1: range(22, 34), st: 1.2, life: range(2, 3), a: 0.6, fadeIn: 0.05, fadeOut: 0.5, r: 0.9, g: 0.93, b: 0.98, r1: 0.76, g1: 0.81, b1: 0.9, glow: 0, glowFade: 1, spray: true }); }
+        if (rand() < 0.6) { const T = this.av.toe(-40 + rand() * 300, _v2); this.billow.spawn({ x: T.x, y: T.y + range(1, 3), z: T.z + range(4, 16), vx: range(-3, 3), vy: range(0.5, 2), vz: this.av.v * range(0.85, 1.1), s0: range(3, 5), s1: range(10, 16), life: range(1.6, 2.4), tone: range(0.1, 0.35), a: 0.6, drag: 0.6 }); }   // the dust skirt racing ahead (low, shaded)
         if (rand() < 0.7) { const T = this.av.toe(-40 + rand() * 300, _v2); g.fx.main.spawn({ x: T.x, y: T.y + range(0.5, 3), z: T.z + range(0, 4), vx: range(-2, 2), vy: range(2, 7), vz: this.av.v * range(0.6, 1.0), grav: 6, drag: 0.3, frame: CELL.WISP, s0: 3, s1: range(10, 18), life: range(1.2, 2), rot: rand() * 6, r: 0.9, g: 0.93, b: 0.98, a: 0.55, fadeIn: 0.05, fadeOut: 0.5 }); }
         if (rand() < 0.3 && near) { const T = this.av.toe(head.x + range(-50, 50), _v2); g.fx.spawnDebris(T.clone().setY(T.y + 2), range(-4, 4), range(6, 14), this.av.v * 0.7, range(0.4, 1.0), false); }
       }
@@ -402,9 +434,9 @@ export class SetPieces {
       for (const c of this.ridge.cats) if (c.alive && this.av.zfAt(c.obj.position.x) > c.obj.position.z - 4) { c.alive = false; c.tumble = 1; g.events.push({ type: 'catTaken' }); }
       // near you: the whiteout closes in, the wind howls
       const d = A.dist;
-      g.fogMix.k = damp(g.fogMix.k, clamp(1 - (d - 8) / 60, 0, 0.85) * (inGal ? 1 : 0.8), 1.4, dt);
+      g.fogMix.k = damp(g.fogMix.k, clamp(1 - (d - 8) / 60, 0, 0.85) * (inGal ? 0.4 : 0.8), 1.4, dt);   // inside: the pillars must silhouette against the bright openings
       // the whiteout is a blue-grey wall, not paper white: the pouring snow and the powder have to read against it
-      if (inGal) { g.fogMix.color.setRGB(0.56, 0.63, 0.74); g.fogMix.near = 4; g.fogMix.far = 55; }
+      if (inGal) { g.fogMix.color.setRGB(0.5, 0.57, 0.68); g.fogMix.near = 10; g.fogMix.far = 110; }
       else { g.fogMix.color.setRGB(0.74, 0.79, 0.86); g.fogMix.near = 2; g.fogMix.far = 40; }
       skyShared.white.value = clamp(1 - (d - 10) / 90, 0, 1);
       g.audio.setLoop('dust_roar', { x: head.x, y: head.y, z: head.z - Math.max(5, d), volume: clamp(1.2 - d / 200, 0.4, 1) });
@@ -415,9 +447,10 @@ export class SetPieces {
         A.overT += dt;
         if (A.overT > 0.4) this.av.plume.mesh.visible = false;   // over the roof now: the gold-lit underside must not show through the openings
         this.curtain.u.uK.value = clamp(A.overT * 1.5, 0, 1) * clamp(1 - (A.overT - 9) / 3, 0, 1);
+        this.heaps.visible = true; this.heaps.scale.y = Math.max(0.01, clamp((A.overT - 0.6) / 5, 0, 1) ** 0.7);
         this.curtain.u.uTime.value += dt;
         // powder blasting in between the pillars
-        if (rand() < dt * 25) { const x = head.x + range(-14, 18); g.clouds.spawn({ x, y: GALLERY.y + range(0.5, 4), z: GALLERY.z1 + 2, vx: range(-2, 2), vy: range(0, 1), vz: -range(4, 9), drag: 0.8, buoy: 0, s0: 3, s1: 10, st: 1.4, life: 2.2, a: 0.55, fadeIn: 0.05, fadeOut: 0.5, r: 0.86, g: 0.9, b: 0.96, r1: 0.8, g1: 0.84, b1: 0.9, glow: 0, glowFade: 1, spray: true }); }
+        if (rand() < dt * 10) { const x = head.x + range(-14, 18); this.billow.spawn({ x, y: GALLERY.y + range(0.5, 2.5), z: GALLERY.z1 + 1.5, vx: range(-1, 1), vy: range(0, 0.6), vz: -range(2, 4), s0: 1.0, s1: range(2.2, 3.2), life: 1.8, tone: range(0.3, 0.7), a: 0.5, drag: 1.2 }); }   // spray bursting in at the openings, not a fog in the gallery
       }
     }
   }
@@ -483,6 +516,8 @@ export class SetPieces {
     this._updConvoy(dt);
     this._updRail(dt);
     this._updFires(dt);
+    scourU.value = this.av.on ? this.av.zf - 20 : -1e9;
+    this.billow.update(dt, g.camera, SUN_DIR, { fog: g.scene.fog, light: Math.max(0.3, 1 - g.storm * 0.8), time: g.time });
     // fog flash (the storm lit from inside by a big fire)
     if (this.flash > 0) { this.flash = Math.max(0, this.flash - dt * 0.9); g.fogFlash = this.flash; } else g.fogFlash = 0;
   }
@@ -537,10 +572,24 @@ export class SetPieces {
     // no snow falling inside our cabin (roof slot 9 follows it)
     { const C = this.cab.root.position; const U = g.weather.u; U.uRoof.value[9].set(C.x - CABIN.w / 2, C.z - CABIN.l / 2, C.x + CABIN.w / 2, C.z + CABIN.l / 2); U.uRoofY.value[9] = this.cab.root.visible ? C.y + CABIN.h + 0.4 : -1e6; }
     if (this.riding) {
-      const C = this.cab;
-      const p = _v.copy(this.cab.m.anchors.stand).applyMatrix4(C.root.matrixWorld);
-      g.rig.position.set(p.x, C.root.position.y, p.z);
+      const C = this.cab, R = C.root;
+      R.updateMatrixWorld(true);
+      if (!this.cabLocal) {
+        // first frame aboard: wherever you stepped in
+        _inv.copy(R.matrixWorld).invert();
+        this.cabLocal = _v4.copy(g.rig.position).applyMatrix4(_inv).clone().setY(0);
+      } else {
+        // what the stick moved you since we last put you down, turned into the cabin's frame
+        _v.subVectors(g.rig.position, this.cabLast).setY(0);
+        _q.copy(R.quaternion).invert(); _v.applyQuaternion(_q);
+        this.cabLocal.add(_v);
+      }
+      const mx = CABIN.w / 2 - 0.38, mz = CABIN.l / 2 - 0.38;
+      this.cabLocal.x = clamp(this.cabLocal.x, -mx, mx); this.cabLocal.z = clamp(this.cabLocal.z, -mz, mz); this.cabLocal.y = 0;
+      const p = _v.copy(this.cabLocal).applyMatrix4(R.matrixWorld);
+      g.rig.position.set(p.x, R.position.y, p.z);
       g.rig.updateMatrixWorld(true);
+      (this.cabLast ||= new THREE.Vector3()).copy(g.rig.position);
     } else if (this.onRail) {
       const R = this.railcar;
       const p = _v.set(0.5, 0.25, -1.5).applyMatrix4(R.root.matrixWorld);

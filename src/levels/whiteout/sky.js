@@ -51,7 +51,7 @@ vec3 skyW(vec3 d){
   }
   if (h < 0.0) cs = mix(vec3(0.95, 0.9, 0.86) + vec3(0.8, 0.45, 0.2) * pow(az, 4.0), vec3(0.6, 0.62, 0.68), smoothstep(0.0, -0.25, h));
   // ---- storm: the overcast, torn and racing
-  vec3 st = mix(fogC, fogC * vec3(0.86, 0.9, 0.98) + vec3(-0.06, -0.04, 0.0), smoothstep(0.0, 0.7, hh));
+  vec3 st = mix(fogC, fogC * vec3(0.72, 0.77, 0.88) + vec3(-0.05, -0.03, 0.0), smoothstep(0.0, 0.8, hh));
   float n = 0.5;
   if (h > -0.05) {
     vec2 uv = d.xz / (max(h, 0.0) + 0.06);
@@ -59,7 +59,7 @@ vec3 skyW(vec3 d){
     n = sfbm(uv * vec2(0.5, 1.4) + w);
     float n2 = sfbm(uv * 1.9 + w * 2.3 + 4.0);
     st *= 0.9 + (n - 0.5) * 0.28 + (n2 - 0.5) * 0.12;
-    st += fogC * 0.35 * pow(sa, 8.0) + vec3(0.25, 0.24, 0.22) * pow(sa, 40.0);   // the sun as a pale smudge
+    st += fogC * 0.35 * pow(sa, 8.0) + vec3(0.25, 0.24, 0.22) * pow(sa, 40.0) + vec3(0.2, 0.12, 0.05) * pow(sa, 3.0);   // the sun as a pale smudge + a warm glow behind the deck (a key direction in the storm)
   }
   // ---- break-up: the deck tears into holes as clear rises (the top of the sky first)
   float tear = sfbm(d.xz / (hh + 0.25) * 0.7 + vec2(time * 0.02, 0.0) + 3.0) + hh * 0.35;
