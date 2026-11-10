@@ -94,6 +94,7 @@ export function buildProps(ctx) {
       const dx = t.x + Math.cos(t.yaw) * (1.6 + i * 0.65), dz = t.z - Math.sin(t.yaw) * (1.6 + i * 0.65), dy = groundAt(dx, dz);
       B.paint.add(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 12), M4(dx, dy + 0.44, dz, 0, i, 0), (p, n, l) => (Math.abs(l.y - 0.25) < 0.04 || Math.abs(l.y + 0.25) < 0.04 ? [0.1, 0.1, 0.1] : [0.55, 0.12, 0.06]));
       B.snow.add(new THREE.CylinderGeometry(0.29, 0.31, 0.07, 10), M4(dx, dy + 0.92, dz), [0.95, 0.97, 1]);
+      col(dx - 0.3, dy, dz - 0.3, dx + 0.3, dy + 0.92, dz + 0.3, { kind: 'drum', mat: 'metal' });
       explosives.push({ p: new THREE.Vector3(dx, dy + 0.45, dz), r: 0.4, hp: 3, kind: 'drum', size: 0.9 });
     }
   }
@@ -231,6 +232,7 @@ export function buildProps(ctx) {
       B.paint.add(rbox(0.85, 0.2, 1.0, 0.08), M4(sx, ty + 0.9, sz + 0.35, 0, sy, 0), [0.03, 0.03, 0.03]);
       B.paint.add(rbox(0.9, 0.3, 0.7, 0.1), M4(sx, ty + 0.8, sz - 0.8, 0, sy, 0), [0.5, 0.06, 0.04]);
       for (const k of [-0.42, 0.42]) B.metal.add(new THREE.BoxGeometry(0.08, 0.05, 1.4), M4(sx + k, ty + 0.05, sz - 0.6, 0, sy, 0), [0.15, 0.15, 0.15]);
+      ocol(sx, ty, sz - 0.2, 0.5, 1.3, 1.1, sy, { kind: 'sled', mat: 'metal' });
     }
   }
 
@@ -263,10 +265,11 @@ export function buildProps(ctx) {
       for (let k = 0; k < P.count; k++) { const v = new THREE.Vector3(P.getX(k), P.getY(k), P.getZ(k)); v.multiplyScalar(1 + Math.sin(v.x * 4 + i) * 0.1 + Math.sin(v.z * 5 + i * 2) * 0.08); P.setXYZ(k, v.x, Math.max(-0.2, v.y), v.z); }
       g.computeVertexNormals();
       const sx = 1.4 + rng() * 1.6, sy = 0.7 + rng() * 0.8;
-      B.snow.add(g, M4(p.x + (rng() - 0.5) * 6, y + sy * 0.3, p.z + (rng() - 0.5) * 3.2, 0, rng() * 6, 0, sx, sy, sx * 0.8), (q) => { const k = 0.82 + 0.18 * Math.min(1, (q.y - y) / 1.5); return [k * 0.95, k * 0.97, k]; }, { uvScale: 2 });
+      const bx = p.x + (rng() - 0.5) * 6, bz = p.z + (rng() - 0.5) * 3.2, br = sx * 1.05 * Math.sqrt(Math.max(0, 1 - ((0.45 - sy * 0.3) / sy) ** 2));
+      col(bx - br * 0.85, y - 0.5, bz - br * 0.85, bx + br * 0.85, y + sy * 1.3, bz + br * 0.85, { kind: 'mound', mat: 'snow' });   // each blob, where it stands knee-high
+      B.snow.add(g, M4(bx, y + sy * 0.3, bz, 0, rng() * 6, 0, sx, sy, sx * 0.8), (q) => { const k = 0.82 + 0.18 * Math.min(1, (q.y - y) / 1.5); return [k * 0.95, k * 0.97, k]; }, { uvScale: 2 });
     }
     for (let i = 0; i < 5; i++) B.wood.add(new THREE.CylinderGeometry(0.12, 0.16, 3 + rng() * 3, 6).rotateZ(Math.PI / 2), M4(p.x + (rng() - 0.5) * 5, y + 0.9, p.z + (rng() - 0.5) * 2.6, 0, rng() * 6, rng() * 0.3), [0.2, 0.14, 0.1]);
-    col(p.x - 3.6, y - 0.5, p.z - 2.0, p.x + 3.6, y + 1.35, p.z + 2.0, { kind: 'mound', mat: 'snow' });
   }
   // ---------------------------------------------------------------- a power line down the east side of the bowl (silhouettes in the storm)
   {

@@ -27,6 +27,7 @@ export const HP2 = { c: [-46, 64], r: 10, y0: 19.0, y1: 20.0 }; // hairpin 2 (we
 export const LEG3 = { a: [-46, 20.0, 54], b: [34, 28.4, 46] };
 // the pull-out by the start (the driver's snowcat burns here)
 export const PULLOUT = { x0: -96, x1: -60, z0: 104, z1: 119 };
+const PULL_WALK = { x0: -94.2, x1: -60.8, z0: 106.2, z1: 118.2 };   // where you can stand in it (clear of the cut wall + the drifted west end)
 // the Berghaus (alpine inn) on a terrace outside hairpin 2, and the wayside chapel inside hairpin 1
 export const HUT = { x0: -86, x1: -63, z0: 54, z1: 74, y: 19.4 };
 export const CHAPEL = { x: 28, z: 92, yaw: Math.PI / 2 };
@@ -48,7 +49,7 @@ export const CABIN = { w: 2.9, l: 4.3, h: 2.55 };    // outer box (x, z, y)
 // ---------------------------------------------------------------- Grauhorn station (summit saddle, y 140)
 export const SUMMIT_Y = 140;
 export const HALL = { x0: 64, x1: 108, z0: -324, z1: -292, y: 140, roofY: 152 };  // arrival hall (cabin dock inside)
-export const HALL_WALK = { x0: 67, x1: 105, z0: -321, z1: -296 };
+export const HALL_WALK = { x0: 67, x1: 105, z0: -321, z1: -298.5 };   // stops short of the cable opening (the ropes dip to head height there)
 export const DOCK = { x: 80, z: -307 };                 // our cabin stops here (centre)
 export const COURT = { x0: 54, x1: 152, z0: -378, z1: -324, y: 140 };
 export const BLOCK = { x0: 70, x1: 140, z0: -398, z1: -382, y: 140, roofY: 148 };  // north block: roof walk
@@ -56,8 +57,11 @@ export const TOWER = { x0: 50, x1: 70, z0: -400, z1: -380, roofY: 156, dome: [54
 // stair A: courtyard → block roof, against the block's south face, rising east
 export const STAIR_A = { x0: 108, x1: 122, z0: -381.6, z1: -378.2, y0: 140, y1: 148 };
 export const LAND_A = { x0: 122, x1: 127.5, z0: -383.2, z1: -378.2 };   // its top landing, onto the roof walk
+export const FOOT_A = { x0: 104.5, x1: 108, z0: -381.2, z1: -378 };      // the paved foot of stair A (its low west end), off the courtyard
+export const STAIR_RAIL = 1.4;   // the stairs' outer rails start this far up the run (the low first steps are open at the side)
 // stair B: block roof → tower terrace, against the tower's east face, rising north
-export const STAIR_B = { x0: 70.2, x1: 73.8, z0: -396, z1: -383, y0: 148, y1: 156 };
+// (its foot stops 1.8 m short of the courtyard parapet: you walk onto it from the south or from the east at the bottom)
+export const STAIR_B = { x0: 70.2, x1: 73.8, z0: -396, z1: -384.6, y0: 148, y1: 156 };
 export const LAND_B = { x0: 69.8, x1: 73.8, z0: -399.5, z1: -396 };    // top landing (joins the terrace)
 // the rack-railway avalanche gallery: cut into the slope east of the block, floor at the roof walk height;
 // open (pillars) to the south, rock to the north, tunnel portal at the east end
@@ -280,14 +284,23 @@ export function groundAt(x, z) { const s = structFloor(x, z); return s ?? terrai
 
 // where the PLAYER (and the soldiers' nav) may walk
 export function walkable(x, z) {
-  if (roadNearest(x, z, _rw).d < ROAD_W + 1.15 && z < 124) return true;
+  const R = roadNearest(x, z, _rw);
+  if (R.d < ROAD_W + 1.15 && z < 124) {
+    if (R.d < ROAD_W + 0.3 || inR(x, z, PULL_WALK)) return true;
+    // the uphill edge is a plough bank (knee- to waist-high snow): you stop at its foot instead of wading into it
+    const s = ROAD_SEGS[R.i], px = s[0] + (s[3] - s[0]) * R.t, pz = s[2] + (s[5] - s[2]) * R.t;
+    const lat = (x - px) * -R.sz + (z - pz) * R.sx, up = R.sx < 0 ? 1 : -1;
+    if (Math.sign(lat) !== up && R.d < ROAD_W + 0.65) return true;   // downhill: the low bank before the parapet / rail
+  }
   if (inR(x, z, YARD) || inR(x, z, MID_HALL)) return true;
   if (x > 72.4 && x < 97.6 && z > 6.5 && z < 8.5) return true;   // the station's big doorway (the hall stops at z 7, the yard starts at 8)
   // the start pull-out by the wrecked snowcat
-  if (inR(x, z, PULLOUT, -0.8)) return true;
+  if (inR(x, z, PULL_WALK)) return true;
   if (inR(x, z, HUT, -0.8) && !(x < -66 && x > -84 && z > 57 && z < 71)) return true;   // the terrace round the hut
   // summit
-  if (inR(x, z, HALL_WALK) || inR(x, z, COURT) || inR(x, z, STAIR_A) || inR(x, z, STAIR_B) || inR(x, z, LAND_B) || inR(x, z, LAND_A)) return true;
+  if (inR(x, z, HALL_WALK) || inR(x, z, COURT) || inR(x, z, STAIR_B) || inR(x, z, LAND_B) || inR(x, z, LAND_A) || inR(x, z, FOOT_A)) return true;
+  // stair A keeps 0.4 m off the block's face (its pilasters and the cornice it climbs under)
+  if (x >= STAIR_A.x0 && x <= STAIR_A.x1 && z >= STAIR_A.z0 + 0.4 && z <= STAIR_A.z1) return true;
   if (inR(x, z, BLOCK, -0.6) || inR(x, z, TOWER, -0.6)) return true;
   if (inR(x, z, GALLERY, -0.4)) return true;
   // joins the edge margins above would otherwise cut: the landing onto the terrace, the roof walk into the gallery
