@@ -87,10 +87,10 @@ export class Strikes {
     g.events.push({ type: 'strikeCalled', tower });
     const aim = hitP ? hitP.clone() : T.aim.clone();
     for (let k = 0; k < 3; k++) {
-      g.fx.later(1.2 + k * 0.45, () => {
+      g.fx.later(0.8 + k * 0.45, () => {
         const from = aim.clone().add(_v.set(-0.55, 0, -0.85).normalize().multiplyScalar(2600)).add(_v2.set(range(-120, 120), 700 + range(0, 200), range(-120, 120)));
         const to = aim.clone().add(_v.set(range(-6, 6), range(-12, 12) - k * 14, range(-6, 6)));
-        const m = { pos: from, to, vel: to.clone().sub(from).normalize().multiplyScalar(300), tower, k, dead: false, id: 'm' + Math.floor(rand() * 1e9) };
+        const m = { pos: from, to, vel: to.clone().sub(from).normalize().multiplyScalar(420), tower, k, dead: false, id: 'm' + Math.floor(rand() * 1e9) };
         this.missiles.push(m);
       });
     }
@@ -102,7 +102,7 @@ export class Strikes {
       const step = m.vel.length() * dt;
       // steer onto the aim point (it was painted on a moving world: the tower may already lean)
       const to = _v.subVectors(m.to, m.pos); const d = to.length();
-      m.vel.lerp(to.normalize().multiplyScalar(300), Math.min(1, dt * 2));
+      m.vel.lerp(to.normalize().multiplyScalar(420), Math.min(1, dt * 2)); // ~7 s from the call to the hit (was ~11): less waiting with the door on it
       m.pos.addScaledVector(m.vel, dt);
       g.fx.trailEmit(m, m.pos, 3.2, (q) => g.fx.smoke(q, 2.2, 0.85, 3.5, 0.3, 0.55), 0);
       g.fx.main.spawn({ x: m.pos.x, y: m.pos.y, z: m.pos.z, frame: 8 * 16, s0: 4, s1: 3, life: 0.05, r: 2.5, g: 1.4, b: 0.6, a: 1 });

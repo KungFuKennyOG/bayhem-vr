@@ -109,7 +109,7 @@ export async function create(E) {
     start() { if (!flags.SANDBOX) director = new Director(game, hud, audio, setp, W, { trailer: flags.TRAILER || flags.CAPTURE, auto: flags.AUTO }); },
     step(sdt, started) {
       const t0 = performance.now();
-      if (!envs.day) { envs.day = bakeEnv(renderer, 0, 0); envs.storm = bakeEnv(renderer, 1, 0.2); envs.sunset = bakeEnv(renderer, 0, 1); }
+      if (!envs.day) { envs.day = bakeEnv(renderer, 0, 0); envs.storm = bakeEnv(renderer, 1, 0.2); envs.haze = bakeEnv(renderer, 0.5, 0.1); envs.sunset = bakeEnv(renderer, 0, 1); }
       // the heli flies on real time: slow-mo never drags the cabin
       _rp.copy(rig.position);
       if (started) rail.update(sdt); else rail.place(0);
@@ -125,7 +125,8 @@ export async function create(E) {
       game.sunset = damp(game.sunset, game.sunsetTarget, 0.25, sdt);
       look.sunset = game.sunset; look.storm = setp.storm;
       applyLook(E, look.sunset, look.storm, 12 - 8.5 * look.sunset);
-      const k = look.storm > 0.45 ? 'storm' : look.sunset > 0.55 ? 'sunset' : 'day';
+      // a half-storm reflection between day and storm: the glass greys over in two small steps, not one big flip
+      const k = look.storm > 0.7 ? 'storm' : look.storm > 0.25 ? 'haze' : look.sunset > 0.55 ? 'sunset' : 'day';
       if (k !== envKey && envs[k]) { envKey = k; scene.environment = envs[k]; }
       gun.aim(sdt);
       // the autopilot paints with the designator once it is on target

@@ -505,7 +505,8 @@ export class SandGame {
       const T = g.crashAt || g.pos.clone().setY(0);
       const to = _v.subVectors(T, g.pos);
       const dist = to.length();
-      g.vel.lerp(to.normalize().multiplyScalar(Math.min(48, 20 + g.t * 14)), Math.min(1, dt * 1.2));
+      // fast enough to reach it in ~5 s (so it never times out and blows up in mid-air short of the tower)
+      g.vel.lerp(to.normalize().multiplyScalar(Math.min(75, Math.max(20 + g.t * 14, dist / Math.max(1.2, 5 - g.t)))), Math.min(1, dt * 1.6));
       g.pos.addScaledVector(g.vel, dt);
       g.spin = Math.min(5, g.spin + dt * 2.2); g.yaw += g.spin * dt;
       m.root.position.copy(g.pos); m.root.rotation.set(0.25, g.yaw, 0.35 * Math.sin(g.t * 3), 'YXZ');

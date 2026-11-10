@@ -40,6 +40,13 @@ export class Director {
     };
     // the fight stations' squads
     this.squads = [];
+    this.watch = [];
+    // the haboob's look: it starts darkening while the wall is still ~750 m off (its shadow and the dust ahead of it)
+    // and is fully on ~400 m inside; never faster than 10 s end to end, so it rolls over you instead of switching on
+    this.rampStorm = (dt) => {
+      const k = clamp((this.sp.haboob.inside(g.headPos) + 750) / 1150, 0, 1);
+      this.sp.storm = Math.max(this.sp.storm, Math.min(k, this.sp.storm + dt / 10));
+    };
     // ---------------------------------------------------------------- the beats
     this.steps = [
       // 1 ---- title over the Gulf, the palm island below, the skyline ahead
@@ -111,19 +118,18 @@ export class Director {
           rail.release(); speed(1.0);
           for (const q of this.squads) g.dropSquad(q);
           if (g.wing && g.wing.phase === 'fly') g.shootDownWing();
-          this.sp.haboob.start(1900, 40);
+          this.sp.haboob.start(1600, 40); // closer than before: the look now starts ~750 m before the wall, so this keeps the wait the same
           this.habP = V(1300, 400, 2400);
           later(1.0, () => say("Hold on. Look south. ...That's not smoke.", 3));
           later(4.5, () => say("Haboob. A sandstorm the size of the city — and it's coming right at us.", 3.6));
-        }, update: (t) => {
+        }, update: (t, dt) => {
           const hb = this.sp.haboob.state;
           this.habP.set(g.headPos.x, 230, hb ? hb.z : 2000);
           rail.face(this.habP);
           hud.setWaypoint(t < 9 ? this.habP : null);
           if (this.auto) g.cinematicLook = this.habP;
           // the storm look comes on as the front reaches you
-          const inside = this.sp.haboob.inside(g.headPos);
-          this.sp.storm = Math.max(this.sp.storm, clamp((inside + 120) / 380, 0, 1));
+          this.rampStorm(dt);
         }, until: (t) => this.sp.storm > 0.7 || t > 40 },
       // 5 ---- WIDOWMAKER 4 in the murk; it ends up in a tower
       { name: 'gunship', music: 0.9, enter: () => {
@@ -134,12 +140,20 @@ export class Director {
           later(0.5, () => say("Contact! Gunship in the dust — WIDOWMAKER again. How many of these do they HAVE?", 3.6));
           later(9, () => say('Rockets! Shoot them out of the air!', 2.4));
           rail.holdAt(S('pass') + 60);
-        }, update: (t) => {
-          this.sp.storm = Math.max(this.sp.storm, clamp((this.sp.haboob.inside(g.headPos) + 120) / 380, 0, 1));
+        }, update: (t, dt) => {
+          this.rampStorm(dt);
           const gs = g.gunship;
           if (gs && gs.phase === 'fight') { rail.face(gs.pos); hud.setWaypoint(gs.pos); }
-          // the crash: into the twisted tower south of the route
-          if (gs && gs.phase === 'dying' && !gs.crashAt) { const C = this.sp.tower('C1'); gs.crashAt = V(C.x, C.h * 0.62, C.z); later(0.8, () => say("He's going down — into that tower! LOOK!", 2.4)); g.cinematicLook = gs.crashAt; }
+          // the crash: into whichever crash tower is out of the door right now (beyond the gunship, nothing tall
+          // in between); the pilot keeps the door on it, and brakes so he can crab round if it's off to one side
+          if (gs && gs.phase === 'dying' && !gs.crashAt) {
+            const pick = this._pickCrash(gs.pos);
+            gs.crashAt = pick.P; this.crashTower = pick.id; this.crashP = pick.P;
+            rail.face(pick.P); hud.setWaypoint(pick.P);
+            speed(pick.ang > 0.9 ? 0.3 : 0.55);
+            if (pick.id) later(0.8, () => say("He's going down — into that tower! LOOK!", 2.4));
+            g.cinematicLook = pick.P;
+          }
           // a long fight: the jets finish him so the level moves on
           if (gs && gs.phase === 'fight' && t > 75 * T) { gs.hp = 0; g.killGunship(); say('Splash! Fast movers took him. Thank you, Air Force.', 2.8); }
         }, until: (t) => this.crashDone && t > 3 },
@@ -158,10 +172,18 @@ export class Director {
           const left = ['T1', 'T2', 'T3', 'T4'].map(id => this.sp.tower(id)).filter(T_ => !this.sp.strikes.targets.get(T_)?.called);
           // the nearest unpainted target: door toward it, waypoint on it, the autopilot paints it
           let best = null, bd = 1e9; for (const T_ of left) { const d = Math.hypot(T_.x - g.headPos.x, T_.z - g.headPos.z); if (d < bd) { bd = d; best = T_; } }
-          if (best) { const P = V(best.x, best.h * 0.86, best.z); rail.face(P); hud.setWaypoint(P); g.paintTarget = this.auto ? P : null; } else { g.paintTarget = null; rail.face(null); }
-          // escalation: a neighbour every ~25 s, never more than two towers falling at once
+          // a called strike in flight wins the door: you see the missiles hit and the tower go, then the next target
+          this.watch = this.watch.filter(w => (w.fallT == null ? this.total - w.t < 20 : this.total - w.fallT < 6));
+          const W_ = this.watch[0]?.T;
+          if (W_) { const P = V(W_.x, W_.h * 0.6, W_.z); rail.face(P); speed(0.45); g.paintTarget = null; if (best) hud.setWaypoint(V(best.x, best.h * 0.86, best.z)); }
+          else { speed(0.72); if (best) { const P = V(best.x, best.h * 0.86, best.z); rail.face(P); hud.setWaypoint(P); g.paintTarget = this.auto ? P : null; } else { g.paintTarget = null; rail.face(null); } }
+          // escalation: the enemy blows its own towers — one at a time, only when it is out of the door with a clear
+          // line to it (never behind you or behind another building), and never more than two towers falling at once
           this.escT -= dt;
-          if (this.escT <= 0 && this.sp.falling() < 2) { this.escT = 22; const id = ['E1', 'E2', 'E3'].find(i => !this.sp.mids.isDown(this.sp.tower(i).rigIdx)); if (id) { this.sp.fallTower(id, g.headPos); if (first('esc')) later(1, () => say("They're blowing their own buildings now. Scorched earth.", 3)); } }
+          if (this.escT <= 0 && this.sp.falling() < 2) {
+            const id = ['E1', 'E2', 'E3'].find(i => { const T_ = this.sp.tower(i); return !this.sp.mids.isDown(T_.rigIdx) && this._inDoor(T_, 60, 2800); });
+            if (id) { this.escT = 16; this.sp.fallTower(id, g.headPos); if (first('esc')) later(1, () => say("They're blowing their own buildings now. Scorched earth.", 3)); }
+          }
           if (!left.length && first('strikeDone')) { rail.release(); later(1.5, () => say("That's all four. Now the big one.", 2.4)); }
           // pacing: whatever is left gets bombed for you
           // (one at a time, and only while fewer than two towers are falling: the staggered finale rule)
@@ -172,7 +194,7 @@ export class Director {
             if (first('bombers')) say('Bombers have the rest. Come about — the Spire.', 2.6);
           }
           g.sunsetTarget = clamp(0.25 + t / 120, 0, 0.8);
-        }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && rail.s > S('strike3') - 200) || t > 140 },
+        }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && !this.watch.length && ['E1', 'E2', 'E3'].every(i => this.sp.mids.isDown(this.sp.tower(i).rigIdx)) && rail.s > S('strike3') - 200) || t > 140 },
       // 7 ---- the Spire: hover, paint the base, the money shot
       { name: 'spire', music: 1.0, enter: () => {
           g.paintTarget = null;
@@ -234,6 +256,44 @@ export class Director {
     this._jump(game.params.get('beat'));
     this.next();
   }
+  // WIDOWMAKER 4's last tower: the crash tower nearest the door's line (and the gunship's bearing), in reach,
+  // with a clear sightline; if none is left, he goes into the street out past the door
+  _pickCrash(G) {
+    const g = this.g, rail = this.W.rail, H = g.headPos;
+    const door = new THREE.Vector3(-Math.cos(rail.yaw), 0, Math.sin(rail.yaw));
+    const gx = G.x - H.x, gz = G.z - H.z, gl = Math.hypot(gx, gz) || 1;
+    let best = null;
+    for (const T of this.W.plan.towers) {
+      if (T.role !== 'crash' || this.sp.mids.isDown(T.rigIdx)) continue;
+      const dx = T.x - H.x, dz = T.z - H.z, d = Math.hypot(dx, dz);
+      if (d < 90 || d > 650) continue;
+      const P = V(T.x, T.h * 0.62, T.z);
+      const ang = Math.acos(clamp((dx * door.x + dz * door.z) / d, -1, 1));
+      const angG = Math.acos(clamp((dx * gx + dz * gz) / (d * gl), -1, 1));
+      const score = ang * 1.5 + angG + (this._blocked(H, P, T) ? 3 : 0) + Math.abs(d - 220) / 400 + (ang > 1.4 ? 4 : 0);
+      if (!best || score < best.score) best = { id: T.id, P, ang, score };
+    }
+    if (best) return best;
+    return { id: null, P: V(G.x + door.x * 90, 2, G.z + door.z * 90), ang: 0 };
+  }
+  // is tower T out of the open door (within `deg` of where it faces), in range, with its upper half in clear view?
+  _inDoor(T, deg, range_) {
+    const H = this.g.headPos, y = this.W.rail.yaw, dx = T.x - H.x, dz = T.z - H.z, d = Math.hypot(dx, dz);
+    if (d > range_) return false;
+    if ((dx * -Math.cos(y) + dz * Math.sin(y)) / d < Math.cos(deg * Math.PI / 180)) return false;
+    return !this._blocked(H, V(T.x, T.h * 0.85, T.z), T);
+  }
+  // does any tower stand in the way between the eye and P?
+  _blocked(H, P, skip) {
+    const ax = H.x, az = H.z, bx = P.x - ax, bz = P.z - az, L2 = bx * bx + bz * bz;
+    for (const t of this.W.plan.towers) {
+      if (t === skip) continue;
+      const u = clamp(((t.x - ax) * bx + (t.z - az) * bz) / L2, 0, 1);
+      if (u > 0.97) continue;
+      if (Math.hypot(ax + bx * u - t.x, az + bz * u - t.z) < Math.hypot(t.w, t.d) * 0.4 && H.y + (P.y - H.y) * u < t.h) return true;
+    }
+    return false;
+  }
   _outF() { const q = this.g.rig.getWorldQuaternion(new THREE.Quaternion()); return new THREE.Vector3(0, 0, -1).applyQuaternion(q).setY(0).normalize(); }
   // ?beat=<name>: jump straight to a beat, with the world in the state it would be in
   _jump(name) {
@@ -248,7 +308,7 @@ export class Director {
     if (name === 'blvd') g.spawnWing();
     if (ji > idx('blvd')) { this.wingDown = true; }
     if (ji > idx('haboob')) { sp.storm = 1; sp.haboob.start(rail.pos.z - 500, 32); }
-    if (ji > idx('gunship')) { this.crashDone = true; sp.setFallen('C1', g.headPos); sp.storm = 0.6; this.stormFade = true; }
+    if (ji > idx('gunship')) { this.crashDone = true; sp.setFallen('C2', g.headPos); sp.storm = 0.6; this.stormFade = true; }
     if (ji > idx('strike')) { for (const id of ['T1', 'T2', 'T3', 'T4', 'E1', 'E2', 'E3']) sp.setFallen(id, g.headPos); for (const a of g.aas) { a.alive = false; a.root.visible = false; } sp.storm = 0; g.sunsetTarget = 0.85; g.sunset = 0.8; sp.wall.start(1050, 1500, 740); sp.wall.state.t = 30; }
     if (ji > idx('spire')) { sp.heroDown = true; sp.hero.fallDir = new THREE.Vector3(1, 0, 0.25).normalize(); sp.hero.start(g.headPos); this.heroGo = true; for (let i = 0; i < 1200; i++) sp.hero.update(1 / 30); sp.setFallen('N1', g.headPos); g.sunsetTarget = 1; g.sunset = 1; g.slowT = 0; }
     g.score = [0, 0, 2400, 6200, 7000, 15000, 26000, 40000, 46000][ji] || 0;
@@ -269,9 +329,17 @@ export class Director {
     const g = this.g;
     for (const e of g.events) {
       this.react(e);
-      if (e.type === 'gunshipCrash') { const C = this.sp.tower('C1'); this.sp.fallTower('C1', g.headPos, { x: 0.2, z: 1 }); this.sp.column(e.p.x, e.p.z, 120, 1); g.fx.later(4, () => { this.crashDone = true; g.cinematicLook = null; }); }
+      if (e.type === 'gunshipCrash') {
+        // the tower only comes down if he actually hit it (it falls across the view, a little away from you)
+        if (this.crashTower && this.crashP && e.p.distanceTo(this.crashP) < 30) this.sp.fallTower(this.crashTower, g.headPos);
+        this.sp.column(e.p.x, e.p.z, 120, 1);
+        g.fx.later(5, () => { this.crashDone = true; g.cinematicLook = null; });
+      }
       if (e.type === 'wingCrash') this.sp.column(e.p.x, e.p.z, 100, 0.9);
       if (e.type === 'heroStruck') this.heroStruck = this.t;
+      // strikes in flight: the pilot keeps the door on each called tower until it has hit the ground
+      if (e.type === 'strikeCalled' && e.tower !== this.sp.heroTarget) this.watch.push({ T: e.tower, t: this.total, fallT: null });
+      if (e.type === 'towerFall') for (const w of this.watch) if (w.T === e.T && w.fallT == null) w.fallT = this.total;
     }
     if (!this.done) {
       this.t += dt; this.total += dt;
