@@ -127,7 +127,25 @@ export function buildTerrain(ctx = {}) {
       T.box(qx, QUAY.y, QUAY.z0 + 1, qx + w, QUAY.y + h, QUAY.z0 + 11, { faces: 'xXZ', s: 1, wy0: QUAY.y, foot: 0.25 });
       Rf.set({ col: [0.26, 0.25, 0.26], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(qx - 0.2, QUAY.y + h, QUAY.z0 + 0.8, qx + w + 0.2, QUAY.y + h + 0.4, QUAY.z0 + 11.3, { faces: 'xXZY', s: 1 });
       if (r() < 0.55) glows.push({ p: [qx + w / 2, QUAY.y + 6, RIVER.z0 - 2], color: [2.2, 1.3, 0.5], size: 2.8, code: DUSK + dist, far: true });
+      // a candle or a storm lantern in a window here and there: what is left of the bank in the blackout
+      { const hsh = (n) => { const q = Math.sin(qx * 12.9898 + n * 78.233) * 43758.5453; return q - Math.floor(q); };
+        for (let c = 0; c < 2; c++) if (hsh(c) < 0.45) { const cx = qx + 1 + hsh(c + 5) * (w - 2.6), cy = QUAY.y + 1.2 + hsh(c + 9) * (h - 3);
+          L.set({ col: [0.5, 0.3, 0.12], rm: [0.5, 0, 0], em: em([1, 0.58, 0.22], 1.5, DUSK + DIST.ALWAYS) }); L.box(cx, cy, QUAY.z0 + 11, cx + 0.8, cy + 1.0, QUAY.z0 + 11.04, { faces: 'Z' });
+          glows.push({ p: [cx + 0.4, cy + 0.5, QUAY.z0 + 11.4], color: [1.5, 0.75, 0.25], size: 1.5, code: DUSK + DIST.ALWAYS, far: true }); } }
       qx += w + (r() < 0.2 ? 4 + r() * 5 : 0.5);
+    }
+    // the cliff stairs: zigzags up the rock face from the quay to the shelf, a lamp at every landing (battery lamps:
+    // they outlive the blackout). From the glide the dark face has lines of light climbing it
+    for (const sx of [-110, 40, 175, 305]) {
+      Rf.set({ col: [0.3, 0.29, 0.28], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+      let prev = null;
+      for (let i = 0; i <= 12; i++) { const v = 0.04 + i / 12 * 0.9, zig = (i % 2 ? 1 : -1) * 11, P = eastP(sx + zig, v), q = [P[0], P[1], P[2] + 1.3];
+        if (prev) { const n = 6; for (let k = 0; k < n; k++) { const a = k / n, b = (k + 1) / n, e0 = eastP(prev.x + (sx + zig - prev.x) * a, prev.v + (v - prev.v) * a), e1 = eastP(prev.x + (sx + zig - prev.x) * b, prev.v + (v - prev.v) * b);
+          Rf.quad([e0[0], e0[1], e0[2] + 2.2], [e1[0], e1[1], e1[2] + 2.2], [e1[0], e1[1], e1[2] - 0.5], [e0[0], e0[1], e0[2] - 0.5]);
+          Rf.quad([e1[0], e1[1], e1[2] + 2.2], [e0[0], e0[1], e0[2] + 2.2], [e0[0], e0[1] - 0.5, e0[2] + 2.2], [e1[0], e1[1] - 0.5, e1[2] + 2.2]); } }
+        L.set({ col: [0.5, 0.3, 0.12], rm: [0.5, 0, 0], em: em([1, 0.62, 0.25], 2, DUSK + DIST.ALWAYS) }); L.box(q[0] - 0.15, q[1] + 2.2, q[2] + 0.6, q[0] + 0.15, q[1] + 2.5, q[2] + 0.9, {});
+        glows.push({ p: [q[0], q[1] + 2.35, q[2] + 1.1], color: [1.6, 0.85, 0.3], size: 1.4, code: DUSK + DIST.ALWAYS, far: true });
+        prev = { x: sx + zig, v }; }
     }
     L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(GOLD, 1.1, DUSK + DIST.FAR_W) }); L.box(-520, 56.9, PLAZA.z1 + 1.2, 250, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
     L.set({ em: em(GOLD, 1.1, DUSK + DIST.EAST) }); L.box(250, 56.9, PLAZA.z1 + 1.2, SLIDE.x0 - 1, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
