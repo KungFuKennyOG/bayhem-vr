@@ -213,11 +213,15 @@ export function buildCity(ctx = {}) {
   place('se', 120, () => { const x = 800 + r() * 800, z = RIVER.z1 + 30 + Math.pow(r(), 0.8) * 620; const h = 34 + Math.pow(r(), 1.4) * 180; return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_E, signN: [0, 0, -1], plinth: 30 }); });
   // the ridges behind both banks: dark mountain silhouettes, a broadcast tower blinking on the southern one
   {
-    const Rg = B.get('rock', 'ridge'); Rg.set({ col: [0.16, 0.17, 0.16], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    const Rg = B.get('rock', 'ridge'); Rg.set({ col: [0.045, 0.05, 0.055], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
     const rid = (zz, flip, ph) => { let px = -1700, py = 240; for (let x = -1700; x <= 2100; x += 60) { const y = 300 + Math.sin(x * 0.0021 + ph) * 70 + Math.sin(x * 0.007 + 1 + ph) * 25; if (x > -1700) { if (flip) Rg.quad([px, 0, zz], [x, 0, zz], [x, y, zz], [px, py, zz]); else Rg.quad([x, 0, zz], [px, 0, zz], [px, py, zz], [x, y, zz]); } px = x; py = y; } };
     rid(ROAD.z1 + 760, false, 0); rid(-760, true, 1.7);
     glows.push({ p: [620, 300 + Math.sin(620 * 0.0021) * 70 + Math.sin(620 * 0.007 + 1) * 25 + 80, ROAD.z1 + 760], color: [3, 0.2, 0.1], size: 8, blink: true, code: DUSK + DIST.ALWAYS, far: true });
   }
+  // the moon, low over the south-west (down the river: the glide flies toward it), and fires burning out in the city
+  glows.push({ p: [-900, 620, 900], color: [1.5, 1.7, 2.1], size: 150, code: DUSK + DIST.ALWAYS, far: true, prio: 2 });
+  glows.push({ p: [-900, 620, 900], color: [3.2, 3.4, 3.8], size: 44, code: DUSK + DIST.ALWAYS, far: true, prio: 2 });
+  for (let k = 0; k < 14; k++) { const sth = r() < 0.5, x = -500 + r() * 1700, z = sth ? ROAD.z1 + 80 + r() * 380 : -60 - r() * 380; glows.push({ p: [x, (sth ? southBase(x, z) : northBase(x, z)) + 10 + r() * 50, z], color: [2.6, 0.95, 0.28], size: 9 + r() * 12, flick: true, code: DUSK + DIST.ALWAYS, far: true, prio: 1 }); }
   void HILLE; void PODIUM; void hipRoof; void signQuad; void SIGN; void mix3; void em; void SHADOW_KEYS;
   const { tris } = B.finish(root, { shadowKeys: [] });
   root.userData.tris = tris;

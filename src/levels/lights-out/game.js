@@ -48,6 +48,7 @@ export function applyLook(night, glow, fire, { sun, hemi, fog, renderer, scene }
   HFOG.p.value.x = lerp(0.0022, 0.0032, night);
   fogShared.sunColor.r = lerp(0.85, 0.12, night); fogShared.sunColor.g = lerp(0.42, 0.1, night); fogShared.sunColor.b = lerp(0.3, 0.12, night);
   rimShared.color.r = lerp(0.6, 0.3, night) + fire * 0.3; rimShared.color.g = lerp(0.42, 0.32, night) + fire * 0.08; rimShared.color.b = lerp(0.45, 0.5, night);
+  POWER.dim.value = lerp(1, 0.2, (1 - glow) * night);
   renderer.toneMappingExposure = lerp(1.05, 1.2, night);
   if (scene) scene.environmentIntensity = lerp(0.75, 0.55, night) * (0.35 + 0.65 * glow);
 }

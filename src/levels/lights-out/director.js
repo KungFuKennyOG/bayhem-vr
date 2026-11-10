@@ -213,7 +213,7 @@ export class Director {
           if (A && this.downT && t > this.downT + 3 && first('fallLookEnd')) g.cinematicLook = null;
           if (this.downT && t > this.downT + 5 && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); }
           // the damage, from the air: as you run along the scar the gas mains under the torn terraces go, one after another, just ahead of you
-          for (const [sx, bx, by, bz] of [[150, 548, 26, 122], [205, 500, 20, 128], [262, 446, 24, 112], [318, 398, 16, 134]]) if (sp.rail.s > sx && first('gas' + sx)) {
+          for (const [sx, bx, by, bz] of [[140, 548, 26, 122], [190, 500, 20, 128], [240, 446, 24, 112], [290, 398, 16, 134]]) if (sp.rail.s > sx && first('gas' + sx)) {
             const P = V(bx, by, bz);
             g.boom(P, 2.6, { radius: 14, dmg: 0, player: false }); sp.heron1.megaFireball(P.clone().setY(by + 6), 2.2, [0, 0, 1]); sp.addFire(P, 2.6, { life: 90 });
             g.fx.light(P, 1600, 1.4, 0xff9040, true, 400); g.lastExplosionShake = 0.35; g.lastExplosionT = g.time;
@@ -235,10 +235,10 @@ export class Director {
           later(0.8, () => say('...Nice landing. I\'m two minutes out. Don\'t touch anything.', 3.4));
           later(2.4, () => sp.lightsReturn());
           later(4.6, () => say('...Huh. Somebody found the breakers.', 2.6));
-          if (A) g.cinematicLook = V(g.headPos.x + 200, 80, 320);
+          if (A) g.cinematicLook = V(g.headPos.x - 200, 50, 330);
           later(trailer ? 4 : 6.4, () => {
             const sub = `${g.kills} GOONS  •  2 GUNSHIPS  •  1 HILL  •  1 TOWER  •  ${g.score}`;
-            const P = g.headPos.clone().add(V(14, 5, 6));
+            const P = g.headPos.clone().addScaledVector(g.playerFwd, 16).setY(g.headPos.y + 5);
             hud.showTitle(P, 'LIGHTS OUT', sub, 999);
             g.cinematicLook = P.clone();
           });
@@ -265,7 +265,7 @@ export class Director {
     const jump = game.params.get('beat');
     const RY = ROOFTOP.y;
     const START_P = { road: [404, Y, 314], heron: [530, Y, 314], wave: [552, Y, 314], bridge: [566, Y, 314], fore: [BX, Y, 166], lift: [LX, Y, 146], roof: [LX, RY, 132], jump: [LX + 2, RY, 124], glide: [ROOFTOP.x0 + 2, RY, RZ], outro: [ROOFTOP.x0 + 2, RY, RZ], credits: [ROOFTOP.x0 + 2, RY, RZ] };
-    const YAW = { road: -Math.PI / 2, heron: -Math.PI / 2, wave: -Math.PI / 2, bridge: -Math.PI / 2, fore: 0, lift: 0, roof: 0, jump: Math.PI / 2, glide: Math.PI / 2 };
+    const YAW = { road: -Math.PI / 2, heron: -Math.PI / 2, wave: -Math.PI / 2, bridge: -Math.PI / 2, fore: 0, lift: 0, roof: 0, jump: Math.PI / 2, glide: Math.PI / 2, outro: Math.PI / 2 };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
     const NIGHT = { intro: 0.3, road: 0.38, heron: 0.5, wave: 0.7, bridge: 0.85 };
     if (ji > 0) {

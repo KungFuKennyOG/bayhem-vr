@@ -39,7 +39,7 @@ export class SetPieces {
     this.rail = new GlideRail();
     this.canopy = buildCanopy({ top: [0.16, 0.17, 0.15], stripe: [0.85, 0.3, 0.06], lit: true });
     this.canopy.visible = false; scene.add(this.canopy);
-    this.boat = buildGunboat(); this.boat.position.set(BOAT.x0, WATER_Y + 0.15, BOAT.z); this.boat.visible = false; scene.add(this.boat);
+    this.boat = buildGunboat(); this.boat.position.set(BOAT.x0, WATER_Y + 0.15, BOAT.z); this.boat.visible = false; scene.add(this.boat);   // bow upstream (east), coming at you; it swings broadside before you land (see _updateGlide)
     this.cuts = [];
     this.fadeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 8), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
     this.fadeMesh.renderOrder = 9999; this.fadeMesh.frustumCulled = false; this.fadeMesh.visible = false; g.camera.add(this.fadeMesh);
@@ -122,7 +122,7 @@ export class SetPieces {
     const pts = this._distPts[id] || []; if (!pts.length) return;
     const n = Math.min(pts.length, 5 + (rand() * 4 | 0));
     for (let i = 0; i < n; i++) g.fx.later(rand() * 0.9, () => {
-      const p = pts[(rand() * pts.length) | 0], d = p.distanceTo(g.headPos), sz = 4 + d * 0.05;
+      const p = pts[(rand() * pts.length) | 0], d = p.distanceTo(g.headPos), sz = Math.min(11, 4 + d * 0.05);
       g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.FLASH, s0: sz * 0.35, s1: sz * 0.9, life: 0.14, r: 0.9, g: 1.25, b: 1.9, fadeIn: 0, fadeOut: 0.5 });
       g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.GLOW, s0: sz * 1.4, s1: sz * 2.2, life: 0.3, r: 0.22, g: 0.36, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.6 });
       for (let k = 0; k < 14; k++) g.fx.sparks.spawn({ x: p.x, y: p.y, z: p.z, vx: range(-6, 6), vy: range(0, 8), vz: range(-6, 6), grav: 9.8, drag: 0.15, frame: CELL.SPARK, s0: 1 + d * 0.004, w: 0.05 + d * 0.0003, len: 0.2, life: range(0.5, 1.4), r: 2.2, g: 2.6, b: 3.4, a: 1, fadeOut: 0.4 });
@@ -154,8 +154,10 @@ export class SetPieces {
       this.cut(DIST.HILL, { delay: 15, kind: 'flick', arcs: false, quiet: true }); this.cut(DIST.EAST, { delay: 13, kind: 'flick', rest: 0.14 });
       // fire follows the slide down: along the crest first, then the broken terraces, then the quay; it keeps burning (the scar is lit for the rest of the level)
       const g = this.g;
+      for (let i = 0; i < 46; i++) g.fx.later(2.5 + i * 0.2 + rand() * 0.2, () => { const x = range(SLIDE.x0 + 10, SLIDE.x1 - 10), s0 = range(12, 18); g.clouds.spawn({ x, y: range(4, 22), z: range(140, 172), vx: range(-2, 2), vy: range(1, 5), vz: range(5, 11), drag: 0.5, buoy: 0.06, s0, s1: s0 * range(2.8, 3.6), life: range(9, 13), a: 0.7, fadeIn: 0.06, fadeOut: 0.5, r: 0.3, g: 0.22, b: 0.14, r1: 0.2, g1: 0.165, b1: 0.13, glow: 1.6, glowFade: 4 }); });
+      for (const [t, bx, by, bz, k] of [[1.4, 447, 80, 50, 4.2], [5.0, 520, 40, 96, 3.4], [8.6, 430, 22, 132, 3.6]]) g.fx.later(t, () => { const P = new THREE.Vector3(bx, by, bz); g.fx.explosion(P, 5, { noRing: true }); this.heron1.megaFireball(P, k, [0, 0, 1]); g.fx.light(P, 2400, 1.8, 0xff9040, true, 500); g.lastExplosionShake = 0.4; g.lastExplosionT = g.time; this.audio.play('explosion_big', { volume: 0.6, pitch: 0.75 }); });
       for (const [t, fx, fy, fz, k] of [[1.0, 447, 66, 46, 2.6], [2.4, 505, 60, 50, 2.0], [3.2, 400, 58, 52, 2.0], [4.5, 470, 40, 86, 2.4], [5.2, 545, 44, 80, 2.2], [6.4, 425, 30, 104, 2.2], [7.0, 515, 26, 112, 2.6], [8.2, 575, 30, 110, 2.0], [9.0, 460, 14, 142, 2.4], [9.8, 540, 12, 148, 2.2], [10.6, 395, 12, 150, 2.0], [11.4, 600, 22, 120, 1.8]])
-        g.fx.later(t, () => { const P = new THREE.Vector3(fx, fy, fz); g.fx.explosion(P.clone().setY(fy + 4), 2.6, { noRing: true }); this.heron1.megaFireball(P.clone().setY(fy + 6), 1.5, [0, 0, 1]); this.addFire(P, k, { life: 1e9 }); this.audio.play('explosion_big', { x: fx, y: fy, z: fz, volume: 0.7 }); });
+        g.fx.later(t, () => { const P = new THREE.Vector3(fx, fy, fz); g.fx.explosion(P.clone().setY(fy + 4), 2.2, { noRing: true }); this.addFire(P, k * 1.3, { life: 1e9 }); });
     }
   }
 
@@ -363,8 +365,12 @@ export class SetPieces {
     // the gunboat: put it where it will be under the end of the line when you get there
     const T = this.rail.len / GLIDE_SPEED;
     this.boat.visible = true;
-    this.boatX = (this.rail.curve.points[this.rail.curve.points.length - 1].x - this.boat.userData.deck.x) - BOAT.speed * T;
-    this.boat.position.set(this.boatX, WATER_Y + 0.15, BOAT.z - this.boat.userData.deck.z);
+    // it ends broadside (yaw 90°, bow north): the aft deck is then 8.5 m south of its middle, and from it you look
+    // west across the beam at open river, with the deckhouse beside you instead of in your face
+    const dk = this.boat.userData.deck;
+    this.boatX = (this.rail.curve.points[this.rail.curve.points.length - 1].x - dk.z) - BOAT.speed * T;
+    this.boat.rotation.y = 0;
+    this.boat.position.set(this.boatX, WATER_Y + 0.15, BOAT.z + dk.x);
     this._spawnGlideEnemies();
     // what the hill left: fires all down the scar and along the quay, so the wreckage is lit when you fly along it
     if (this.fires.length < 8) for (const [fx, fy, fz, k] of [[575, 30, 110, 2.2], [545, 14, 150, 1.8], [515, 36, 92, 2.0], [488, 10, 158, 1.6], [460, 28, 104, 2.4], [432, 12, 150, 1.8], [405, 30, 96, 2.0], [384, 9, 156, 1.6], [620, 24, 118, 1.8]]) this.addFire(new THREE.Vector3(fx, fy, fz), k, { life: 200 });   // (a ?beat= jump: the slide's own fires never ran)
@@ -374,7 +380,7 @@ export class SetPieces {
     const g = this.g, S = this.search, T = this.rail.len / GLIDE_SPEED;
     const ud = this.boat.userData;
     this.boatCrew = [ud.gunner, ...ud.crew].map((p, i) => g.spawnSoldier({ x: this.boat.position.x + p.x, y: p.y, z: this.boat.position.z + p.z, role: 'deck', carrier: { obj: this.boat, local: p.clone(), vel: new THREE.Vector3(BOAT.speed, 0, 0) }, delay: T - 24 + i, range: 90, noNade: true }));
-    this.boatLight = S.add({ p: ud.lamp.clone(), carrier: { obj: this.boat, local: ud.lamp.clone() }, yaw0: 0, pitch0: 0.55, sweep: [0.6, 0.2, 0.3], len: 150, spread: 0.06, shooters: this.boatCrew, color: [1.1, 1.05, 0.95] });
+    this.boatLight = S.add({ p: ud.lamp.clone(), carrier: { obj: this.boat, local: ud.lamp.clone() }, yaw0: 0, pitch0: 0.55, sweep: [0.6, 0.2, 0.3], len: 150, spread: 0.06, shooters: this.boatCrew, color: [0.4, 0.39, 0.36] });
     const drumsP = () => ud.drumsP.clone().applyMatrix4(this.boat.matrixWorld);
     this.drums = { hp: 6, dead: false };
     const D = this.drums, self = this;
@@ -388,11 +394,11 @@ export class SetPieces {
     });
     // two armed barges on the river either side of the line (gunners + a searchlight each): they open up as you come over them
     this.barges = [];
-    for (const [x, z, v, s] of [[316, 238, 0.5, 385], [232, 220, -0.4, 472]]) {
+    for (const [x, z, v, s] of [[330, 254, 0.5, 372], [244, 222, -0.4, 458]]) {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
       const t0 = Math.max(4, s / GLIDE_SPEED - 15);
       const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }));
-      const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: 0, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew, color: [1.1, 1.05, 0.95] });
+      const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: 0, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew, color: [0.4, 0.39, 0.36] });
       this.barges.push({ g: b, v, crew, L });
       const m = new THREE.Mesh(new THREE.BoxGeometry(34, 2.6, 10), new THREE.MeshStandardMaterial({ color: 0x24221f, roughness: 0.8, metalness: 0.3 })); m.position.y = 0.6; b.add(m);
       const h = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 7), new THREE.MeshStandardMaterial({ color: 0x3a3833, roughness: 0.7 })); h.position.set(12, 3.5, 0); b.add(h);
@@ -483,9 +489,9 @@ export class SetPieces {
     G.t += dt;
     // after the landing the boat throttles back and idles mid-river under the credits
     this.boatV = G.state === 'landed' && G.t > 6 ? damp(this.boatV ?? BOAT.speed, 0.2, 0.4, dt) : BOAT.speed;
-    if (this.boat.visible) { this.boat.position.x += this.boatV * dt; this.boat.position.y = WATER_Y + 0.15 + Math.sin(g.time * 0.9) * 0.08; this.boat.rotation.z = Math.sin(g.time * 0.7) * 0.012; }
+    if (this.boat.visible) { this.boat.position.x += this.boatV * dt; this.boat.position.y = WATER_Y + 0.15 + Math.sin(g.time * 0.9) * 0.08; this.boat.rotation.z = Math.sin(g.time * 0.7) * 0.012; if (G.state === 'fly') { const k = clamp((80 - this.rail.remaining) / 62, 0, 1); this.boat.rotation.y = k * k * (3 - 2 * k) * Math.PI / 2; } else if (G.state === 'landed') this.boat.rotation.y = Math.PI / 2; this.boat.updateMatrixWorld(true); }
     for (const B of this.barges || []) B.g.position.x += B.v * dt;
-    if (this.boat.visible) for (const [lp, c] of this.boat.userData.nav || []) { _v.copy(lp).applyMatrix4(this.boat.matrixWorld); g.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, frame: CELL.GLOW, s0: 2.2, life: 0.04, r: c[0] * 0.8, g: c[1] * 0.8, b: c[2] * 0.8, a: 1, anchored: false }); }
+    if (this.boat.visible) for (const [lp, c] of this.boat.userData.nav || []) { _v.copy(lp).applyMatrix4(this.boat.matrixWorld); g.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, frame: CELL.GLOW, s0: clamp(_v.distanceTo(g.headPos) * 0.03, 0.3, 2.2), life: 0.04, r: c[0] * 0.8, g: c[1] * 0.8, b: c[2] * 0.8, a: 1, anchored: false }); }
     if (this.boat.visible) { const gun = this.boat.userData.gun; gun.lookAt(_v.copy(g.headPos)); gun.rotateY(-Math.PI / 2); gun.rotation.x = 0; gun.rotation.z = 0; }
     if (G.state === 'jump') {
       // off the edge: out and a little down, in slow-mo
@@ -512,7 +518,8 @@ export class SetPieces {
     }
     if (G.state === 'landed') {
       G.pos = this.boat.userData.deck.clone().applyMatrix4(this.boat.matrixWorld);
-      this.canopy.position.y -= rdt * 2; this.canopy.rotation.x = Math.max(-1.3, this.canopy.rotation.x - rdt * 0.7);
+      // the canopy is cut away: it blows back up the river behind you (never down through your view)
+      this.canopy.position.x += rdt * 5.5; this.canopy.position.y -= rdt * 1.1; this.canopy.rotation.z = Math.min(1.2, this.canopy.rotation.z + rdt * 0.5); if (G.t > 5) this.canopy.visible = false;
       g.rigVel = new THREE.Vector3(this.boatV, 0, 0);
     }
   }

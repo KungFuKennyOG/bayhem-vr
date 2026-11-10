@@ -45,12 +45,12 @@ export const FALL_DIR = [-1, 0, 0.06];                                // ...due 
 // ---------------------------------------------------------------- the glide: off the roof's west edge and down the river
 // ~566 m at 1 : 2.64 (3.1 m/s down at 8.2 m/s). The first 100 m run south-west out over the river; the tower goes due
 // west 3 s after the canopy opens, so its crown sweeps past ~70 m off your right side at your own height and lands
-// ahead of you across the hole the hill left. Then the line runs WEST ALONG THE SCAR'S FOOT, 25–40 m off it and
-// 160 → 100 m up: the torn hillside, the tower lying across it and everything burning are beside you for 25 s.
+// ahead of you across the hole the hill left. Then the line runs WEST DOWN THE RIVER PAST THE SCAR, 60 m off its foot
+// and 150 → 90 m up (far enough out that you look ACROSS at the slope, not down on it): the torn hillside, the tower lying across it and everything burning are beside you for 25 s.
 // Then it eases out to mid-river and down to the gunboat.
 export const GLIDE = [
-  [674.6, 216.6, 120], [639.2, 197.7, 155.4], [606, 179.8, 189], [566, 164, 201], [524, 148.1, 203], [482, 132.2, 203], [440, 116.3, 203], [398, 100.3, 205],
-  [357, 84.5, 213], [317, 69, 224], [277, 53.5, 231], [237, 38.3, 234], [198, 23.5, 234], [164, 10.6, 234], [141, 2.4, 234],
+  [674.6, 216.6, 120], [641.5, 200.7, 146.5], [612, 184.9, 176], [585, 169.5, 206], [552, 154, 229], [514, 139.3, 239], [474, 124.1, 241], [434, 108.9, 241],
+  [394, 93.8, 241], [354, 78.6, 240], [314, 63.5, 238], [274, 48.3, 236], [234, 33.1, 234], [196, 18.7, 234], [164, 6.6, 234], [152, 2.4, 234],
 ];
 export const GLIDE_SPEED = 8.2;
 export const STEER_MAX = 10;

@@ -71,6 +71,18 @@ export function buildJinlong(ctx = {}) {
   const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, R.gap[1] - R.gap[0]), new THREE.MeshStandardMaterial({ color: 0xb02a18, roughness: 0.6, emissive: 0x501008 }));
   bar.position.set(R.x0 + 0.2, RY + 1.0, (R.gap[0] + R.gap[1]) / 2); inner.add(bar);
   solid(R.x0, RY, R.gap[0], R.x0 + 0.4, RY + 1.1, R.gap[1], { kind: 'gapbar', noBullet: true });
+  // the barrier arm across the gap: thick, striped (it lifts when you take the rig) — and the way off marked on the deck:
+  // amber chevrons from the helipad to the gap, a lamp either side of it
+  { const g0 = R.gap[0], g1 = R.gap[1]; const stripe = new THREE.Group();
+    for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, (g1 - g0) / 8), new THREE.MeshStandardMaterial({ color: i % 2 ? 0xd8d2c0 : 0xb02a18, roughness: 0.6, emissive: i % 2 ? 0x2a2820 : 0x501008 })); m.position.set(0, 0, g0 + (i + 0.5) * (g1 - g0) / 8 - (g0 + g1) / 2); stripe.add(m); }
+    bar.add(stripe); bar.material.visible = false;
+    Gd.set({ col: [0.6, 0.38, 0.08], rm: [0.6, 0.2, 0], em: em([1, 0.62, 0.18], 1.6, DUSK + DIST.ALWAYS) });
+    for (let k = 0; k < 6; k++) { const x1 = R.x0 + 2.2 + k * 1.9, zc = (g0 + g1) / 2; Gd.quad([x1 + 0.9, RY + 0.014, zc - 1.5], [x1 + 1.35, RY + 0.014, zc - 1.5], [x1 + 0.45, RY + 0.014, zc], [x1, RY + 0.014, zc]); Gd.quad([x1, RY + 0.014, zc], [x1 + 0.45, RY + 0.014, zc], [x1 + 1.35, RY + 0.014, zc + 1.5], [x1 + 0.9, RY + 0.014, zc + 1.5]); }
+    for (const gz of [g0 - 0.5, g1 + 0.5]) { Mt.set({ col: [0.14, 0.14, 0.15], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] }); Mt.cyl(R.x0 + 0.2, RY + 1.1, gz, 0.07, 0.07, RY + 2.6, 6); Gd.box(R.x0 + 0.05, RY + 2.6, gz - 0.15, R.x0 + 0.35, RY + 2.85, gz + 0.15, {}); ride(R.x0 + 0.2, RY + 2.75, gz, { color: [2.6, 1.3, 0.4], size: 1.3, code: DUSK + DIST.ALWAYS }); } }
+  // roof plant along the north and east edges (AC units, vent stacks, cable trays: the deck is a working roof)
+  { const U = [[683, 105, 2.4, 1.4, 1.5], [688, 105, 1.6, 1.3, 1.1], [692.5, 104.9, 3.0, 1.2, 1.7], [697, 105, 1.5, 1.4, 1.2], [706, 113, 1.4, 2.6, 1.6], [706, 118, 1.3, 1.6, 1.0], [706.1, 122, 1.4, 2.2, 1.9]];
+    for (const [ux, uz, w, d, h] of U) { Mt.set({ col: [0.36, 0.37, 0.38], rm: [0.6, 0.5, 0], em: [0, 0, 0, 0] }); Mt.box(ux - w / 2, RY, uz - d / 2 + 0.6, ux + w / 2, RY + h, uz + d / 2 + 0.6, { s: 1, foot: 0.3 }); Mt.set({ col: [0.1, 0.1, 0.11] }); Mt.cyl(ux, RY + h, uz + 0.6, Math.min(w, d) * 0.3, Math.min(w, d) * 0.3, RY + h + 0.12, 10); solid(ux - w / 2, RY, uz - d / 2 + 0.6, ux + w / 2, RY + h, uz + d / 2 + 0.6, { mat: 'metal', kind: 'cover' }); }
+    Mt.set({ col: [0.2, 0.2, 0.21] }); Mt.box(R.x0 + 2, RY + 0.25, R.z0 + 0.5, R.x1 - 2, RY + 0.4, R.z0 + 0.8, {}); Mt.box(R.x1 - 0.8, RY + 0.25, R.z0 + 2, R.x1 - 0.5, RY + 0.4, R.z1 - 2, {}); }
   // lit edge marks either side of the gap (the way off)
   Gd.set({ col: [0.5, 0.2, 0.1], em: em([1, 0.35, 0.12], 2.2, DUSK + DIST.ALWAYS) });
   Gd.box(R.x0 + 0.4, RY, R.gap[0] - 0.2, R.x0 + 3.4, RY + 0.02, R.gap[0], { faces: 'Y' }); Gd.box(R.x0 + 0.4, RY, R.gap[1], R.x0 + 3.4, RY + 0.02, R.gap[1] + 0.2, { faces: 'Y' });
@@ -78,7 +90,7 @@ export function buildJinlong(ctx = {}) {
   // ---- the crown: four corner columns and a ring beam 16 m up (a lantern cage: over you, not around you); a mast on the NE column
   Gd.set({ col: [0.5, 0.38, 0.18], rm: [0.4, 0.8, 0], em: em(GOLD, 0.16, DUSK + code) });
   for (const [px, pz] of [[R.x0 + 0.9, R.z0 + 0.9], [R.x1 - 0.9, R.z0 + 0.9], [R.x0 + 0.9, R.z1 - 0.9], [R.x1 - 0.9, R.z1 - 0.9]]) {
-    Gd.box(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { faces: 'xXzZ' });
+    Gd.box(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { faces: 'xXzZ', foot: 0.0, top: [0.2, 0.15, 0.08] });
     solid(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { mat: 'metal' });
     ride(px, RY + 2.2, pz, { color: [2.6, 1.6, 0.7], size: 2.4 });
   }
@@ -116,8 +128,11 @@ export function buildJinlong(ctx = {}) {
     solid(x0, RY, z0, x1, RY + h, z1, { mat: 'metal', kind: 'cover' });
   }
   { const L = R.locker; Mt.set({ col: [0.5, 0.2, 0.08], rm: [0.6, 0.4, 0], em: em([1, 0.4, 0.12], 0.25, DUSK + DIST.ALWAYS) });
-    Mt.box(L.x - 0.6, RY, L.z - 0.35, L.x + 0.6, RY + 1.9, L.z + 0.35, {}); solid(L.x - 0.6, RY, L.z - 0.35, L.x + 0.6, RY + 1.9, L.z + 0.35, { mat: 'metal' });
-    ride(L.x, RY + 2.3, L.z, { color: [2.4, 0.9, 0.3], size: 1.4, code: DUSK + DIST.ALWAYS }); }
+    Mt.box(L.x - 0.6, RY, L.z - 0.35, L.x + 0.6, RY + 1.9, L.z + 0.35, {});
+    Mt.set({ col: [0.08, 0.08, 0.08], em: [0, 0, 0, 0] }); Mt.box(L.x - 0.02, RY + 0.1, L.z - 0.37, L.x + 0.02, RY + 1.8, L.z - 0.35, {}); for (let i = 0; i < 4; i++) Mt.box(L.x - 0.62, RY + 0.25 + i * 0.12, L.z - 0.36, L.x + 0.62, RY + 0.3 + i * 0.12, L.z - 0.355, {});
+    Mt.set({ col: [0.85, 0.75, 0.2], em: em([1, 0.8, 0.2], 0.4, DUSK + DIST.ALWAYS) }); Mt.box(L.x - 0.6, RY + 1.55, L.z - 0.37, L.x + 0.6, RY + 1.75, L.z - 0.355, {});
+    Mt.set({ col: [0.14, 0.14, 0.15], em: [0, 0, 0, 0] }); Mt.cyl(L.x + 0.75, RY, L.z, 0.05, 0.05, RY + 2.9, 6); solid(L.x - 0.6, RY, L.z - 0.35, L.x + 0.6, RY + 1.9, L.z + 0.35, { mat: 'metal' });
+    ride(L.x + 0.75, RY + 3.0, L.z, { color: [2.6, 0.9, 0.25], size: 1.5, blink: true, rate: 4, code: DUSK + DIST.ALWAYS }); }
 
   // ---- the lift's guide rails up the south face (the platform itself is a separate group: it doesn't fall with the tower)
   Mt.set({ col: [0.16, 0.16, 0.17], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });

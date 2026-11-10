@@ -42,7 +42,7 @@ export function buildRoute(ctx = {}) {
     const As = B.get('asphalt', 's'), St = B.get('stone', 's'), Cc = B.get('concrete', 's');
     const X0 = ROAD.x0 - 70, X1 = ROAD.x1 + 190;
     // the carriageway (it runs on east past the barricade), the promenade by the rail, the pavement by the shops
-    As.set({ col: [0.52, 0.52, 0.54], rm: [0.34, 0, 0], em: [0, 0, 0, 0] });
+    As.set({ col: [0.95, 0.95, 0.98], rm: [0.36, 0, 0], em: [0, 0, 0, 0] });
     As.box(X0, Y - 0.6, ROAD.lane[0], X1, Y, ROAD.lane[1], { faces: 'Y', s: 1 });
     St.set({ col: [0.62, 0.6, 0.57], rm: [0.6, 0, 0], em: [0, 0, 0, 0] });
     St.box(X0, Y - 0.6, ROAD.rail - 0.3, X1, Y + 0.02, ROAD.lane[0], { faces: 'Yz', s: 1 });
@@ -193,7 +193,7 @@ export function buildRoute(ctx = {}) {
   {
     const As = B.get('asphalt', 'b'), Cc = B.get('concrete', 'b'), Lp = B.get('plain', 'b'), Mt = B.get('metal', 'b');
     const { x0, x1, z0, z1 } = BRIDGE;
-    As.set({ col: [0.5, 0.5, 0.52], rm: [0.36, 0, 0], em: [0, 0, 0, 0] }); As.box(x0 + 0.6, Y - 0.4, z0, x1 - 0.6, Y, z1, { faces: 'Y', s: 1 });
+    As.set({ col: [0.95, 0.95, 0.98], rm: [0.38, 0, 0], em: [0, 0, 0, 0] }); As.box(x0 + 0.6, Y - 0.4, z0, x1 - 0.6, Y, z1, { faces: 'Y', s: 1 });
     Cc.set({ col: [0.46, 0.45, 0.43], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
     Cc.box(x0 - 1.4, Y - 2.6, z0, x1 + 1.4, Y - 0.4, z1, { faces: 'xXyzZ', s: 1 });                  // the box girder
     Cc.box(x0 - 1.4, Y - 0.4, z0, x0 + 0.6, Y + 0.02, z1, { faces: 'xXY', s: 1 }); Cc.box(x1 - 0.6, Y - 0.4, z0, x1 + 1.4, Y + 0.02, z1, { faces: 'xXY', s: 1 });
