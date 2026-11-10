@@ -28,12 +28,12 @@ SHOPS.forEach(([t, s, bg, fg], i) => H('shop' + i, 512, 128, { kind: 'fascia', t
 const BLADES = [['火锅', '#c11810', '#fff1b0'], ['旅馆', '#173a86', '#ffffff'], ['小面', '#f0c93a', '#7a0d0a'], ['足浴', '#7b1fa2', '#ffe0ff'], ['棋牌', '#14532d', '#fff'], ['酒', '#2a1608', '#ffb347'], ['烤鱼', '#d22b1e', '#fff'], ['中医', '#ffffff', '#a31515'], ['KTV', '#0d0d26', '#ff3fb4']];
 BLADES.forEach(([t, bg, fg], i) => H('blade' + i, 112, 448, { kind: 'blade', t, bg, fg }));
 // landmark plaques / big signs
-H('lantern', 1024, 192, { kind: 'plaque', t: '灯崖', s: 'LANTERN CLIFF', bg: '#2b0d08', fg: '#ffcf6a' });
+H('lantern', 1024, 192, { kind: 'plaque', t: '魁星广场', s: 'KUIXING PLAZA', bg: '#2b0d08', fg: '#ffcf6a' });
 H('dept', 1024, 160, { kind: 'big', t: '龙雾百货', s: 'LONGWU DEPARTMENT STORE', bg: '#101010', fg: '#ff4136' });
 H('jinlong', 512, 256, { kind: 'crown', t: '金龙', s: 'JINLONG', bg: '#000000', fg: '#ffd27a' });
 H('qiansi', 768, 160, { kind: 'plaque', t: '千丝桥', s: 'QIANSI BRIDGE', bg: '#1b1b1b', fg: '#f0c060' });
-H('steps', 512, 160, { kind: 'plaque', t: '百步梯', s: 'HUNDRED STEPS', bg: '#5c0f0a', fg: '#ffd88a' });
-H('gate', 768, 192, { kind: 'plaque', t: '灯崖 · 下行', s: 'DOWN TO THE GALLERY', bg: '#8a120c', fg: '#ffe2a0' });
+H('steps', 512, 160, { kind: 'plaque', t: '滨江路', s: 'RIVERSIDE ROAD', bg: '#5c0f0a', fg: '#ffd88a' });
+H('gate', 768, 192, { kind: 'plaque', t: '金龙大厦 · 观光梯', s: 'JINLONG TOWER  •  SKY LIFT', bg: '#8a120c', fg: '#ffe2a0' });
 H('highway1', 768, 320, { kind: 'gantry', t: '南岸 ↓', s: 'NAN\'AN  •  JIANGBEI ↑', bg: '#0c5c35', fg: '#ffffff' });
 H('highway2', 768, 320, { kind: 'gantry', t: '千丝桥 ←', s: 'QIANSI BR.  •  CBD →', bg: '#0c5c35', fg: '#ffffff' });
 H('danger', 512, 256, { kind: 'warn', t: '高压危险', s: 'DANGER  HIGH VOLTAGE', bg: '#ffd21c', fg: '#111111' });

@@ -13,7 +13,7 @@ import { Birds } from '../downtown-haven/birds.js';
 import { Traffic } from './traffic.js';
 import { SKY } from './sky.js';
 import { POWER, HFOG } from './kit.js';
-import { START, groundAt, STAIRS, stairY } from './layout.js';
+import { START, groundAt, PLZ, Y } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -30,11 +30,11 @@ export function applyLook(night, glow, fire, { sun, hemi, fog, renderer, scene }
   POWER.night.value = night;
   // the key: a warm dusk afterglow fading into a cool, weak moon behind the deck
   // (blue hour, not sunset: the last light is a soft rose on the tops, the city's own light does the rest)
-  sun.color.copy(L3(C(0.95, 0.62, 0.55), C(0.55, 0.62, 0.9), night)); sun.intensity = lerp(0.75, 0.26 + 0.22 * (1 - glow), night);   // with the city dark the moon carries the key (blue rim on everything)
+  sun.color.copy(L3(C(0.95, 0.62, 0.55), C(0.55, 0.62, 0.9), night)); sun.intensity = lerp(0.75, 0.3 + 0.34 * (1 - glow), night);   // with the city dark the moon carries the key (blue rim on everything)
   // the fill: a grey-violet sky over a ground lit by the city (gold) — or by fire after the blackout
-  hemi.color.copy(L3(C(0.5, 0.52, 0.72), C(0.26, 0.3, 0.46), night));
+  hemi.color.copy(L3(C(0.5, 0.52, 0.72), C(0.34, 0.4, 0.6), night));   // the moon is the sky at night: up-facing surfaces (roads, decks) take it
   hemi.groundColor.copy(L3(C(0.42, 0.3, 0.26), C(0.36, 0.22, 0.12).multiplyScalar(0.4 + 0.6 * glow), night)).add(C(0.3, 0.09, 0.02).multiplyScalar(fire * night));
-  hemi.intensity = lerp(0.8, 0.4, night) * lerp(0.85, 1, glow);   // blackout: the towers go to silhouettes against the sky
+  hemi.intensity = lerp(0.8, 0.78, night);   // never a black void underfoot: with the city dark the sky and the moon still fill   // blackout: the towers go to silhouettes against the sky
   // fog: wet violet haze at dusk, blue-black by night, the city's sodium in it, then fire
   // (grey-green river murk, sodium in it — not a pink glamour haze)
   fog.color.copy(L3(C(0.3, 0.29, 0.3), C(0.072, 0.082, 0.08), night)).add(C(0.06, 0.042, 0.018).multiplyScalar(glow * night)).add(C(0.06, 0.02, 0.0).multiplyScalar(fire * night));
@@ -42,12 +42,15 @@ export function applyLook(night, glow, fire, { sun, hemi, fog, renderer, scene }
   // city), not as towers going black against a bright horizon
   // ...but in the blackout the haze has nothing to glow with: it goes dark and the towers stand as silhouettes against the
   // fire-lit sky (reviewers kept reading the pale grey fog on dark towers as 'the city is still lit')
-  fog.color.multiplyScalar(lerp(1.25, 1.9, night) * lerp(1, 0.5, (1 - glow) * night));
+  fog.color.multiplyScalar(lerp(1.25, 1.9, night) * lerp(1, 0.3, (1 - glow) * night));
+  // ...and darker and bluer than the sky's horizon, so the far ranks are dark shapes against it, never pale grey boxes
+  fog.color.lerp(C(0.028, 0.032, 0.05), 0.8 * (1 - glow) * night);
   // the gorge mist (height fog): the same haze, a touch brighter and warmer where the city lights it
   HFOG.c.value.copy(fog.color).multiplyScalar(1.1).add(C(0.05, 0.03, 0.01).multiplyScalar(glow * night));
   HFOG.p.value.x = lerp(0.0022, 0.0032, night);
   fogShared.sunColor.r = lerp(0.85, 0.12, night); fogShared.sunColor.g = lerp(0.42, 0.1, night); fogShared.sunColor.b = lerp(0.3, 0.12, night);
   rimShared.color.r = lerp(0.6, 0.3, night) + fire * 0.3; rimShared.color.g = lerp(0.42, 0.32, night) + fire * 0.08; rimShared.color.b = lerp(0.45, 0.5, night);
+  POWER.dim.value = lerp(1, 0.2, (1 - glow) * night);
   renderer.toneMappingExposure = lerp(1.05, 1.2, night);
   if (scene) scene.environmentIntensity = lerp(0.75, 0.55, night) * (0.35 + 0.65 * glow);
 }
@@ -102,9 +105,9 @@ export class LightsGame {
     this.dustDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 12), new THREE.MeshBasicMaterial({ color: 0x3a3028, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
     this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
     E.scene.add(this.dustDome);
-    // pigeons on the Hundred Steps' landings (they go up with the first shot)
+    // pigeons along the promenade rail (they go up with the first shot)
     { const spots = []; const r = (a, b) => a + rand() * (b - a);
-      for (let i = 0; i < 26; i++) { const x = r(-124, -70), z = r(STAIRS.z0 + 1, STAIRS.z1 - 1); spots.push(new THREE.Vector3(x, stairY(x), z)); }
+      for (let i = 0; i < 26; i++) { const x = r(PLZ.x1 + 4, PLZ.x1 + 60), z = r(422, 425.5); spots.push(new THREE.Vector3(x, Y, z)); }
       this.birds = new Birds(this, spots); }
     world.buildNav();
     this.glass.blockNav?.(world.nav);

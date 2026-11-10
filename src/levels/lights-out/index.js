@@ -4,7 +4,7 @@ import { LightsGame, SUN_AZ, sunElevation, applyLook } from './game.js';
 import { SetPieces } from './setpieces.js';
 import { Director } from './director.js';
 import { Auto } from '../whiteout/auto.js';
-import { START } from './layout.js';
+import { START, ROOFTOP, PLZ, Y, walkable, roofWalk, groundAt } from './layout.js';
 import { createSky, createEnvironment, SKY } from './sky.js';
 import { POWER } from './kit.js';
 import { Player } from '../../player.js';
@@ -14,9 +14,10 @@ import { initMaterials, MAT } from '../../vehicles.js';
 import { setSunElevation } from '../../atmosphere.js';
 import { buildScope } from '../downtown-haven/snipers.js';
 
-// LEVEL 9 — "LIGHTS OUT": Longwu, a city stacked up a cliff over a fogged river gorge, from dusk into
-// night. Down the Hundred Steps, through the lantern wall, over the ravine, under the interchange —
-// then the power goes, the tower goes, and the only way down is off the edge.
+// LEVEL 9 — "LIGHTS OUT" (the rebuild): Longwu, a city stacked up the cliffs of a river gorge, from dusk
+// into night. One wide, level road along the south cliff, a bridge, the gold tower at its far end — and
+// the city's power going out behind you, district by district, until the tower is the last light, and
+// then it goes too.
 export async function create(E) {
   const { scene, renderer, fx, hud, audio, rig, camera, params, flags } = E;
   initMaterials();
@@ -25,8 +26,8 @@ export async function create(E) {
   E.sky.material = createSky();
   E.flare.visible = false;
   applyLook(n0, 1, 0, { sun: E.sun, hemi: E.hemi, fog: scene.fog, renderer, scene });
-  scene.fog.near = 40; scene.fog.far = 1080;   // the fog city: the far bank and the ridge fade to silhouettes
-  E.sun.castShadow = true;
+  scene.fog.near = 40; scene.fog.far = 1080;   // the fog city: the far skylines and the ridges fade to silhouettes
+  E.sun.castShadow = params.get('shadows') === '1';   // off: at dusk-to-night the sun shadow bought nothing and cost a second geometry pass (?shadows=1 to compare)
   camera.far = 5000; camera.updateProjectionMatrix();
   // dark kit in a dark city: a lift and lit reflective bands so they read against the fog and the lights
   setGunmanLook({ lift: 0.26, band: 0.6 });
@@ -41,17 +42,22 @@ export async function create(E) {
   const setp = new SetPieces(game);
   game.setpieces = setp;
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });
-  player.yaw = START.yaw; player.pitch = -0.08;
+  player.yaw = START.yaw; player.pitch = -0.04;   // (main.js applies ?yaw=<degrees>&pitch= after this)
   game.onHaptic = (i, ms) => player.pulse(i, ms);
-  // the locomotion sees the walk mask: off the route there is no ground (= a ledge)
+  // the locomotion's ground: the route is one level (y 64) inside the walk mask; the lift platform while you are on
+  // it; the roof. Off the mask there is no ground (= a ledge: you can't walk off it)
   const col = world.col;
   const walkWorld = {
     pushCircle: (...a) => col.pushCircle(...a),
-    groundAt: (x, z, y, s) => (world.walkable(x, z) || setp.extraWalk?.(x, z)) ? col.groundAt(x, z, y, s) : -1e9,
+    groundAt: (x, z, y) => {
+      const lf = setp.liftFloor(x, z, y); if (lf !== undefined) return lf;
+      if (y > ROOFTOP.y - 40) return roofWalk(x, z) ? ROOFTOP.y : -1e9;
+      return walkable(x, z) ? (z > PLZ.z1 ? groundAt(x, z) : Y) : -1e9;
+    },
   };
   const loco = new Locomotion(rig, walkWorld, { walk: 3.1, sprint: 5.3 });
   player.enableLocomotion(loco);
-  rig.position.set(START.x, world.fastGround(START.x, START.z), START.z);
+  rig.position.set(START.x, START.y, START.z);
   if (params.has('px')) { const x = +params.get('px'), z = +params.get('pz'); rig.position.set(x, params.has('py') ? +params.get('py') : world.fastGround(x, z), z); }
   const auto = flags.AUTO ? new Auto(game, player) : null;
   game.auto = auto; game.player = player; game.loco = loco;
@@ -82,7 +88,7 @@ export async function create(E) {
       const key = Math.round(SKY.night.value * 8) * 100 + Math.round(SKY.glow.value * 4) * 10 + Math.round(SKY.fire.value * 4);
       if (envKey < 0 || (envT <= 0 && key !== envKey)) { envKey = key; envT = 2; scene.environment = createEnvironment(renderer); }
       const dt = game.update(sdt);
-      if (auto && started && !setp.riding) auto.update(dt);
+      if (auto && started && !setp.riding && setp.lift.state !== 'up') auto.update(dt);
       player.update(sdt, started ? dt : 0);
       setp.afterPlayer(sdt, dt);
       fx.update(dt, 0, ctx);
@@ -95,7 +101,7 @@ export async function create(E) {
       if (started) { audio.setLoop('city', { volume: 0.35 * (0.3 + 0.7 * game.glow) }); audio.setLoop('wind', { volume: setp.riding ? 0.7 : 0.18, intensity: setp.riding ? 0.8 : 0.3 }); }
     },
     ammoText() { return `${player.rifle.reloading > 0 ? 'RELOADING' : player.rifle.ammo + ' RDS'}   ${player.launcher.reloading > 0 ? '--' : player.launcher.ammo} GL`; },
-    state() { return { step: director?.cur?.name, done: director?.done, score: game.score, kills: game.kills, alive: game.enemiesAlive(), x: +rig.position.x.toFixed(2), y: +rig.position.y.toFixed(2), z: +rig.position.z.toFixed(2), hp: Math.round(game.hp), night: +game.night.toFixed(2), glow: +game.glow.toFixed(2), glide: setp.glide?.state ?? null }; },
+    state() { return { step: director?.cur?.name, done: director?.done, score: game.score, kills: game.kills, alive: game.enemiesAlive(), x: +rig.position.x.toFixed(2), y: +rig.position.y.toFixed(2), z: +rig.position.z.toFixed(2), hp: Math.round(game.hp), night: +game.night.toFixed(2), glow: +game.glow.toFixed(2), glide: setp.glide?.state ?? null, lift: setp.lift.state, fall: setp.fall ? +setp.fall.a.toFixed(2) : null, slide: setp.slide.active }; },
     tris: () => world.tris,
     POWER,
   };

@@ -3,32 +3,31 @@ import { makeRng } from '../../rng.js';
 import { Buckets, hexc, mix3, mul3, em, GOLD, DIST, DUSK, hipRoof, signQuad } from './kit.js';
 import { SIGN, SIGN_LIST } from './signs.js';
 import { materials, SHADOW_KEYS } from './mats.js';
-import { FARBANK, RIVER, RAVINE, ROOF, RING, LSTREET, PLAZA, SKYST, TOWER, F2, RAMP_N, CLIMB, CHAOTIAN } from './layout.js';
+import { RIVER, ROAD, PODIUM, SLIDE, HILLE, TOWER, TERR, Y } from './layout.js';
 
 // =====================================================================================
 //  LIGHTS OUT — the city around the play space: residential slabs, office towers and old tiled
-//  blocks stacked up the hills behind both banks and along the far bank, every window procedural
-//  (lit at random as the night falls, dark when the district's power goes), gold LED crowns and
-//  corner strips on the landmarks, red aviation lights, concrete plinths and retaining walls
-//  stepping the terraces. All in a few merged meshes per region.
+//  blocks stacked up the hills behind both banks, every window procedural (lit at random as the
+//  night falls, dark when the district's power goes), gold LED crowns and corner strips on the
+//  landmarks, red aviation lights. All in a few merged meshes per region.
+//  Four skyline districts (FAR_N behind the hillside, FAR_S behind the cliff road, FAR_E upstream,
+//  FAR_W downstream) so the blackout can take them one at a time.
 // =====================================================================================
 const WALLS = [hexc(0xc9bba3), hexc(0xd8c7b6), hexc(0xb8b0a4), hexc(0xe0dad0), hexc(0xc7a99a), hexc(0xa89e94), hexc(0xd2c19d), hexc(0x9fa6ab)];
 const GLASSY = [hexc(0x5b6670), hexc(0x4a5560), hexc(0x6f6a5e), hexc(0x3d4650)];
 
-// terrace heights of the hills behind the play space
-export function hillW(x, z) { if (z > 50) return 50; if (z > -40) return 64; if (z > -140) return 80; if (z > -260) return 98; return 118; }
-export function hillE(x, z) { if (z > 40) return x > SKYST.x0 - 4 ? 56 : 40; if (z > -60) return 64; if (z > -180) return 82; return 104; }
-export function farBase(x, z) { return Math.min(150, 58 + (z - (FARBANK.z + 40)) * 0.13); }
-const sideBase = (z) => 34 + Math.max(0, (60 - z)) * 0.22;
+// the ground the skylines stand on: both banks climb away from the river
+export const northBase = (x, z) => TERR.y0 + Math.min(90, Math.max(0, (SLIDE.crack - 10 - z)) * 0.11);
+export const southBase = (x, z) => Y + Math.min(150, Math.max(0, (z - ROAD.z1 - 24)) * 0.3);   // the south bank climbs steeply: the city stacks up behind the road
 
-// keep-out boxes (play space, landmarks, the river): [x0, z0, x1, z1]
+// keep-out boxes (the route, the hillside, the tower, the river): [x0, z0, x1, z1]
 const KEEP = [
-  [ROOF.x0 - 6, -80, ROOF.x1 + 2, 100], [RING.x0 - 8, -200, RING.x1 + 8, 50],
-  [-130, 52, 112, 130], [RAVINE.x0 - 4, -900, RAVINE.x1 + 4, 200], [PLAZA.x0 - 2, 38, 420, 200], [F2.x0, F2.z0 - 6, 700, F2.z1 + 6],
-  [RAMP_N.x0 - 6, -140, RAMP_N.x1 + 6, 50], [CLIMB.x0 - 4, 84, CLIMB.x1 + 4, 114], [SKYST.x0 - 6, 30, SKYST.x1 + 10, 200], [TOWER.x0 - 10, 110, TOWER.x1 + 10, 200],
-  [8, 24, 56, 64],                                         // the monorail tower (built by street.js)
-  [-1500, RIVER.z0 - 30, 2000, FARBANK.z + 34],
-  [CHAOTIAN.x - 30, FARBANK.z - 10, CHAOTIAN.x + 30, FARBANK.z + 120],
+  [-1500, RIVER.z0 - 4, 2000, RIVER.z1 + 4],
+  [ROAD.x0 - 40, RIVER.z1, ROAD.x1 + 40, ROAD.z1 + 34],                    // the road and its frontage (route.js)
+  [SLIDE.x0 - 10, 18, PODIUM.x1 + 16, RIVER.z0],                          // the hillside district, the podium
+  [TOWER.x0 - 60, TOWER.z0 - 70, TOWER.x1 + 60, TOWER.z1],                // Jinlong stands alone
+  [262, 336, 482, 466],                                                    // the department store, the Hundred Steps, the flyover (steps.js)
+  [-1500, 20, 2000, RIVER.z0],                                             // the north bank's terraces
 ];
 const free = (x0, z0, x1, z1) => !KEEP.some(k => x1 > k[0] && x0 < k[2] && z1 > k[1] && z0 < k[3]);
 
@@ -164,7 +163,7 @@ export function buildCity(ctx = {}) {
   const B = new Buckets(); for (const [k, m] of Object.entries(M)) B.mat(k, m);
   const root = new THREE.Group(); root.name = 'city';
   const glows = [];
-  const r = makeRng(9091);
+  const r = makeRng(7741);
   let seed = 100;
   const place = (region, n, gen) => {
     let tries = 0, made = 0;
@@ -200,81 +199,32 @@ export function buildCity(ctx = {}) {
       towerBlock(B, t, region, glows);
     }
   };
-  for (let k = 0; k < 7; k++) estate('far', -900 + r() * 2200, FARBANK.z + 120 + r() * 400, farBase, 4 + Math.floor(r() * 3), DIST.FAR_C, [0, 0, -1]);
-  for (let k = 0; k < 3; k++) estate('ne', 260 + r() * 400, -420 + r() * 300, hillE, 4, DIST.EAST, [0, 0, 1]);
-  for (let k = 0; k < 3; k++) estate('nw', -520 + r() * 400, -440 + r() * 280, hillW, 4, DIST.WEST, [0, 0, 1]);
-  // north hill, west bank
-  place('nw', 90, () => { const x = -560 + r() * 660, z = -480 + r() * 530; const base = hillW(x, z); const h = 40 + Math.pow(r(), 1.6) * 150 + (z < -150 ? 30 : 0); return slab(x, z, base, h, { dist: x < -60 ? DIST.WEST : DIST.LST }); });
-  // east hill
-  place('ne', 70, () => { const x = 172 + r() * 560, z = -480 + r() * 520; const base = hillE(x, z); const h = 40 + Math.pow(r(), 1.5) * 160; return slab(x, z, base, h, { dist: DIST.EAST }); });
-  // far bank (the south shore: a dense lit skyline over its own cliff)
-  place('far', 230, () => {
-    const x = -1300 + r() * 2900, z = FARBANK.z + 40 + Math.pow(r(), 0.8) * 640; const base = farBase(x, z);
-    const near = z < FARBANK.z + 160; const h = 30 + Math.pow(r(), 1.4) * (near ? 150 : 230) + (Math.abs(x - 300) < 400 ? 40 : 0);
-    return slab(x, z, base, h, { dist: x < -100 ? DIST.FAR_W : x < 700 ? DIST.FAR_C : DIST.FAR_E, plinth: 30, w: 14 + r() * 18, d: 11 + r() * 12, signN: [0, 0, -1] });
-  });
-  // the north bank up- and downstream (seen from the glide)
-  place('dn', 70, () => { const x = 420 + r() * 1300, z = -500 + r() * 620; const base = sideBase(z); const h = 30 + Math.pow(r(), 1.5) * 170; return slab(x, z, base, h, { dist: DIST.EAST, plinth: 40 }); });
-  place('up', 80, () => { const x = -1400 + r() * 1180, z = -500 + r() * 620; const base = sideBase(z); const h = 30 + Math.pow(r(), 1.5) * 170; return slab(x, z, base, h, { dist: DIST.WEST, plinth: 40 }); });
-  // two landmark supertalls on the far bank: the Twin Sky towers with a lit sky-bridge across their tops
+  const nearJin = (x, z) => Math.hypot(x - (TOWER.x0 + TOWER.x1) / 2, z - (TOWER.z0 + TOWER.z1) / 2) < 320;
+  const distN = (x) => x < 250 ? DIST.FAR_W : x > 800 ? DIST.FAR_E : DIST.FAR_N;
+  const distS = (x) => x < 250 ? DIST.FAR_W : x > 800 ? DIST.FAR_E : DIST.FAR_S;
+  // the north bank's hills, behind the hillside district and the tower (Jinlong must stay the tallest thing near it)
+  for (let k = 0; k < 6; k++) { const x = -500 + r() * 1900; estate(x < 250 ? 'nw' : x > 800 ? 'ne' : 'nc', x, -420 + r() * 300, northBase, 4, distN(x), [0, 0, 1]); }
+  place('nc', 110, () => { const x = 250 + r() * 550, z = -520 + r() * 520; const h = (nearJin(x, z) ? 34 : 44) + Math.pow(r(), 1.6) * (nearJin(x, z) ? 80 : 150); return slab(x, z, northBase(x, z), h, { dist: DIST.FAR_N, signN: [0, 0, 1] }); });
+  place('nw', 120, () => { const x = -1100 + r() * 1350, z = -520 + r() * 540; const h = 36 + Math.pow(r(), 1.5) * 160; return slab(x, z, northBase(x, z), h, { dist: DIST.FAR_W, signN: [0, 0, 1], plinth: 30 }); });
+  place('ne', 110, () => { const x = 800 + r() * 800, z = -520 + r() * 540; const h = (nearJin(x, z) ? 34 : 40) + Math.pow(r(), 1.5) * 160; return slab(x, z, northBase(x, z), h, { dist: DIST.FAR_E, signN: [0, 0, 1], plinth: 30 }); });
+  // the south bank's hills, behind the cliff road's frontage
+  for (let k = 0; k < 7; k++) { const x = -500 + r() * 1900; estate(x < 250 ? 'sw' : x > 800 ? 'se' : 'sc', x, ROAD.z1 + 150 + r() * 380, southBase, 4 + Math.floor(r() * 3), distS(x), [0, 0, -1]); }
+  place('sc', 120, () => { const x = 250 + r() * 550, z = ROAD.z1 + 44 + Math.pow(r(), 0.8) * 560; const h = 34 + Math.pow(r(), 1.5) * (z < ROAD.z1 + 120 ? 70 : 190); return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_S, signN: [0, 0, -1], plinth: 24 }); });
+  place('sw', 120, () => { const x = -1100 + r() * 1350, z = RIVER.z1 + 30 + Math.pow(r(), 0.8) * 620; const h = 34 + Math.pow(r(), 1.4) * 180; return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_W, signN: [0, 0, -1], plinth: 30 }); });
+  place('se', 120, () => { const x = 800 + r() * 800, z = RIVER.z1 + 30 + Math.pow(r(), 0.8) * 620; const h = 34 + Math.pow(r(), 1.4) * 180; return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_E, signN: [0, 0, -1], plinth: 30 }); });
+  // the ridges behind both banks: dark mountain silhouettes, a broadcast tower blinking on the southern one
   {
-    const tw = [[340, 700], [400, 700]];
-    for (const [x, z] of tw) towerBlock(B, { x0: x - 14, z0: z - 14, x1: x + 14, z1: z + 14, y0: farBase(x, z), h: 250, style: 1, seed: seed++, crown: 'led', corners: true, flood: GOLD, ledCol: [0.8, 0.9, 1.0], dist: DIST.FAR_C, plinth: 40, podium: true }, 'far', glows);
-    const A = B.get('win', 'far'), y = farBase(370, 700) + 236;
-    A.set({ col: GLASSY[0], rm: [0.3, 0.2, 0], em: [0, 0, 0, DIST.FAR_C], cell: [1.6, 3.6, 7, 1] });
-    A.box(326, y, 690, 414, y + 11, 710, { faces: 'xXzZy', s: 1, wy0: y });
-    const L = B.get('plain', 'far'); L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em([0.8, 0.9, 1.0], 2.2, DIST.FAR_C), cell: [0, 0, 0, 0] });
-    L.box(326, y - 0.5, 689.5, 414, y, 690.2); L.box(326, y + 11, 689.5, 414, y + 11.5, 690.2);
+    const Rg = B.get('rock', 'ridge'); Rg.set({ col: [0.045, 0.05, 0.055], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    const rid = (zz, flip, ph) => { let px = -1700, py = 240; for (let x = -1700; x <= 2100; x += 60) { const y = 300 + Math.sin(x * 0.0021 + ph) * 70 + Math.sin(x * 0.007 + 1 + ph) * 25; if (x > -1700) { if (flip) Rg.quad([px, 0, zz], [x, 0, zz], [x, y, zz], [px, py, zz]); else Rg.quad([x, 0, zz], [px, 0, zz], [px, py, zz], [x, y, zz]); } px = x; py = y; } };
+    rid(ROAD.z1 + 760, false, 0);
+    glows.push({ p: [620, 300 + Math.sin(620 * 0.0021) * 70 + Math.sin(620 * 0.007 + 1) * 25 + 80, ROAD.z1 + 760], color: [3, 0.2, 0.1], size: 8, blink: true, code: DUSK + DIST.ALWAYS, far: true });
   }
-  // the far bank climbs a mountain: terraced shelves held up by tall stained retaining walls, a lamp line along
-  // every terrace road (the towers stand on these shelves at different heights), a dark ridge behind
-  {
-    const Cw = B.get('concrete', 'far'), Gt = B.get('plain', 'far'), Lr = B.get('plain', 'far');
-    const lampsOn = [];
-    for (let z = FARBANK.z + 70; z < FARBANK.z + 760; z += 48 + r() * 14) {
-      for (let x = -1400; x < 1700; x += 40) {
-        const wob = Math.sin(x * 0.011 + z * 0.03) * 6, yTop = farBase(x + 20, z) + wob, yBot = farBase(x + 20, z - 50) + wob - 2;
-        if (yTop - yBot < 3) continue;
-        const d = x < -100 ? DIST.FAR_W : x < 700 ? DIST.FAR_C : DIST.FAR_E;
-        Cw.set({ col: [0.5, 0.49, 0.46], rm: [0.92, 0, 0], em: em([1.0, 0.65, 0.35], 0.035, DUSK + d), cell: [0, 0, 0, 0] });
-        Cw.box(x, yBot - 4, z - 2, x + 40, yTop, z, { faces: 'z', s: 1, foot: 0.35 });
-        Gt.set({ col: [0.11, 0.13, 0.09], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
-        Gt.box(x, yTop - 0.3, z - 2, x + 40, yTop, z + 46, { faces: 'Y' });
-        if (r() < 0.7) { Lr.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em([1.0, 0.62, 0.28], 1.0, DUSK + d), cell: [0, 0, 0, 0] }); Lr.box(x + 1, yTop + 0.1, z - 2.2, x + 39, yTop + 0.35, z - 1.9); }
-        if (r() < 0.35) glows.push({ p: [x + 20, yTop + 5, z - 3], color: [1.6, 0.95, 0.4], size: 4.5, code: DUSK + d, far: true });
-      }
-    }
-    // the ridge behind (Nanshan): a dark mountain silhouette with a broadcast tower blinking on top
-    const Rg = B.get('rock', 'far'); Rg.set({ col: [0.16, 0.17, 0.16], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
-    let px = -1500, py = 260;
-    for (let x = -1500; x <= 1900; x += 60) { const y = 300 + Math.sin(x * 0.0021) * 70 + Math.sin(x * 0.007 + 1) * 25; if (x > -1500) Rg.quad([x, 0, FARBANK.z + 700], [px, 0, FARBANK.z + 700], [px, py, FARBANK.z + 700], [x, y, FARBANK.z + 700]); px = x; py = y; }
-    glows.push({ p: [620, 300 + Math.sin(620 * 0.0021) * 70 + Math.sin(620 * 0.007 + 1) * 25 + 80, FARBANK.z + 700], color: [3, 0.2, 0.1], size: 8, blink: true, code: DUSK + DIST.ALWAYS, far: true });
-  }
-  // the far bank's cliff and its waterfront: a rock wall with a lit quay road and stilt buildings at its foot
-  {
-    const R = B.get('rock', 'far'), Q = B.get('tile', 'far');
-    R.set({ col: [0.55, 0.5, 0.45], rm: [0.95, 0, 0], em: [0, 0, 0, 0] });
-    for (let x = -1400; x < 1700; x += 40) {
-      const top = 52 + Math.sin(x * 0.013) * 8 + r() * 6;
-      // the rock face floodlit from the quay (warm at the foot, fading up) — at night it's a lit wall, not a black band
-      const zr = FARBANK.z + 8 + r() * 6, dR = x < -100 ? DIST.FAR_W : x < 700 ? DIST.FAR_C : DIST.FAR_E;
-      R.set({ em: em([1.0, 0.62, 0.32], 0.16, DUSK + dR) }); R.box(x, -2, zr, x + 40, 16, FARBANK.z + 48, { faces: 'z', s: 1 });
-      R.set({ em: em([1.0, 0.62, 0.32], 0.05, DUSK + dR) }); R.box(x, 16, zr, x + 40, top, FARBANK.z + 48, { faces: 'z', s: 1 });
-      // a gold LED line along the cliff-top railing
-      { const Lc = B.get('plain', 'far'); Lc.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(GOLD, 1.6, DUSK + dR), cell: [0, 0, 0, 0] }); Lc.box(x, top - 0.4, zr - 0.3, x + 40, top, zr); }
-      // waterfront blocks (shops / restaurants / old stilt houses), lit
-      if (Math.abs(x - CHAOTIAN.x) > 30) {
-        const bh = 9 + r() * 14, d = x < -100 ? DIST.FAR_W : x < 700 ? DIST.FAR_C : DIST.FAR_E;
-        Q.set({ col: WALLS[Math.floor(r() * WALLS.length)], rm: [0.85, 0, 0], em: [0, 0, 0, d], cell: [3.2, 3.0, r() * 40, r() < 0.5 ? 3 : 2] });
-        Q.box(x + 2, 2, FARBANK.z + 2, x + 36, 2 + bh, FARBANK.z + 10, { faces: 'xXz', s: 1, wy0: 2 });
-        const Rf = B.get('roof', 'far'); Rf.set({ col: [0.5, 0.5, 0.52], rm: [0.9, 0, 0] }); Rf.box(x + 1.5, 2 + bh, FARBANK.z + 1.5, x + 36.5, 3 + bh, FARBANK.z + 10.5, { faces: 'Yz', s: 1 });
-        // the quay road's lamps (a gold necklace along the water)
-        glows.push({ p: [x + 20, 4.5, FARBANK.z - 1], color: [2.2, 1.3, 0.5], size: 3.2, code: DUSK + d, far: true });
-        { const Lq = B.get('plain', 'far'); Lq.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(GOLD, 1.3, DUSK + d), cell: [0, 0, 0, 0] }); Lq.box(x + 2, 2 + bh - 0.05, FARBANK.z + 1.4, x + 36, 2 + bh + 0.25, FARBANK.z + 1.6); }
-      }
-    }
-  }
-  const { meshes, tris } = B.finish(root, { shadowKeys: [] });
+  // the moon, low over the south-west (down the river: the glide flies toward it), and fires burning out in the city
+  glows.push({ p: [-900, 620, 900], color: [1.5, 1.7, 2.1], size: 150, code: DUSK + DIST.ALWAYS, far: true, prio: 2 });
+  glows.push({ p: [-900, 620, 900], color: [3.2, 3.4, 3.8], size: 44, code: DUSK + DIST.ALWAYS, far: true, prio: 2 });
+  for (let k = 0; k < 14; k++) { const sth = r() < 0.5, x = -500 + r() * 1700, z = sth ? ROAD.z1 + 80 + r() * 380 : -60 - r() * 380; glows.push({ p: [x, (sth ? southBase(x, z) : northBase(x, z)) + 10 + r() * 50, z], color: [2.6, 0.95, 0.28], size: 9 + r() * 12, flick: true, code: DUSK + DIST.ALWAYS, far: true, prio: 1 }); }
+  void HILLE; void PODIUM; void hipRoof; void signQuad; void SIGN; void mix3; void em; void SHADOW_KEYS;
+  const { tris } = B.finish(root, { shadowKeys: [] });
   root.userData.tris = tris;
   return { root, anchors: { glows }, tris };
 }

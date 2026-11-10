@@ -47,9 +47,9 @@ const ALL = [
   },
   {
     id: 'lights-out', game: 2, num: '05', code: 'LWU', loc: 'LONGWU', time: '18:40', title: 'LIGHTS OUT', final: true,
-    tagline: 'TWENTY STOREYS UP IS GROUND FLOOR.',
-    blurb: 'A city stacked on cliffs. The power goes, district by district. You BASE\u2011jump off the tallest tower, and the hillside follows you into the river.',
-    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Look UP and DOWN — they hold every level of the city. In the glide: just shoot (left stick / A-D nudges your line).',
+    tagline: 'THE LAST LIGHT IN LONGWU IS A TOWER. FOR NOW.',
+    blurb: 'A river gorge at dusk. The city goes dark district by district. A hillside goes into the river. Then you jump off the tower, and it follows you down.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. The lift goes when you stand on it. In the glide: just shoot (left stick / A-D nudges your line).',
   },
   {
     id: 'dubai-proto', game: 2, num: '04', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true, hidden: true,

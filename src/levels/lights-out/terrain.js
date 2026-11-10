@@ -1,15 +1,12 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { Buckets, hexc, mul3, em, DIST, DUSK, SODIUM } from './kit.js';
+import { Buckets, hexc, mul3, em, DIST, DUSK, SODIUM, GOLD } from './kit.js';
 import { materials } from './mats.js';
-import { RIVER, QUAY, FARBANK, CLIFF_W, LSTREET, ROOF, RAVINE, BRIDGE, PLAZA, SKYST, TOWER, CLIMB, G40, WATER_Y, SLIDE, HILLE } from './layout.js';
-import { hillW, hillE } from './city.js';
+import { RIVER, QUAY, FARBANK, PLAZA, PODIUM, BRIDGE, ROAD, PLZ, WATER_Y, SLIDE, HILLE, TERR, Y, hillY } from './layout.js';
 
 // =====================================================================================
-//  LIGHTS OUT — the ground the city stands on: the cliff faces (layered sandstone behind the
-//  stilt houses, board-marked retaining walls where the roads cut in), the ravine's walls and its
-//  stream, the quay road along the river with its lamp necklace and river wall, the hill terraces
-//  under the towers. Rock faces are displaced grids (strata + overhangs), everything else boxes.
+//  LIGHTS OUT — the ground the city stands on: the south bank's cliff under the road, the north
+//  bank's terraces and river face either side of the hillside district, the plateau behind both.
 // =====================================================================================
 function vn(x, z) { const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return s - Math.floor(s); }
 function sn(x, z) { const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi, u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
@@ -36,9 +33,10 @@ export function gridFace(A, P, nu, nv, { col = A.col, colFn = null, emFn = null 
   }
 }
 
-// the east bank's river face (the shelf under the plaza / Sky Street / the tower): v 0 = the quay, 1 = the top
+// the north bank's river face west of the hillside district (slide.js closes its west flank against this profile):
+// v 0 = the quay, 1 = the shelf's edge
 export function eastP(x, v) {
-  const top = x > SKYST.x0 ? 55.4 : 39.4;
+  const top = 55.4;
   const y = QUAY.y - 1 + (top - QUAY.y + 1) * v;
   const z = QUAY.z0 - 1 + (PLAZA.z1 + 1 - QUAY.z0 + 1) * Math.pow(v, 0.8) + (fbm(x * 0.04, y * 0.06) - 0.5) * 3 + Math.sin(y * 0.9 + fbm(x * 0.03, y * 0.05) * 3) * 0.5;
   return [x, y, z];
@@ -48,91 +46,117 @@ export const rockCol = (p) => { const k = 0.75 + fbm(p[0] * 0.05, p[1] * 0.08) *
   const g = Math.max(0, fbm(p[0] * 0.09 + 7, p[1] * 0.14 + 3) - 0.56) * 3.2; return [c[0] * (1 - g) + 0.16 * g, c[1] * (1 - g) + 0.22 * g, c[2] * (1 - g) + 0.1 * g]; };
 export const rockEm = (code) => (p) => { const k = Math.max(0, 1 - (p[1] - QUAY.y) / 34); return [1.0 * 0.12 * k * k, 0.62 * 0.12 * k * k, 0.32 * 0.12 * k * k, DUSK + code]; };
 
+// the south cliff's face under the road: v 0 = the water, 1 = the road's edge. Layered sandstone, overhangs, a talus foot.
+export function southP(x, v) {
+  const y = WATER_Y - 3 + (Y - 0.4 - WATER_Y + 3) * v;
+  const lean = (1 - v) * (1 - v) * 7;                                       // the foot runs out into the river
+  const z = FARBANK.z - 0.4 - lean - (fbm(x * 0.035, y * 0.07) - 0.5) * 5 * (1 - v * v) - Math.sin(y * 0.8 + fbm(x * 0.03, y * 0.05) * 3) * 0.6 * (1 - v);
+  return [x, y, Math.min(FARBANK.z - 0.3, z)];
+}
+
 export function buildTerrain(ctx = {}) {
   const M = materials();
   const B = new Buckets(); for (const [k, m] of Object.entries(M)) B.mat(k, m);
   const root = new THREE.Group(); root.name = 'terrain';
   const glows = [], colliders = [];
-  const r = makeRng(4242);
-  // ---------------------------------------------------------------- the west bank cliff (behind Lantern Cliff and the store)
+  // ---------------------------------------------------------------- the south bank: the cliff under the road (the face you see from the bridge and the glide)
   {
-    const A = B.get('rock', 'cliffw'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
-    const x0 = -620, x1 = RAVINE.x0;
-    gridFace(A, (u, v) => {
-      const x = x0 + (x1 - x0) * u;
-      const top = x < -128 ? 62 : 49.4;
-      const y = QUAY.y - 1 + (top - QUAY.y + 1) * v;
-      // the face leans back from the quay to the street edge, with ledges / overhangs from the strata
-      const zt = CLIFF_W.zTop + 1.5, zb = QUAY.z0 - 1.5;
-      const strata = Math.sin(y * 0.9 + fbm(x * 0.03, y * 0.05) * 3) * 0.6;
-      const z = zb + (zt - zb) * Math.pow(v, 0.85) + (fbm(x * 0.04, y * 0.06) - 0.5) * 4 + strata;
-      return [x, y, z];
-    }, 120, 18, { colFn: rockCol, emFn: rockEm(DIST.CLIFF_LO) });
-    // the ravine's west wall (faces +x), and its east wall (faces -x)
-    for (const side of [0, 1]) {
-      const xw = side ? RAVINE.x1 : RAVINE.x0;
-      gridFace(A, (u, v) => {
-        const z = side ? -400 + (QUAY.z0 + 408) * u : QUAY.z0 + 8 - (QUAY.z0 + 408) * u;
-        const top = side ? (z > 40 ? PLAZA.y - 0.6 : 64) : (z > 96 ? 39.4 : 49.4);
-        const y = RAVINE.floor - 1 + (top - RAVINE.floor + 1) * v;
-        const lean = (fbm(z * 0.04, y * 0.07) - 0.5) * 5 + Math.sin(y * 0.8 + fbm(z * 0.02, y * 0.03) * 4) * 0.7 - (1 - v) * 3;
-        return [xw + (side ? -lean - 1 : lean + 1), y, z];
-      }, 110, 16, { colFn: rockCol, emFn: rockEm(DIST.ARCH) });
-    }
-    // the east bank cliff under the plaza / Sky Street / the tower's shelf
-    // (the stretch over the landslide is built by slide.js, on the pieces that go)
-    for (const [xa, xb, nu] of [[RAVINE.x1, SLIDE.x0, 28], [HILLE.x1, 1200, 30]]) gridFace(A, (u, v) => eastP(xa + (xb - xa) * u, v), nu, 14, { colFn: rockCol, emFn: rockEm(DIST.EAST) });
+    const A = B.get('rock', 'cliffs'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
+    for (let x = -900; x < 1500; x += 120) gridFace(A, (u, v) => southP(x + 120 * (1 - u), v), 30, 12, { colFn: rockCol });
+    // the land behind the frontage: it steps up away from the river (the city stands on it)
+    const G = B.get('concrete', 'souths'); G.set({ col: [0.2, 0.2, 0.2], rm: [0.95, 0, 0], em: [0, 0, 0, 0] });
+    G.box(-900, Y - 1, FARBANK.z - 0.3, ROAD.x0 - 30, Y - 0.05, 1300, { faces: 'Y', s: 1 });
+    G.box(ROAD.x1 + 30, Y - 1, FARBANK.z - 0.3, 1500, Y - 0.05, 1300, { faces: 'Y', s: 1 });
+    G.box(ROAD.x0 - 30, Y - 1, ROAD.z1 + 20, ROAD.x1 + 30, Y - 0.05, 1300, { faces: 'Y', s: 1 });
   }
-  // ---------------------------------------------------------------- the ravine floor: a stream over boulders, mist
+  // ---------------------------------------------------------------- the north bank west of the hillside district: a shelf, a rock face, the quay
   {
-    const A = B.get('rock', 'ravine'); A.set({ col: [0.3, 0.28, 0.25], rm: [0.6, 0, 0], em: [0, 0, 0, 0] });
-    gridFace(A, (u, v) => { const x = RAVINE.x0 + 2 + (RAVINE.x1 - RAVINE.x0 - 4) * u, z = -400 + (QUAY.z1 + 400) * v; return [x, RAVINE.floor - 1 + fbm(x * 0.2, z * 0.2) * 2.2 * Math.abs(u - 0.5) * 2, z]; }, 12, 60);
+    const A = B.get('rock', 'cliffn'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
+    for (let x = -900; x < SLIDE.x0; x += 127) { const w = Math.min(127, SLIDE.x0 - x); gridFace(A, (u, v) => eastP(x + w * u, v), 30, 10, { colFn: rockCol }); }
+    const C = B.get('concrete', 'cliffn'); C.set({ col: [0.22, 0.22, 0.21], rm: [0.95, 0, 0], em: [0, 0, 0, 0] });
+    C.box(-900, 55, SLIDE.crack, SLIDE.x0 - 0.05, 56, PLAZA.z1 + 1.5, { faces: 'Y', s: 1 });
+    C.box(-900, QUAY.y - 1, QUAY.z0 - 2, SLIDE.x0, QUAY.y, RIVER.z0, { faces: 'YZ', s: 1 });
+    C.box(-900, WATER_Y - 3, RIVER.z0, SLIDE.x0, QUAY.y, RIVER.z0 + 1.2, { faces: 'YZ', s: 1 });
+    // the step up from the shelf to the plateau behind
+    C.set({ col: [0.36, 0.35, 0.33] }); C.box(-900, 55, SLIDE.crack - 1.5, SLIDE.x0, TERR.y0, SLIDE.crack, { faces: 'ZY', s: 1 });
   }
-  // ---------------------------------------------------------------- the quay road along the river (both banks of the ravine), the river wall, lamps
+  // ---------------------------------------------------------------- the north bank east of the tower's podium: terraces down to the quay
   {
-    const As = B.get('asphalt', 'quay'), Ac = B.get('concrete', 'quay'), Am = B.get('metal', 'quay');
-    As.set({ col: [0.55, 0.55, 0.56], rm: [0.35, 0, 0], em: [0, 0, 0, 0] });
-    Ac.set({ col: [0.55, 0.55, 0.53], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
-    for (const [x0, x1] of [[-1400, RAVINE.x0], [RAVINE.x1, SLIDE.x0], [HILLE.x1, 1600]]) {
-      As.box(x0, QUAY.y - 0.5, QUAY.z0, x1, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
-      Ac.box(x0, WATER_Y - 3, RIVER.z0, x1, QUAY.y + 0.05, RIVER.z0 + 1.2, { faces: 'YzZ', s: 1 });      // the river wall
-      Ac.box(x0, QUAY.y, RIVER.z0 - 0.4, x1, QUAY.y + 1.0, RIVER.z0, { faces: 'yYzZ', s: 1 });          // its parapet
+    const C = B.get('concrete', 'cliffe');
+    for (let k = 0; k < TERR.n; k++) {
+      const z0 = TERR.z0 + k * TERR.d, z1 = k === TERR.n - 1 ? TERR.quay : z0 + TERR.d, y = hillY(z0 + 0.1), yn = k === TERR.n - 1 ? QUAY.y : hillY(z1 + 0.1);
+      C.set({ col: [0.21, 0.21, 0.2], rm: [0.95, 0, 0], em: [0, 0, 0, 0] }); C.box(PODIUM.x1, y - 1, z0, 1500, y, z1, { faces: 'Y', s: 1 });
+      C.set({ col: [0.4, 0.39, 0.36] }); C.box(PODIUM.x1, yn, z1 - 0.6, 1500, y, z1, { faces: 'Z', s: 1, foot: 0.3 });
     }
-    // a little bridge carrying the quay road over the ravine's mouth
-    Ac.box(RAVINE.x0 - 2, QUAY.y - 1.6, QUAY.z0 + 6, RAVINE.x1 + 2, QUAY.y, RIVER.z0, { faces: 'yYzZ', s: 1 });
-    Am.set({ col: [0.25, 0.26, 0.27], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
-    for (let x = -1380; x < 1580; x += 28) {
-      if (x > RAVINE.x0 - 4 && x < RAVINE.x1 + 4) continue;
-      if (x > SLIDE.x0 && x < HILLE.x1) continue;   // slide.js has its own (the hillside district's quay)
-      const z = RIVER.z0 - 0.8;
-      Am.cyl(x, QUAY.y, z, 0.1, 0.07, QUAY.y + 6.5, 6, { cap: false });
-      Am.beam([x, QUAY.y + 6.4, z], [x, QUAY.y + 6.6, z - 1.4], 0.12, 0.12);
-      const d = x < RAVINE.x0 ? DIST.CLIFF_LO : DIST.EAST;
-      const L = B.get('plain', 'quay'); L.set({ col: [1, 1, 1], rm: [0.5, 0, 0], em: em(SODIUM, 3, DUSK + d) }); L.box(x - 0.25, QUAY.y + 6.25, z - 1.65, x + 0.25, QUAY.y + 6.4, z - 1.1);
-      glows.push({ p: [x, QUAY.y + 6.1, z - 1.4], color: [2.4, 1.3, 0.5], size: 2.6, code: DUSK + d, far: true });
-    }
+    C.set({ col: [0.22, 0.22, 0.21] }); C.box(PODIUM.x1, QUAY.y - 1, TERR.quay, 1500, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
+    C.box(PODIUM.x1, WATER_Y - 3, RIVER.z0, 1500, QUAY.y, RIVER.z0 + 1.2, { faces: 'YZ', s: 1 });
   }
-  // ---------------------------------------------------------------- hill terraces under the backdrop towers (north banks)
+  // ---------------------------------------------------------------- housing on the north bank either side of the play space: rows of
+  // old blocks on every terrace east of the tower (seen from the bridge, the lift, the glide), mid-rises on the shelf west of the slide
   {
-    const As = B.get('asphalt', 'nw'), Ac = B.get('concrete', 'nw');
-    As.set({ col: [0.45, 0.45, 0.46], rm: [0.6, 0, 0], em: [0, 0, 0, 0] }); Ac.set({ col: [0.55, 0.55, 0.53], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
-    const bandsW = [[50, 96, 50], [-40, 50, 64], [-140, -40, 80], [-260, -140, 98], [-700, -260, 118]];
-    for (const [z0, z1, y] of bandsW) {
-      // west of the play terrace only where nothing else covers it
-      As.box(-1400, y - 0.4, z0, z0 >= 50 ? -175 : RAVINE.x0 - 1, y, z1, { faces: 'Y', s: 1 });
-      Ac.box(-1400, y - 30, z1 - 0.6, z0 >= 50 ? -175 : RAVINE.x0 - 1, y, z1, { faces: 'Z', s: 1 });
+    const r = makeRng(8088), W = [hexc(0xc9bba3), hexc(0xd8c7b6), hexc(0xb8b0a4), hexc(0xc7a99a), hexc(0xa89e94), hexc(0xd2c19d)];
+    const T = B.get('tile', 'hse'), Rf = B.get('concrete', 'hse'), L = B.get('plain', 'hse');
+    for (let k = 0; k < TERR.n; k++) {
+      const z0 = TERR.z0 + k * TERR.d, y = hillY(z0 + 0.1);
+      let x = PODIUM.x1 + 3 + r() * 6;
+      while (x < 1180) {
+        const w = 9 + r() * 12, h = 7 + Math.floor(r() * 5) * 3.1, d = 9 + r() * 4;
+        T.set({ col: W[Math.floor(r() * W.length)], rm: [0.85, 0, 0], em: [0, 0, 0, DIST.EAST], cell: [3.0, 3.1, 200 + Math.round(x) + k * 7, r() < 0.4 ? 2 : 0] });
+        T.box(x, y, z0 + 2, x + w, y + h, z0 + 2 + d, { faces: 'xXZ', s: 1, wy0: y, foot: 0.25 });
+        Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.15, y + h, z0 + 1.85, x + w + 0.15, y + h + 0.4, z0 + 2.15 + d, { faces: 'xXZY', s: 1 });
+        if (r() < 0.5) glows.push({ p: [x + w / 2, y + 5.4, z0 + d + 4.5], color: [2.0, 1.1, 0.45], size: 2.4, code: DUSK + DIST.EAST, far: true });
+        x += w + (r() < 0.25 ? 4 + r() * 6 : 0.6);
+      }
+      // a lamp line along each terrace road
+      L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(SODIUM, 0.9, DUSK + DIST.EAST) }); L.box(PODIUM.x1 + 2, y + 0.05, z0 + TERR.d - 1.0, 1180, y + 0.25, z0 + TERR.d - 0.8, { faces: 'Z' });
     }
-    const Ae = B.get('asphalt', 'ne'), Aec = B.get('concrete', 'ne');
-    Ae.set({ col: [0.45, 0.45, 0.46], rm: [0.6, 0, 0], em: [0, 0, 0, 0] }); Aec.set({ col: [0.55, 0.55, 0.53], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
-    const bandsE = [[-60, 40, 64], [-180, -60, 82], [-700, -180, 104]];
-    for (const [z0, z1, y] of bandsE) { Ae.box(RAVINE.x1 + 1, y - 0.4, z0, 1600, y, z1, { faces: 'Y', s: 1 }); Aec.box(RAVINE.x1 + 1, y - 30, z1 - 0.6, 1600, y, z1, { faces: 'Z', s: 1 }); }
-    // the east bank's riverside terrace beyond the play space (y 40 / 56)
-    Ae.box(HILLE.x1, 55.6, 40, 1600, 56, PLAZA.z1, { faces: 'Y', s: 1 });
-    Aec.box(HILLE.x1, QUAY.y, PLAZA.z1 - 0.6, 1600, 56, PLAZA.z1, { faces: 'Z', s: 1 });
-    // the up/downstream north bank terraces (the glide sees these)
-    Ac.box(-1400, 30, 60, -620, 34, QUAY.z0, { faces: 'YZ', s: 1 });
+    let x = -520;
+    while (x < SLIDE.x0 - 14) {
+      const w = 14 + r() * 14, h = 22 + r() * r() * 50, d = 14 + r() * 10, z0 = 58 + r() * 26, st = r() < 0.25 ? 1 : 0, dist = x < 250 ? DIST.FAR_W : DIST.EAST;
+      const A2 = B.get(st ? 'win' : 'tile', 'hsw');
+      A2.set({ col: st ? hexc(0x4a5560) : W[Math.floor(r() * W.length)], rm: [st ? 0.35 : 0.85, st ? 0.2 : 0, 0], em: [0, 0, 0, dist], cell: [st ? 1.6 : 3.0, st ? 3.9 : 3.0, 300 + Math.round(x), st] });
+      A2.box(x, 56, z0, x + w, 56 + h, z0 + d, { faces: 'xXzZ', s: 1, wy0: 56 });
+      Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.2, 56 + h, z0 - 0.2, x + w + 0.2, 56 + h + 0.5, z0 + d + 0.2, { faces: 'xXzZY', s: 1 });
+      if (r() < 0.6) glows.push({ p: [x + w / 2, 61.5, PLAZA.z1 - 2], color: [2.0, 1.1, 0.45], size: 2.6, code: DUSK + dist, far: true });
+      x += w + 3 + r() * 9;
+    }
+    // the quay under that shelf: a row of old waterfront houses and its lamps (the glide comes down past them)
+    for (let qx = -300; qx < SLIDE.x0 - 8; ) {
+      const w = 9 + r() * 10, h = 6 + Math.floor(r() * 4) * 3, dist = qx < 250 ? DIST.FAR_W : DIST.EAST;
+      T.set({ col: W[Math.floor(r() * W.length)], rm: [0.85, 0, 0], em: [0, 0, 0, dist], cell: [3.0, 3.0, 700 + Math.round(qx), 2] });
+      T.box(qx, QUAY.y, QUAY.z0 + 1, qx + w, QUAY.y + h, QUAY.z0 + 11, { faces: 'xXZ', s: 1, wy0: QUAY.y, foot: 0.25 });
+      Rf.set({ col: [0.26, 0.25, 0.26], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(qx - 0.2, QUAY.y + h, QUAY.z0 + 0.8, qx + w + 0.2, QUAY.y + h + 0.4, QUAY.z0 + 11.3, { faces: 'xXZY', s: 1 });
+      if (r() < 0.55) glows.push({ p: [qx + w / 2, QUAY.y + 6, RIVER.z0 - 2], color: [2.2, 1.3, 0.5], size: 2.8, code: DUSK + dist, far: true });
+      // a candle or a storm lantern in a window here and there: what is left of the bank in the blackout
+      { const hsh = (n) => { const q = Math.sin(qx * 12.9898 + n * 78.233) * 43758.5453; return q - Math.floor(q); };
+        for (let c = 0; c < 2; c++) if (hsh(c) < 0.45) { const cx = qx + 1 + hsh(c + 5) * (w - 2.6), cy = QUAY.y + 1.2 + hsh(c + 9) * (h - 3);
+          L.set({ col: [0.5, 0.3, 0.12], rm: [0.5, 0, 0], em: em([1, 0.58, 0.22], 1.5, DUSK + DIST.ALWAYS) }); L.box(cx, cy, QUAY.z0 + 11, cx + 0.8, cy + 1.0, QUAY.z0 + 11.04, { faces: 'Z' });
+          glows.push({ p: [cx + 0.4, cy + 0.5, QUAY.z0 + 11.4], color: [1.5, 0.75, 0.25], size: 1.5, code: DUSK + DIST.ALWAYS, far: true }); } }
+      qx += w + (r() < 0.2 ? 4 + r() * 5 : 0.5);
+    }
+    // the cliff stairs: zigzags up the rock face from the quay to the shelf, a lamp at every landing (battery lamps:
+    // they outlive the blackout). From the glide the dark face has lines of light climbing it
+    for (const sx of [-110, 40, 175, 305]) {
+      Rf.set({ col: [0.3, 0.29, 0.28], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+      let prev = null;
+      for (let i = 0; i <= 12; i++) { const v = 0.04 + i / 12 * 0.9, zig = (i % 2 ? 1 : -1) * 11, P = eastP(sx + zig, v), q = [P[0], P[1], P[2] + 1.3];
+        if (prev) { const n = 6; for (let k = 0; k < n; k++) { const a = k / n, b = (k + 1) / n, e0 = eastP(prev.x + (sx + zig - prev.x) * a, prev.v + (v - prev.v) * a), e1 = eastP(prev.x + (sx + zig - prev.x) * b, prev.v + (v - prev.v) * b);
+          Rf.quad([e0[0], e0[1], e0[2] + 2.2], [e1[0], e1[1], e1[2] + 2.2], [e1[0], e1[1], e1[2] - 0.5], [e0[0], e0[1], e0[2] - 0.5]);
+          Rf.quad([e1[0], e1[1], e1[2] + 2.2], [e0[0], e0[1], e0[2] + 2.2], [e0[0], e0[1] - 0.5, e0[2] + 2.2], [e1[0], e1[1] - 0.5, e1[2] + 2.2]); } }
+        L.set({ col: [0.5, 0.3, 0.12], rm: [0.5, 0, 0], em: em([1, 0.62, 0.25], 2, DUSK + DIST.ALWAYS) }); L.box(q[0] - 0.15, q[1] + 2.2, q[2] + 0.6, q[0] + 0.15, q[1] + 2.5, q[2] + 0.9, {});
+        glows.push({ p: [q[0], q[1] + 2.35, q[2] + 1.1], color: [1.6, 0.85, 0.3], size: 1.4, code: DUSK + DIST.ALWAYS, far: true });
+        prev = { x: sx + zig, v }; }
+    }
+    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(GOLD, 1.1, DUSK + DIST.FAR_W) }); L.box(-520, 56.9, PLAZA.z1 + 1.2, 250, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
+    L.set({ em: em(GOLD, 1.1, DUSK + DIST.EAST) }); L.box(250, 56.9, PLAZA.z1 + 1.2, SLIDE.x0 - 1, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
   }
-  const { tris } = B.finish(root);
+  // ---------------------------------------------------------------- the plateau behind the north bank (the towers stand on it)
+  {
+    const G = B.get('concrete', 'northp'); G.set({ col: [0.18, 0.18, 0.18], rm: [0.95, 0, 0], em: [0, 0, 0, 0] });
+    G.box(-900, TERR.y0 - 1, -900, 1500, TERR.y0 - 0.05, SLIDE.crack - 1.4, { faces: 'Y', s: 1 });
+    void HILLE; void BRIDGE; void PLZ;
+  }
+  const { tris } = B.finish(root, { shadowKeys: [] });
   root.userData.tris = tris;
-  return { root, anchors: { glows }, colliders, tris };
+  return { root, colliders, anchors: { glows }, tris };
 }

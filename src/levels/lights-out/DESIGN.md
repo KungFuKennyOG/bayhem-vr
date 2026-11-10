@@ -1,98 +1,106 @@
-# LEVEL 9 — LIGHTS OUT (design + asset contracts)
+# LEVEL 9 — LIGHTS OUT (the rebuild)
 
-Longwu, a fictional Chongqing: a city stacked on a cliff over a fogged river gorge, at dusk going to night. You start
-on the roof car park of the Longwu Department Store, fight down the Hundred Steps between shophouses, along Lantern
-Street on the cliff top, down through Lantern Cliff (a Hongyadong-style stilt-house wall), across the Qiansi through-arch
-bridge, under the stacked interchange (a fuel tanker blows, the top span pancakes onto the substation), watch the city's
-power go district by district, climb to Sky Street in the dark (searchlights, lasers), clear Jinlong Tower's sky lobby,
-ride the lift to the roof and fight a gunship 240 m over the city. It rockets the tower and backs off; you BASE-jump
-off the roof and it chases your glide. Shot down, it spirals into the hillside district below, the whole hill slides
-into the river, and Jinlong, its footings gone, comes down behind you (enemy jumpers, barge gunners, searchlights you can shoot), onto
-a gunboat's deck. Outro stats, then credits for the whole game.
+BAYHEM 2's Level 5, the finale. Longwu, a fictional Chongqing: a city stacked up both banks of a river gorge, at
+dusk going to night. The city's power goes out district by district behind you until one gold tower is the last
+light in it; then that goes too.
 
-Look: wet violet dusk → blue-black night in fog; gold floodlit structures (Jinlong, the bridges, the lantern wall's eave
-lines), red lanterns, hanzi lightboxes and blade signs everywhere at street level, rooftop neon names on the towers,
-residential estates with roof frames on the hills; after the blackout only fires, generators, emergency windows and the
-searchlights. Every number lives in `layout.js`.
+The first version (PR #28) was thrown away after Kenny's first headset run: he quit on the first flight of stairs
+because the way down did not read as open. See `claude/BAYHEM-level9-postmortem.md`. This one was designed from
+the route outwards.
+
+## The rule
+**The way forward must read as open from standing eye height.** Nothing crosses the eye line on the route ahead.
+
+- The on-foot route is wide and outdoors: no interiors, no ramps. It is **one level** (y 20) from the plaza on. The one
+  exception is the opening, **the Hundred Steps**: the first version's first flight of stairs, which Kenny liked
+  ("it's only the other stairs that was not well built"). It is back exactly as it was (`steps.js`): a 12 m wide
+  open stair between shophouses, long landings, and from its head you see the plaza at its foot.
+- `layout.LANES` are the strips you walk. Nothing taller than 1.2 m stands in them: `node tools/check-lanes.mjs`.
+- Cover is 0.85–1.0 m (under a standing eye). Tall things (buses, shopfronts, lamps, masts, stays, the crown's
+  columns) stand **beside** the lane. Nothing spans the lane below ~16 m.
+- The goal is always in view and always the brightest thing ahead: the road points at the bridge, the bridge
+  points at the tower, a lit inlay on the forecourt points at the lift.
+- Every review round starts with `tools/lights-out-review.sh`: real-play frames (no autopilot) at eye height at the
+  start of every beat. The autopilot walking it proves nothing about what it looks like.
+
+## The place (`layout.js` holds every number)
++x east (upstream), +z south. The river runs east–west between z 160 and z 300.
+
+- **South bank, above the road:** the Longwu Department Store's roof (the start, y 34) and the Hundred Steps down
+  from it, north, into Kuixing Plaza. The ring-road flyover crosses over the steps.
+- **South bank:** Kuixing Plaza and the cliff road, a riverside road on a retaining wall 20 m over the
+  water. Shophouses along its south side, the city stacked up the bank behind them.
+- **North bank, opposite the road:** the terraced hillside district (quay y 3, crest y 64), 120–260 m away and
+  rising above you. It is lit all level and it goes into the river at the very end (`slide.js`, the old level's
+  skinned-mesh landslide, unchanged).
+- **The bridge:** 141 m, cable-stayed, masts and stays outside the kerbs.
+- **North bank, at the bridge's end:** Jinlong Tower on its podium. A lift platform up its south face, the roof,
+  the gap in the west parapet.
+- **The glide:** off the roof's west edge, south-west past the falling tower, then west along the hill's face at
+  the hill's own height (106 → 31 m up, 22–50 m off its toe), then a flatter run-in down the river to the gunboat.
+  Jinlong is 130 m tall (it was 195) for exactly this: from a taller roof you pass the hill 100 m above it and the
+  slide happens under your feet instead of beside you.
+
+The route is low on purpose. From a road level with the hill's crest (the first grey box) the district hid under
+your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" again.
 
 ## Beats (`director.js`) — `?level=lights-out&beat=<name>`
-1. **intro** — the roof rail over the gorge, the Chaotian bridge, the title. Lights coming on.
-2. **steps** — down the Hundred Steps: gunmen on the landings below, perch gunmen on the flyover above, a laser sniper.
-3. **lstreet** — east along Lantern Street (cars, hotpot tables, the monorail through a tower), rooftop perches; the red gate.
-4. **gallery** — down the atrium stair into Lantern Cliff, along the covered gallery: gunmen on the balconies above and the roofs below.
-5. **bridge** — the Qiansi bridge, perch gunmen on the arch crown, a sniper on the far side.
-6. **plaza** — under the stacked interchange (perches on both decks).
-7. **pancake** — the tanker on the top deck over the substation: shoot it, or it goes once you look at it (look gate, 22 s cap).
-   The top span hinges down onto the lower one, the stack drops onto the substation, transformers blow in a chain.
-8. **blackout** — "LOOK at the city": waits for the look (or 6 s), then district by district — flickers and top-down
-   cuts sweep across the bridges, the cliff, the far bank; blue-white transformer arcs pop in each district. A minute
-   later a scattering of emergency windows comes back (the dark city still reads as a city).
-9. **climb** — up to Sky Street in the dark: generator searchlights (shoot the lamps), lasers, fires.
-10. **lobby** — over the footbridge into Jinlong's sky lobby (marble, gold, the 金龙 bulkhead); the building groans.
-10b. **lift** — the lift up to the roof (a blink to black, the hum of the ride): 239 m up, inside the crown's lantern cage.
-11. **roof** — on the roof (`gunship.js`). The gunship rises out of the gorge past the gap in the south parapet,
-    searchlight in your face; it circles the crown on your side (outside the cage, off the mast), drops under the roof
-    line and comes back up somewhere else, and hovers over the roof's west end to fast-rope four men onto it (two more
-    under 70 %). Rockets short of you onto the deck, a chin-gun burst walking in. It can't be finished here: under 42 %
-    it puts a four-rocket salvo into the tower under the roof (glass, the crown shudders) and drops away into the gorge.
-12. **jump** — "she's coming off the cliff": the BASE rig from the locker by the helipad; run for the gap in the south
-    parapet; slow-mo jump.
-13. **glide** — ~77 s. A steep first leg (0.6) out over the river, then EAST (upstream) low along the foot of the
-    hillside district: 40–100 m off its toe, ~100 m up. "LOOK BACK": the gunship comes back up out of the gorge and
-    chases you on the hill's side (gun bursts, proximity rockets; it burns down on its own from 14 s). Its dive
-    (look-gated, round the tower) goes into the gold LED tower on the crest, and the hill lets go from there outward:
-    the **landslide**, right beside you — 30 uneven pieces of terraced district (`COLS` × `ROWSC`), each with its own
-    timing, twist, roll and drop, sliding into the river toe-first; every house is its own bone and pancakes or topples
-    on its own, shedding wall slabs, dust and fire; towers topple and break in two; three rim pieces east of the slide
-    slump and hang into the scar. From x 535 "the hill took Jinlong's footings — LOOK BACK": Jinlong falls
-    east-north-east into the hole the hill left and lies across the scar, lights dying. Then through the gold arch
-    bridge (between deck and rib, between two hangers), jumpers on canopies, barge gunners, the gunboat (shoot the
-    drums), and you land on its deck.
-14. **outro** / **credits** — stats card, then the credits for all nine levels.
+1. **intro** — the store's roof: title, the tower named. Look-gated (5 s cap): the upstream skyline goes dark.
+2. **steps** — down the Hundred Steps: gunmen on the landings below, two on the flyover above, a laser sniper.
+3. **road** — the first half of the road: the jam, gunmen in the traffic and on the low shop roofs to your right.
+4. **heron** — NIGHT HERON ONE comes up out of the gorge beside you and holds 35–55 m off the rail. Shot down (or
+   burning on its own after 75 s) it holds until you look (4 s cap), then limps across the river into the gold
+   block on the hill's crest and stays there, burning. The hill holds. The district east of it goes dark.
+5. **wave** — downstream goes, then the road's own lamps, section by section, past you and on ahead, then the
+   south bank's skyline. The bridge and the tower are still lit: that is the way.
+6. **bridge** — the rest of the road and the bridge. Its lamps die behind you span by span; mid-river the north
+   skyline goes. A sniper on the podium.
+7. **fore** — the forecourt, lit by the tower alone.
+8. **lift** — step on; it goes when you have stood on it for a moment. ~20 s up the face over the dark city.
+9. **roof** — NIGHT HERON TWO: rises off the west edge, circles the crown, ducks under the roof line, ropes men
+   onto the deck. This one you finish; it comes round and goes into the tower's west face under the parapet.
+10. **jump** — the orange locker (the rig), the jump gantry in the west parapet, the jump.
+11. **glide** — THE MONEY SHOT. 3 s after the canopy opens the tower goes over, due west, and lands on the hillside
+    district: the only thing in Longwu still lit. As you come level with the hill it lets go (`director.js`:
+    `sp.rail.s > 105` after the impact) and slides into the river beside you, east to west, with its lights on, gas
+    mains going up under it. Then Longwu is dark. Jumpers, two barges with searchlights, the gunboat (shoot the
+    drums). The boat swings broadside before you reach it: you land on its aft deck looking west across the beam.
+12. **outro** — the lights come back, district by district, from downstream up. Stats card.
+13. **credits**.
 
 ## Comfort (VR)
-- No free fall: the canopy opens 0.7 s after the jump, in slow-mo. Steady descent on a rail (`GlideRail`), sideways
-  nudge only, yaw follows the line at ≤ 3°/s, no roll. The canopy is a fixed frame over you (lines to your shoulders).
-- Big moments are look-gated (tanker, blackout, the gunship's dive, the tower fall) with a timeout; markers point at
-  them. The landslide is 150–300 m off, below the roof. The tower falls away from the rail (60 m at its closest).
-- The roof never tilts or moves under you: the tower's shudder is sound, dust, glass and a light shake only.
-- The gunship backs off the roof after 2.5 minutes whatever you do, and in the glide it burns down on its own after 26 s:
-  the destruction never waits on your aim.
+- Smooth stick + 45° snap turn on foot. Code never moves the head.
+- **Stairs:** only the Hundred Steps, walked with the stick like any ground (33° flights, 13–15 m landings).
+- **Lift:** a steady ride (ease in, 6.5 m/s, ease out), open platform, you can walk about on it. `?lift=blink`
+  swaps it for a blink to black.
+- **Glide:** no free fall (the canopy opens 0.75 s after the edge, in slow-mo), a rail at a steady 8.2 m/s,
+  1 : 2.64 past the hill and 1 : 5 on the run-in, no roll, yaw follows the line at ≤ 3°/s (one slow turn in the whole glide). The canopy is a fixed frame
+  whose risers sit above and behind your head.
+- **The tower passing:** its crown comes down ahead-right of you, 40–60 m off the line. `?fall=far` sends it 15° further away.
+- Big moments are look-gated with a timeout (the first cut, both gunship deaths). The tower fall is not: it comes
+  into your view on its own, and a marker rides its crown.
+- Nothing waits on your aim: both gunships burn down on their own (75 s / 170 s).
 
-## Systems
-- `kit.js`: the shared material patch (vertex colour albedo, per-vertex rough/metal, emissive with a power code,
-  procedural windows with Chinese residential details, wall-base grime from the light map's floor heights), `Acc`
-  geometry accumulator, `Buckets`. **Windows:** frames, glass, balconies, AC boxes and bars are analytic up close and
-  fade out by ~4 px per window; the lights themselves are baked into two 256² mip-mapped textures (one texel per window:
-  RGB = lit at full power, A = the sparse emergency pattern) sampled with the window grid's own gradients, so distant
-  towers filter smoothly. Hash inputs that come from interpolated varyings (the building seed / style) are rounded
-  first: hashing the raw varying turned float noise into the per-pixel 'window static' the reviews flagged for weeks.
-  **Power**: `POWER.pow[16]` / `POWER.cut[16]` per district (`DIST`); emissive code =
-  district (+16 = on at dusk). `powK()` mirrors it on the CPU for glows and reflections.
-- `lightmap.js`: lamp pools baked into a 2D map over the play space (4 power groups, colour, 16-bit floor height).
-- `signs.js`: the canvas sign atlas (shop fascias, blades, plaques, gantries, rooftop names, ads, posters).
-- `city.js` towers (styles, setbacks, LED bands, crowns: led / lantern / pagoda / diamond / frame / spire, rooftop
-  names), estates; `terrain.js`; `west.js` (roof, steps, flyover, Lantern Street, monorail); `lantern.js` (the stilt
-  wall, gallery, atrium stair, pavilion towers, banners); `bridge.js` (Qiansi arch, Chaotian cable-stayed, far arches);
-  `east.js` (plaza, interchange spans, substation, climb, Sky Street, footbridge); `tower.js` (Jinlong: stump, body on a
-  hinge, crown on its own hinge, lobby, terrace); `river.js` (water, mist, boats, reflections on water and wet streets).
-- `setpieces.js`: fires, the pancake, the blackout + arcs, the tower fall (a rod on its hinge, then a free body once it
-  tears off the stump), the glide (rail, jumpers, gunboat, landing).
-- `slide.js`: the landslide. `SLIDE` / `TERR` / `hillY` / `scarY0` in `layout.js`. The hillside is 12 blocks (4 columns ×
-  3 rows) plus the three towers (two segments each), all **bones**. All of their geometry (built in world space with
-  the city kit: `towerBlock`, `lampPost`, `lantern`, `tree`) is merged into one `SkinnedMesh` per material (about 12
-  draw calls). Each block carries its terraces, retaining walls, housing and the earth under it down to the slip
-  surface, so the gaps that open between blocks show raw earth. The scar (slip surface, rough valley walls,
-  rubble, torn road slabs, the cut-open back halves of the crest buildings) is static and hidden inside the hill
-  until the blocks leave. Its emissive bakes the light of the fires on it. Streets and some housing are district
-  TOWER (Jinlong's generators); the rest are EAST (emergency windows). Riding glows follow their bones.
-  `world.glowList` is sorted so `prio` halos are never the ones the capped batch drops.
-- `gunship.js`: the roof fight and the chase. The engine's WIDOWMAKER (`src/heli.js`, as in Level 5): rise / fight (orbit) /
-  dive (under the roof line) / drop (fast-ropes: perch soldiers slid down the rope during their `delay`, then holding a
-  patch of roof) / retreat (the salvo into the tower) / lurk / chase (station-keeping off the glide rail) /
-  dying (look-gated dive that circles round the tower) / the crash into `CRASH` (the c1 tower's face), where the wreck is
-  parented to that tower's upper-segment bone (`Landslide.attach`), then `setpieces.landslide(false, 1)`.
-- `glide.js`: canopy, rail, gunboat (lofted hull, mast, nav lights, wake). `searchlights.js`: instanced beams that lock on.
-- Shared code reused: `whiteout/ai.js` (copied as `ai.js` with the jumper role), `whiteout/auto.js`,
-  `iron-lady/reflections.js`, `downtown-haven/{glass,cars,...}.js` (cars got a `city: 'longwu'` livery: blue 渝 plates,
-  yellow 出租 taxis, 警察 police, a Longwu bus; the default build is untouched), `tokyo-scramble/lasers.js`.
+## Power (`kit.js` POWER, `layout.DIST`, `setpieces.cut`)
+One code per emissive vertex. Districts: R0–R3 (the road, west → east), BR0–BR2 (the bridge, south → north), HILL,
+EAST (the static hill and the terraces east of the tower), FORE, TOWER (must stay 10: the dying-tower shader),
+FAR_N / FAR_S / FAR_E / FAR_W (the skylines), ALWAYS. `setpieces.cut(id, {kind})` queues one cut (`flick`, `cut`
+top-down, `on`). The city's glow (sky, fog) follows whatever is still lit. In the blackout `POWER.dim` takes the
+facades down and the fog goes darker than the sky's horizon, so the city is dark shapes against the sky, with
+fires (`city.js` glows) and red beacons in it.
+
+## Modules
+- Back from the first version, in its own old frame, turned and set down: `steps.js` (the store's roof, the Hundred
+  Steps, the flyover).
+- New: `layout.js`, `route.js` (plaza, road, frontage, bridge, forecourt), `jinlong.js` (tower, roof, lift),
+  `boss.js` (both gunships), `setpieces.js`, `director.js`, `world.js`, `index.js`.
+- Re-sited: `terrain.js` (banks), `city.js` (`buildCity`: four skyline districts; `towerBlock` unchanged).
+- Kept as systems: `kit.js`, `kitbuild.js`, `mats.js`, `tex.js`, `signs.js`, `sky.js`, `lightmap.js`, `slide.js`,
+  `glide.js`, `searchlights.js`, `river.js`, `ai.js`, `traffic.js`, `game.js`.
+- Gone with the old level: `west.js`, `lantern.js`, `east.js`, `bridge.js`, `tower.js`, `gunship.js`.
+
+## Tools
+- `tools/lights-out-review.sh <dir>` — the fixed review frames.
+- `tools/run-level.cjs "level=lights-out" 700 10 [prefix]` — a fast headless autopilot run, state every 10 s.
+- `tools/check-lanes.mjs` — the lanes are clear.
+- `tools/beat-sweep.cjs lights-out <beats>` — every beat boots and runs with and without the autopilot.

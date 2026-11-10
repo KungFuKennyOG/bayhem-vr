@@ -32,7 +32,7 @@ import { SLIDE, TERR, HILLE, hillY, scarY0, QUAY, RIVER, PLAZA, WATER_Y } from '
 //  below y 70 after the blackout, full and flickering while it goes, dark when the tower hits);
 //  the rest are on the dead grid (EAST: emergency windows only).
 // =====================================================================================
-const CODE = DIST.TOWER;
+const CODE = DIST.HILL;
 const C0 = SLIDE.crack, ZF = RIVER.z0 + 1.2, Y0 = TERR.y0;
 // the slip surface: gullied and stepped (strata ledges); no noise at the crest so it meets the hill top
 export const scarY = (x, z) => {
@@ -321,8 +321,8 @@ export function buildSlide(ctx = {}) {
   // its own generators: it stays lit, so the gap the slide tears in it reads)
   {
     const B = mkB(M), gl = [];
-    for (let rw = 0; rw < 3; rw++) streets(B, 'nb', HILLE.x0 + RIMW[rw], HILLE.x0 + 56, SLIDE.rows[rw], rw === 2 ? ZF : SLIDE.rows[rw + 1], gl, -1, DIST.ALWAYS);
-    for (let x = HILLE.x0 + 56; x < HILLE.x1 - 1; x += 56) streets(B, 'nb', x, Math.min(HILLE.x1, x + 56), C0, ZF, gl, -1, DIST.ALWAYS);
+    for (let rw = 0; rw < 3; rw++) streets(B, 'nb', HILLE.x0 + RIMW[rw], HILLE.x0 + 56, SLIDE.rows[rw], rw === 2 ? ZF : SLIDE.rows[rw + 1], gl, -1, DIST.EAST);
+    for (let x = HILLE.x0 + 56; x < HILLE.x1 - 1; x += 56) streets(B, 'nb', x, Math.min(HILLE.x1, x + 56), C0, ZF, gl, -1, DIST.EAST);
     // the hill's east end: a rock face where it meets the old bank (both ways, wherever one stands above the other)
     const A = B.get('rock', 'nb'); A.set({ rm: [0.92, 0, 0], em: [0, 0, 0, 0] });
     const Hp = hillProfile(C0, ZF), Bp = bankProfile(HILLE.x1), bankAt = (z) => { for (let i = 1; i < Bp.length; i++) if (Bp[i][1] >= z) return Bp[i][0]; return QUAY.y; };
@@ -335,7 +335,7 @@ export function buildSlide(ctx = {}) {
   // lanterns (on Jinlong's generators, so it stays lit after the blackout)
   {
     const B = mkB(M), gl = [];
-    for (let x = 176; x < 315; x += 70) streets(B, 'wq', x, Math.min(316, x + 70), TERR.z0 + TERR.d * (TERR.n - 1), TERR.quay, gl, -1, DIST.TOWER);
+    // (the old level's west quay street is gone: the bank west of the slide is terrain.js's rock shelf)
     tris += B.finish(root).tris;
     for (const q of gl) glows.push({ ...q, far: true });
   }
@@ -417,7 +417,7 @@ export function buildSlide(ctx = {}) {
     sideFace(R, xa, -1, P, { bot: rimBot }); sideFace(R, xb, 1, P, { bot: rimBot });
     crossFace(R, za, xa, xb, -1, hillY(za + 1e-3), earthCol, rimBot);
     if (rw < 2) crossFace(R, zb, xa, xb, 1, hillY(zb + 1e-3), earthCol, rimBot);
-    streets(B, reg, xa, xb, za, zb, gl, -1, DIST.ALWAYS);
+    streets(B, reg, xa, xb, za, zb, gl, -1, DIST.EAST);
     tris += collect(B, bi, skin);
     const bg = [];
     for (const q of gl) { const p = q.p.isVector3 ? q.p.clone() : new THREE.Vector3(...q.p); const G = { ...q, p, local: p.clone().sub(pv), obj: grp, slide: true, far: true, prio: 1 }; glows.push(G); bg.push(G); }

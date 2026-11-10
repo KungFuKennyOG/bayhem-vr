@@ -21,6 +21,9 @@ export const POWER = {
   // Jinlong dying as it falls: die 0..1 = how far the failure has run; dieRow = the row of its inverse transform that
   // gives a fragment's height on the standing tower (so sections go dark by floor, whatever angle it is at)
   die: { value: 0 }, dieRow: { value: new THREE.Vector4(0, 1, 0, 0) },
+  // how much light the window-walled facades take (1 = lit city; ~0.2 in the blackout: towers go to silhouettes while
+  // the floors you walk on keep the moon)
+  dim: { value: 1 },
 };
 // CPU mirror of the shader's light gain (glow sprites, reflections)
 export function powK(code, y = 0) {
@@ -163,14 +166,14 @@ export function litMat(key, o = {}) {
   m.onBeforeCompile = (s) => {
     s.uniforms.uPow = POWER.pow; s.uniforms.uCut = POWER.cut; s.uniforms.uNight = POWER.night; s.uniforms.uTime = POWER.time; s.uniforms.uDie = POWER.die; s.uniforms.uDieRow = POWER.dieRow;
     s.uniforms.uHF = HFOG.p; s.uniforms.uHFC = HFOG.c;
-    if (win) { s.uniforms.uWinA = WINTEX.a; s.uniforms.uWinB = WINTEX.b; }
+    if (win) { s.uniforms.uWinA = WINTEX.a; s.uniforms.uWinB = WINTEX.b; s.uniforms.uFDim = POWER.dim; }
     s.uniforms.uLM = LM.tex; s.uniforms.uLMC = LM.col; s.uniforms.uLMH = LM.hgt; s.uniforms.uLMR = LM.rect; s.uniforms.uLMG = LM.grp; s.uniforms.uLMK = LM.k;
     s.vertexShader = s.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 aInfo;\nattribute vec3 rm;\nvarying vec4 vInfo;\nvarying vec3 vRM;\nvarying vec3 vWP;' + (win ? '\nattribute vec4 aCell;\nvarying vec4 vCell;\nvarying vec2 vWin;' : ''))
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvInfo = aInfo; vRM = rm;' + (win ? ' vCell = aCell; vWin = uv;' : ''))
       .replace('#include <project_vertex>', '#include <project_vertex>\n{ vec4 wp4 = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp4 = instanceMatrix * wp4;\n#endif\n vWP = (modelMatrix * wp4).xyz; }');
     s.fragmentShader = s.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec4 vInfo;\nvarying vec3 vRM;\nvarying vec3 vWP;\n' + HFOG_GLSL + POW_GLSL + (o.noLM ? '' : LM_GLSL) + (win ? 'varying vec4 vCell;\nvarying vec2 vWin;\n' + WIN_GLSL : ''))
+      .replace('#include <common>', '#include <common>\nvarying vec4 vInfo;\nvarying vec3 vRM;\nvarying vec3 vWP;\n' + HFOG_GLSL + POW_GLSL + (o.noLM ? '' : LM_GLSL) + (win ? 'varying vec4 vCell;\nvarying vec2 vWin;\nuniform float uFDim;\n' + WIN_GLSL : ''))
       .replace('#include <fog_fragment>', '#include <fog_fragment>\n  gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFC, hfogK(vWP));')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
@@ -179,13 +182,15 @@ export function litMat(key, o = {}) {
   // codes >= 32: an LED facade show — light sweeping up the tower in waves (Chongqing's riverfront at night)
   if (vInfo.w > 31.5) pk *= 0.25 + 0.75 * smoothstep(-0.3, 0.7, sin(uTime * 1.7 - vWP.y * 0.08 + vWP.x * 0.006 + vWP.z * 0.004));
   vec3 em = vInfo.rgb * pk;
+  // a light that is off is a dark object: signs, lanterns and lit strips lose their own brightness with their district
+  diffuseColor.rgb *= 1.0 - step(0.25, vInfo.r + vInfo.g + vInfo.b) * (1.0 - pk) * 0.93 * smoothstep(0.3, 0.7, uNight);
   ${emMap > 0 ? `#ifdef USE_MAP\n  em *= mix(vec3(1.0), sampledDiffuseColor.rgb * 2.0, ${emMap.toFixed(2)});\n#endif` : ''}
   ${win ? `if (vCell.x > 0.0) {
     float gm, fm, dm;
     vec3 we = windows(vWin, vCell, pk, vWP.y, vInfo.w, gm, fm, dm);
     diffuseColor.rgb *= 1.0 + dm;
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.035, 0.04, 0.05), gm * 0.9);
-    roughnessFactor = mix(roughnessFactor, 0.12, gm);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.035, 0.04, 0.05), gm * 0.9) * uFDim;
+    roughnessFactor = mix(roughnessFactor, mix(0.6, 0.12, uFDim), gm);
     metalnessFactor = mix(metalnessFactor, 0.0, gm);
     em = we * 0.9 + vInfo.rgb * pk * (1.0 - gm * 0.75);
   }` : ''}

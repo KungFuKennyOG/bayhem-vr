@@ -7,20 +7,20 @@ import { groundAt, walkable, structFloor } from './layout.js';
 import { LightBaker, LM } from './lightmap.js';
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
-const NAMES = ['./city.js', './terrain.js', './west.js', './lantern.js', './bridge.js', './east.js', './tower.js', './slide.js', './river.js', '../downtown-haven/cars.js'];
-const ASSETS = import.meta.glob(['./city.js', './terrain.js', './west.js', './lantern.js', './bridge.js', './east.js', './tower.js', './slide.js', './river.js', '../downtown-haven/cars.js']);
+const NAMES = ['./city.js', './terrain.js', './route.js', './steps.js', './jinlong.js', './slide.js', './river.js', '../downtown-haven/cars.js'];
+const ASSETS = import.meta.glob(['./city.js', './terrain.js', './route.js', './steps.js', './jinlong.js', './slide.js', './river.js', '../downtown-haven/cars.js']);
 async function asset(name) { const l = ASSETS[name]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 // =====================================================================================
-//  LIGHTS OUT world: assembles the city, the cliffs, the streets, Lantern Cliff, the bridges, the
-//  east bank, Jinlong Tower and the river; owns the collision world, the nav grid and the glows
-//  (lamp / lantern / LED halos, each with a power code so the blackout takes them too).
+//  LIGHTS OUT world: assembles the skylines, the banks, the route (plaza, cliff road, bridge,
+//  forecourt), Jinlong Tower, the hillside district and the river; owns the collision world, the
+//  nav grid and the glows (lamp / LED halos, each with a power code so the blackout takes them too).
 // =====================================================================================
 export class LightsWorld {
   constructor(E) {
     this.E = E; this.scene = E.scene;
     this.group = new THREE.Group(); this.scene.add(this.group);
-    this.col = new CollisionWorld({ cell: 8, minX: -240, minZ: -120, maxX: 400, maxZ: 200 });
+    this.col = new CollisionWorld({ cell: 8, minX: 280, minZ: 20, maxX: 800, maxZ: 470 });
     this.panes = []; this.glowList = []; this.updaters = []; this.named = {};
     this.time = 0; this.tris = {};
     this.baker = new LightBaker();
@@ -51,16 +51,14 @@ export class LightsWorld {
     };
     this.city = await take(by['./city.js']?.buildCity, 'city');
     this.terrain = await take(by['./terrain.js']?.buildTerrain, 'terrain');
-    this.west = await take(by['./west.js']?.buildWest, 'west');
-    this.lantern = await take(by['./lantern.js']?.buildLantern, 'lantern');
-    this.bridge = await take(by['./bridge.js']?.buildBridges, 'bridge');
-    this.east = await take(by['./east.js']?.buildEast, 'east');
-    this.tower = await take(by['./tower.js']?.buildTower, 'tower');
+    this.route = await take(by['./route.js']?.buildRoute, 'route');
+    this.steps = await take(by['./steps.js']?.buildSteps, 'steps');
+    this.jinlong = await take(by['./jinlong.js']?.buildJinlong, 'jinlong');
     this.slide = await take(by['./slide.js']?.buildSlide, 'slide');
     this.river = await take(by['./river.js']?.buildRiver, 'river');
     this.props = await take(by['./props.js']?.buildProps, 'props');
     // the war in the city: smoke columns standing over fires across Longwu (game.js feeds them), a fire glow at each foot
-    this.named.smokeColumns = [[210, 64, 780, 1.4], [-420, 52, 690, 1.1], [520, 96, -180, 1.3], [-360, 88, -220, 1.0], [900, 70, 640, 1.2]];
+    this.named.smokeColumns = [[150, 84, -210, 1.3], [1010, 92, -160, 1.2], [210, 70, 520, 1.4], [1040, 80, 560, 1.1], [-240, 60, 470, 1.0]];
     for (const [x, y, z, k] of this.named.smokeColumns) this.glowList.push({ p: [x, y + 2, z], color: [2.4, 0.9, 0.25], size: 18 * k, flick: true, code: 16 + 15, far: true });
     // the batch is capped: the set pieces' halos (the landslide, Jinlong's crown) go first so they are never the ones dropped
     this.glowList.sort((a, b) => (b.prio | 0) - (a.prio | 0));
@@ -88,7 +86,7 @@ export class LightsWorld {
       });
       return ok;
     };
-    this.nav = new NavGrid(col, { x0: -176, z0: 30, x1: 362, z1: 162, y: 1e6, cell: 1, clearance: 0.42, walkable: free });
+    this.nav = new NavGrid(col, { x0: 368, z0: 94, x1: 736, z1: 452, y: 1e6, cell: 1, clearance: 0.42, walkable: free });
     for (const b of deck) b.enabled = true;
     const nav = this.nav, cen = nav.center.bind(nav);
     nav.center = (j, out) => { cen(j, out); out.y = groundAt(out.x, out.z); return out; };
@@ -100,10 +98,9 @@ export class LightsWorld {
     POWER.time.value = this.time;
     const t = this.time;
     for (const u of this.updaters) u(dt, t, head);
-    // the light pools go out with their districts (groups: 0 the roof + steps, 1 Lantern Street + the cliff,
-    // 2 the bridge + the east bank, 3 Jinlong on its generators)
+    // the light pools go out with their districts (groups: 0 the road's west half, 1 its east half, 2 the bridge, 3 the forecourt)
     { const P = POWER.pow.value, n = POWER.night.value, k = Math.min(1, n / 0.12 + 0.15);
-      LM.grp.value.set(P[DIST.WEST] * k, Math.max(P[DIST.LST], P[DIST.CLIFF_HI]) * k, Math.max(P[DIST.ARCH], P[DIST.EAST]) * k, P[DIST.TOWER] * k); }
+      LM.grp.value.set(Math.max(P[DIST.R0], P[DIST.R1]) * k, Math.max(P[DIST.R2], P[DIST.R3]) * k, Math.max(P[DIST.BR0], P[DIST.BR1], P[DIST.BR2]) * k, Math.min(1.8, P[DIST.FORE] * k * 1.8)); }   // the tower floods its forecourt gold: the last light in the city
     const G = this.glows;
     let gi = 0;
     for (const L of this.glowList) {
@@ -114,7 +111,7 @@ export class LightsWorld {
       if (k < 0.02) continue;
       if (L.blink && Math.sin(t * (L.rate || 3.2) + p.x * 0.7) < 0.2) continue;
       const d2 = p.distanceToSquared(head);
-      if (L.far !== true && d2 > 220 * 220) continue;
+      if (L.far !== true && d2 > 260 * 260) continue;
       const c = L.color || [3, 1.6, 0.6], s = (L.size || 1) * (L.flick ? 0.85 + 0.15 * Math.sin(t * 23 + p.z) : 1);
       // far halos grow a little so they don't go sub-pixel in the fog (Chongqing's soft light blooms)
       const grow = L.far ? 1 + Math.min(0.9, Math.sqrt(d2) / 500) : 1;

@@ -70,7 +70,7 @@ export class GlideRail {
     this.curve.arcLengthDivisions = 2000;
     this.len = this.curve.getLength();
     this.s = 0; this.steer = 0; this.steerV = 0;
-    this.pos = new THREE.Vector3(...GLIDE[0]); this.tan = new THREE.Vector3(0, 0, 1);
+    this.pos = new THREE.Vector3(...GLIDE[0]); this.tan = this.curve.getTangentAt(0, new THREE.Vector3());
     this.yaw = Math.atan2(-this.tan.x, -this.tan.z);
   }
   get u() { return clamp(this.s / this.len, 0, 1); }
@@ -129,7 +129,7 @@ export function buildGunboat() {
   // the transom
   { const [x, w, y, c, cy, k] = sec[0]; A.set({ col: HULL2 }); const K = [x, k, 0], Cp = [x, cy, c], Cm = [x, cy, -c], Wp = [x, y, w], Wm = [x, y, -w]; for (const [a1, b1] of [[Cp, Wp], [Wp, Wm], [Wm, Cm]]) { A.tri(K, a1, b1); A.tri(K, b1, a1); } }
   // the deck (triangle strips over the sections) and a gunwale on top of the sheer
-  const D = B.get('wood', 'b'); D.set({ col: [0.42, 0.4, 0.36], rm: [0.8, 0, 0], em: em([1.0, 0.8, 0.55], 0.12, DUSK + DIST.ALWAYS) });   // lit by the deck lamps
+  const D = B.get('wood', 'b'); D.set({ col: [0.3, 0.28, 0.25], rm: [0.75, 0, 0], em: em([1.0, 0.8, 0.55], 0.04, DUSK + DIST.ALWAYS) });   // lit by the deck lamps
   for (let i = 0; i < sec.length - 1; i++) { const [xa, wa, ya] = sec[i], [xb, wb, yb] = sec[i + 1]; D.quad([xa, ya, wa - 0.15], [xb, yb, wb - 0.15], [xb, yb, -wb + 0.15], [xa, ya, -wa + 0.15]); }
   Mt.set({ col: [0.55, 0.57, 0.6], rm: [0.4, 0.8, 0], em: [0, 0, 0, 0] });
   for (let i = 0; i < sec.length - 1; i++) for (const sd of [-1, 1]) {
@@ -148,6 +148,24 @@ export function buildGunboat() {
   W.box(-3.52, 4.6, -2.22, 3.52, 5.6, 2.22, { faces: 'xXzZ', s: 1, wy0: 4.5 });
   W.box(-7.02, 2.2, -2.62, 4.52, 3.0, 2.62, { faces: 'zZ', s: 1, wy0: 2.1 });
   A.set({ col: hexc(0x2e3236) }); A.box(-6.2, 3.6, -1.0, -4.4, 6.6, 1.0, { faces: 'xXzZY' });
+  // the deckhouse's aft bulkhead (you land 1.5 m from it): plating seams, a steel door with a lit port, a bulkhead lamp,
+  // a pipe run, a lifebuoy rack, a kick plate. And seams down both sides
+  A.set({ col: hexc(0x3a4046), em: [0, 0, 0, 0] });
+  for (let z = -1.95; z <= 2; z += 1.3) A.box(-7.025, 1.25, z - 0.015, -7.0, 3.6, z + 0.015, { faces: 'x' });
+  A.box(-7.025, 2.42, -2.6, -7.0, 2.46, 2.6, { faces: 'x' }); A.box(-7.03, 1.25, -2.6, -7.0, 1.5, 2.6, { faces: 'xY' });
+  for (const sd of [-1, 1]) for (let x = -5.8; x < 4.4; x += 1.3) A.box(x - 0.015, 1.25, sd * 2.6, x + 0.015, 3.6, sd * 2.625, { faces: sd > 0 ? 'Z' : 'z' });
+  A.set({ col: hexc(0x272b30) });
+  A.box(-7.07, 1.32, -1.75, -7.0, 3.25, -0.8, { faces: 'xzZY' });                                  // the door
+  A.box(-7.1, 1.3, -1.82, -7.0, 1.36, -0.73, { faces: 'xzZY' }); A.box(-7.1, 3.22, -1.82, -7.0, 3.3, -0.73, { faces: 'xzZYy' });
+  Mt.set({ col: [0.5, 0.5, 0.48], rm: [0.35, 0.8, 0] });
+  Mt.box(-7.13, 2.2, -0.98, -7.07, 2.3, -0.86); Mt.box(-7.1, 1.6, -1.74, -7.07, 1.68, -1.68); Mt.box(-7.1, 2.9, -1.74, -7.07, 2.98, -1.68);   // handle, hinges
+  Mt.set({ col: [0.3, 0.32, 0.34], rm: [0.4, 0.7, 0] });
+  Mt.box(-7.12, 3.38, -2.6, -7.04, 3.46, 2.6); Mt.box(-7.12, 1.25, 1.9, -7.04, 3.4, 1.98);                                         // pipe runs
+  Lt.set({ col: [1, 0.9, 0.7], rm: [0.3, 0, 0], em: em([1, 0.85, 0.6], 2.6, DUSK + DIST.ALWAYS) });
+  Lt.box(-7.09, 2.55, -1.42, -7.07, 2.8, -1.13, { faces: 'x' });                                   // the door's port
+  Lt.box(-7.16, 3.05, -0.45, -7.0, 3.17, -0.2);                                                    // bulkhead lamp
+  Lt.set({ col: [0.9, 0.35, 0.08], rm: [0.6, 0, 0], em: em([1, 0.4, 0.1], 0.25, DUSK + DIST.ALWAYS) });
+  for (const [y0, z0, y1, z1] of [[1.9, 0.5, 2.0, 1.3], [2.6, 0.5, 2.7, 1.3], [1.9, 0.5, 2.7, 0.6], [1.9, 1.2, 2.7, 1.3]]) Lt.box(-7.09, y0, z0, -7.0, y1, z1);   // lifebuoy
   // the lattice radar mast with a yard, a horn antenna on top
   Mt.set({ col: [0.3, 0.32, 0.34], rm: [0.4, 0.7, 0] });
   for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) Mt.beam([dx * 2, 6.0, dz * 2], [dx * 0.4, 11, dz * 0.4], 0.07, 0.07);
