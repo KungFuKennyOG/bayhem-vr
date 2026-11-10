@@ -40,6 +40,7 @@ export class Director {
     };
     // the fight stations' squads
     this.squads = [];
+    this.watch = [];
     // the haboob's look: it starts darkening while the wall is still ~750 m off (its shadow and the dust ahead of it)
     // and is fully on ~400 m inside; never faster than 10 s end to end, so it rolls over you instead of switching on
     this.rampStorm = (dt) => {
@@ -171,10 +172,18 @@ export class Director {
           const left = ['T1', 'T2', 'T3', 'T4'].map(id => this.sp.tower(id)).filter(T_ => !this.sp.strikes.targets.get(T_)?.called);
           // the nearest unpainted target: door toward it, waypoint on it, the autopilot paints it
           let best = null, bd = 1e9; for (const T_ of left) { const d = Math.hypot(T_.x - g.headPos.x, T_.z - g.headPos.z); if (d < bd) { bd = d; best = T_; } }
-          if (best) { const P = V(best.x, best.h * 0.86, best.z); rail.face(P); hud.setWaypoint(P); g.paintTarget = this.auto ? P : null; } else { g.paintTarget = null; rail.face(null); }
-          // escalation: a neighbour every ~25 s, never more than two towers falling at once
+          // a called strike in flight wins the door: you see the missiles hit and the tower go, then the next target
+          this.watch = this.watch.filter(w => (w.fallT == null ? this.total - w.t < 20 : this.total - w.fallT < 6));
+          const W_ = this.watch[0]?.T;
+          if (W_) { const P = V(W_.x, W_.h * 0.6, W_.z); rail.face(P); speed(0.45); g.paintTarget = null; if (best) hud.setWaypoint(V(best.x, best.h * 0.86, best.z)); }
+          else { speed(0.72); if (best) { const P = V(best.x, best.h * 0.86, best.z); rail.face(P); hud.setWaypoint(P); g.paintTarget = this.auto ? P : null; } else { g.paintTarget = null; rail.face(null); } }
+          // escalation: the enemy blows its own towers — one at a time, only when it is out of the door with a clear
+          // line to it (never behind you or behind another building), and never more than two towers falling at once
           this.escT -= dt;
-          if (this.escT <= 0 && this.sp.falling() < 2) { this.escT = 22; const id = ['E1', 'E2', 'E3'].find(i => !this.sp.mids.isDown(this.sp.tower(i).rigIdx)); if (id) { this.sp.fallTower(id, g.headPos); if (first('esc')) later(1, () => say("They're blowing their own buildings now. Scorched earth.", 3)); } }
+          if (this.escT <= 0 && this.sp.falling() < 2) {
+            const id = ['E1', 'E2', 'E3'].find(i => { const T_ = this.sp.tower(i); return !this.sp.mids.isDown(T_.rigIdx) && this._inDoor(T_, 60, 2800); });
+            if (id) { this.escT = 16; this.sp.fallTower(id, g.headPos); if (first('esc')) later(1, () => say("They're blowing their own buildings now. Scorched earth.", 3)); }
+          }
           if (!left.length && first('strikeDone')) { rail.release(); later(1.5, () => say("That's all four. Now the big one.", 2.4)); }
           // pacing: whatever is left gets bombed for you
           // (one at a time, and only while fewer than two towers are falling: the staggered finale rule)
@@ -185,7 +194,7 @@ export class Director {
             if (first('bombers')) say('Bombers have the rest. Come about — the Spire.', 2.6);
           }
           g.sunsetTarget = clamp(0.25 + t / 120, 0, 0.8);
-        }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && rail.s > S('strike3') - 200) || t > 140 },
+        }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && !this.watch.length && ['E1', 'E2', 'E3'].every(i => this.sp.mids.isDown(this.sp.tower(i).rigIdx)) && rail.s > S('strike3') - 200) || t > 140 },
       // 7 ---- the Spire: hover, paint the base, the money shot
       { name: 'spire', music: 1.0, enter: () => {
           g.paintTarget = null;
@@ -267,6 +276,13 @@ export class Director {
     if (best) return best;
     return { id: null, P: V(G.x + door.x * 90, 2, G.z + door.z * 90), ang: 0 };
   }
+  // is tower T out of the open door (within `deg` of where it faces), in range, with its upper half in clear view?
+  _inDoor(T, deg, range_) {
+    const H = this.g.headPos, y = this.W.rail.yaw, dx = T.x - H.x, dz = T.z - H.z, d = Math.hypot(dx, dz);
+    if (d > range_) return false;
+    if ((dx * -Math.cos(y) + dz * Math.sin(y)) / d < Math.cos(deg * Math.PI / 180)) return false;
+    return !this._blocked(H, V(T.x, T.h * 0.85, T.z), T);
+  }
   // does any tower stand in the way between the eye and P?
   _blocked(H, P, skip) {
     const ax = H.x, az = H.z, bx = P.x - ax, bz = P.z - az, L2 = bx * bx + bz * bz;
@@ -321,6 +337,9 @@ export class Director {
       }
       if (e.type === 'wingCrash') this.sp.column(e.p.x, e.p.z, 100, 0.9);
       if (e.type === 'heroStruck') this.heroStruck = this.t;
+      // strikes in flight: the pilot keeps the door on each called tower until it has hit the ground
+      if (e.type === 'strikeCalled' && e.tower !== this.sp.heroTarget) this.watch.push({ T: e.tower, t: this.total, fallT: null });
+      if (e.type === 'towerFall') for (const w of this.watch) if (w.T === e.T && w.fallT == null) w.fallT = this.total;
     }
     if (!this.done) {
       this.t += dt; this.total += dt;

@@ -283,6 +283,9 @@ export function buildPlan(F) {
         if (Math.hypot(x - s.bx, z - s.bz) < s.cr + r + 18) { onCrash = true; continue; }
         if (segDist(x, z, s.ax, s.az, s.bx, s.bz) < r + 25) h = Math.max(30, Math.min(h, s.y - 50));
       }
+      // inside the strike loop (centre 560, -720) nothing reaches the door's eye line: the four flak towers
+      // (262–292 m) stand clear over their neighbourhood and every hit / fall is in plain view (clamp, never skip)
+      if (Math.hypot(x - 560, z + 720) < 440) h = Math.min(h, 160);
       // the money shot's sightline (the hover north of the Spire -> its break): keep it clear
       { const ax = 0, az = -900, bx = HERO.x, bz = HERO.z, dd = segDist(x, z, ax, az, bx, bz);
         if (dd < r + 60) { const t = Math.min(1, Math.max(0, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2))); h = Math.min(h, (F.alt * 2.6) * (1 - t) + 290 * t - 70); if (h < 30) continue; } }
