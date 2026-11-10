@@ -78,7 +78,7 @@ export function asphaltTex(seed = 31) {
   for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
     const u = xx / S, v = y / S;
     const agg = n2(u * 128, v * 128);
-    let L = 0.2 + (fbm(n1, u, v, 2, 4) - 0.5) * 0.08 + (agg > 0.78 ? 0.06 : 0) + (agg - 0.5) * 0.04;
+    let L = 0.2 + (fbm(n1, u, v, 2, 4) - 0.5) * 0.08 + Math.max(0, agg - 0.72) * 0.07 + (agg - 0.5) * 0.03;
     const patch = fbm(n3, u, v, 3, 2); if (patch > 0.6) L *= 0.82;
     const i4 = (y * S + xx) * 4;
     d[i4] = cl(L * 255); d[i4 + 1] = cl(L * 250); d[i4 + 2] = cl(L * 246); d[i4 + 3] = 255;

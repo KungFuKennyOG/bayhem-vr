@@ -225,7 +225,7 @@ export function lampPost(B, reg, x, y, z, { dir = [0, 0, 1], h = 7.5, two = fals
     L.set({ col: [1, 1, 1], rm: [0.4, 0, 0], em: em(col, 4.5, DUSK + code) });
     L.box(hx - 0.32, y + h - 0.05, hz - 0.18, hx + 0.32, y + h + 0.08, hz + 0.18, { faces: 'y' });
     M.box(hx - 0.36, y + h + 0.08, hz - 0.22, hx + 0.36, y + h + 0.28, hz + 0.22, { faces: 'xXzZY' });
-    glows?.push({ p: [hx, y + h - 0.25, hz], color: mul3(col, 1.5), size: 1.7, code: DUSK + code });
+    glows?.push({ p: [hx, y + h - 0.25, hz], color: mul3(col, 1.5), size: 1.15, code: DUSK + code });
     lights?.push({ p: [hx, y + h, hz], color: col, r: 12, k: 1.6, grp });
   }
 }

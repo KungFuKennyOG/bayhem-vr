@@ -30,7 +30,8 @@ the route outwards.
 - **The bridge:** 141 m, cable-stayed, masts and stays outside the kerbs.
 - **North bank, at the bridge's end:** Jinlong Tower on its podium. A lift platform up its south face, the roof,
   the gap in the west parapet.
-- **The glide:** off the roof's west edge, 30° south of west out over the river, then west down the middle of it.
+- **The glide:** off the roof's west edge, south-west out over the river, then west down it along z ≈ 241: past the
+  hole the hill left (burning, the tower lying across it), over two barges, onto the gunboat's aft deck.
 
 The route is low on purpose. From a road level with the hill's crest (the first grey box) the district hid under
 your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" again.
@@ -50,9 +51,12 @@ your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" 
 8. **roof** — NIGHT HERON TWO: rises off the west edge, circles the crown, ducks under the roof line, ropes men
    onto the deck. This one you finish; it comes round and goes into the tower's west face under the parapet.
 9. **jump** — the orange locker (the rig), the gap in the west parapet, the jump.
-10. **glide** — 3 s after the canopy opens the tower goes over, due west. Its crown sweeps past ~50 m off your right
+10. **glide** — 3 s after the canopy opens the tower goes over, due west. Its crown sweeps past off your right
     side at your own height, lights dying as it goes; it lands across the hole the hill left and Longwu is dark.
-    Then jumpers, two barges with searchlights, the gunboat (shoot the drums); you land on its deck.
+    The line then runs west past the scar (fires, the wreck, gas mains going up as you pass), jumpers, two barges
+    with searchlights, and the gunboat (shoot the drums). The boat swings broadside before you reach it: you land
+    on its aft deck looking west across the beam at open river, the deckhouse beside you. The canopy is cut away
+    behind you.
 11. **outro** — the lights come back, district by district, from downstream up. Stats card.
 12. **credits**.
 
@@ -61,9 +65,9 @@ your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" 
 - **Lift:** a steady ride (ease in, 6.5 m/s, ease out), open platform, you can walk about on it. `?lift=blink`
   swaps it for a blink to black.
 - **Glide:** no free fall (the canopy opens 0.75 s after the edge, in slow-mo), a rail at a steady 8.2 m/s and
-  1 : 2.64, no roll, yaw follows the line at ≤ 3°/s (one 30° turn in the whole glide). The canopy is a fixed frame
+  1 : 2.64, no roll, yaw follows the line at ≤ 3°/s (one slow turn in the whole glide). The canopy is a fixed frame
   whose risers sit above and behind your head.
-- **The tower passing:** ~50 m off the line. `?fall=far` sends it 15° further away.
+- **The tower passing:** 50–70 m off the line. `?fall=far` sends it 15° further away.
 - Big moments are look-gated with a timeout (the first cut, both gunship deaths). The tower fall is not: it comes
   into your view on its own, and a marker rides its crown.
 - Nothing waits on your aim: both gunships burn down on their own (75 s / 170 s).
@@ -72,7 +76,9 @@ your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" 
 One code per emissive vertex. Districts: R0–R3 (the road, west → east), BR0–BR2 (the bridge, south → north), HILL,
 EAST (the static hill and the terraces east of the tower), FORE, TOWER (must stay 10: the dying-tower shader),
 FAR_N / FAR_S / FAR_E / FAR_W (the skylines), ALWAYS. `setpieces.cut(id, {kind})` queues one cut (`flick`, `cut`
-top-down, `on`). The city's glow (sky, fog) follows whatever is still lit.
+top-down, `on`). The city's glow (sky, fog) follows whatever is still lit. In the blackout `POWER.dim` takes the
+facades down and the fog goes darker than the sky's horizon, so the city is dark shapes against the sky, with
+fires (`city.js` glows) and red beacons in it.
 
 ## Modules
 - New: `layout.js`, `route.js` (plaza, road, frontage, bridge, forecourt), `jinlong.js` (tower, roof, lift),
@@ -86,3 +92,4 @@ top-down, `on`). The city's glow (sky, fog) follows whatever is still lit.
 - `tools/lights-out-review.sh <dir>` — the fixed review frames.
 - `tools/run-level.cjs "level=lights-out" 700 10 [prefix]` — a fast headless autopilot run, state every 10 s.
 - `tools/check-lanes.mjs` — the lanes are clear.
+- `tools/beat-sweep.cjs lights-out <beats>` — every beat boots and runs with and without the autopilot.

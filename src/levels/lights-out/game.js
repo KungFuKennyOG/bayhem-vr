@@ -43,6 +43,8 @@ export function applyLook(night, glow, fire, { sun, hemi, fog, renderer, scene }
   // ...but in the blackout the haze has nothing to glow with: it goes dark and the towers stand as silhouettes against the
   // fire-lit sky (reviewers kept reading the pale grey fog on dark towers as 'the city is still lit')
   fog.color.multiplyScalar(lerp(1.25, 1.9, night) * lerp(1, 0.3, (1 - glow) * night));
+  // ...and darker and bluer than the sky's horizon, so the far ranks are dark shapes against it, never pale grey boxes
+  fog.color.lerp(C(0.028, 0.032, 0.05), 0.8 * (1 - glow) * night);
   // the gorge mist (height fog): the same haze, a touch brighter and warmer where the city lights it
   HFOG.c.value.copy(fog.color).multiplyScalar(1.1).add(C(0.05, 0.03, 0.01).multiplyScalar(glow * night));
   HFOG.p.value.x = lerp(0.0022, 0.0032, night);

@@ -179,6 +179,12 @@ export function buildRoute(ctx = {}) {
         Rw.set({ col: [0.24, 0.23, 0.24], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rw.box(wx - 0.3, y1, ROAD.rail - 0.9 - out, wx + w + 0.3, y1 + 0.35, ROAD.rail - 0.3, { faces: 'xXzY', s: 1 });
         Ww.set({ col: [0.2, 0.17, 0.14], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
         for (let px = wx + 1; px < wx + w; px += 3) Ww.box(px - 0.12, WATER_Y - 2, ROAD.rail - 0.6 - out, px + 0.12, y1 - h, ROAD.rail - 0.36 - out, { faces: 'xXz' });
+        // somebody is always home: a candle or a storm lantern in a window here and there. They are what is left of
+        // the south bank in the blackout (seen from the lift and the whole glide)
+        { const hsh = (n) => { const q = Math.sin(wx * 12.9898 + n * 78.233) * 43758.5453; return q - Math.floor(q); };
+          for (let c = 0; c < 2; c++) if (hsh(c) < 0.42) { const cx = wx + 1 + hsh(c + 5) * (w - 2.6), cy = y1 - 1.6 - hsh(c + 9) * (h - 3.2), cz = ROAD.rail - 0.4 - out;
+            Lw.set({ col: [0.5, 0.3, 0.12], rm: [0.5, 0, 0], em: em([1, 0.58, 0.22], 1.5, DUSK + DIST.ALWAYS) }); Lw.box(cx, cy, cz - 0.04, cx + 0.8, cy + 1.0, cz, { faces: 'z' });
+            glows.push({ p: [cx + 0.4, cy + 0.5, cz - 0.3], color: [1.5, 0.75, 0.25], size: 1.5, code: DUSK + DIST.ALWAYS, far: true }); } }
         wx += w + (r() < 0.2 ? 3 + r() * 5 : 0.4);
       }
       for (let lx = X0 - 220; lx < X1 + 220; lx += 60) { const code = lx < 250 ? DIST.FAR_W : lx > 800 ? DIST.FAR_E : roadDist(lx + 30); Lw.set({ col: [0.3, 0.22, 0.1], rm: [0.4, 0.7, 0], em: em(GOLD, 1.3, DUSK + code) }); Lw.box(lx, Y - 0.5, ROAD.rail - 0.42, lx + 60, Y - 0.32, ROAD.rail - 0.36, { faces: 'z' }); }

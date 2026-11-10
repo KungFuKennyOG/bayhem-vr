@@ -124,7 +124,7 @@ export class SetPieces {
     for (let i = 0; i < n; i++) g.fx.later(rand() * 0.9, () => {
       const p = pts[(rand() * pts.length) | 0], d = p.distanceTo(g.headPos), sz = Math.min(11, 4 + d * 0.05);
       g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.FLASH, s0: sz * 0.35, s1: sz * 0.9, life: 0.14, r: 0.9, g: 1.25, b: 1.9, fadeIn: 0, fadeOut: 0.5 });
-      g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.GLOW, s0: sz * 1.4, s1: sz * 2.2, life: 0.3, r: 0.22, g: 0.36, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.6 });
+      g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.GLOW, s0: sz * 0.8, s1: sz * 1.3, life: 0.3, r: 0.22, g: 0.36, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.6 });
       for (let k = 0; k < 14; k++) g.fx.sparks.spawn({ x: p.x, y: p.y, z: p.z, vx: range(-6, 6), vy: range(0, 8), vz: range(-6, 6), grav: 9.8, drag: 0.15, frame: CELL.SPARK, s0: 1 + d * 0.004, w: 0.05 + d * 0.0003, len: 0.2, life: range(0.5, 1.4), r: 2.2, g: 2.6, b: 3.4, a: 1, fadeOut: 0.4 });
       if (d < 160) g.fx.light(p, 50, 0.1, 0x9ec8ff, true, 50);
       if (d < 400) this.audio.play('impact_metal', { x: p.x, y: p.y, z: p.z, volume: 0.6, pitch: 1.8 });
@@ -156,7 +156,7 @@ export class SetPieces {
       const g = this.g;
       for (let i = 0; i < 46; i++) g.fx.later(2.5 + i * 0.2 + rand() * 0.2, () => { const x = range(SLIDE.x0 + 10, SLIDE.x1 - 10), s0 = range(12, 18); g.clouds.spawn({ x, y: range(4, 22), z: range(140, 172), vx: range(-2, 2), vy: range(1, 5), vz: range(5, 11), drag: 0.5, buoy: 0.06, s0, s1: s0 * range(2.8, 3.6), life: range(9, 13), a: 0.7, fadeIn: 0.06, fadeOut: 0.5, r: 0.3, g: 0.22, b: 0.14, r1: 0.2, g1: 0.165, b1: 0.13, glow: 1.6, glowFade: 4 }); });
       for (const [t, bx, by, bz, k] of [[1.4, 447, 80, 50, 4.2], [5.0, 520, 40, 96, 3.4], [8.6, 430, 22, 132, 3.6]]) g.fx.later(t, () => { const P = new THREE.Vector3(bx, by, bz); g.fx.explosion(P, 5, { noRing: true }); this.heron1.megaFireball(P, k, [0, 0, 1]); g.fx.light(P, 2400, 1.8, 0xff9040, true, 500); g.lastExplosionShake = 0.4; g.lastExplosionT = g.time; this.audio.play('explosion_big', { volume: 0.6, pitch: 0.75 }); });
-      for (const [t, fx, fy, fz, k] of [[1.0, 447, 66, 46, 2.6], [2.4, 505, 60, 50, 2.0], [3.2, 400, 58, 52, 2.0], [4.5, 470, 40, 86, 2.4], [5.2, 545, 44, 80, 2.2], [6.4, 425, 30, 104, 2.2], [7.0, 515, 26, 112, 2.6], [8.2, 575, 30, 110, 2.0], [9.0, 460, 14, 142, 2.4], [9.8, 540, 12, 148, 2.2], [10.6, 395, 12, 150, 2.0], [11.4, 600, 22, 120, 1.8]])
+      for (const [t, fx, fy, fz, k] of [[1.0, 447, 66, 46, 4.2], [1.6, 458, 62, 50, 1.6], [2.4, 505, 60, 50, 1.2], [3.2, 400, 58, 52, 2.2], [4.5, 470, 40, 86, 3.4], [4.9, 482, 36, 92, 1.4], [5.2, 552, 44, 80, 1.0], [6.4, 418, 30, 104, 1.4], [7.0, 515, 26, 112, 3.8], [7.3, 528, 22, 118, 1.8], [8.2, 580, 30, 110, 1.1], [9.0, 452, 14, 142, 2.8], [9.8, 546, 12, 148, 1.2], [10.6, 392, 12, 150, 1.6], [11.4, 600, 22, 120, 1.0]])
         g.fx.later(t, () => { const P = new THREE.Vector3(fx, fy, fz); g.fx.explosion(P.clone().setY(fy + 4), 2.2, { noRing: true }); this.addFire(P, k * 1.3, { life: 1e9 }); });
     }
   }
@@ -228,7 +228,7 @@ export class SetPieces {
   takeRig() {
     if (this.rigOn) return; this.rigOn = true;
     for (const b of this.g.world.col.boxes) if (b.data.kind === 'gapbar') b.enabled = false;
-    if (this.tw) this.tw.bar.visible = false;
+    this.barUp = 0;   // the barrier arm swings up (see _liftPose)
     this.g.audio.play('reload', { volume: 1 }); this.g.audio.play('gear_rattle', { volume: 1 });
     this.g.hud.objective('BASE RIG ON — off the west edge!', 4);
     this.g.events.push({ type: 'rig' });
@@ -538,6 +538,7 @@ export class SetPieces {
     this._updatePower(dt);
     this._updateFall(dt);
     this._updateLift(dt);
+    if (this.barUp !== undefined && this.tw && this.barUp < 1) { this.barUp = Math.min(1, this.barUp + dt * 1.2); const k = this.barUp; this.tw.bar.rotation.x = -1.35 * k * k * (3 - 2 * k); }
     this.slide.update(dt);
     if (this.slide.active && !SLIDE.gone && this.slide.T > 14) SLIDE.gone = true;
     this.heron1.update(dt);

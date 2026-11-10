@@ -215,7 +215,7 @@ export function buildCity(ctx = {}) {
   {
     const Rg = B.get('rock', 'ridge'); Rg.set({ col: [0.045, 0.05, 0.055], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
     const rid = (zz, flip, ph) => { let px = -1700, py = 240; for (let x = -1700; x <= 2100; x += 60) { const y = 300 + Math.sin(x * 0.0021 + ph) * 70 + Math.sin(x * 0.007 + 1 + ph) * 25; if (x > -1700) { if (flip) Rg.quad([px, 0, zz], [x, 0, zz], [x, y, zz], [px, py, zz]); else Rg.quad([x, 0, zz], [px, 0, zz], [px, py, zz], [x, y, zz]); } px = x; py = y; } };
-    rid(ROAD.z1 + 760, false, 0); rid(-760, true, 1.7);
+    rid(ROAD.z1 + 760, false, 0);
     glows.push({ p: [620, 300 + Math.sin(620 * 0.0021) * 70 + Math.sin(620 * 0.007 + 1) * 25 + 80, ROAD.z1 + 760], color: [3, 0.2, 0.1], size: 8, blink: true, code: DUSK + DIST.ALWAYS, far: true });
   }
   // the moon, low over the south-west (down the river: the glide flies toward it), and fires burning out in the city

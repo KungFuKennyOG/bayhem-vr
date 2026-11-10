@@ -239,7 +239,7 @@ export class Director {
           later(trailer ? 4 : 6.4, () => {
             const sub = `${g.kills} GOONS  •  2 GUNSHIPS  •  1 HILL  •  1 TOWER  •  ${g.score}`;
             const P = g.headPos.clone().addScaledVector(g.playerFwd, 16).setY(g.headPos.y + 5);
-            hud.showTitle(P, 'LIGHTS OUT', sub, 999);
+            hud.showTitle(P, 'LIGHTS OUT', sub, 999); hud.title.s.renderOrder = 210;   // over the dim plane: the card is the brightest thing on screen
             g.cinematicLook = P.clone();
           });
         }, update: (t) => { hud.black.material.opacity = clamp((t - 9) / 2, 0, 0.5); },
@@ -257,7 +257,7 @@ export class Director {
           hud.black.material.opacity = 0.85;
         }, update: (t) => {
           const i = Math.floor(t / 4.2);
-          if (i !== this.cardI && i < this.cards.length) { this.cardI = i; const P = g.headPos.clone().addScaledVector(g.playerFwd, 9).setY(g.headPos.y + 0.6); hud.showTitle(P, this.cards[i][0], this.cards[i][1], 999); }
+          if (i !== this.cardI && i < this.cards.length) { this.cardI = i; const P = g.headPos.clone().addScaledVector(g.playerFwd, 9).setY(g.headPos.y + 0.6); hud.showTitle(P, this.cards[i][0], this.cards[i][1], 999); hud.title.s.renderOrder = 210; }
           hud.black.material.opacity = 0.85;
         }, until: (t) => t > (trailer ? 12 : 4.2 * 5 + 1) },
     ];

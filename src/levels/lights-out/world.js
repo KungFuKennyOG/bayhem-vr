@@ -99,7 +99,7 @@ export class LightsWorld {
     for (const u of this.updaters) u(dt, t, head);
     // the light pools go out with their districts (groups: 0 the road's west half, 1 its east half, 2 the bridge, 3 the forecourt)
     { const P = POWER.pow.value, n = POWER.night.value, k = Math.min(1, n / 0.12 + 0.15);
-      LM.grp.value.set(Math.max(P[DIST.R0], P[DIST.R1]) * k, Math.max(P[DIST.R2], P[DIST.R3]) * k, Math.max(P[DIST.BR0], P[DIST.BR1], P[DIST.BR2]) * k, P[DIST.FORE] * k); }
+      LM.grp.value.set(Math.max(P[DIST.R0], P[DIST.R1]) * k, Math.max(P[DIST.R2], P[DIST.R3]) * k, Math.max(P[DIST.BR0], P[DIST.BR1], P[DIST.BR2]) * k, Math.min(1.8, P[DIST.FORE] * k * 1.8)); }   // the tower floods its forecourt gold: the last light in the city
     const G = this.glows;
     let gi = 0;
     for (const L of this.glowList) {

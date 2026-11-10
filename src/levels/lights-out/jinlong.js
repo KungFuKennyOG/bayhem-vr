@@ -31,9 +31,18 @@ export function buildJinlong(ctx = {}) {
   const W = B.get('win', 'tw');
   W.set({ col: hexc(0x5a5346), rm: [0.32, 0.25, 0], em: [0, 0, 0, code], cell: [2.0, 3.9, 21, 4] });
   W.box(T.x0, Y + 9, T.z0, T.x1, RY - 0.6, T.z1, { faces: 'xXzZ', s: 1, wy0: Y + 9 });
-  W.set({ col: hexc(0x3f3a33), rm: [0.3, 0.3, 0], em: [0, 0, 0, code], cell: [4.0, 4.5, 5, 3] });
+  W.set({ col: hexc(0x3f3a33), rm: [0.3, 0.3, 0], em: [0, 0, 0, code], cell: [2.0, 3.0, 5, 3] });
   W.box(T.x0, Y, T.z0, T.x1, Y + 9, T.z1, { faces: 'xXzZ', s: 1, wy0: Y });
   const Gd = B.get('plain', 'tw');
+  // the base at eye level: a dark stone plinth, gold piers every 4 m, a transom line (a lobby front, not one sheet of glass)
+  { const St = B.get('concrete', 'twb'); St.set({ col: [0.2, 0.19, 0.18], rm: [0.6, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    St.box(T.x0 - 0.18, Y, T.z0 - 0.18, T.x1 + 0.18, Y + 0.9, T.z1 + 0.18, { faces: 'xXzZY', s: 1 });
+    Gd.set({ col: [0.46, 0.35, 0.16], rm: [0.35, 0.8, 0], em: em(GOLD, 0.3, DUSK + code) });
+    for (let k = 0; k <= 8; k++) { const fx = T.x0 + (T.x1 - T.x0) * k / 8, fz = T.z0 + (T.z1 - T.z0) * k / 8;
+      Gd.box(fx - 0.2, Y + 0.9, T.z0 - 0.3, fx + 0.2, Y + 8.6, T.z0, { faces: 'xXz' });
+      if (fx < LIFT.x0 - 0.5 || fx > LIFT.x1 + 0.5) Gd.box(fx - 0.2, Y + 0.9, T.z1, fx + 0.2, Y + 8.6, T.z1 + 0.3, { faces: 'xXZ' });
+      Gd.box(T.x0 - 0.3, Y + 0.9, fz - 0.2, T.x0, Y + 8.6, fz + 0.2, { faces: 'xzZ' }); Gd.box(T.x1, Y + 0.9, fz - 0.2, T.x1 + 0.3, Y + 8.6, fz + 0.2, { faces: 'XzZ' }); }
+    Gd.box(T.x0 - 0.12, Y + 3.9, T.z0 - 0.12, T.x1 + 0.12, Y + 4.1, T.z1 + 0.12, { faces: 'xXzZ' }); }
   Gd.set({ col: [0.4, 0.3, 0.14], rm: [0.35, 0.8, 0], em: em(GOLD, 1.5, DUSK + code) });
   for (const [cx, cz] of [[T.x0, T.z0], [T.x1, T.z0], [T.x0, T.z1], [T.x1, T.z1]]) Gd.box(cx - 0.35, Y + 9, cz - 0.35, cx + 0.35, RY + 1.1, cz + 0.35, { faces: 'xXzZ' });
   Gd.set({ em: em(GOLD, 1.0, DUSK + code) });
@@ -69,16 +78,29 @@ export function buildJinlong(ctx = {}) {
   par(R.x0, R.z0, R.x0 + 0.4, R.gap[0]); par(R.x0, R.gap[1], R.x0 + 0.4, R.z1);
   // the bar across the jump gap (it lifts when you take the rig)
   const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, R.gap[1] - R.gap[0]), new THREE.MeshStandardMaterial({ color: 0xb02a18, roughness: 0.6, emissive: 0x501008 }));
-  bar.position.set(R.x0 + 0.2, RY + 1.0, (R.gap[0] + R.gap[1]) / 2); inner.add(bar);
+  bar.position.set(R.x0 + 0.2, RY + 1.0, R.gap[0]); inner.add(bar);   // hinged at its north end: it swings up when you take the rig
   solid(R.x0, RY, R.gap[0], R.x0 + 0.4, RY + 1.1, R.gap[1], { kind: 'gapbar', noBullet: true });
   // the barrier arm across the gap: thick, striped (it lifts when you take the rig) — and the way off marked on the deck:
   // amber chevrons from the helipad to the gap, a lamp either side of it
   { const g0 = R.gap[0], g1 = R.gap[1]; const stripe = new THREE.Group();
-    for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, (g1 - g0) / 8), new THREE.MeshStandardMaterial({ color: i % 2 ? 0xd8d2c0 : 0xb02a18, roughness: 0.6, emissive: i % 2 ? 0x2a2820 : 0x501008 })); m.position.set(0, 0, g0 + (i + 0.5) * (g1 - g0) / 8 - (g0 + g1) / 2); stripe.add(m); }
+    for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, (g1 - g0) / 8), new THREE.MeshStandardMaterial({ color: i % 2 ? 0xd8d2c0 : 0xb02a18, roughness: 0.6, emissive: i % 2 ? 0x2a2820 : 0x501008 })); m.position.set(0, 0, (i + 0.5) * (g1 - g0) / 8); stripe.add(m); }
     bar.add(stripe); bar.material.visible = false;
+    // the jump gantry: a grated stub out past the edge in the middle of the gap, lit edges, rails outside it. This is
+    // the one place on the roof that says 'off here'
+    { const zc = (g0 + g1) / 2, x0 = R.x0 - 3.2, hw = 1.7;
+      Mt.set({ col: [0.2, 0.2, 0.21], rm: [0.55, 0.7, 0], em: [0, 0, 0, 0] });
+      Mt.box(x0, RY - 0.14, zc - hw, R.x0 + 0.4, RY + 0.0, zc + hw, { s: 1 });
+      for (let i = 0; i < 9; i++) Mt.box(x0 + 0.1 + i * 0.4, RY, zc - hw, x0 + 0.16 + i * 0.4, RY + 0.02, zc + hw, { faces: 'xXY' });
+      for (const sd of [-1, 1]) { const z = zc + sd * hw; for (const xx of [x0 + 0.05, x0 + 1.6, R.x0 - 0.05]) Mt.cyl(xx, RY, z, 0.035, 0.035, RY + 1.0, 5); Mt.box(x0, RY + 0.96, z - 0.03, R.x0, RY + 1.02, z + 0.03, {}); Mt.box(x0, RY + 0.5, z - 0.02, R.x0, RY + 0.54, z + 0.02, {});
+        Mt.box(x0 + 0.2, RY - 0.14, z - 0.05, x0 + 0.3, RY - 2.2, z + 0.05, {}); }
+      Gd.set({ col: [0.6, 0.38, 0.08], rm: [0.6, 0.2, 0], em: em([1, 0.62, 0.18], 2.2, DUSK + DIST.ALWAYS) });
+      for (const sd of [-1, 1]) Gd.box(x0, RY + 0.0, zc + sd * (hw - 0.12) - 0.05, R.x0 + 0.4, RY + 0.025, zc + sd * (hw - 0.12) + 0.05, { faces: 'Y' });
+      Gd.box(x0, RY + 0.0, zc - hw, x0 + 0.12, RY + 0.03, zc + hw, { faces: 'Yx' });
+      // the parapet either side of the gantry mouth ends in a lit post (the gap is 12 m wide; the gantry is its middle)
+      for (const sd of [-1, 1]) { const z = zc + sd * (hw + 0.25); Mt.cyl(R.x0 + 0.2, RY, z, 0.09, 0.09, RY + 1.25, 6); ride(R.x0 + 0.2, RY + 1.35, z, { color: [0.5, 2.4, 0.9], size: 0.9, code: DUSK + DIST.ALWAYS }); } }
     Gd.set({ col: [0.6, 0.38, 0.08], rm: [0.6, 0.2, 0], em: em([1, 0.62, 0.18], 1.6, DUSK + DIST.ALWAYS) });
     for (let k = 0; k < 6; k++) { const x1 = R.x0 + 2.2 + k * 1.9, zc = (g0 + g1) / 2; Gd.quad([x1 + 0.9, RY + 0.014, zc - 1.5], [x1 + 1.35, RY + 0.014, zc - 1.5], [x1 + 0.45, RY + 0.014, zc], [x1, RY + 0.014, zc]); Gd.quad([x1, RY + 0.014, zc], [x1 + 0.45, RY + 0.014, zc], [x1 + 1.35, RY + 0.014, zc + 1.5], [x1 + 0.9, RY + 0.014, zc + 1.5]); }
-    for (const gz of [g0 - 0.5, g1 + 0.5]) { Mt.set({ col: [0.14, 0.14, 0.15], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] }); Mt.cyl(R.x0 + 0.2, RY + 1.1, gz, 0.07, 0.07, RY + 2.6, 6); Gd.box(R.x0 + 0.05, RY + 2.6, gz - 0.15, R.x0 + 0.35, RY + 2.85, gz + 0.15, {}); ride(R.x0 + 0.2, RY + 2.75, gz, { color: [2.6, 1.3, 0.4], size: 1.3, code: DUSK + DIST.ALWAYS }); } }
+    for (const gz of [g0 - 0.5, g1 + 0.5]) { Mt.set({ col: [0.14, 0.14, 0.15], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] }); Mt.cyl(R.x0 + 0.2, RY + 1.1, gz, 0.07, 0.07, RY + 2.6, 6); Gd.box(R.x0 + 0.05, RY + 2.6, gz - 0.15, R.x0 + 0.35, RY + 2.85, gz + 0.15, {}); ride(R.x0 + 0.2, RY + 2.75, gz, { color: [2.6, 1.3, 0.4], size: 0.8, code: DUSK + DIST.ALWAYS }); } }
   // roof plant along the north and east edges (AC units, vent stacks, cable trays: the deck is a working roof)
   { const U = [[683, 105, 2.4, 1.4, 1.5], [688, 105, 1.6, 1.3, 1.1], [692.5, 104.9, 3.0, 1.2, 1.7], [697, 105, 1.5, 1.4, 1.2], [706, 113, 1.4, 2.6, 1.6], [706, 118, 1.3, 1.6, 1.0], [706.1, 122, 1.4, 2.2, 1.9]];
     for (const [ux, uz, w, d, h] of U) { Mt.set({ col: [0.36, 0.37, 0.38], rm: [0.6, 0.5, 0], em: [0, 0, 0, 0] }); Mt.box(ux - w / 2, RY, uz - d / 2 + 0.6, ux + w / 2, RY + h, uz + d / 2 + 0.6, { s: 1, foot: 0.3 }); Mt.set({ col: [0.1, 0.1, 0.11] }); Mt.cyl(ux, RY + h, uz + 0.6, Math.min(w, d) * 0.3, Math.min(w, d) * 0.3, RY + h + 0.12, 10); solid(ux - w / 2, RY, uz - d / 2 + 0.6, ux + w / 2, RY + h, uz + d / 2 + 0.6, { mat: 'metal', kind: 'cover' }); }
@@ -161,7 +183,11 @@ export function buildJinlong(ctx = {}) {
     // hazard chevrons across the deck's open edge, a warm glow up through the grating
     E.set({ col: [0.75, 0.55, 0.1], rm: [0.7, 0, 0], em: em([1, 0.7, 0.2], 0.25, DUSK + DIST.ALWAYS) });
     for (let cx2 = x0 + 0.5; cx2 < x1 - 0.6; cx2 += 1.2) E.quad([cx2, 0.012, z1 - 0.1], [cx2 + 0.6, 0.012, z1 - 0.1], [cx2 + 0.95, 0.012, z1 - 0.75], [cx2 + 0.35, 0.012, z1 - 0.75]);
-    D.set({ col: [0.42, 0.4, 0.38], rm: [0.55, 0.5, 0], em: em(GOLD, 0.1, DUSK + DIST.ALWAYS) }); D.box(x0 + 0.1, 0, z0 + 0.1, x1 - 0.1, 0.008, z1 - 0.8, { faces: 'Y', s: 1 });
+    D.set({ col: [0.34, 0.34, 0.34], rm: [0.5, 0.6, 0], em: em(GOLD, 0.03, DUSK + DIST.ALWAYS) }); D.box(x0 + 0.1, 0, z0 + 0.1, x1 - 0.1, 0.008, z1 - 0.8, { faces: 'Y', s: 1 });
+    // tread bars and two inspection hatches: a steel deck, not a coloured slab
+    D.set({ col: [0.13, 0.13, 0.14], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
+    for (let z = z0 + 0.35; z < z1 - 0.9; z += 0.42) D.box(x0 + 0.25, 0.008, z, x1 - 0.25, 0.02, z + 0.07, { faces: 'Y' });
+    for (const hx of [x0 + 1.4, x1 - 2.6]) { D.box(hx, 0.02, z0 + 1.2, hx + 1.2, 0.03, z0 + 2.4, { faces: 'Y' }); }
     E.box(x0, -0.32, z1, x1, -0.02, z1 + 0.03, { faces: 'Z' });
     LB.finish(lift, { shadowKeys: SHADOW_KEYS });
   }
@@ -169,7 +195,7 @@ export function buildJinlong(ctx = {}) {
   // the gate across the platform's open south side: shut while it moves
   const gate = new THREE.Mesh(new THREE.BoxGeometry(LIFT.x1 - LIFT.x0 - 0.2, 0.09, 0.09), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5, metalness: 0.6 }));
   gate.position.set((LIFT.x0 + LIFT.x1) / 2, 1.05, LIFT.z1 - 0.08); gate.visible = false; lift.add(gate);
-  const liftGlow = { p: V3((LIFT.x0 + LIFT.x1) / 2, Y + 0.6, LIFT.z1), color: [2.4, 1.5, 0.6], size: 3.2, code: DUSK + DIST.ALWAYS, prio: 1 };
+  const liftGlow = { p: V3((LIFT.x0 + LIFT.x1) / 2, Y + 0.6, LIFT.z1), color: [2.4, 1.5, 0.6], size: 1.0, code: DUSK + DIST.ALWAYS, prio: 1 };
   glows.push(liftGlow);
 
   const top = V3(cx, RY + CROWN_H, cz);
