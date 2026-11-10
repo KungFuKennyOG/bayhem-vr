@@ -42,7 +42,7 @@ export async function create(E) {
   const setp = new SetPieces(game);
   game.setpieces = setp;
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });
-  player.yaw = params.has('yaw') ? +params.get('yaw') : START.yaw; player.pitch = -0.04;
+  player.yaw = START.yaw; player.pitch = -0.04;   // (main.js applies ?yaw=<degrees>&pitch= after this)
   game.onHaptic = (i, ms) => player.pulse(i, ms);
   // the locomotion's ground: the route is one level (y 64) inside the walk mask; the lift platform while you are on
   // it; the roof. Off the mask there is no ground (= a ledge: you can't walk off it)

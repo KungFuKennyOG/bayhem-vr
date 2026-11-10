@@ -48,6 +48,11 @@ export class SetPieces {
     if (g.params.get('fall') === 'far') this.fallDir.set(-0.97, 0, -0.24);      // comfort option: the tower goes further from the glide line
     this.fallDir.normalize();
     this.glide = null; this.riding = false; this.onRoof = false;
+    // two lamps the pooled lights can take: the roof deck under the crown's floods, and the lift platform's own light
+    const twOn = () => this.fall ? 0 : POWER.pow.value[DIST.TOWER];
+    this.fires.push({ p: new THREE.Vector3(TCX, ROOFTOP.y + 7, TCZ), size: 1.7, t: 0, life: 1e9, lamp: twOn });
+    this.liftLamp = { p: new THREE.Vector3((LIFT.x0 + LIFT.x1) / 2, Y + 2.6, LIFT.z1 - 1), size: 0.8, t: 0, life: 1e9, lamp: () => this.lift.state === 'top' ? 0 : 1 };
+    this.fires.push(this.liftLamp);
   }
   warmMaterials() {
     const out = [];
@@ -64,6 +69,7 @@ export class SetPieces {
     for (const f of this.fires) {
       f.t += dt; if (f.t > f.life) { f.dead = true; continue; }
       const d = f.p.distanceTo(head);
+      if (f.lamp) { const k = f.lamp(); if (k > 0.02 && d < 60) near.push({ f, d: d * 0.5, k }); continue; }   // a lamp: light only (the two pooled lights go to whatever is nearest)
       near.push({ f, d });
       if (d > 220) continue;
       const far = d > 110 ? 0.4 : 1;
@@ -74,7 +80,7 @@ export class SetPieces {
     near.sort((a, b) => a.d - b.d);
     this.lights.forEach((L, i) => {
       const n = near[i];
-      if (n && n.d < 70) { L.p.copy(n.f.p).setY(n.f.p.y + 1.8); L.k = damp(L.k, 12 * n.f.size * (0.8 + 0.2 * Math.sin(g.time * 17 + i * 3) + 0.1 * Math.sin(g.time * 41 + i)), 6, dt); } else L.k = damp(L.k, 0, 3, dt);
+      if (n && n.d < 70) { L.p.copy(n.f.p).setY(n.f.p.y + 1.8); L.k = damp(L.k, n.f.lamp ? 16 * n.f.size * n.k : 12 * n.f.size * (0.8 + 0.2 * Math.sin(g.time * 17 + i * 3) + 0.1 * Math.sin(g.time * 41 + i)), 6, dt); L.l.distance = n.f.lamp ? 46 : 26; } else L.k = damp(L.k, 0, 3, dt);
       L.l.position.copy(L.p); L.l.intensity = L.k;
     });
   }
@@ -161,7 +167,7 @@ export class SetPieces {
     this.g.events.push({ type: 'liftUp' });
   }
   liftTop() { const L = this.lift; L.state = 'top'; L.y = LIFT.y1; L.v = 0; this._liftPose(); this.onRoof = true; if (this.tw) this.tw.gate.visible = false; }
-  _liftPose() { const y = this.lift.y; STATE.liftY = y; if (this.tw) { this.tw.lift.position.y = y; this.tw.liftGlow.p.y = y + 0.6; } }
+  _liftPose() { const y = this.lift.y; STATE.liftY = y; this.liftLamp.p.y = y + 2.6; if (this.tw) { this.tw.lift.position.y = y; this.tw.liftGlow.p.y = y + 0.6; } }
   _updateLift(dt) {
     const L = this.lift; if (L.state !== 'up') return;
     const g = this.g;
@@ -354,6 +360,8 @@ export class SetPieces {
     this.boatX = (this.rail.curve.points[this.rail.curve.points.length - 1].x - this.boat.userData.deck.x) - BOAT.speed * T;
     this.boat.position.set(this.boatX, WATER_Y + 0.15, BOAT.z - this.boat.userData.deck.z);
     this._spawnGlideEnemies();
+    // what the hill left: fires all down the scar and along the quay, so the wreckage is lit when you fly along it
+    for (const [fx, fy, fz, k] of [[575, 30, 110, 2.2], [545, 14, 150, 1.8], [515, 36, 92, 2.0], [488, 10, 158, 1.6], [460, 28, 104, 2.4], [432, 12, 150, 1.8], [405, 30, 96, 2.0], [384, 9, 156, 1.6], [620, 24, 118, 1.8]]) this.addFire(new THREE.Vector3(fx, fy, fz), k, { life: 200 });
     this.g.events.push({ type: 'canopy' });
   }
   _spawnGlideEnemies() {
@@ -374,7 +382,7 @@ export class SetPieces {
     });
     // two armed barges on the river either side of the line (gunners + a searchlight each): they open up as you come over them
     this.barges = [];
-    for (const [x, z, v, s] of [[322, 248, 0.5, 380], [228, 221, -0.4, 473]]) {
+    for (const [x, z, v, s] of [[316, 238, 0.5, 385], [232, 220, -0.4, 472]]) {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
       const t0 = Math.max(4, s / GLIDE_SPEED - 15);
       const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }));

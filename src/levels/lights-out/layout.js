@@ -43,12 +43,14 @@ export const HINGE = { x: TOWER.x0, y: Y, z: (TOWER.z0 + TOWER.z1) / 2 };   // t
 export const FALL_DIR = [-1, 0, 0.06];                                // ...due west along the bank, into the hole the hill left
 
 // ---------------------------------------------------------------- the glide: off the roof's west edge and down the river
-// ~566 m at 1 : 2.64 (3.1 m/s down at 8.2 m/s). The first 150 m run straight, 30° south of west, out over the river;
-// the tower goes due west 3 s after the canopy opens, so its crown sweeps past ~50 m off your right side at your own
-// height and lands ahead of you on the bank. Then one slow turn (≤ 3°/s) to the west, down the middle of the river.
+// ~566 m at 1 : 2.64 (3.1 m/s down at 8.2 m/s). The first 100 m run south-west out over the river; the tower goes due
+// west 3 s after the canopy opens, so its crown sweeps past ~70 m off your right side at your own height and lands
+// ahead of you across the hole the hill left. Then the line runs WEST ALONG THE SCAR'S FOOT, 25–40 m off it and
+// 160 → 100 m up: the torn hillside, the tower lying across it and everything burning are beside you for 25 s.
+// Then it eases out to mid-river and down to the gunboat.
 export const GLIDE = [
-  [674.6, 216.6, 120], [631.3, 197.7, 145], [588, 178.7, 170], [544.7, 159.8, 195], [503, 142.2, 215.5], [462, 126.1, 227], [421, 110.4, 232.5], [380, 94.8, 234],
-  [340, 79.7, 234], [300, 64.5, 234], [260, 49.4, 234], [220, 34.2, 234], [180, 19.1, 234], [150, 7.7, 234], [136, 2.4, 234],
+  [674.6, 216.6, 120], [639.2, 197.7, 155.4], [606, 179.8, 189], [566, 164, 201], [524, 148.1, 203], [482, 132.2, 203], [440, 116.3, 203], [398, 100.3, 205],
+  [357, 84.5, 213], [317, 69, 224], [277, 53.5, 231], [237, 38.3, 234], [198, 23.5, 234], [164, 10.6, 234], [141, 2.4, 234],
 ];
 export const GLIDE_SPEED = 8.2;
 export const STEER_MAX = 10;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { Buckets, hexc, mul3, em, DIST, DUSK, SODIUM } from './kit.js';
+import { Buckets, hexc, mul3, em, DIST, DUSK, SODIUM, GOLD } from './kit.js';
 import { materials } from './mats.js';
 import { RIVER, QUAY, FARBANK, PLAZA, PODIUM, BRIDGE, ROAD, PLZ, WATER_Y, SLIDE, HILLE, TERR, Y, hillY } from './layout.js';
 
@@ -90,6 +90,38 @@ export function buildTerrain(ctx = {}) {
     }
     C.set({ col: [0.22, 0.22, 0.21] }); C.box(PODIUM.x1, QUAY.y - 1, TERR.quay, 1500, QUAY.y, RIVER.z0, { faces: 'Y', s: 1 });
     C.box(PODIUM.x1, WATER_Y - 3, RIVER.z0, 1500, QUAY.y, RIVER.z0 + 1.2, { faces: 'YZ', s: 1 });
+  }
+  // ---------------------------------------------------------------- housing on the north bank either side of the play space: rows of
+  // old blocks on every terrace east of the tower (seen from the bridge, the lift, the glide), mid-rises on the shelf west of the slide
+  {
+    const r = makeRng(8088), W = [hexc(0xc9bba3), hexc(0xd8c7b6), hexc(0xb8b0a4), hexc(0xc7a99a), hexc(0xa89e94), hexc(0xd2c19d)];
+    const T = B.get('tile', 'hse'), Rf = B.get('concrete', 'hse'), L = B.get('plain', 'hse');
+    for (let k = 0; k < TERR.n; k++) {
+      const z0 = TERR.z0 + k * TERR.d, y = hillY(z0 + 0.1);
+      let x = PODIUM.x1 + 3 + r() * 6;
+      while (x < 1180) {
+        const w = 9 + r() * 12, h = 7 + Math.floor(r() * 5) * 3.1, d = 9 + r() * 4;
+        T.set({ col: W[Math.floor(r() * W.length)], rm: [0.85, 0, 0], em: [0, 0, 0, DIST.EAST], cell: [3.0, 3.1, 200 + Math.round(x) + k * 7, r() < 0.4 ? 2 : 0] });
+        T.box(x, y, z0 + 2, x + w, y + h, z0 + 2 + d, { faces: 'xXZ', s: 1, wy0: y, foot: 0.25 });
+        Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.15, y + h, z0 + 1.85, x + w + 0.15, y + h + 0.4, z0 + 2.15 + d, { faces: 'xXZY', s: 1 });
+        if (r() < 0.5) glows.push({ p: [x + w / 2, y + 5.4, z0 + d + 4.5], color: [2.0, 1.1, 0.45], size: 2.4, code: DUSK + DIST.EAST, far: true });
+        x += w + (r() < 0.25 ? 4 + r() * 6 : 0.6);
+      }
+      // a lamp line along each terrace road
+      L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(SODIUM, 0.9, DUSK + DIST.EAST) }); L.box(PODIUM.x1 + 2, y + 0.05, z0 + TERR.d - 1.0, 1180, y + 0.25, z0 + TERR.d - 0.8, { faces: 'Z' });
+    }
+    let x = -520;
+    while (x < SLIDE.x0 - 14) {
+      const w = 14 + r() * 14, h = 22 + r() * r() * 50, d = 14 + r() * 10, z0 = 58 + r() * 26, st = r() < 0.25 ? 1 : 0, dist = x < 250 ? DIST.FAR_W : DIST.EAST;
+      const A2 = B.get(st ? 'win' : 'tile', 'hsw');
+      A2.set({ col: st ? hexc(0x4a5560) : W[Math.floor(r() * W.length)], rm: [st ? 0.35 : 0.85, st ? 0.2 : 0, 0], em: [0, 0, 0, dist], cell: [st ? 1.6 : 3.0, st ? 3.9 : 3.0, 300 + Math.round(x), st] });
+      A2.box(x, 56, z0, x + w, 56 + h, z0 + d, { faces: 'xXzZ', s: 1, wy0: 56 });
+      Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.2, 56 + h, z0 - 0.2, x + w + 0.2, 56 + h + 0.5, z0 + d + 0.2, { faces: 'xXzZY', s: 1 });
+      if (r() < 0.6) glows.push({ p: [x + w / 2, 61.5, PLAZA.z1 - 2], color: [2.0, 1.1, 0.45], size: 2.6, code: DUSK + dist, far: true });
+      x += w + 3 + r() * 9;
+    }
+    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(GOLD, 1.1, DUSK + DIST.FAR_W) }); L.box(-520, 56.9, PLAZA.z1 + 1.2, 250, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
+    L.set({ em: em(GOLD, 1.1, DUSK + DIST.EAST) }); L.box(250, 56.9, PLAZA.z1 + 1.2, SLIDE.x0 - 1, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
   }
   // ---------------------------------------------------------------- the plateau behind the north bank (the towers stand on it)
   {

@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { Buckets, em, mul3, hexc, GOLD, SODIUM, DIST, DUSK } from './kit.js';
 import { materials, SHADOW_KEYS } from './mats.js';
-import { lampPost } from './kitbuild.js';
+import { lampPost, shopLot, Frame, frontM, lantern, lanternString, tree, hotpot, scooter } from './kitbuild.js';
+import { SIGN, SIGN_LIST } from './signs.js';
+import { signQuad } from './kit.js';
 import { Y, LZ, PLZ, ROAD, BLOCK_X, BRIDGE, PODIUM, TOWER, LIFT, ROOFTOP, COVER, WATER_Y, QUAY, RIVER, roadDist, bridgeDist } from './layout.js';
 
 // =====================================================================================
@@ -57,37 +59,102 @@ export function buildRoute(ctx = {}) {
     railing(B, 's', [X0, Y, ROAD.rail], [BRIDGE.x0 - 1.2, Y, ROAD.rail]);
     railing(B, 's', [BRIDGE.x1 + 1.2, Y, ROAD.rail], [X1, Y, ROAD.rail]);
 
-    // ---- the frontage: shophouses and slabs along the south side (z 446+), a wall of lit windows beside you, never over you
+    // ---- the frontage: a Chongqing street wall along the south side (z 326+): a shop at street level in every lot
+    // (lit glass or a half-up shutter, a lightbox fascia, blade signs, awnings), old tiled floors over it. A wall of
+    // light BESIDE you, never over you; behind it the city stacks up the bank in two more tiers.
     const T = B.get('tile', 's'), Rf = B.get('concrete', 's');
-    let x = X0;
-    while (x < X1) {
-      const w = 13 + r() * 13, gap = r() < 0.3 ? 2.4 : 0, h = (x > ROAD.x0 - 10 && x < ROAD.x1 + 10 ? 15 : 22) + r() * r() * 34, d = 18 + r() * 8;
-      const x1 = Math.min(X1, x + w), col = WALLS[Math.floor(r() * WALLS.length)], code = roadDist((x + x1) / 2), style = r() < 0.3 ? 2 : 0;
+    const F = new Frame(frontM('x', -1, [X1, ROAD.front]));                       // local u = X1 - x, +z out into the street
+    const U = (x) => X1 - x;
+    let x = X0, li = 0;
+    while (x < X1 - 4) {
+      const near = x > ROAD.x0 - 14 && x < BLOCK_X + 46;
+      const w = near ? 6.5 + r() * 5 : 14 + r() * 12, x1 = Math.min(X1, x + w), xc = (x + x1) / 2, code = roadDist(xc);
       if (x1 > PLZ.x0 - 0.5 && x < PLZ.x1 + 0.5) { x = PLZ.x1 + 0.5; continue; }               // the plaza's bay is open (its own back wall below)
-      T.set({ col, rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [3.0, 3.1, 11 + Math.round(x), style] });
-      T.box(x, Y, ROAD.front, x1, Y + h, ROAD.front + d, { faces: 'xXzZ', s: 1, wy0: Y, foot: 0.25 });
-      Rf.set({ col: [0.32, 0.32, 0.33], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.2, Y + h, ROAD.front - 0.2, x1 + 0.2, Y + h + 0.5, ROAD.front + d + 0.2, { faces: 'xXzZY', s: 1 });
-      solid(x, Y, ROAD.front, x1, Y + h, ROAD.front + d, { mat: 'concrete' });
-      // a first-floor terrace on some (their gunmen stand on it: beside the road, 4 m up)
-      if (x > ROAD.x0 + 50 && x1 < BLOCK_X - 20 && r() < 0.42 && x1 - x > 14) {
-        const bx0 = x + 1, bx1 = x1 - 1, by = Y + 4.3;
-        Rf.set({ col: [0.42, 0.41, 0.39] }); Rf.box(bx0, by - 0.3, ROAD.front - 2.6, bx1, by, ROAD.front, { faces: 'xXzyY', s: 1 });
-        railing(B, 's', [bx0, by, ROAD.front - 2.5], [bx1, by, ROAD.front - 2.5], { h: 1.0 });
-        solid(bx0, by - 0.3, ROAD.front - 2.6, bx1, by, ROAD.front, { mat: 'concrete' });
-        perches.push({ x: (bx0 + bx1) / 2, y: by, z: ROAD.front - 1.3, x0: bx0 + 0.6, x1: bx1 - 0.6 });
+      const depth = 11 + r() * 3;
+      if (near) {
+        const storeys = r() < 0.36 ? 2 : 3 + Math.floor(r() * 4);
+        const { top } = shopLot(B, 's', F, null, { u0: U(x1), u1: U(x), y: Y, seed: 4000 + li * 13, code, depth, storeys, colliders, glows, lights, grp: xc < 544 ? 0 : 1, ends: 'xX' });
+        // a flat roof with a parapet; on the low ones their gunmen stand at the edge (beside the road, 10 m up)
+        Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x, top, ROAD.front, x1, top + 0.12, ROAD.front + depth, { faces: 'Y', s: 1 });
+        Rf.set({ col: [0.44, 0.43, 0.41] }); Rf.box(x, top, ROAD.front, x1, top + 0.45, ROAD.front + 0.25, { faces: 'zZY', s: 1 });
+        if (storeys === 2 && xc > ROAD.x0 + 60 && xc < BLOCK_X - 26 && x1 - x > 7) perches.push({ x: xc, y: top, z: ROAD.front + 1.3, x0: x + 0.8, x1: x1 - 0.8 });
+      } else {
+        const h = 18 + r() * r() * 30, col = WALLS[Math.floor(r() * WALLS.length)];
+        T.set({ col, rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [3.0, 3.1, 11 + Math.round(x), r() < 0.3 ? 2 : 0] });
+        T.box(x, Y, ROAD.front, x1, Y + h, ROAD.front + depth + 6, { faces: 'xXz', s: 1, wy0: Y, foot: 0.25 });
+        Rf.set({ col: [0.32, 0.32, 0.33], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.2, Y + h, ROAD.front - 0.2, x1 + 0.2, Y + h + 0.5, ROAD.front + depth + 6.2, { faces: 'xXzZY', s: 1 });
+        solid(x, Y, ROAD.front, x1, Y + h, ROAD.front + depth + 6, { mat: 'concrete' });
       }
-      x = x1 + gap;
+      x = x1 + (near && r() < 0.16 ? 1.6 : 0); li++;
     }
-    // the plaza's back: a low terrace wall and a tall slab behind it (the plaza is this slab's forecourt)
+    // the second tier: slabs and point towers standing on a terrace behind the shophouses (their lit backs fill the
+    // sky to your right), and a retaining wall under them
+    {
+      const Cw = B.get('concrete', 's2');
+      let x2 = X0;
+      while (x2 < X1 - 10) {
+        const w = 15 + r() * 12, x1 = Math.min(X1, x2 + w), z0 = ROAD.front + 17 + r() * 4, d = 13 + r() * 8, base = Y + 9 + r() * 5, h = 26 + r() * r() * 56, code = roadDist((x2 + x1) / 2);
+        if (x1 > PLZ.x0 - 4 && x2 < PLZ.x1 + 4) { x2 = PLZ.x1 + 4; continue; }
+        const st = r() < 0.25 ? 1 : r() < 0.3 ? 2 : 0;
+        const A2 = B.get(st === 1 ? 'win' : 'tile', 's2');
+        A2.set({ col: st === 1 ? hexc(0x4a5560) : WALLS[Math.floor(r() * WALLS.length)], rm: [st === 1 ? 0.35 : 0.85, st === 1 ? 0.2 : 0, 0], em: [0, 0, 0, code], cell: [st === 1 ? 1.6 : 3.0, st === 1 ? 3.9 : 3.0, 60 + Math.round(x2), st] });
+        A2.box(x2, base, z0, x1, base + h, z0 + d, { faces: 'xXz', s: 1, wy0: base });
+        Cw.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Cw.box(x2 - 0.2, base + h, z0 - 0.2, x1 + 0.2, base + h + 0.6, z0 + d + 0.2, { faces: 'xXzY', s: 1 });
+        Cw.set({ col: [0.36, 0.35, 0.33], em: em(SODIUM, 0.03, DUSK + code) }); Cw.box(x2 - 2, Y, z0 - 1.5, x1 + 2, base, z0 - 1.0, { faces: 'z', s: 1, foot: 0.3 });
+        if (h > 50 && r() < 0.6) glows.push({ p: [(x2 + x1) / 2, base + h + 2.4, z0 + d / 2], color: [3, 0.2, 0.1], size: 2.6, blink: true, code: DUSK + DIST.ALWAYS, far: true, rate: 1.6 + r() });
+        x2 = x1 + 3 + r() * 6;
+      }
+    }
+    // Kuixing Plaza: the bay in the street wall where you start. A tall slab behind it carries the plaza's name in
+    // lights; lantern strings run round its edge; two banyans in the back corners
     T.set({ col: WALLS[1], rm: [0.85, 0, 0], em: [0, 0, 0, DIST.R0], cell: [3.0, 3.1, 77, 0] });
-    T.box(PLZ.x0 - 0.5, Y, PLZ.z1, PLZ.x1 + 0.5, Y + 46, PLZ.z1 + 22, { faces: 'xXzZ', s: 1, wy0: Y, foot: 0.25 });
-    solid(PLZ.x0 - 0.5, Y, PLZ.z1, PLZ.x1 + 0.5, Y + 46, PLZ.z1 + 22, { mat: 'concrete' });
-    // the road's west end: closed by the block the plaza belongs to (you start with your back to it)
-    T.set({ col: WALLS[4], rm: [0.85, 0, 0], em: [0, 0, 0, DIST.R0], cell: [3.0, 3.1, 31, 2] });
-    T.box(ROAD.x0 - 26, Y, ROAD.rail + 0.6, ROAD.x0, Y + 30, ROAD.front, { faces: 'xXzZ', s: 1, wy0: Y, foot: 0.25 });
-    Rf.box(ROAD.x0 - 26.2, Y + 30, ROAD.rail + 0.4, ROAD.x0 + 0.2, Y + 30.5, ROAD.front + 0.2, { faces: 'xXzZY', s: 1 });
-    solid(ROAD.x0 - 26, Y, ROAD.rail + 0.6, ROAD.x0, Y + 30, ROAD.front, { mat: 'concrete' });
-
+    T.box(PLZ.x0 - 0.5, Y, PLZ.z1, PLZ.x1 + 0.5, Y + 52, PLZ.z1 + 22, { faces: 'xXzZ', s: 1, wy0: Y, foot: 0.25 });
+    T.set({ col: WALLS[3], cell: [3.0, 3.1, 78, 2] });
+    T.box(PLZ.x0 - 0.5, Y, ROAD.front, PLZ.x0, Y + 17, PLZ.z1, { faces: 'X', s: 1, wy0: Y, foot: 0.25 }); T.box(PLZ.x1, Y, ROAD.front, PLZ.x1 + 0.5, Y + 17, PLZ.z1, { faces: 'x', s: 1, wy0: Y, foot: 0.25 });
+    solid(PLZ.x0 - 0.5, Y, PLZ.z1, PLZ.x1 + 0.5, Y + 52, PLZ.z1 + 22, { mat: 'concrete' });
+    { const S = B.get('sign', 's'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.5, DUSK + DIST.R0) });
+      signQuad(S, [(PLZ.x0 + PLZ.x1) / 2, Y + 9.5, PLZ.z1 - 0.12], [0, 0, -1], 19, 3.6, SIGN.lantern);
+      const G2 = B.get('plain', 's'); G2.set({ col: [0.3, 0.22, 0.1], rm: [0.4, 0.7, 0], em: em(GOLD, 1.2, DUSK + DIST.R0) });
+      G2.box((PLZ.x0 + PLZ.x1) / 2 - 10, Y + 7.5, PLZ.z1 - 0.2, (PLZ.x0 + PLZ.x1) / 2 + 10, Y + 7.62, PLZ.z1 - 0.1, {}); G2.box((PLZ.x0 + PLZ.x1) / 2 - 10, Y + 11.4, PLZ.z1 - 0.2, (PLZ.x0 + PLZ.x1) / 2 + 10, Y + 11.52, PLZ.z1 - 0.1, {});
+      for (const px of [PLZ.x0 + 0.4, PLZ.x1 - 0.4]) lanternString(B, 's', [px, Y + 6.5, ROAD.front + 1], [px, Y + 6.5, PLZ.z1 - 1], 6, 0.9, DIST.R0, glows, 0.9);
+      lanternString(B, 's', [PLZ.x0 + 0.6, Y + 6.5, PLZ.z1 - 0.8], [PLZ.x1 - 0.6, Y + 6.5, PLZ.z1 - 0.8], 9, 1.1, DIST.R0, glows, 0.9);
+      tree(B, 's', PLZ.x0 + 4, Y, PLZ.z1 - 5, 1.2, 5, colliders); tree(B, 's', PLZ.x1 - 4, Y, PLZ.z1 - 5, 1.15, 9, colliders);
+      lights.push({ p: [(PLZ.x0 + PLZ.x1) / 2, Y + 8, PLZ.z1 - 3], color: [1, 0.6, 0.35], r: 16, k: 2.2, grp: 0 }); }
+    // the road's west end: it runs into a tunnel in the bank (closed: a barrier, the portal lit red behind it)
+    {
+      const Tn = B.get('concrete', 's');
+      Tn.set({ col: [0.42, 0.41, 0.39], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+      Tn.box(ROAD.x0 - 26, Y, ROAD.rail + 0.3, ROAD.x0, Y + 26, ROAD.front, { faces: 'XzZY', s: 1, foot: 0.3 });
+      const D = B.get('plain', 's'); D.set({ col: [0.015, 0.015, 0.02], rm: [0.9, 0, 0], em: em([1, 0.2, 0.08], 0.05, DUSK + DIST.ALWAYS) });
+      D.box(ROAD.x0 - 0.2, Y, ROAD.lane[0] + 0.6, ROAD.x0 + 0.04, Y + 6.2, ROAD.lane[1] - 0.6, { faces: 'X' });
+      D.set({ col: [0.3, 0.22, 0.1], rm: [0.4, 0.7, 0], em: em(GOLD, 1.3, DUSK + DIST.R0) });
+      D.box(ROAD.x0, Y + 6.2, ROAD.lane[0], ROAD.x0 + 0.15, Y + 6.5, ROAD.lane[1], {}); D.box(ROAD.x0, Y, ROAD.lane[0] + 0.3, ROAD.x0 + 0.15, Y + 6.5, ROAD.lane[0] + 0.6, {}); D.box(ROAD.x0, Y, ROAD.lane[1] - 0.6, ROAD.x0 + 0.15, Y + 6.5, ROAD.lane[1] - 0.3, {});
+      const S = B.get('sign', 's'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.2, DUSK + DIST.R0) });
+      signQuad(S, [ROAD.x0 + 0.2, Y + 8.6, LZ], [1, 0, 0], 9, 2.8, SIGN.steps);
+      solid(ROAD.x0 - 26, Y, ROAD.rail + 0.3, ROAD.x0, Y + 26, ROAD.front, { mat: 'concrete' });
+      Tn.set({ col: [0.56, 0.55, 0.51] }); for (let z = ROAD.lane[0] + 1; z < ROAD.lane[1] - 1; z += 3.2) Tn.box(ROAD.x0 + 3, Y, z, ROAD.x0 + 3.6, Y + 0.85, z + 2.8, { s: 1 });
+    }
+    // ---- the pavement in front of the shops: hotpot tables, scooters, crates (all against the wall, nothing in the road)
+    for (let px = ROAD.x0 + 58; px < BLOCK_X + 30; px += 9 + r() * 12) {
+      if (px > PLZ.x0 - 3 && px < PLZ.x1 + 3) continue;
+      const k = r();
+      if (k < 0.34) hotpot(B, 's', px, Y + 0.02, ROAD.front - 1.4 - r() * 0.6, li++, roadDist(px), glows);
+      else if (k < 0.7) { scooter(B, 's', px, Y + 0.02, ROAD.front - 1.0, Math.PI / 2 + (r() - 0.5) * 0.5, li++); if (r() < 0.5) scooter(B, 's', px + 0.9, Y + 0.02, ROAD.front - 1.05, Math.PI / 2 + (r() - 0.5) * 0.5, li++); }
+      else { const C2 = B.get('wood', 's'); C2.set({ col: [0.45, 0.36, 0.26], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); C2.box(px, Y, ROAD.front - 1.5, px + 0.9, Y + 0.7, ROAD.front - 0.6, { s: 1 }); C2.box(px + 0.15, Y + 0.7, ROAD.front - 1.4, px + 0.8, Y + 1.25, ROAD.front - 0.7, { s: 1 }); }
+    }
+    // ---- the promenade: lantern strings from lamp to lamp along the rail (they run WITH the road, at its edge)
+    for (let lx = ROAD.x0 + 30; lx < BLOCK_X + 60; lx += 28) {
+      if ((lx > BRIDGE.x0 - 36 && lx < BRIDGE.x1 + 8)) continue;
+      lanternString(B, 's', [lx, Y + 4.2, ROAD.rail + 0.5], [lx + 28, Y + 4.2, ROAD.rail + 0.5], 7, 0.8, roadDist(lx + 14), glows, 0.75);
+    }
+    // road wear: darker wheel tracks and patches, manholes, a zebra at the plaza (flat decals just over the asphalt)
+    {
+      const D = B.get('plain', 's');
+      for (let dx = ROAD.x0 + 6; dx < X1; dx += 22 + r() * 30) { const w = 5 + r() * 12, z0 = ROAD.lane[0] + 1 + r() * 11; D.set({ col: [0.035, 0.035, 0.04], rm: [0.22, 0, 0], em: [0, 0, 0, 0] }); D.box(dx, Y, z0, dx + w, Y + 0.006, z0 + 1.6 + r() * 2.6, { faces: 'Y' }); }
+      for (let dx = ROAD.x0 + 24; dx < X1; dx += 34 + r() * 20) { const z0 = ROAD.lane[0] + 3 + r() * 9; D.set({ col: [0.09, 0.09, 0.1], rm: [0.5, 0.6, 0], em: [0, 0, 0, 0] }); D.cyl(dx, Y - 0.05, z0, 0.42, 0.42, Y + 0.008, 10); }
+      D.set({ col: [0.62, 0.6, 0.52], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
+      for (let z = ROAD.lane[0] + 0.9; z < ROAD.lane[1] - 0.9; z += 1.3) D.box(PLZ.x1 + 3, Y, z, PLZ.x1 + 7, Y + 0.012, z + 0.6, { faces: 'Y' });
+    }
     // ---- street lamps: along the shops' kerb (heads over the road) and short ones on the promenade. All at the edges.
     for (let lx = ROAD.x0 + 16; lx < X1; lx += 28) {
       if (lx > BRIDGE.x0 - 6 && lx < BRIDGE.x1 + 6) continue;
@@ -125,7 +192,10 @@ export function buildRoute(ctx = {}) {
       const cx = sx < 0 ? x0 - 3.2 : x1 + 3.2, top = Y + BRIDGE.mastH;
       Cc.set({ col: [0.5, 0.49, 0.46], em: em(GOLD, 0.05, DUSK + bridgeDist(mz)) });
       Cc.box(cx - 2.0, WATER_Y - 4, mz - 3.2, cx + 2.0, Y - 2.6, mz + 3.2, { faces: 'xXzZ', s: 1 });                          // the pier
-      Cc.box(cx - 1.5, Y - 2.6, mz - 2.4, cx + 1.5, top, mz + 2.4, { faces: 'xXzZY', s: 1, top: [0.62, 0.58, 0.5] });          // the mast (floodlit gold)
+      Cc.box(cx - 1.5, Y - 2.6, mz - 2.4, cx + 1.5, Y + BRIDGE.mastH * 0.55, mz + 2.4, { faces: 'xXzZY', s: 1, top: [0.62, 0.58, 0.5] });   // the mast (floodlit gold), stepping in twice on the way up
+      Cc.box(cx - 1.15, Y + BRIDGE.mastH * 0.55, mz - 1.9, cx + 1.15, top - 6, mz + 1.9, { faces: 'xXzZY', s: 1 });
+      Cc.box(cx - 0.8, top - 6, mz - 1.4, cx + 0.8, top, mz + 1.4, { faces: 'xXzZY', s: 1 });
+      { const Gc = B.get('plain', 'b'); Gc.set({ col: [0.4, 0.3, 0.14], rm: [0.35, 0.8, 0], em: em(GOLD, 1.6, DUSK + bridgeDist(mz)) }); Gc.box(cx - 0.9, top, mz - 1.5, cx + 0.9, top + 0.7, mz + 1.5, {}); Gc.box(cx - 1.25, Y + BRIDGE.mastH * 0.55 - 0.4, mz - 2.0, cx + 1.25, Y + BRIDGE.mastH * 0.55 + 0.1, mz + 2.0, { faces: 'xXzZ' }); }
       Cc.box(cx - 1.5 - sx * 0, Y - 2.6, mz - 2.4, cx + 1.5, Y - 1.2, mz + 2.4, { faces: 'y', s: 1 });
       // the outrigger that carries the deck (under it)
       Cc.set({ em: [0, 0, 0, 0] }); Cc.box(Math.min(cx, sx < 0 ? x0 : x1), Y - 4.2, mz - 1.6, Math.max(cx, sx < 0 ? x0 : x1), Y - 2.6, mz + 1.6, { faces: 'xXyzZ', s: 1 });
@@ -140,6 +210,20 @@ export function buildRoute(ctx = {}) {
         St.tube([cx - sx * 1.2, ya, mz + dir * 2.2], [sx < 0 ? x0 - 0.9 : x1 + 0.9, Y - 0.3, zd], 0.16, 5);
       }
     }
+    // a gold LED line along the outside of each parapet (the deck reads as two lines of light from anywhere), in the
+    // bridge's three power sections; gate piers with lanterns where the deck leaves the road, the name on the west one
+    for (const [za, zb] of [[z0, 207], [207, 254], [254, z1]]) {
+      Lp.set({ col: [0.3, 0.22, 0.1], rm: [0.4, 0.7, 0], em: em(GOLD, 1.5, DUSK + bridgeDist((za + zb) / 2)) });
+      Lp.box(x0 - 1.46, Y - 0.5, za, x0 - 1.4, Y - 0.2, zb, { faces: 'x' }); Lp.box(x1 + 1.4, Y - 0.5, za, x1 + 1.46, Y - 0.2, zb, { faces: 'X' });
+      Lp.box(x0 + 0.5, Y + 0.3, za, x0 + 0.53, Y + 0.38, zb, { faces: 'X' }); Lp.box(x1 - 0.53, Y + 0.3, za, x1 - 0.5, Y + 0.38, zb, { faces: 'x' });
+    }
+    Lp.set({ col: [0.62, 0.6, 0.52], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
+    for (const px of [x0 - 1.3, x1 + 0.1]) {
+      Cc.set({ col: [0.5, 0.48, 0.45], em: [0, 0, 0, 0] }); Cc.box(px, Y, z1 - 2.6, px + 1.2, Y + 3.4, z1 - 1.4, { s: 1, foot: 0.25 });
+      solid(px, Y, z1 - 2.6, px + 1.2, Y + 3.4, z1 - 1.4, { mat: 'concrete' });
+      lantern(B, 'b', px + 0.6, Y + 4.1, z1 - 2.0, 1.5, DIST.BR0, glows, true);
+    }
+    { const S = B.get('sign', 'b'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.1, DUSK + DIST.BR0) }); signQuad(S, [x0 - 0.7, Y + 2.2, z1 - 1.36], [0, 0, 1], 1.15, 1.5, SIGN.qiansi ? [SIGN.qiansi[0], SIGN.qiansi[1], SIGN.qiansi[0] + (SIGN.qiansi[2] - SIGN.qiansi[0]) * 0.36, SIGN.qiansi[3]] : SIGN.steps); }
     // the bridge's lamps: on the parapets, both sides, staggered (codes south → north so they can die behind you)
     let side = 0;
     for (let z = z1 - 9; z > z0 + 6; z -= 12) {
@@ -170,6 +254,14 @@ export function buildRoute(ctx = {}) {
     // forecourt lamps at the corners and along the sides
     for (const [lx, lz, d] of [[P.x0 + 2, P.z1 - 2, [1, 0, 0]], [P.x1 - 2, P.z1 - 2, [-1, 0, 0]], [P.x0 + 2, 138, [1, 0, 0]], [P.x1 - 2, 138, [-1, 0, 0]], [672, P.z1 - 1.4, [0, 0, -1]], [712, P.z1 - 1.4, [0, 0, -1]]])
       lampPost(B, 'n', lx, Y, lz, { dir: d, h: 7, code: DIST.FORE, lights, glows, grp: 3, col: [1.0, 0.8, 0.55] });
+    // paving bands across the forecourt (they run toward the tower), banyans in the far corners, the tower's name on the
+    // podium's river wall (you read it from the road and the bridge)
+    const Pb = B.get('plain', 'n'); Pb.set({ col: [0.16, 0.15, 0.14], rm: [0.5, 0.2, 0], em: [0, 0, 0, 0] });
+    for (let bx = P.x0 + 6; bx < P.x1 - 4; bx += 6) { if (bx > LIFT.x0 - 2 && bx < LIFT.x1 + 2) continue; Pb.box(bx, Y, TOWER.z1 + 0.4, bx + 0.25, Y + 0.008, P.z1 - 0.8, { faces: 'Y' }); }
+    for (const [tx, tz, sd] of [[P.x0 + 4, P.z1 - 5, 3], [P.x1 - 4, P.z1 - 5, 7], [P.x0 + 4, 124, 11], [P.x1 - 4, 124, 13], [P.x0 + 4, 104, 17], [P.x1 - 4, 104, 19]]) tree(B, 'n', tx, Y, tz, 1.25, sd, colliders);
+    { const S = B.get('sign', 'n'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.4, DUSK + DIST.TOWER) });
+      signQuad(S, [P.x0 + 17, Y - 7, P.z1 + 0.08], [0, 0, 1], 22, 11, SIGN.jinlong); signQuad(S, [P.x1 - 17, Y - 7, P.z1 + 0.08], [0, 0, 1], 22, 11, SIGN.jinlong); }
+    Cc.set({ col: [0.3, 0.3, 0.3], em: em(GOLD, 0.1, DUSK + DIST.TOWER) }); Cc.box(P.x0, WATER_Y, P.z1, P.x1, Y - 0.4, P.z1 + 0.05, { faces: 'Z', s: 1 });
     void TOWER; void QUAY; void RIVER; void mul3;
   }
 

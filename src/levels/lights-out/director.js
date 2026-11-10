@@ -212,6 +212,13 @@ export class Director {
           if (sp.fall && !this.downT && sp.fall.top) { if (sp.fall.t > 1.5) hud.setWaypoint(sp.fall.top.clone()); if (A) { g.cinematicLook = sp.fall.top.clone().lerp(V(HINGE_X, Y + 30, HINGE_Z), 0.35); g.cinematicW = 1.4; } }
           if (A && this.downT && t > this.downT + 3 && first('fallLookEnd')) g.cinematicLook = null;
           if (this.downT && t > this.downT + 5 && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); }
+          // the damage, from the air: as you run along the scar the gas mains under the torn terraces go, one after another, just ahead of you
+          for (const [sx, bx, by, bz] of [[150, 548, 26, 122], [205, 500, 20, 128], [262, 446, 24, 112], [318, 398, 16, 134]]) if (sp.rail.s > sx && first('gas' + sx)) {
+            const P = V(bx, by, bz);
+            g.boom(P, 2.6, { radius: 14, dmg: 0, player: false }); sp.heron1.megaFireball(P.clone().setY(by + 6), 2.2, [0, 0, 1]); sp.addFire(P, 2.6, { life: 90 });
+            g.fx.light(P, 1600, 1.4, 0xff9040, true, 400); g.lastExplosionShake = 0.35; g.lastExplosionT = g.time;
+            if (first('gasvo')) later(0.7, () => say('The gas mains under the hill — it\'s all going up! Stay off the bank!', 3));
+          }
           const left = sp.rail.len - sp.rail.s;
           if (left < 150 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }
           if (left < 150 && !sp.boatClear && sp.glide?.state === 'fly') hud.setWaypoint(sp.boat.userData.drumsP.clone().applyMatrix4(sp.boat.matrixWorld));
