@@ -182,6 +182,8 @@ export function litMat(key, o = {}) {
   // codes >= 32: an LED facade show — light sweeping up the tower in waves (Chongqing's riverfront at night)
   if (vInfo.w > 31.5) pk *= 0.25 + 0.75 * smoothstep(-0.3, 0.7, sin(uTime * 1.7 - vWP.y * 0.08 + vWP.x * 0.006 + vWP.z * 0.004));
   vec3 em = vInfo.rgb * pk;
+  // a light that is off is a dark object: signs, lanterns and lit strips lose their own brightness with their district
+  diffuseColor.rgb *= 1.0 - step(0.25, vInfo.r + vInfo.g + vInfo.b) * (1.0 - pk) * 0.93 * smoothstep(0.3, 0.7, uNight);
   ${emMap > 0 ? `#ifdef USE_MAP\n  em *= mix(vec3(1.0), sampledDiffuseColor.rgb * 2.0, ${emMap.toFixed(2)});\n#endif` : ''}
   ${win ? `if (vCell.x > 0.0) {
     float gm, fm, dm;

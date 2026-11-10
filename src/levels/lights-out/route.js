@@ -193,6 +193,17 @@ export function buildRoute(ctx = {}) {
     Cc.set({ col: [0.55, 0.54, 0.5], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
     for (let z = ROAD.lane[0] - 2; z < ROAD.front - 1; z += 3.2) { Cc.box(BLOCK_X - 0.3, Y, z, BLOCK_X + 0.3, Y + 0.85, z + 2.8, { s: 1 }); }
     solid(BLOCK_X - 0.3, Y, ROAD.rail, BLOCK_X + 0.3, Y + 0.85, ROAD.front, { mat: 'concrete' });
+    // a roadworks arrow board behind the barrier (its own battery: it outlives the blackout), pointing left onto the
+    // bridge. From 150 m down the dark road it is the thing that says 'the road ends, turn here'
+    { const Bd = B.get('plain', 's'), bx = BLOCK_X + 0.9, zc = (ROAD.lane[0] + ROAD.lane[1]) / 2, yc = Y + 3.3;
+      Bd.set({ col: [0.05, 0.05, 0.055], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
+      Bd.box(bx, yc - 1.05, zc - 2.3, bx + 0.14, yc + 1.05, zc + 2.3, {});
+      for (const pz of [zc - 1.7, zc + 1.7]) Bd.box(bx + 0.02, Y, pz - 0.06, bx + 0.12, yc - 1.05, pz + 0.06, {});
+      Bd.set({ col: [0.6, 0.4, 0.1], rm: [0.5, 0, 0], em: em([1, 0.62, 0.16], 2.4, DUSK + DIST.ALWAYS) });
+      const lamp = (z, y) => Bd.box(bx - 0.03, y - 0.13, z - 0.13, bx, y + 0.13, z + 0.13, { faces: 'x' });
+      for (let i = 0; i < 6; i++) lamp(zc + 1.8 - i * 0.55, yc);
+      lamp(zc - 1.9, yc); for (const k of [1, 2]) for (const sd of [-1, 1]) lamp(zc - 1.9 + k * 0.5, yc + sd * k * 0.38);
+      glows.push({ p: [bx - 0.4, yc, zc], color: [2.2, 1.2, 0.3], size: 2.4, code: DUSK + DIST.ALWAYS, far: true, blink: true, rate: 2.2 }); }
   }
 
   // ================================================================== the bridge: a cable-stayed deck, 260 m, the masts and stays outside the kerbs

@@ -61,6 +61,11 @@ export function buildJinlong(ctx = {}) {
   for (const px of [LIFT.x0 - 2.0, LIFT.x1 + 1.2]) { Gd.box(px, Y, LIFT.z1 + 0.5, px + 0.8, Y + 9.6, LIFT.z1 + 1.3, { faces: 'xXzZ' }); solid(px, Y, LIFT.z1 + 0.5, px + 0.8, Y + 9.6, LIFT.z1 + 1.3, { mat: 'metal' }); }
   Gd.box(LIFT.x0 - 2.0, Y + 7.4, LIFT.z1 + 0.5, LIFT.x1 + 2.0, Y + 9.6, LIFT.z1 + 1.3, { faces: 'xXzZy' });
   { const S = B.get('sign', 'tw'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.6, DUSK + code) }); signQuad(S, [(LIFT.x0 + LIFT.x1) / 2, Y + 8.5, LIFT.z1 + 1.34], [0, 0, 1], 11.2, 1.9, SIGN.gate); }
+  // the lift bay behind the portal is lit (a warm back wall and a floor wash): an open, bright bay, not a dark panel
+  Gd.set({ col: [0.6, 0.5, 0.32], rm: [0.6, 0.1, 0], em: em(GOLD, 0.55, DUSK + code) });
+  Gd.box(LIFT.x0 - 0.3, Y + 0.9, T.z1, LIFT.x1 + 0.3, Y + 7.4, T.z1 + 0.06, { faces: 'Z' });
+  Gd.set({ col: [0.3, 0.24, 0.12], rm: [0.4, 0.7, 0], em: em(GOLD, 0.15, DUSK + code) });
+  for (let yy = Y + 2.2; yy < Y + 7.4; yy += 1.3) Gd.box(LIFT.x0 - 0.3, yy, T.z1 + 0.06, LIFT.x1 + 0.3, yy + 0.08, T.z1 + 0.1, { faces: 'Z' });
   solid(T.x0, Y, T.z0, T.x1, RY, T.z1, { mat: 'glass' });
 
   // ---- the roof deck: concrete, a helipad H in the middle, parapets with two gaps (south: the lift; west: the jump)
@@ -98,37 +103,45 @@ export function buildJinlong(ctx = {}) {
       Gd.box(x0, RY + 0.0, zc - hw, x0 + 0.12, RY + 0.03, zc + hw, { faces: 'Yx' });
       // the parapet either side of the gantry mouth ends in a lit post (the gap is 12 m wide; the gantry is its middle)
       for (const sd of [-1, 1]) { const z = zc + sd * (hw + 0.25); Mt.cyl(R.x0 + 0.2, RY, z, 0.09, 0.09, RY + 1.25, 6); ride(R.x0 + 0.2, RY + 1.35, z, { color: [0.5, 2.4, 0.9], size: 0.9, code: DUSK + DIST.ALWAYS }); } }
-    Gd.set({ col: [0.6, 0.38, 0.08], rm: [0.6, 0.2, 0], em: em([1, 0.62, 0.18], 1.6, DUSK + DIST.ALWAYS) });
+    Gd.set({ col: [0.6, 0.38, 0.08], rm: [0.6, 0.2, 0], em: em([1, 0.62, 0.18], 0.7, DUSK + DIST.ALWAYS) });
     for (let k = 0; k < 6; k++) { const x1 = R.x0 + 2.2 + k * 1.9, zc = (g0 + g1) / 2; Gd.quad([x1 + 0.9, RY + 0.014, zc - 1.5], [x1 + 1.35, RY + 0.014, zc - 1.5], [x1 + 0.45, RY + 0.014, zc], [x1, RY + 0.014, zc]); Gd.quad([x1, RY + 0.014, zc], [x1 + 0.45, RY + 0.014, zc], [x1 + 1.35, RY + 0.014, zc + 1.5], [x1 + 0.9, RY + 0.014, zc + 1.5]); }
     for (const gz of [g0 - 0.5, g1 + 0.5]) { Mt.set({ col: [0.14, 0.14, 0.15], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] }); Mt.cyl(R.x0 + 0.2, RY + 1.1, gz, 0.07, 0.07, RY + 2.6, 6); Gd.box(R.x0 + 0.05, RY + 2.6, gz - 0.15, R.x0 + 0.35, RY + 2.85, gz + 0.15, {}); ride(R.x0 + 0.2, RY + 2.75, gz, { color: [2.6, 1.3, 0.4], size: 0.8, code: DUSK + DIST.ALWAYS }); } }
   // roof plant along the north and east edges (AC units, vent stacks, cable trays: the deck is a working roof)
   { const U = [[683, 105, 2.4, 1.4, 1.5], [688, 105, 1.6, 1.3, 1.1], [692.5, 104.9, 3.0, 1.2, 1.7], [697, 105, 1.5, 1.4, 1.2], [706, 113, 1.4, 2.6, 1.6], [706, 118, 1.3, 1.6, 1.0], [706.1, 122, 1.4, 2.2, 1.9]];
     for (const [ux, uz, w, d, h] of U) { Mt.set({ col: [0.36, 0.37, 0.38], rm: [0.6, 0.5, 0], em: [0, 0, 0, 0] }); Mt.box(ux - w / 2, RY, uz - d / 2 + 0.6, ux + w / 2, RY + h, uz + d / 2 + 0.6, { s: 1, foot: 0.3 }); Mt.set({ col: [0.1, 0.1, 0.11] }); Mt.cyl(ux, RY + h, uz + 0.6, Math.min(w, d) * 0.3, Math.min(w, d) * 0.3, RY + h + 0.12, 10); solid(ux - w / 2, RY, uz - d / 2 + 0.6, ux + w / 2, RY + h, uz + d / 2 + 0.6, { mat: 'metal', kind: 'cover' }); }
     Mt.set({ col: [0.2, 0.2, 0.21] }); Mt.box(R.x0 + 2, RY + 0.25, R.z0 + 0.5, R.x1 - 2, RY + 0.4, R.z0 + 0.8, {}); Mt.box(R.x1 - 0.8, RY + 0.25, R.z0 + 2, R.x1 - 0.5, RY + 0.4, R.z1 - 2, {}); }
+  // low plant on the deck (0.95 m: cover you can see over), clear of the helipad, the chevrons and the lift's mouth
+  for (const [ux, uz, w, d] of [[680.4, 109.6, 3.2, 1.2], [685.2, 107.8, 1.2, 2.6], [703, 130.2, 3.0, 1.2], [699.6, 132.4, 1.2, 2.4], [680, 126.2, 2.8, 1.1], [703.4, 109.5, 1.2, 2.8]]) {
+    Mt.set({ col: [0.4, 0.41, 0.42], rm: [0.55, 0.6, 0], em: [0, 0, 0, 0] }); Mt.box(ux - w / 2, RY, uz - d / 2, ux + w / 2, RY + 0.95, uz + d / 2, { s: 1, foot: 0.3 });
+    Mt.set({ col: [0.12, 0.12, 0.13] }); Mt.box(ux - w / 2 + 0.15, RY + 0.95, uz - d / 2 + 0.15, ux + w / 2 - 0.15, RY + 1.0, uz + d / 2 - 0.15, { faces: 'xXzZY' });
+    Mt.set({ col: [0.7, 0.55, 0.1] }); Mt.box(ux - w / 2 - 0.01, RY + 0.55, uz - d / 2 - 0.01, ux + w / 2 + 0.01, RY + 0.65, uz + d / 2 + 0.01, { faces: 'xXzZ' });
+    solid(ux - w / 2, RY, uz - d / 2, ux + w / 2, RY + 0.95, uz + d / 2, { mat: 'metal' }); }
   // lit edge marks either side of the gap (the way off)
   Gd.set({ col: [0.5, 0.2, 0.1], em: em([1, 0.35, 0.12], 2.2, DUSK + DIST.ALWAYS) });
   Gd.box(R.x0 + 0.4, RY, R.gap[0] - 0.2, R.x0 + 3.4, RY + 0.02, R.gap[0], { faces: 'Y' }); Gd.box(R.x0 + 0.4, RY, R.gap[1], R.x0 + 3.4, RY + 0.02, R.gap[1] + 0.2, { faces: 'Y' });
 
   // ---- the crown: four corner columns and a ring beam 16 m up (a lantern cage: over you, not around you); a mast on the NE column
-  Gd.set({ col: [0.5, 0.38, 0.18], rm: [0.4, 0.8, 0], em: em(GOLD, 0.16, DUSK + code) });
+  // worn bronze (the metal texture: plate seams and grime), gold only where its own floods catch it
+  const Cr = B.get('metal', 'twc'); Cr.set({ cell: [0, 0, 0, 0] });
+  Cr.set({ col: [0.62, 0.46, 0.2], rm: [0.45, 0.7, 0], em: em(GOLD, 0.1, DUSK + code) });
   for (const [px, pz] of [[R.x0 + 0.9, R.z0 + 0.9], [R.x1 - 0.9, R.z0 + 0.9], [R.x0 + 0.9, R.z1 - 0.9], [R.x1 - 0.9, R.z1 - 0.9]]) {
-    Gd.box(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { faces: 'xXzZ', foot: 0.0, top: [0.2, 0.15, 0.08] });
+    Cr.box(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { faces: 'xXzZ', foot: 0.0, top: [0.2, 0.15, 0.08] });
     solid(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { mat: 'metal' });
     ride(px, RY + 2.2, pz, { color: [2.6, 1.6, 0.7], size: 2.4 });
   }
-  Gd.set({ em: em(GOLD, 0.3, DUSK + code) });
-  Gd.box(R.x0, RY + CROWN_H, R.z0, R.x1, RY + CROWN_H + 1.6, R.z0 + 1.6, {}); Gd.box(R.x0, RY + CROWN_H, R.z1 - 1.6, R.x1, RY + CROWN_H + 1.6, R.z1, {});
-  Gd.box(R.x0, RY + CROWN_H, R.z0 + 1.6, R.x0 + 1.6, RY + CROWN_H + 1.6, R.z1 - 1.6, {}); Gd.box(R.x1 - 1.6, RY + CROWN_H, R.z0 + 1.6, R.x1, RY + CROWN_H + 1.6, R.z1 - 1.6, {});
+  Cr.set({ em: em(GOLD, 0.3, DUSK + code) });
+  Cr.box(R.x0, RY + CROWN_H, R.z0, R.x1, RY + CROWN_H + 1.6, R.z0 + 1.6, {}); Cr.box(R.x0, RY + CROWN_H, R.z1 - 1.6, R.x1, RY + CROWN_H + 1.6, R.z1, {});
+  Cr.box(R.x0, RY + CROWN_H, R.z0 + 1.6, R.x0 + 1.6, RY + CROWN_H + 1.6, R.z1 - 1.6, {}); Cr.box(R.x1 - 1.6, RY + CROWN_H, R.z0 + 1.6, R.x1, RY + CROWN_H + 1.6, R.z1 - 1.6, {});
   // the lantern cage: cross-braces between the columns from 6 m up (over your head), the tower's name on the ring beam
-  Gd.set({ col: [0.46, 0.35, 0.17], rm: [0.4, 0.8, 0], em: em(GOLD, 0.13, DUSK + code) });
+  Cr.set({ col: [0.46, 0.35, 0.17], rm: [0.4, 0.8, 0], em: em(GOLD, 0.13, DUSK + code) });
   { const y0 = RY + 6.2, y1 = RY + CROWN_H, n = 4;
     for (let k = 0; k < n; k++) {
       const u0 = k / n, u1 = (k + 1) / n, xa = R.x0 + 1.6 + (R.x1 - R.x0 - 3.2) * u0, xb = R.x0 + 1.6 + (R.x1 - R.x0 - 3.2) * u1, za = R.z0 + 1.6 + (R.z1 - R.z0 - 3.2) * u0, zb = R.z0 + 1.6 + (R.z1 - R.z0 - 3.2) * u1;
-      for (const zz of [R.z0 + 0.8, R.z1 - 0.8]) { Gd.beam([xa, y0, zz], [xb, y1, zz], 0.3, 0.3); Gd.beam([xb, y0, zz], [xa, y1, zz], 0.3, 0.3); }
-      for (const xx of [R.x0 + 0.8, R.x1 - 0.8]) { Gd.beam([xx, y0, za], [xx, y1, zb], 0.3, 0.3); Gd.beam([xx, y0, zb], [xx, y1, za], 0.3, 0.3); }
+      for (const zz of [R.z0 + 0.8, R.z1 - 0.8]) { Cr.beam([xa, y0, zz], [xb, y1, zz], 0.3, 0.3); Cr.beam([xb, y0, zz], [xa, y1, zz], 0.3, 0.3); }
+      for (const xx of [R.x0 + 0.8, R.x1 - 0.8]) { Cr.beam([xx, y0, za], [xx, y1, zb], 0.3, 0.3); Cr.beam([xx, y0, zb], [xx, y1, za], 0.3, 0.3); }
     }
-    Gd.box(R.x0 + 0.5, y0 - 0.25, R.z0 + 0.6, R.x1 - 0.5, y0 + 0.15, R.z0 + 1.0, {}); Gd.box(R.x0 + 0.5, y0 - 0.25, R.z1 - 1.0, R.x1 - 0.5, y0 + 0.15, R.z1 - 0.6, {});
-    Gd.box(R.x0 + 0.6, y0 - 0.25, R.z0 + 0.5, R.x0 + 1.0, y0 + 0.15, R.z1 - 0.5, {}); Gd.box(R.x1 - 1.0, y0 - 0.25, R.z0 + 0.5, R.x1 - 0.6, y0 + 0.15, R.z1 - 0.5, {}); }
+    Cr.box(R.x0 + 0.5, y0 - 0.25, R.z0 + 0.6, R.x1 - 0.5, y0 + 0.15, R.z0 + 1.0, {}); Cr.box(R.x0 + 0.5, y0 - 0.25, R.z1 - 1.0, R.x1 - 0.5, y0 + 0.15, R.z1 - 0.6, {});
+    Cr.box(R.x0 + 0.6, y0 - 0.25, R.z0 + 0.5, R.x0 + 1.0, y0 + 0.15, R.z1 - 0.5, {}); Cr.box(R.x1 - 1.0, y0 - 0.25, R.z0 + 0.5, R.x1 - 0.6, y0 + 0.15, R.z1 - 0.5, {}); }
   { const S = B.get('sign', 'tw'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 2.0, DUSK + code) });
     signQuad(S, [cx, RY + CROWN_H + 5.6, R.z1 + 0.06], [0, 0, 1], 15, 7.5, SIGN.jinlong); signQuad(S, [R.x0 - 0.06, RY + CROWN_H + 5.6, cz], [-1, 0, 0], 15, 7.5, SIGN.jinlong);
     signQuad(S, [cx, RY + CROWN_H + 5.6, R.z0 - 0.06], [0, 0, -1], 15, 7.5, SIGN.jinlong); signQuad(S, [R.x1 + 0.06, RY + CROWN_H + 5.6, cz], [1, 0, 0], 15, 7.5, SIGN.jinlong);
@@ -136,8 +149,8 @@ export function buildJinlong(ctx = {}) {
     Bk.box(cx - 8, RY + CROWN_H + 1.6, R.z1 - 0.3, cx + 8, RY + CROWN_H + 9.6, R.z1, {}); Bk.box(cx - 8, RY + CROWN_H + 1.6, R.z0, cx + 8, RY + CROWN_H + 9.6, R.z0 + 0.3, {});
     Bk.box(R.x0, RY + CROWN_H + 1.6, cz - 8, R.x0 + 0.3, RY + CROWN_H + 9.6, cz + 8, {}); Bk.box(R.x1 - 0.3, RY + CROWN_H + 1.6, cz - 8, R.x1, RY + CROWN_H + 9.6, cz + 8, {}); }
   // deck lights: amber studs round the helipad, a line of them to the jump gap
-  Gd.set({ col: [0.5, 0.3, 0.1], rm: [0.4, 0.3, 0], em: em([1, 0.6, 0.2], 3, DUSK + DIST.ALWAYS) });
-  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; Gd.box(cx + Math.cos(a) * 9.6 - 0.12, RY, cz + Math.sin(a) * 9.6 - 0.12, cx + Math.cos(a) * 9.6 + 0.12, RY + 0.06, cz + Math.sin(a) * 9.6 + 0.12, { faces: 'xXzZY' }); }
+  Cr.set({ col: [0.5, 0.3, 0.1], rm: [0.4, 0.3, 0], em: em([1, 0.6, 0.2], 3, DUSK + DIST.ALWAYS) });
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; Cr.box(cx + Math.cos(a) * 9.6 - 0.12, RY, cz + Math.sin(a) * 9.6 - 0.12, cx + Math.cos(a) * 9.6 + 0.12, RY + 0.06, cz + Math.sin(a) * 9.6 + 0.12, { faces: 'xXzZY' }); }
   Mt.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.7, 0], em: [0, 0, 0, 0] });
   Mt.cyl(R.x1 - 0.9, RY + CROWN_H + 1.6, R.z0 + 0.9, 0.35, 0.12, RY + CROWN_H + 30, 8);
   ride(R.x1 - 0.9, RY + CROWN_H + 30.6, R.z0 + 0.9, { color: [3, 0.2, 0.1], size: 4, blink: true, rate: 2.6, code: DUSK + DIST.ALWAYS });
