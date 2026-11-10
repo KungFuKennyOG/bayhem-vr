@@ -4,7 +4,7 @@ import { LightsGame, SUN_AZ, sunElevation, applyLook } from './game.js';
 import { SetPieces } from './setpieces.js';
 import { Director } from './director.js';
 import { Auto } from '../whiteout/auto.js';
-import { START, ROOFTOP, Y, walkable, roofWalk } from './layout.js';
+import { START, ROOFTOP, PLZ, Y, walkable, roofWalk, groundAt } from './layout.js';
 import { createSky, createEnvironment, SKY } from './sky.js';
 import { POWER } from './kit.js';
 import { Player } from '../../player.js';
@@ -52,7 +52,7 @@ export async function create(E) {
     groundAt: (x, z, y) => {
       const lf = setp.liftFloor(x, z, y); if (lf !== undefined) return lf;
       if (y > ROOFTOP.y - 40) return roofWalk(x, z) ? ROOFTOP.y : -1e9;
-      return walkable(x, z) ? Y : -1e9;
+      return walkable(x, z) ? (z > PLZ.z1 ? groundAt(x, z) : Y) : -1e9;
     },
   };
   const loco = new Locomotion(rig, walkWorld, { walk: 3.1, sprint: 5.3 });

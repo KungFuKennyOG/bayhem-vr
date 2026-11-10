@@ -26,6 +26,7 @@ const KEEP = [
   [ROAD.x0 - 40, RIVER.z1, ROAD.x1 + 40, ROAD.z1 + 34],                    // the road and its frontage (route.js)
   [SLIDE.x0 - 10, 18, PODIUM.x1 + 16, RIVER.z0],                          // the hillside district, the podium
   [TOWER.x0 - 60, TOWER.z0 - 70, TOWER.x1 + 60, TOWER.z1],                // Jinlong stands alone
+  [262, 336, 482, 466],                                                    // the department store, the Hundred Steps, the flyover (steps.js)
   [-1500, 20, 2000, RIVER.z0],                                             // the north bank's terraces
 ];
 const free = (x0, z0, x1, z1) => !KEEP.some(k => x1 > k[0] && x0 < k[2] && z1 > k[1] && z0 < k[3]);

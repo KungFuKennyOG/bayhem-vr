@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, damp } from '../../rng.js';
 import { arrivedAtMarker } from '../../beats.js';
 import { POWER, DIST } from './kit.js';
-import { START, ROAD, BRIDGE, PODIUM, TOWER, LIFT, ROOFTOP, CRASH, Y, LZ, groundAt } from './layout.js';
+import { START, ROAD, BRIDGE, PODIUM, TOWER, LIFT, ROOFTOP, CRASH, FLYOVER, Y, LZ, groundAt } from './layout.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _look = new THREE.Vector3(), _to = new THREE.Vector3();
@@ -18,7 +18,7 @@ const _look = new THREE.Vector3(), _to = new THREE.Vector3();
 // =====================================================================================
 const UPSTREAM = V(1120, 110, 235);                              // the skyline east, past the bridge (the first cut)
 const HILL = V(481, 34, 112);                                    // the hillside district, across the river from the road
-const JIN = V((TOWER.x0 + TOWER.x1) / 2, 200, (TOWER.z0 + TOWER.z1) / 2);
+const JIN = V((TOWER.x0 + TOWER.x1) / 2, 130, (TOWER.z0 + TOWER.z1) / 2);
 const BX = (BRIDGE.x0 + BRIDGE.x1) / 2, LX = (LIFT.x0 + LIFT.x1) / 2, RZ = (ROOFTOP.gap[0] + ROOFTOP.gap[1]) / 2;
 export class Director {
   constructor(game, hud, audio, setp, auto, trailer) {
@@ -62,15 +62,15 @@ export class Director {
       if (e.type === 'slide' && first('slidevo')) later(1.6, () => say('The BANK — the whole riverside\'s going with it!', 2.8));
     };
     this.steps = [
-      // 1 ---- Kuixing Plaza: title over the gorge at dusk; the first district goes (upstream, look-gated)
+      // 1 ---- the department store's roof: title over the gorge at dusk; the first district goes (upstream, look-gated)
       { name: 'intro', wp: null, music: 0.3, enter: () => {
           night(0.3);
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; g.player.autoState.holdFire = true; }
-          hud.showTitle(V(START.x + 46, Y + 9, LZ - 8), 'LIGHTS OUT', 'LEVEL 5  •  LONGWU, 18:40', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(START.x + 20, START.y + 14, START.z - 46), 'LIGHTS OUT', 'LEVEL 5  •  LONGWU, 18:40', trailer ? 4.4 : 5.8);
           audio.startMusic();
           later(0.9, () => say('Longwu. A city built on a cliff, in the fog, two rivers deep. Last stop.', 3.6));
-          later(5.0, () => say('The gold tower past the bridge — Jinlong. Their whole crew is in it. Straight down this road.', 4));
+          later(5.0, () => say('The gold tower past the bridge — Jinlong. Their whole crew is in it. Down the Hundred Steps.', 4));
           if (A) { g.cinematicLook = JIN.clone(); g.cinematicW = 1.2; }
           this.lookT = 0; this._pt = 0;
         }, update: (t) => {
@@ -83,7 +83,19 @@ export class Director {
             if (this.lookT > 0.5 || t > 14) { this.cut1 = t; sp.cut(DIST.FAR_E, { kind: 'cut', c0: 330, c1: 40, dur: 3.2, rest: 0.1 }); hud.setWaypoint(null); later(2.6, () => say('That was a whole district. ...They\'re pulling the plug on the city. Move.', 3.4)); }
           }
         }, until: (t) => this.cut1 && t > this.cut1 + (trailer ? 3.5 : 5.2) },
-      // 2 ---- the cliff road, first half: the jam, gunmen in the traffic and on the shop terraces to your right
+      // 2 ---- the Hundred Steps (the first version's opening, the part of it that worked): shoot DOWN the flights, UP at the flyover
+      { name: 'steps', wp: V(396, Y + 1.6, 338), hunt: true, arrive: true, music: 0.6, enter: () => {
+          night(0.34); g.cinematicLook = null; if (g.player) g.player.autoState.holdFire = false;
+          later(0.3, () => hud.objective('Down the Hundred Steps'));
+          S({ x: 394, z: 384, delay: 0.6 }); S({ x: 399, z: 382, delay: 1.4 }); S({ x: 393, z: 364, delay: 2.2 }); S({ x: 400, z: 362, delay: 3.0, flanker: true });
+          S({ x: 396, z: 348, delay: 4.5 }); S({ x: 404, z: 336, delay: 6, flanker: true });
+          perchAt({ x: 384, y: FLYOVER.y, z: FLYOVER.z1 - 2 }, 1.8); perchAt({ x: 410, y: FLYOVER.y, z: FLYOVER.z0 + 2 }, 3.4);
+          sniper(414, FLYOVER.y, 365, [-0.15, 1], { delay: 5, lockTime: 2.8 });
+          S({ x: 396, z: 350, role: 'rusher', delay: 16, entry: V(396, 0, 358) });
+          later(1.8, () => say('They\'re on the landings below you — and up on the flyover. Look up, look down.', 3.4));
+          A?.go([{ p: V(396, 0, 410), nav: null, slow: 0.7 }, { p: V(396, 0, 402), nav: null, slow: 0.7 }, go(396, 390, { slow: 0.5 }), go(394, 382, { slow: 0.45 }), go(397, 370, { slow: 0.45 }), go(396, 360, { slow: 0.5 }), go(396, 346, { slow: 0.5 }), go(398, 338, {})]);
+        }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper' && s.role !== 'perch') === 0 && pz() < 346) || t > 150 * T },
+      // 3 ---- the cliff road, first half: the jam, gunmen in the traffic and on the shop terraces to your right
       { name: 'road', wp: V(528, Y + 1.6, 314), hunt: true, arrive: true, music: 0.65, enter: () => {
           night(0.38); g.cinematicLook = null; if (g.player) g.player.autoState.holdFire = false;
           later(0.3, () => hud.objective('East along the cliff road — to the bridge'));
@@ -91,7 +103,7 @@ export class Director {
           for (const [x, d] of [[470, 2.4], [520, 5]]) { const P = perchNear(x); if (P) perchAt(P, d); }
           S({ x: 540, z: 314, role: 'rusher', delay: 16, entry: V(560, 0, 314) });
           later(7, () => say('Rooftops on your right! They\'re up over the shops!', 2.4));
-          A?.go([go(420, 314, { slow: 0.6 }), go(446, 314, { slow: 0.5 }), go(474, 314, { slow: 0.5 }), go(502, 314, { slow: 0.5 }), go(526, 314, {})]);
+          A?.go([go(404, 326, { slow: 0.6 }), go(422, 314, { slow: 0.6 }), go(446, 314, { slow: 0.5 }), go(474, 314, { slow: 0.5 }), go(502, 314, { slow: 0.5 }), go(526, 314, {})]);
         }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper' && s.role !== 'perch') === 0 && px() > 520) || t > 150 * T },
       // 3 ---- NIGHT HERON ONE: up out of the gorge beside you. Shot down, it goes into the hill across the river — and the hill goes
       { name: 'heron', wp: null, music: 0.95, enter: () => {
@@ -267,10 +279,10 @@ export class Director {
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
     const RY = ROOFTOP.y;
-    const START_P = { road: [404, Y, 314], heron: [530, Y, 314], wave: [552, Y, 314], bridge: [566, Y, 314], fore: [BX, Y, 166], lift: [LX, Y, 146], roof: [LX, RY, 132], jump: [LX + 2, RY, 124], glide: [ROOFTOP.x0 + 2, RY, RZ], outro: [ROOFTOP.x0 + 2, RY, RZ], credits: [ROOFTOP.x0 + 2, RY, RZ] };
-    const YAW = { road: -Math.PI / 2, heron: -Math.PI / 2, wave: -Math.PI / 2, bridge: -Math.PI / 2, fore: 0, lift: 0, roof: 0, jump: Math.PI / 2, glide: Math.PI / 2, outro: Math.PI / 2 };
+    const START_P = { steps: [396, 34, 402], road: [398, Y, 336], heron: [530, Y, 314], wave: [552, Y, 314], bridge: [566, Y, 314], fore: [BX, Y, 166], lift: [LX, Y, 146], roof: [LX, RY, 132], jump: [LX + 2, RY, 124], glide: [ROOFTOP.x0 + 2, RY, RZ], outro: [ROOFTOP.x0 + 2, RY, RZ], credits: [ROOFTOP.x0 + 2, RY, RZ] };
+    const YAW = { steps: 0, road: -0.9, heron: -Math.PI / 2, wave: -Math.PI / 2, bridge: -Math.PI / 2, fore: 0, lift: 0, roof: 0, jump: Math.PI / 2, glide: Math.PI / 2, outro: Math.PI / 2 };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
-    const NIGHT = { intro: 0.3, road: 0.38, heron: 0.5, wave: 0.7, bridge: 0.85 };
+    const NIGHT = { intro: 0.3, steps: 0.34, road: 0.38, heron: 0.5, wave: 0.7, bridge: 0.85 };
     if (ji > 0) {
       const p = START_P[jump]; if (p && !game.params.has('px')) game.rig.position.set(p[0], p[1], p[2]);
       if (g.player && YAW[jump] !== undefined && !game.params.has('yaw')) g.player.yaw = YAW[jump];
@@ -286,7 +298,7 @@ export class Director {
       if (ji > idx('roof')) { sp.heron2.skip(); sp.towerHit(); }
       if (ji >= idx('glide')) { sp.takeRig(); sp.jump(); g.slowT = 0; }
       if (ji > idx('glide')) { sp.towerFall(true); sp.cutNow([DIST.TOWER, DIST.HILL]); sp.dark = true; sp.rail.s = sp.rail.len - 3; }   // (you come in to land at once)
-      g.score = [0, 0, 2400, 7800, 9000, 15600, 19400, 20000, 27000, 28000, 37000, 44000][ji] || 0;
+      g.score = [0, 0, 1200, 3600, 7800, 9000, 15600, 19400, 20000, 27000, 28000, 37000, 44000][ji] || 0;
       for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
       for (const L of Object.values(hud.lanes || {})) { L.q.length = 0; L.cur = null; }
       this.stepIdx = ji - 1;

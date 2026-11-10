@@ -11,7 +11,10 @@ the route outwards.
 ## The rule
 **The way forward must read as open from standing eye height.** Nothing crosses the eye line on the route ahead.
 
-- The whole on-foot route is **one level** (y 20), wide, outdoors: no stairs, no ramps, no interiors.
+- The on-foot route is wide and outdoors: no interiors, no ramps. It is **one level** (y 20) from the plaza on. The one
+  exception is the opening, **the Hundred Steps**: the first version's first flight of stairs, which Kenny liked
+  ("it's only the other stairs that was not well built"). It is back exactly as it was (`steps.js`): a 12 m wide
+  open stair between shophouses, long landings, and from its head you see the plaza at its foot.
 - `layout.LANES` are the strips you walk. Nothing taller than 1.2 m stands in them: `node tools/check-lanes.mjs`.
 - Cover is 0.85–1.0 m (under a standing eye). Tall things (buses, shopfronts, lamps, masts, stays, the crown's
   columns) stand **beside** the lane. Nothing spans the lane below ~16 m.
@@ -23,51 +26,57 @@ the route outwards.
 ## The place (`layout.js` holds every number)
 +x east (upstream), +z south. The river runs east–west between z 160 and z 300.
 
-- **South bank:** Kuixing Plaza (the start) and the cliff road, a riverside road on a retaining wall 20 m over the
+- **South bank, above the road:** the Longwu Department Store's roof (the start, y 34) and the Hundred Steps down
+  from it, north, into Kuixing Plaza. The ring-road flyover crosses over the steps.
+- **South bank:** Kuixing Plaza and the cliff road, a riverside road on a retaining wall 20 m over the
   water. Shophouses along its south side, the city stacked up the bank behind them.
 - **North bank, opposite the road:** the terraced hillside district (quay y 3, crest y 64), 120–260 m away and
-  rising above you. It slides into the river (`slide.js`, the old level's skinned-mesh landslide, unchanged).
+  rising above you. It is lit all level and it goes into the river at the very end (`slide.js`, the old level's
+  skinned-mesh landslide, unchanged).
 - **The bridge:** 141 m, cable-stayed, masts and stays outside the kerbs.
 - **North bank, at the bridge's end:** Jinlong Tower on its podium. A lift platform up its south face, the roof,
   the gap in the west parapet.
-- **The glide:** off the roof's west edge, south-west out over the river, then west down it along z ≈ 241: past the
-  hole the hill left (burning, the tower lying across it), over two barges, onto the gunboat's aft deck.
+- **The glide:** off the roof's west edge, south-west past the falling tower, then west along the hill's face at
+  the hill's own height (106 → 31 m up, 22–50 m off its toe), then a flatter run-in down the river to the gunboat.
+  Jinlong is 130 m tall (it was 195) for exactly this: from a taller roof you pass the hill 100 m above it and the
+  slide happens under your feet instead of beside you.
 
 The route is low on purpose. From a road level with the hill's crest (the first grey box) the district hid under
 your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" again.
 
 ## Beats (`director.js`) — `?level=lights-out&beat=<name>`
-1. **intro** — the plaza: title, the tower named. Look-gated (5 s cap): the upstream skyline goes dark.
-2. **road** — the first half of the road: the jam, gunmen in the traffic and on the low shop roofs to your right.
-3. **heron** — NIGHT HERON ONE comes up out of the gorge beside you and holds 35–55 m off the rail. Shot down (or
+1. **intro** — the store's roof: title, the tower named. Look-gated (5 s cap): the upstream skyline goes dark.
+2. **steps** — down the Hundred Steps: gunmen on the landings below, two on the flyover above, a laser sniper.
+3. **road** — the first half of the road: the jam, gunmen in the traffic and on the low shop roofs to your right.
+4. **heron** — NIGHT HERON ONE comes up out of the gorge beside you and holds 35–55 m off the rail. Shot down (or
    burning on its own after 75 s) it holds until you look (4 s cap), then limps across the river into the gold
-   tower on the hill's crest. The hill slides into the river, square on, lit.
-4. **wave** — downstream goes, then the road's own lamps, section by section, past you and on ahead, then the
+   block on the hill's crest and stays there, burning. The hill holds. The district east of it goes dark.
+5. **wave** — downstream goes, then the road's own lamps, section by section, past you and on ahead, then the
    south bank's skyline. The bridge and the tower are still lit: that is the way.
-5. **bridge** — the rest of the road and the bridge. Its lamps die behind you span by span; mid-river the north
+6. **bridge** — the rest of the road and the bridge. Its lamps die behind you span by span; mid-river the north
    skyline goes. A sniper on the podium.
-6. **fore** — the forecourt, lit by the tower alone.
-7. **lift** — step on; it goes when you have stood on it for a moment. ~32 s up the face over the dark city.
-8. **roof** — NIGHT HERON TWO: rises off the west edge, circles the crown, ducks under the roof line, ropes men
+7. **fore** — the forecourt, lit by the tower alone.
+8. **lift** — step on; it goes when you have stood on it for a moment. ~20 s up the face over the dark city.
+9. **roof** — NIGHT HERON TWO: rises off the west edge, circles the crown, ducks under the roof line, ropes men
    onto the deck. This one you finish; it comes round and goes into the tower's west face under the parapet.
-9. **jump** — the orange locker (the rig), the gap in the west parapet, the jump.
-10. **glide** — 3 s after the canopy opens the tower goes over, due west. Its crown sweeps past off your right
-    side at your own height, lights dying as it goes; it lands across the hole the hill left and Longwu is dark.
-    The line then runs west past the scar (fires, the wreck, gas mains going up as you pass), jumpers, two barges
-    with searchlights, and the gunboat (shoot the drums). The boat swings broadside before you reach it: you land
-    on its aft deck looking west across the beam at open river, the deckhouse beside you. The canopy is cut away
-    behind you.
-11. **outro** — the lights come back, district by district, from downstream up. Stats card.
-12. **credits**.
+10. **jump** — the orange locker (the rig), the jump gantry in the west parapet, the jump.
+11. **glide** — THE MONEY SHOT. 3 s after the canopy opens the tower goes over, due west, and lands on the hillside
+    district: the only thing in Longwu still lit. As you come level with the hill it lets go (`director.js`:
+    `sp.rail.s > 105` after the impact) and slides into the river beside you, east to west, with its lights on, gas
+    mains going up under it. Then Longwu is dark. Jumpers, two barges with searchlights, the gunboat (shoot the
+    drums). The boat swings broadside before you reach it: you land on its aft deck looking west across the beam.
+12. **outro** — the lights come back, district by district, from downstream up. Stats card.
+13. **credits**.
 
 ## Comfort (VR)
 - Smooth stick + 45° snap turn on foot. Code never moves the head.
+- **Stairs:** only the Hundred Steps, walked with the stick like any ground (33° flights, 13–15 m landings).
 - **Lift:** a steady ride (ease in, 6.5 m/s, ease out), open platform, you can walk about on it. `?lift=blink`
   swaps it for a blink to black.
-- **Glide:** no free fall (the canopy opens 0.75 s after the edge, in slow-mo), a rail at a steady 8.2 m/s and
-  1 : 2.64, no roll, yaw follows the line at ≤ 3°/s (one slow turn in the whole glide). The canopy is a fixed frame
+- **Glide:** no free fall (the canopy opens 0.75 s after the edge, in slow-mo), a rail at a steady 8.2 m/s,
+  1 : 2.64 past the hill and 1 : 5 on the run-in, no roll, yaw follows the line at ≤ 3°/s (one slow turn in the whole glide). The canopy is a fixed frame
   whose risers sit above and behind your head.
-- **The tower passing:** 50–70 m off the line. `?fall=far` sends it 15° further away.
+- **The tower passing:** its crown comes down ahead-right of you, 40–60 m off the line. `?fall=far` sends it 15° further away.
 - Big moments are look-gated with a timeout (the first cut, both gunship deaths). The tower fall is not: it comes
   into your view on its own, and a marker rides its crown.
 - Nothing waits on your aim: both gunships burn down on their own (75 s / 170 s).
@@ -81,6 +90,8 @@ facades down and the fog goes darker than the sky's horizon, so the city is dark
 fires (`city.js` glows) and red beacons in it.
 
 ## Modules
+- Back from the first version, in its own old frame, turned and set down: `steps.js` (the store's roof, the Hundred
+  Steps, the flyover).
 - New: `layout.js`, `route.js` (plaza, road, frontage, bridge, forecourt), `jinlong.js` (tower, roof, lift),
   `boss.js` (both gunships), `setpieces.js`, `director.js`, `world.js`, `index.js`.
 - Re-sited: `terrain.js` (banks), `city.js` (`buildCity`: four skyline districts; `towerBlock` unchanged).

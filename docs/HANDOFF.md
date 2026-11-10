@@ -371,6 +371,12 @@ Shared-engine changes: none (`src/levels/index.js` menu copy only). New tools: `
 
 **Status of the rebuild (branch `lights-out-rebuild`): playable start to finish, NOT yet tested in a headset, art below the Level 5/6 bar.**
 
+**Kenny's two corrections after the first hand-over (both done):**
+1. "I really liked the first stairs, it's only the other stairs that was not well built": the Hundred Steps are back as the opening (`steps.js`: the first version's roof, steps and flyover, unchanged, set down so the steps fall north into Kuixing Plaza). The rest of the route stays one level.
+2. "Why is the landslide the first thing we see? It should be the money shot at the end": gunship 1 now only wrecks the block on the hill's crest. The hill stays lit all level; the falling tower lands on it and it slides into the river beside you in the glide. Jinlong went from 195 m to 130 m so the glide passes the hill at the hill's own height.
+
+The review scores and counts below are from BEFORE those two changes; nothing has been re-reviewed since. Counts after: roof start 272 calls / 620k tris, top of the steps 222 / 514k, road start 271 / 706k, the slide in the glide 146 / 366k.
+
 - Verified: autopilot run to the credits (~10 min), `tools/beat-sweep.cjs` 24/24 (every beat, with and without the autopilot), `tools/check-lanes.mjs` clean, every other level boots, `vite build` clean.
 - Desktop counts (one frame, sun shadows off): road start 252 calls / 697k tris (the heaviest), slide 166 / 400k, bridge 196 / 520k, roof 105 / 239k, tower passing 145 / 333k, glide past the scar 151 / 389k, outro 89 / 251k. **No Quest frame times exist.** The road start is over the usual triangle comfort zone: first thing to look at if it drops frames (the south skyline and the shophouse row are the bulk).
 - Independent reviews (fresh reviewer each round, calibrated on Iron Lady ≈ 8 and Tokyo ≈ 7): 5.3 → 5.5 → 6.0 → 6.0 → 6.3. One more pass was made after the last review and is unscored. First half (plaza, road, slide, bridge) ≈ 7; the tower passing in the glide 7.5–8; forecourt / lift / roof / late glide / outro 5–6.

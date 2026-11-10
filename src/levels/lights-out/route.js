@@ -93,8 +93,9 @@ export function buildRoute(ctx = {}) {
       const Cw = B.get('concrete', 's2');
       let x2 = X0;
       while (x2 < X1 - 10) {
-        const w = 15 + r() * 12, x1 = Math.min(X1, x2 + w), z0 = ROAD.front + 17 + r() * 4, d = 13 + r() * 8, base = Y + 9 + r() * 5, h = 26 + r() * r() * 56, code = roadDist((x2 + x1) / 2);
-        if (x1 > PLZ.x0 - 4 && x2 < PLZ.x1 + 4) { x2 = PLZ.x1 + 4; continue; }
+        const w = 15 + r() * 12, x1 = Math.min(X1, x2 + w), z0 = ROAD.front + 17 + r() * 4, d = 13 + r() * 8, base = Y + 9 + r() * 5, code = roadDist((x2 + x1) / 2);
+        const h = 26 + r() * r() * 56;   // (none west of x 540: from the store's roof you look over the shophouses at the gorge, the bridge and Jinlong)
+        if (x2 < 540) { x2 = 540; continue; }   // the steps, the flyover and the block it drives into stand behind here (steps.js)
         const st = r() < 0.25 ? 1 : r() < 0.3 ? 2 : 0;
         const A2 = B.get(st === 1 ? 'win' : 'tile', 's2');
         A2.set({ col: st === 1 ? hexc(0x4a5560) : WALLS[Math.floor(r() * WALLS.length)], rm: [st === 1 ? 0.35 : 0.85, st === 1 ? 0.2 : 0, 0], em: [0, 0, 0, code], cell: [st === 1 ? 1.6 : 3.0, st === 1 ? 3.9 : 3.0, 60 + Math.round(x2), st] });
@@ -108,14 +109,17 @@ export function buildRoute(ctx = {}) {
     // Kuixing Plaza: the bay in the street wall where you start. A tall slab behind it carries the plaza's name in
     // lights; lantern strings run round its edge; two banyans in the back corners
     T.set({ col: WALLS[1], rm: [0.85, 0, 0], em: [0, 0, 0, DIST.R0], cell: [3.0, 3.1, 77, 0] });
-    T.box(PLZ.x0 - 0.5, Y, PLZ.z1, PLZ.x1 + 0.5, Y + 52, PLZ.z1 + 22, { faces: 'xXzZ', s: 1, wy0: Y, foot: 0.25 });
+    // the plaza's back: the HUNDRED STEPS come down into it between their shophouses (steps.js); a block either side of them closes the corners
+    for (const [xa, xb] of [[PLZ.x0 - 0.5, 377], [415, PLZ.x1 + 0.5]]) { T.box(xa, Y, PLZ.z1, xb, Y + 17, PLZ.z1 + 13, { faces: 'xXz', s: 1, wy0: Y, foot: 0.25 }); solid(xa, Y, PLZ.z1, xb, Y + 17, PLZ.z1 + 13, { mat: 'concrete' }); }
     T.set({ col: WALLS[3], cell: [3.0, 3.1, 78, 2] });
     T.box(PLZ.x0 - 0.5, Y, ROAD.front, PLZ.x0, Y + 17, PLZ.z1, { faces: 'X', s: 1, wy0: Y, foot: 0.25 }); T.box(PLZ.x1, Y, ROAD.front, PLZ.x1 + 0.5, Y + 17, PLZ.z1, { faces: 'x', s: 1, wy0: Y, foot: 0.25 });
-    solid(PLZ.x0 - 0.5, Y, PLZ.z1, PLZ.x1 + 0.5, Y + 52, PLZ.z1 + 22, { mat: 'concrete' });
-    { const S = B.get('sign', 's'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.5, DUSK + DIST.R0) });
-      signQuad(S, [(PLZ.x0 + PLZ.x1) / 2, Y + 9.5, PLZ.z1 - 0.12], [0, 0, -1], 19, 3.6, SIGN.lantern);
+    { // the two gables that face the plaza either side of the steps' mouth: the plaza's name on one, the steps' on the other
+      const S = B.get('sign', 's'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.5, DUSK + DIST.R0) });
+      signQuad(S, [383.5, Y + 9.2, 339.86], [0, 0, -1], 11.5, 2.2, SIGN.lantern);
+      signQuad(S, [408.5, Y + 9.2, 339.86], [0, 0, -1], 7.4, 2.3, SIGN.steps || SIGN.lantern);
       const G2 = B.get('plain', 's'); G2.set({ col: [0.3, 0.22, 0.1], rm: [0.4, 0.7, 0], em: em(GOLD, 1.2, DUSK + DIST.R0) });
-      G2.box((PLZ.x0 + PLZ.x1) / 2 - 10, Y + 7.5, PLZ.z1 - 0.2, (PLZ.x0 + PLZ.x1) / 2 + 10, Y + 7.62, PLZ.z1 - 0.1, {}); G2.box((PLZ.x0 + PLZ.x1) / 2 - 10, Y + 11.4, PLZ.z1 - 0.2, (PLZ.x0 + PLZ.x1) / 2 + 10, Y + 11.52, PLZ.z1 - 0.1, {});
+      for (const cx of [383.5, 408.5]) { G2.box(cx - 6, Y + 7.7, 339.8, cx + 6, Y + 7.8, 339.9, {}); G2.box(cx - 6, Y + 10.6, 339.8, cx + 6, Y + 10.7, 339.9, {}); }
+      glows.push({ p: [383.5, Y + 9.2, 338.6], color: [1.5, 0.8, 0.3], size: 5, code: DUSK + DIST.R0 }); glows.push({ p: [408.5, Y + 9.2, 338.6], color: [1.5, 0.8, 0.3], size: 4, code: DUSK + DIST.R0 });
       for (const px of [PLZ.x0 + 0.4, PLZ.x1 - 0.4]) lanternString(B, 's', [px, Y + 6.5, ROAD.front + 1], [px, Y + 6.5, PLZ.z1 - 1], 6, 0.9, DIST.R0, glows, 0.9);
       lanternString(B, 's', [PLZ.x0 + 0.6, Y + 6.5, PLZ.z1 - 0.8], [PLZ.x1 - 0.6, Y + 6.5, PLZ.z1 - 0.8], 9, 1.1, DIST.R0, glows, 0.9);
       tree(B, 's', PLZ.x0 + 4, Y, PLZ.z1 - 5, 1.2, 5, colliders); tree(B, 's', PLZ.x1 - 4, Y, PLZ.z1 - 5, 1.15, 9, colliders);

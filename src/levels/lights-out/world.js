@@ -7,8 +7,8 @@ import { groundAt, walkable, structFloor } from './layout.js';
 import { LightBaker, LM } from './lightmap.js';
 
 // The art is built by separate modules; each falls back to nothing so the level always runs.
-const NAMES = ['./city.js', './terrain.js', './route.js', './jinlong.js', './slide.js', './river.js', '../downtown-haven/cars.js'];
-const ASSETS = import.meta.glob(['./city.js', './terrain.js', './route.js', './jinlong.js', './slide.js', './river.js', '../downtown-haven/cars.js']);
+const NAMES = ['./city.js', './terrain.js', './route.js', './steps.js', './jinlong.js', './slide.js', './river.js', '../downtown-haven/cars.js'];
+const ASSETS = import.meta.glob(['./city.js', './terrain.js', './route.js', './steps.js', './jinlong.js', './slide.js', './river.js', '../downtown-haven/cars.js']);
 async function asset(name) { const l = ASSETS[name]; try { return l ? await l() : null; } catch (e) { console.warn('asset', name, e); return null; } }
 
 // =====================================================================================
@@ -20,7 +20,7 @@ export class LightsWorld {
   constructor(E) {
     this.E = E; this.scene = E.scene;
     this.group = new THREE.Group(); this.scene.add(this.group);
-    this.col = new CollisionWorld({ cell: 8, minX: 330, minZ: 20, maxX: 800, maxZ: 380 });
+    this.col = new CollisionWorld({ cell: 8, minX: 280, minZ: 20, maxX: 800, maxZ: 470 });
     this.panes = []; this.glowList = []; this.updaters = []; this.named = {};
     this.time = 0; this.tris = {};
     this.baker = new LightBaker();
@@ -52,6 +52,7 @@ export class LightsWorld {
     this.city = await take(by['./city.js']?.buildCity, 'city');
     this.terrain = await take(by['./terrain.js']?.buildTerrain, 'terrain');
     this.route = await take(by['./route.js']?.buildRoute, 'route');
+    this.steps = await take(by['./steps.js']?.buildSteps, 'steps');
     this.jinlong = await take(by['./jinlong.js']?.buildJinlong, 'jinlong');
     this.slide = await take(by['./slide.js']?.buildSlide, 'slide');
     this.river = await take(by['./river.js']?.buildRiver, 'river');
@@ -85,7 +86,7 @@ export class LightsWorld {
       });
       return ok;
     };
-    this.nav = new NavGrid(col, { x0: 370, z0: 94, x1: 736, z1: 344, y: 1e6, cell: 1, clearance: 0.42, walkable: free });
+    this.nav = new NavGrid(col, { x0: 368, z0: 94, x1: 736, z1: 452, y: 1e6, cell: 1, clearance: 0.42, walkable: free });
     for (const b of deck) b.enabled = true;
     const nav = this.nav, cen = nav.center.bind(nav);
     nav.center = (j, out) => { cen(j, out); out.y = groundAt(out.x, out.z); return out; };

@@ -5,17 +5,20 @@ export NODE_PATH=${NODE_PATH:-/opt/npm-tools/node_modules}
 OUT=${1:-/tmp/lo-review}; mkdir -p "$OUT"
 cd "$(dirname "$0")/.."
 shot() { timeout 560 node tools/shot.cjs "level=lights-out&noauto=1&$1" "$OUT/$2" "$3" 2>&1 | grep -v "ReadPixels" | grep -v "^$" | cut -c1-60; }
-shot ""                                   01_intro   60
+shot ""                                   01_intro   110
+shot "beat=steps"                         01b_steps  45
+shot "beat=steps&px=396&pz=386"           01c_steps  90
+shot "beat=steps&px=396&pz=364"           01d_steps  90
 shot "beat=road"                          02_road    45
-shot "beat=heron&yaw=11"                 03_heron   270,2760,2850,2940
+shot "beat=heron&yaw=11"                 03_heron   270,2760,2850
 shot "beat=wave&yaw=-62"                 04_wave    165,270
 shot "beat=bridge&px=692&pz=276&yaw=0"    05_bridge  60
 shot "beat=fore"                          06_fore    40
 shot "beat=lift"                          07_lift    40
 shot "beat=lift&yaw=140"                  07b_ride   1500
-shot "beat=roof&yaw=90"               08_roof    300,560
+shot "beat=roof&yaw=90"                   08_roof    300,560
 shot "beat=jump"                          09_jump    40
-shot "beat=glide&yaw=35"                 10_glide   300,360,420
-shot "beat=glide&yaw=60"                  11_glide   780,1050,1350
-shot "beat=glide"                         11b_glide  1650
+shot "beat=glide&yaw=35"                  10_glide   200,280,360
+shot "beat=glide&yaw=40"                  11_slide   520,620,760
+shot "beat=glide"                         11b_glide  1000,1400
 shot "beat=outro"                         12_outro   330

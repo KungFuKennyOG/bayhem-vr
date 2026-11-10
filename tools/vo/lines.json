@@ -978,8 +978,8 @@
   ]
  },
  {
-  "key": "7b30b046",
-  "text": "The gold tower past the bridge — Jinlong. Their whole crew is in it. Straight down this road.",
+  "key": "a805c266",
+  "text": "The gold tower past the bridge — Jinlong. Their whole crew is in it. Down the Hundred Steps.",
   "levels": [
    "lights-out"
   ],
@@ -1000,6 +1000,16 @@
  {
   "key": "21966d75",
   "text": "That was a whole district. ...They're pulling the plug on the city. Move.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "5a24b389",
+  "text": "They're on the landings below you — and up on the flyover. Look up, look down.",
   "levels": [
    "lights-out"
   ],

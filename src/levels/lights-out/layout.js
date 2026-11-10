@@ -30,6 +30,14 @@ export const PLAZA = { x0: 172, x1: 292, z0: 40, z1: 112, y: 40 };  // only z1 i
 // ---------------------------------------------------------------- the south bank: the start plaza and the cliff road
 export const PLZ = { x0: 372, x1: 420, z0: 301, z1: 342 };          // Kuixing Plaza: a rooftop that is street level
 export const ROAD = { x0: 372, x1: 716, z0: 301, z1: 326, lane: [306, 322], rail: 300.6, front: 326 };   // promenade 301–306, carriageway 306–322, pavement 322–326
+// ---------------------------------------------------------------- the opening: the department store's roof and the Hundred Steps
+// (the first version's opening, built by steps.js in its own old frame and set down here: x = dx + old z, y = old y + dy, z = dz − old x)
+export const STEPS_AT = { dx: 320, dy: -30, dz: 278 };
+export const TOPROOF = { x0: 370, x1: 416, z0: 406, z1: 450, y: 34 };   // the rooftop car park you start on
+export const STEPS = { x0: 390, x1: 402, z0: 340, z1: 406 };           // the steps fall north from the roof into Kuixing Plaza
+export const STEP_PROFILE = [[342, 20], [347, 20], [355, 25], [370, 25], [377, 29.5], [390, 29.5], [397, 34], [406, 34]];   // [z, y]: 33° flights, long landings
+export const FLYOVER = { z0: 358, z1: 372, y: 34.6 };                 // the ring road crossing over the steps (perch gunmen)
+export const stepY = (z) => { const P = STEP_PROFILE; if (z <= P[0][0]) return P[0][1]; for (let i = 1; i < P.length; i++) if (z <= P[i][0]) { const [z0, y0] = P[i - 1], [z1, y1] = P[i]; return y0 + (y1 - y0) * (z - z0) / (z1 - z0); } return P[P.length - 1][1]; };
 export const LZ = 314;                                               // the road's centre line
 export const BLOCK_X = 712;                                          // the road is barricaded east of the bridge mouth
 // ---------------------------------------------------------------- the bridge (north–south, 141 m, deck at the route's level, one pair of masts)
@@ -61,7 +69,8 @@ export const BOAT = { x0: 60, z: 234, speed: 0.8 };                  // the gunb
 // where gunship one dies: the gold LED tower on the hill's crest (slide.js's c1 block)
 export const CRASH = [447, 150, 57.5];
 
-export const START = { x: 392, y: Y, z: 314, yaw: -Math.PI / 2 + 0.42 };   // facing east-north-east: the road ahead, the bridge and the gold tower to its left (yaw 0 looks along -z)
+export const START_ROAD = { x: 392, y: Y, z: 314, yaw: -Math.PI / 2 + 0.42 };   // facing east-north-east: the road ahead, the bridge and the gold tower to its left (yaw 0 looks along -z)
+export const START = { x: 410, y: 34, z: 434, yaw: -0.73 };            // on the store's roof at the head of the steps, looking north-east: the hill across the river, the bridge, Jinlong
 
 // ---------------------------------------------------------------- power districts
 // R0..R3: the cliff road and its frontage, west → east (the wave runs down them); BR0..BR2: the bridge, south → north;
@@ -91,6 +100,8 @@ export function terrainAt(x, z) {
 // floors the player / soldiers / particles stand on (null = terrain)
 export function structFloor(x, z) {
   if (inR(x, z, LIFT)) return STATE.liftY;
+  if (z > PLZ.z1 && inR(x, z, STEPS)) return stepY(z);
+  if (inR(x, z, TOPROOF)) return TOPROOF.y;
   if (inR(x, z, TOWER)) return ROOFTOP.y;                            // nobody stands inside the tower: its footprint is its roof
   if (inR(x, z, PODIUM)) return Y;
   if (inR(x, z, BRIDGE)) return Y;
@@ -102,6 +113,8 @@ export function groundAt(x, z) { const s = structFloor(x, z); return s ?? terrai
 export function walkable(x, z) {
   if (z > ROAD.z0 + 0.6 && z < ROAD.z1 - 0.5 && x > ROAD.x0 + 0.6 && x < BLOCK_X - 0.6) return true;
   if (inR(x, z, PLZ, -0.6)) return true;
+  if (x > STEPS.x0 + 0.6 && x < STEPS.x1 - 0.6 && z > PLZ.z1 - 1 && z < TOPROOF.z0 + 0.7) return true;   // the steps (they join the roof and the plaza)
+  if (inR(x, z, TOPROOF, -0.6)) return true;
   if (x > BRIDGE.x0 + 0.7 && x < BRIDGE.x1 - 0.7 && z > BRIDGE.z0 - 1 && z < BRIDGE.z1 + 1) return true;
   if (inR(x, z, PODIUM, -0.7) && !inR(x, z, TOWER, 0.5)) return true;
   if (inR(x, z, LIFT, -0.3) || (x > LIFT.x0 + 0.3 && x < LIFT.x1 - 0.3 && z > LIFT.z1 - 0.5 && z < LIFT.z1 + 0.5)) return true;
