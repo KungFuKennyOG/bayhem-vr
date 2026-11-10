@@ -106,25 +106,30 @@ void main(){
 const FS = /* glsl */`
 uniform sampler2D tex;
 uniform vec3 fogColor; uniform vec3 fogColorSun; uniform vec3 fogSunDir; uniform float fogNear; uniform float fogFar;
-uniform float groundY; uniform float uDim;
+uniform float groundY; uniform float uDim; uniform float uSoft;
 varying vec2 vUv; varying vec4 vC; varying float vA; varying vec2 vCS; varying float vWorldY; varying float vFlip; varying vec2 vQ;
 varying float vFogDepth; varying vec3 vFogViewPos;
 void main(){
   vec4 t = texture2D(tex, vUv);
-  float al = t.a * (0.72 + 0.28 * smoothstep(0.0, 0.6, t.r)) * vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY); // thin, see-through fringes
+  float al = t.a * (0.72 + 0.28 * smoothstep(0.0, 0.6, t.r));   // thin, see-through fringes
+  // soft mode (opt-in per level): a gaussian body with only a breath of the lobes in it, so neighbouring puffs melt into
+  // one continuous mass instead of reading as separate cotton balls
+  float r2 = dot(vQ, vQ);
+  al = mix(al, exp(-r2 * 2.2) * (0.6 + 0.4 * smoothstep(0.0, 0.5, t.a)) * (1.0 - smoothstep(0.8, 1.0, r2)), uSoft);
+  al *= vA * smoothstep(groundY - 0.5, groundY + 2.0, vWorldY);
   if (al < 0.003) discard;
   vec2 n2 = t.gb * 2.0 - 1.0; n2.x *= vFlip;
   vec2 nr = vec2(vCS.x * n2.x - vCS.y * n2.y, vCS.y * n2.x + vCS.x * n2.y);
   // mostly a lit sphere (big soft top-lit/bottom-dark shape), a little of the lobes on top of it
   vec3 Ns = vec3(vQ * 0.9, sqrt(max(0.05, 1.0 - dot(vQ, vQ) * 0.81)));
-  vec3 N = normalize(Ns + vec3(nr * 0.85, 0.0));
+  vec3 N = normalize(Ns * (1.0 - 0.8 * uSoft) + vec3(0.0, 0.0, 0.8 * uSoft) + vec3(nr * 0.85 * (1.0 - 0.75 * uSoft), 0.0));
   vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
   float sky = dot(N, upV) * 0.5 + 0.5;
   float sunL = max(dot(N, fogSunDir) * 0.6 + 0.4, 0.0);
   vec3 V = normalize(vFogViewPos);
   float toward = pow(max(dot(V, fogSunDir), 0.0), 5.0);
   vec3 base = vC.rgb;
-  float lump = 0.8 + 0.2 * t.r;                                          // thick lobes catch light, cavities stay dark
+  float lump = mix(0.8 + 0.2 * t.r, 0.95, uSoft);                                          // thick lobes catch light, cavities stay dark
   vec3 col = base * (0.32 + 0.8 * sky * sky) * lump;                      // sky from above, dark undersides
   col += base * fogColorSun * 0.32 * sunL * sunL * lump;                   // low sun on the lit side
   float edge = sqrt(t.a) * (1.0 - t.a) * 2.6;
@@ -142,7 +147,7 @@ void main(){
 const OCC_AZ = 144, OCC_EL = 72, OCC_BIN = (2 * Math.PI) / OCC_AZ, HALF_PI = Math.PI / 2, OCC_T = 0.04;
 
 export class DustClouds {
-  constructor(scene, fog, { max = 320, occlusion = true, fillBudget = 0 } = {}) {
+  constructor(scene, fog, { max = 320, occlusion = true, fillBudget = 0, soft = 0 } = {}) {
     this.max = max;
     this.occlusion = occlusion; this.fillBudget = fillBudget;
     this._T = new Float32Array(OCC_AZ * OCC_EL); this._keep = [];
@@ -158,7 +163,7 @@ export class DustClouds {
     this.geometry = g;
     this.material = new THREE.ShaderMaterial({
       uniforms: {
-        tex: { value: bakePuffAtlas() }, uNearK: { value: 0.22 }, uDim: { value: 0 }, groundY: { value: -50 },
+        tex: { value: bakePuffAtlas() }, uNearK: { value: 0.22 }, uDim: { value: 0 }, uSoft: { value: soft }, groundY: { value: -50 },
         fogColor: { value: fog.color }, fogNear: { value: fog.near }, fogFar: { value: fog.far },
         fogColorSun: { value: fogShared.sunColor }, fogSunDir: { value: fogShared.sunDirView },
       },

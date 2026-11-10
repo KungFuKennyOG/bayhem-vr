@@ -40,6 +40,7 @@ void main(){
   float emb = smoothstep(0.0, 1.0, clamp((L0 - L1) * 4.5 + 0.5, 0.0, 1.0));
   // a ragged crest: the soft band is wide and lumpy (hides() allows for it)
   float a = uOp * (1.0 - smoothstep(top - 130.0 - 60.0 * L0, top + 5.0, vW.y));
+  a *= smoothstep(0.0, 140.0, vW.y + 40.0 * (L0 - 0.5)); // feathered foot: no hard line where it meets the haze
   if (a < 0.004) discard;
   vec3 n = normalize(vec3(r.x, 0.0, r.y));
   float sunSide = 0.5 + 0.5 * dot(-n, normalize(vec3(uSun.x, 0.0, uSun.z)));

@@ -123,10 +123,41 @@ float fh(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 
   vec2 fF = fract(vFUV);
   vec2 aUV = vCell.xy + clamp(fF, 0.004, 0.996) * vCell.zw;
   vec4 fT = textureGrad(tFac, aUV, dFdx(vFUV) * vCell.zw, dFdy(vFUV) * vCell.zw);
-  diffuseColor.rgb *= fT.rgb;
-  float fGlass = smoothstep(0.35, 0.75, fT.a);`)
+  float fGlass = smoothstep(0.35, 0.75, fT.a);
+  // ---- depth. Windows are not painted on: the glass sits in a reveal ~15 cm deep, and behind it is a room.
+  // A per-pixel tangent frame from derivatives (the facades are flat quads, uv in bay / floor units) gives
+  // the view ray in cell space; where the ray, stepped back to the glass plane, lands on frame instead of
+  // glass we are looking at the reveal (shaded); through the glass we march the ray into a box room
+  // (back wall, side walls, floor, ceiling) — interior mapping, so every window has parallax.
+  vec3 fP = -vViewPosition, fD1 = dFdx(fP), fD2 = dFdy(fP);
+  vec3 fN = normalize(cross(fD1, fD2));
+  vec2 fU1 = dFdx(vFUV), fU2 = dFdy(vFUV);
+  vec3 fC2 = cross(fD2, fN), fC1 = cross(fN, fD1);
+  float fDet = dot(fD1, fC2);
+  vec3 gU = (fC2 * fU1.x + fC1 * fU2.x) / fDet, gV = (fC2 * fU1.y + fC1 * fU2.y) / fDet;
+  vec3 fRay = normalize(-vViewPosition) * -1.0;                    // eye -> surface
+  if (dot(fRay, fN) > 0.0) fN = -fN;
+  float rn = max(dot(fRay, -fN), 0.06);                            // metres into the wall per metre of ray
+  vec2 rUV = vec2(dot(fRay, gU), dot(fRay, gV)) / rn;              // uv per metre of depth
+  float fRoom = 0.0, fRev = 0.0;
+  if (fGlass > 0.01) {
+    vec2 o = clamp(rUV * 0.15, vec2(-0.12), vec2(0.12));           // to the recessed glass plane
+    float aR = textureGrad(tFac, vCell.xy + clamp(fF + o, 0.004, 0.996) * vCell.zw, dFdx(vFUV) * vCell.zw, dFdy(vFUV) * vCell.zw).a;
+    fRev = 1.0 - smoothstep(0.3, 0.7, aR);
+    // the room: 1 bay wide, 1 floor high, ~1.2 bays deep
+    vec2 st = fF + o; vec2 dd = rUV;
+    float D = 1.2;
+    float tB = D, tX = dd.x > 0.0 ? (1.0 - st.x) / dd.x : -st.x / min(dd.x, -1e-4), tY = dd.y > 0.0 ? (0.97 - st.y) / dd.y : (0.03 - st.y) / min(dd.y, -1e-4);
+    float t = min(tB, min(tX, tY));
+    vec2 hit = st + dd * t; float dep = t / D;
+    float wall = t == tB ? 0.30 : t == tX ? 0.22 : (dd.y < 0.0 ? 0.42 : 0.55);   // back, side, floor, ceiling
+    float lamp = (t == tY && dd.y > 0.0) ? step(0.55, fract(hit.x * 3.0)) * 0.6 : 0.0;
+    fRoom = (wall + lamp) * (1.0 - 0.55 * dep);
+  }
+  diffuseColor.rgb *= mix(fT.rgb, fT.rgb * 0.35 + vec3(0.06), fRev);
+  fGlass *= 1.0 - fRev;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.12, fGlass);')
-      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.55, fGlass);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.4, fGlass);')
       .replace('#include <emissivemap_fragment>', `
   {
     // which window is this? (bay, floor) + building seed; ribbon / curtain cells split into 2-3 rooms per bay
@@ -148,7 +179,9 @@ float fh(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 
     float shape = 1.0 - 0.7 * step(abs(fF.x - fract(h1 * 7.0)), 0.14) * step(fF.y, 0.42 + 0.2 * h2);
     shape *= 1.0 - 0.5 * step(abs(fF.x - fract(h2 * 5.0)), 0.09) * step(fF.y, 0.65);
     float k = (vInfo.w > 1.5 && vInfo.w < 2.5) ? 0.45 : 0.38;
-    totalEmissiveRadiance = fGlass * lit * wc * ceil * blinds * shape * k * uNightK * (0.7 + 0.5 * h2);
+    totalEmissiveRadiance = fGlass * lit * wc * ceil * blinds * shape * k * uNightK * (0.7 + 0.5 * h2) * (0.55 + fRoom);
+    // by day: the room behind the glass, dim, its depth reading through (lit rooms a touch brighter)
+    totalEmissiveRadiance += fGlass * fRoom * blinds * shape * (0.035 + 0.06 * lit) * vec3(0.95, 0.97, 1.0) * (1.0 - uNightK * 0.6);
     // unlit glass: a hint of the room in the dark + the city's glow on it
     totalEmissiveRadiance += fGlass * (1.0 - lit) * vec3(0.012, 0.014, 0.022);
   }`);

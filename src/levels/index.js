@@ -44,6 +44,11 @@ const ALL = [
     help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: grenade launcher, and later the laser designator (hold on a target).',
   },
   {
+    id: 'lights-out', num: '09', title: 'LIGHTS OUT', tagline: 'ONE CITY ON A CLIFF. ONE GORGE. ONE WAY DOWN.',
+    blurb: 'Longwu at dusk: down the Hundred Steps, through the lantern wall, over the ravine — then the power goes, and the only way out is off the edge.',
+    help: 'On foot: left stick / WASD to move, right stick snaps 45°, Shift to sprint. Look UP and DOWN — they hold every level of the city. In the glide: just shoot (left stick / A-D nudges your line).',
+  },
+  {
     id: 'dubai-proto', num: '08', title: 'DUBAI PROTOTYPE', tagline: 'TECH TEST: GREY BOXES, PERF PANEL', proto: true, hidden: true,
     blurb: 'Door-gunner heli loop around a collapsing grey-box skyline. Measures the Level 8 finale on the headset.',
     help: 'Heli rail, seated. L-grip = worst case, R-grip = reset, A = next mid tower, B = hero tower, X = dust level, Y = panel. Desktop: 1 worst, 0 reset, 2 mid, 3 hero, 4 dust, 5 panel.',

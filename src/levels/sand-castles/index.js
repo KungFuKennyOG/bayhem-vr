@@ -41,7 +41,11 @@ export async function create(E) {
   fx.groundAt = () => 0;
   setGunmanLook({ lift: 0.22, band: 0.8 });
   // fire sprites: orange cores, near-black soot (the Level 5/6 level-local clamp)
-  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.3; o.g = (o.g ?? 0.5) * 0.97; o.b = (o.b ?? 0.5) * 0.6; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; } return spawn(o); }; }
+  { const m = fx.main, spawn = m.spawn.bind(m); m.spawn = (o) => { if (o.frameKind === 2 && (o.r ?? 1) < 0.8) { o.r = (o.r ?? 0.5) * 1.3; o.g = (o.g ?? 0.5) * 0.97; o.b = (o.b ?? 0.5) * 0.6; } if (o.frameKind === 1 && o.b > 0.8 && o.r > 1.6) { o.r *= 1.12; o.g *= 0.6; o.b *= 0.22; }
+    // no white blow-outs: any near-white hot sprite (flash, glow) is pushed to a yellow-orange core
+    else if (o.frameKind !== 2 && (o.r ?? 0) > 1.2 && (o.g ?? 0) > 0.9 && (o.b ?? 0) > 0.6) { o.r = Math.min(o.r, 2.2); o.g = o.r * 0.6; o.b = o.r * 0.2; }
+    if (o.frame === CELL.FLASH || o.frame === CELL.STAR) { o.r *= 0.6; o.g *= 0.5; o.b *= 0.4; } // stacked additive flashes went white
+    return spawn(o); }; }
   // the door gun's muzzle flash is a metre from your eye: hot orange, not a white disc
   { const n = fx.near, sp = n.spawn.bind(n); n.spawn = (o) => { if (o.frame === CELL.STAR || o.frame === CELL.STAR2 || o.frame === CELL.GLOW) { o.r *= 0.85; o.g *= 0.6; o.b *= 0.3; o.s0 *= 1.3; o.s1 *= 1.3; } return sp(o); }; }
   const look = { sunset: 0, storm: 0 };
@@ -97,7 +101,7 @@ export async function create(E) {
   const CL = { now: 0, min: 1e9 };
   const keys = (e) => { if (e.code === 'Digit5' && panel) { const P = ['cabin', 'float', 'off']; const m = P[(P.indexOf(panel.mode) + 1) % P.length]; panel.mount(m, rig, null); } };
   addEventListener('keydown', keys);
-  const _f = new THREE.Vector3(), _ex = new THREE.Vector3();
+  const _f = new THREE.Vector3(), _ex = new THREE.Vector3(), _rp = new THREE.Vector3();
   return {
     game, player, warm, setp, rail,
     environmentIntensity: 0.7,
@@ -107,7 +111,13 @@ export async function create(E) {
       const t0 = performance.now();
       if (!envs.day) { envs.day = bakeEnv(renderer, 0, 0); envs.storm = bakeEnv(renderer, 1, 0.2); envs.sunset = bakeEnv(renderer, 0, 1); }
       // the heli flies on real time: slow-mo never drags the cabin
+      _rp.copy(rig.position);
       if (started) rail.update(sdt); else rail.place(0);
+      // the heli carries its own effects: muzzle flashes (the 'near' batch) ride along with the cabin instead of
+      // being left 1–2 m behind every frame at 34 m/s (they read as coming from the tail, not your hands)
+      _rp.subVectors(rig.position, _rp);
+      if (_rp.lengthSq() > 0 && _rp.lengthSq() < 400) for (const q of fx.near.p) if (q.alive) { q.x += _rp.x; q.y += _rp.y; q.z += _rp.z; }
+      game.rigVel = rail.vel;
       const dt = game.update(sdt);
       FAC.uTime.value += dt;
       cabin.update(sdt, game.time);
@@ -123,7 +133,7 @@ export async function create(E) {
       player.update(sdt, started ? dt : 0);
       gun.update(sdt, dt);
       // desktop: the launcher viewmodel sits lower and further out (it hid the middle of the view)
-      if (player.mode === 'desktop') player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02));
+      if (player.mode === 'desktop') { player.launcher.holder.position.add(_ex.set(-0.07, -0.06, 0.02)); player.rifle.holder.position.add(_ex.set(0.15, -0.13, 0.13)); player.rifle.holder.rotateY(0.12); } // the minigun low at the hip, canted in a touch so its side reads
       setp.update(dt, sdt, game.headPos);
       // limping home: number two engine trails smoke past the door
       if (director && (director.cur?.name === 'escape' || director.cur?.name === 'outro')) { cabin.root.localToWorld(_ex.set(0.85, 2.7, 2.4)); fx.trailEmit(cabin, _ex, 0.7, (q) => fx.smoke(q, 2.2, 0.17, 3.5, 0.6, 0.5), 0); }

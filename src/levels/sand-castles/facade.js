@@ -54,7 +54,8 @@ float sunVis(vec3 p, vec3 n){
   for (int i = 0; i < 18; i++) {
     vec2 q = o.xz + dxz * t;
     float h = texture2D(tSunH, (q - uSunHB.xy) * uSunHB.zw).r * 765.0;
-    vis = min(vis, clamp((o.y + t * tanE - h) * 0.12 + 0.5, 0.0, 1.0));
+    // the penumbra widens with distance to the occluder (a 3 m height map gave razor edges that read as stains)
+    vis = min(vis, clamp((o.y + t * tanE - h) * 0.12 / (1.0 + t * 0.035) + 0.5, 0.0, 1.0));
     t = t * 1.32 + 3.0;
   }
   return vis;
@@ -88,6 +89,11 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     float fine = clamp(1.0 - max(wU, wV) * 2.6, 0.0, 1.0);           // 1 = cells resolved, 0 = sub-pixel
     float pane = 0.1 * fh2(vec2(bi + seed * 91.0, fl * 1.7 + seed * 13.0)) + 0.9 * fvn(vec2(u * 0.035, v * 0.02) + seed * 9.0);
     vec3 gt = glassTint(st) * (0.75 + 0.5 * seed) * mix(vec3(1.0), vec3(1.08, 0.98, 0.9), fh1(seed * 77.0));
+    // palette: a quarter less saturated, and a per-tower family (cool / bronze / smoked / neutral) so a row of
+    // towers isn't three colours repeated
+    { float fam = fh1(seed * 31.0 + 5.0);
+      gt = mix(gt, vec3(dot(gt, vec3(0.33))), 0.25);
+      gt *= fam < 0.25 ? vec3(0.9, 1.0, 1.12) : fam < 0.5 ? vec3(1.12, 1.0, 0.85) : fam < 0.75 ? vec3(0.78) : vec3(1.0); }
     // spandrel band (floor slab) and mullion lines
     float span = st == 1.0 || st == 6.0 ? 0.1 : st == 4.0 ? 0.42 : st == 2.0 ? 0.16 : 0.24;
     float spand = smoothstep(span + wV, span - wV, fy);
@@ -153,9 +159,13 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     o.r = mix(o.r, 0.8, 0.35 * streak);
     // the Spire (S.w = -1): dark vertical mullion fins and heavier grime down its face
     if (S.w < -0.5) {
-      float fin = edgeLine(fract(u / 10.5), 0.05, du / 10.5);
-      o.c *= 1.0 - 0.35 * fin;
-      o.c *= 1.0 - 0.18 * fvn(vec2(u * 0.35, v * 0.01 + seed * 9.0));
+      // the Spire: a champagne mirror curtain wall between bright mullion fins: it reflects the sunset sky
+      // (metal F0 tint + low roughness), so it is the one tower that glows warm against the dusk
+      float fin = edgeLine(fract(u / 10.5), 0.06, du / 10.5);
+      // (no pane / floor checkerboard: one continuous mirror skin, so it reads as a single supertall surface)
+      o.c = mix(vec3(0.62, 0.5, 0.36) * (0.92 + 0.12 * fvn(vec2(u * 0.02, v * 0.004) + seed)), vec3(0.72, 0.7, 0.66), fin);
+      o.m = mix(0.92, 0.6, fin); o.r = mix(0.12, 0.35, fin);
+      o.c *= 1.0 - 0.12 * fvn(vec2(u * 0.35, v * 0.01 + seed * 9.0));
     }
   } else if (kind < 2.5) {
     // roof: concrete / gravel with expansion joints and stains
@@ -202,9 +212,10 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
     // podium: stone with a dark shopfront band at street level
     float shop = step(v, 6.0);
     float bx = fract(u / 5.0);
-    o.c = mix(vec3(0.24, 0.22, 0.19) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
-    o.r = mix(0.8, 0.15, shop); o.m = mix(0.0, 0.7, shop);
-    o.e = vec3(1.0, 0.75, 0.45) * shop * uNight * 0.6;
+    o.c = mix(vec3(0.17, 0.155, 0.135) * (0.85 + 0.25 * seed) * mix(0.7, 1.0, smoothstep(0.0, 14.0, v)) * (0.85 + 0.25 * fvn(wp.xz * 0.2)), vec3(0.05, 0.07, 0.08) + vec3(0.04) * edgeLine(bx, 0.03, du / 5.0), shop);
+    // (dull glass: a mirror shopfront band reflected the bright sky as a white line round every tower base)
+    o.r = mix(0.8, 0.5, shop); o.m = mix(0.0, 0.25, shop);
+    o.e = vec3(1.0, 0.62, 0.32) * shop * uNight * 0.22 * step(0.45, fract(u / 23.0 + seed));
   } else {
     // ruin / torn floors: concrete, rebar, soot
     float n = fvn(wp.xz * 0.3 + wp.y * 0.2);
@@ -213,6 +224,9 @@ Fac facade(vec3 F, vec4 S, vec3 wp){
   // the storm leaves a coat of sand on everything facing up
   o.c = mix(o.c, vec3(0.6, 0.48, 0.34), uDust * 0.35);
   o.r = mix(o.r, 0.9, uDust * 0.4);
+  // every building is dirtier near the street: darker, sand-blown base (no spotless plinths)
+  float baseK = 1.0 - smoothstep(0.0, 36.0, wp.y);
+  o.c = mix(o.c * (1.0 - 0.3 * baseK), vec3(0.42, 0.34, 0.24) * 0.6, 0.22 * baseK);
   o.c = stormShade(o.c, wp);
   return o;
 }

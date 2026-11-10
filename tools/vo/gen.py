@@ -12,6 +12,8 @@ REF = os.path.join(HERE, 'driver_ref.wav')
 
 # What the TTS reads, when the subtitle text would trip it up.
 SPOKEN = {
+    # Level 9 (Longwu): Chinese names the English TTS mangles
+    'Qiansi': 'Chyen-suh', 'Chaotian': 'Chow-tyen',
     'MOVE! MOVE!!': 'Move! Move! MOVE!',
     'JET A-1': 'Jet A one',
     'GO GO GO!': 'Go! Go! GO!',

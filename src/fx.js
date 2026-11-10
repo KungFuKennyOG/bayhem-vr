@@ -64,6 +64,7 @@ export class FX {
     // fire palette: 0 = classic white-hot (Level 1), 1 = orange core / deep red edges (no white blow-out);
     // smokeMul scales the dark smoke that wraps explosions
     this.fireHue = 0; this.smokeMul = 1;
+    this.smokeTint = null;   // optional [r, g, b] multiplier on explosion smoke (a level can pull the olive out); null = untouched
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._s = new THREE.Vector3(); this._p = new THREE.Vector3();
   }
 
@@ -82,6 +83,7 @@ export class FX {
 
   // ---------------- composite effects ----------------
   setGround(fn) { this.groundAt = fn; this.main.groundAt = fn; this.sparks.groundAt = fn; this.near.groundAt = fn; }
+  _tint(c) { const t = this.smokeTint; if (!t) return c; c.r *= t[0]; c.g *= t[1]; c.b *= t[2]; c.r1 *= t[0]; c.g1 *= t[1]; c.b1 *= t[2]; return c; }
   explosion(pos, s = 1, { carVel = null, noRing = false } = {}) {
     const P = pos;
     const gy = this.groundAt ? this.groundAt(P.x, P.z) : 0, hy = P.y - gy;
@@ -117,14 +119,14 @@ export class FX {
       const a = rand() * Math.PI * 2, R = range(2.2, 3.4) * ss, sh = range(0.05, 0.1); // ring outside the fireball: smoke must not dim the fire to olive
       this.main.spawn({ x: P.x + Math.cos(a) * R, y: P.y + range(0.8, 2.6) * ss, z: P.z + Math.sin(a) * R, vx: Math.cos(a) * range(1.5, 3.5), vy: range(3, 6), vz: Math.sin(a) * range(1.5, 3.5), drag: 0.9, grav: 0.3,
         frameKind: 2, frame: rand() * 40, frames: 20, s0: 4.5 * ss, s1: Math.min(22, range(11, 16) * ss), ease: 0.55, life: range(5, 8), rot: rand() * 6.28, vrot: range(-0.25, 0.25),
-        r: sh * 1.7, g: sh * 1.0, b: sh * 0.62, r1: sh * 1.15, g1: sh * 0.9, b1: sh * 0.8, a: 0.92, fadeIn: 0.04, fadeOut: 0.5 });
+        ...this._tint({ r: sh * 1.7, g: sh * 1.0, b: sh * 0.62, r1: sh * 1.15, g1: sh * 0.9, b1: sh * 0.8 }), a: 0.92, fadeIn: 0.04, fadeOut: 0.5 });
     });
     // dark smoke column
     for (let i = 0; i < Math.round((6 * cs + 2) * this.smokeMul); i++) this.later(range(0.25, 0.9), () => {
       const sh = range(0.08, 0.17);
       this.main.spawn({ x: P.x + range(-1.5, 1.5) * s, y: P.y + range(1, 3) * s, z: P.z + range(-1.5, 1.5) * s, vx: range(-1.5, 1.5), vy: range(2.5, 5.5), vz: range(-1.5, 1.5), drag: 0.6, grav: 0.4,
         frameKind: 2, frame: rand() * 40, frames: 24, s0: 6 * ss, s1: Math.min(26, range(15, 21) * ss), ease: 0.6, life: range(7, 11), rot: rand() * 6.28, vrot: range(-0.2, 0.2),
-        r: sh * 1.35, g: sh * 1.0, b: sh * 0.72, r1: sh * 1.1, g1: sh * 0.9, b1: sh * 0.75, a: 0.88, fadeIn: 0.1, fadeOut: 0.5 });
+        ...this._tint({ r: sh * 1.35, g: sh * 1.0, b: sh * 0.72, r1: sh * 1.1, g1: sh * 0.9, b1: sh * 0.75 }), a: 0.88, fadeIn: 0.1, fadeOut: 0.5 });
     });
     // sparks
     for (let i = 0; i < Math.round(60 * cs * (1 - U * 0.55)); i++) {

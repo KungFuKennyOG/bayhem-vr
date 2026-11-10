@@ -150,7 +150,9 @@ export function heliMaterials() {
       // panel lines every ~0.9 m along the body and a few round the hoop frames, rivet rows, chipped edges
       float pl = max(hpl(vObj.z, 0.92, 0.012), hpl(vObj.y + vObj.x * 0.2, 0.75, 0.01) * 0.6);
       float wear = smoothstep(0.62, 0.8, fract(sin(dot(floor(vObj * 3.0), vec3(12.9, 78.2, 37.7))) * 43758.5));
-      diffuseColor.rgb *= 1.0 - 0.45 * pl;
+      diffuseColor.rgb *= 1.0 - 0.65 * pl;
+      // a darker, dirtier khaki-olive (the clean sand paint read as a toy), exhaust-stained and grimy underneath
+      diffuseColor.rgb *= vec3(0.7, 0.72, 0.58) * (0.72 + 0.28 * smoothstep(-1.0, 1.4, vObj.y));
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.25 + 0.02, wear * 0.25);`);
   };
   body.customProgramCacheKey = () => 'hammer-body';
