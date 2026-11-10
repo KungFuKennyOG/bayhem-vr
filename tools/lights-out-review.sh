@@ -8,7 +8,7 @@ shot() { timeout 560 node tools/shot.cjs "level=lights-out&noauto=1&$1" "$OUT/$2
 shot ""                                   01_intro   60
 shot "beat=road"                          02_road    45
 shot "beat=heron&yaw=11"                 03_heron   270,2760,2850,2940
-shot "beat=wave"                          04_wave    165,270
+shot "beat=wave&yaw=-62"                 04_wave    165,270
 shot "beat=bridge&px=692&pz=276&yaw=0"    05_bridge  60
 shot "beat=fore"                          06_fore    40
 shot "beat=lift"                          07_lift    40

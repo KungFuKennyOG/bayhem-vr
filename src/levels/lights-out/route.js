@@ -193,6 +193,9 @@ export function buildRoute(ctx = {}) {
     Cc.set({ col: [0.55, 0.54, 0.5], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
     for (let z = ROAD.lane[0] - 2; z < ROAD.front - 1; z += 3.2) { Cc.box(BLOCK_X - 0.3, Y, z, BLOCK_X + 0.3, Y + 0.85, z + 2.8, { s: 1 }); }
     solid(BLOCK_X - 0.3, Y, ROAD.rail, BLOCK_X + 0.3, Y + 0.85, ROAD.front, { mat: 'concrete' });
+    // road flares in front of the barrier: the road visibly ends here
+    { const Fl = B.get('plain', 's'); Fl.set({ col: [0.6, 0.1, 0.05], rm: [0.5, 0, 0], em: em([1, 0.16, 0.06], 3, DUSK + DIST.ALWAYS) });
+      for (const [fx, fz] of [[BLOCK_X - 1.6, 307.5], [BLOCK_X - 2.4, 311], [BLOCK_X - 1.8, 314.6], [BLOCK_X - 2.6, 318], [BLOCK_X - 1.7, 321.2]]) { Fl.box(fx - 0.14, Y + 0.02, fz - 0.03, fx + 0.14, Y + 0.08, fz + 0.03, {}); glows.push({ p: [fx, Y + 0.25, fz], color: [3, 0.45, 0.15], size: 1.5, code: DUSK + DIST.ALWAYS, far: true, flick: true }); } }
     // a roadworks arrow board behind the barrier (its own battery: it outlives the blackout), pointing left onto the
     // bridge. From 150 m down the dark road it is the thing that says 'the road ends, turn here'
     { const Bd = B.get('plain', 's'), bx = BLOCK_X + 0.9, zc = (ROAD.lane[0] + ROAD.lane[1]) / 2, yc = Y + 3.3;
@@ -258,6 +261,14 @@ export function buildRoute(ctx = {}) {
       Cc.set({ col: [0.5, 0.48, 0.45], em: [0, 0, 0, 0] }); Cc.box(px, Y, z1 - 2.6, px + 1.2, Y + 3.4, z1 - 1.4, { s: 1, foot: 0.25 });
       solid(px, Y, z1 - 2.6, px + 1.2, Y + 3.4, z1 - 1.4, { mat: 'concrete' });
       lantern(B, 'b', px + 0.6, Y + 4.1, z1 - 2.0, 1.5, DIST.BR0, glows, true);
+      // the bridge mouth is a gate of light: a 10 m gold-lit pylon on each pier (beside the deck, nothing over it). After
+      // the wave it is the brightest thing on the road: 'onto the bridge' needs no arrow
+      Cc.box(px + 0.2, Y + 3.4, z1 - 2.4, px + 1.0, Y + 10, z1 - 1.6, { s: 1 });
+      { const Gp = B.get('plain', 'b'); Gp.set({ col: [0.5, 0.38, 0.16], rm: [0.4, 0.6, 0], em: em(GOLD, 1.5, DUSK + DIST.BR0) });
+        Gp.box(px + 0.3, Y + 3.6, z1 - 1.6, px + 0.9, Y + 9.8, z1 - 1.56, { faces: 'Z' }); Gp.box(px + 0.16, Y + 3.6, z1 - 2.3, px + 0.2, Y + 9.8, z1 - 1.7, { faces: 'x' }); Gp.box(px + 1.0, Y + 3.6, z1 - 2.3, px + 1.04, Y + 9.8, z1 - 1.7, { faces: 'X' });
+        Gp.box(px + 0.1, Y + 10, z1 - 2.5, px + 1.1, Y + 10.5, z1 - 1.5, {}); }
+      glows.push({ p: [px + 0.6, Y + 10.6, z1 - 2.0], color: [2.6, 1.7, 0.7], size: 3.2, code: DUSK + DIST.BR0, far: true });
+      glows.push({ p: [px + 0.6, Y + 6.5, z1 - 1.3], color: [1.6, 1.05, 0.45], size: 4.5, code: DUSK + DIST.BR0, far: true });
     }
     { const S = B.get('sign', 'b'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.1, DUSK + DIST.BR0) }); signQuad(S, [x0 - 0.7, Y + 2.2, z1 - 1.36], [0, 0, 1], 1.15, 1.5, SIGN.qiansi ? [SIGN.qiansi[0], SIGN.qiansi[1], SIGN.qiansi[0] + (SIGN.qiansi[2] - SIGN.qiansi[0]) * 0.36, SIGN.qiansi[3]] : SIGN.steps); }
     // the bridge's lamps: on the parapets, both sides, staggered (codes south → north so they can die behind you)

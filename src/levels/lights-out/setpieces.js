@@ -175,7 +175,7 @@ export class SetPieces {
     this.g.events.push({ type: 'liftUp' });
   }
   liftTop() { const L = this.lift; L.state = 'top'; L.y = LIFT.y1; L.v = 0; this._liftPose(); this.onRoof = true; if (this.tw) this.tw.gate.visible = false; }
-  _liftPose() { const y = this.lift.y; STATE.liftY = y; this.liftLamp.p.y = y + 2.6; if (this.tw) { this.tw.lift.position.y = y; this.tw.liftGlow.p.y = y + 0.6; } }
+  _liftPose() { const y = this.lift.y; STATE.liftY = y; this.liftLamp.p.y = y + 2.6; if (this.tw) { this.tw.lift.position.y = y; this.tw.liftGlow.p.y = y + 0.6; this.tw.liftGlow.dead = y > LIFT.y0 + 0.4; } }
   _updateLift(dt) {
     const L = this.lift; if (L.state !== 'up') return;
     const g = this.g;

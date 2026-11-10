@@ -367,9 +367,16 @@ Code: `src/levels/lights-out/` — read its `DESIGN.md` first (the rule, the pla
 
 **Reused systems (all held up; none of the old layout):** the power-district emissive system and baked window lights (`kit.js`), the baked light pools (`lightmap.js`, re-sited), the skinned-mesh landslide (`slide.js`, unchanged: its numbers are in `layout.js`), `GlideRail` / the canopy / the gunboat (`glide.js`), the heli (`src/heli.js`; `boss.js` is a new controller for two birds), the Longwu car livery, the searchlights, the shop-street kit (`kitbuild.js`).
 
-Shared-engine changes: none (`src/levels/index.js` menu copy only). New tools: `tools/run-level.cjs`, `tools/check-lanes.mjs`, `tools/lights-out-review.sh`.
+Shared-engine changes: none (`src/levels/index.js` menu copy only). New tools: `tools/run-level.cjs`, `tools/check-lanes.mjs`, `tools/lights-out-review.sh`, `tools/beat-sweep.cjs`.
 
-REVIEW_STATUS_PLACEHOLDER
+**Status of the rebuild (branch `lights-out-rebuild`): playable start to finish, NOT yet tested in a headset, art below the Level 5/6 bar.**
+
+- Verified: autopilot run to the credits (~10 min), `tools/beat-sweep.cjs` 24/24 (every beat, with and without the autopilot), `tools/check-lanes.mjs` clean, every other level boots, `vite build` clean.
+- Desktop counts (one frame, sun shadows off): road start 252 calls / 697k tris (the heaviest), slide 166 / 400k, bridge 196 / 520k, roof 105 / 239k, tower passing 145 / 333k, glide past the scar 151 / 389k, outro 89 / 251k. **No Quest frame times exist.** The road start is over the usual triangle comfort zone: first thing to look at if it drops frames (the south skyline and the shophouse row are the bulk).
+- Independent reviews (fresh reviewer each round, calibrated on Iron Lady ≈ 8 and Tokyo ≈ 7): 5.3 → 5.5 → 6.0 → 6.0 → 6.3. One more pass was made after the last review and is unscored. First half (plaza, road, slide, bridge) ≈ 7; the tower passing in the glide 7.5–8; forecourt / lift / roof / late glide / outro 5–6.
+- Path readability by the reviewers: road, bridge, lift YES; forecourt MOSTLY; the turn onto the bridge after the wave was their NO (since then: 10 m gold pylons at the bridge mouth, flares and an arrow board at the barricade, dead signs go dark); the jump gantry MOSTLY (the barrier arm now swings up when you take the rig).
+- What still looks weak, in order: (1) the gold tower's facade up close (flat lit window cards: the kit's window shader has no depth); (2) the gorge during the late glide (straight walls; candles and lit cliff stairs help, it needs real stepped rock and a bend); (3) the roof fight has little staging (low cover only, gunship reads flat); (4) the slide's last seconds are a smoke wall; (5) viewmodel guns crush to black at night.
+- Headset checks nobody has done: the 32 s lift ride (`?lift=blink` is the fallback), the tower passing 50–70 m off the glide line (`?fall=far`), glide yaw, the broadside landing (you face west across the gunboat's beam), frame rate at the road start and during the slide.
 
 ### Dubai prototype (Level 8 tech test) — merged (PR #14), NOT a level
 Grey boxes only, built to find out whether the Level 8 finale fits a Quest 3 before Tokyo and the mountain get built. URL only: https://kungfukennyog.github.io/bayhem-vr/?level=dubai-proto (registered with `hidden: true`, so it is not in the menu and never offered as "next level"). Code: `src/levels/dubai-proto/`. Its `DESIGN.md` lists every module, control and URL flag. Nothing outside that folder changed except the registry in `src/levels/index.js`.

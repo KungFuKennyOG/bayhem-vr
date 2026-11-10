@@ -61,11 +61,14 @@ export function buildJinlong(ctx = {}) {
   for (const px of [LIFT.x0 - 2.0, LIFT.x1 + 1.2]) { Gd.box(px, Y, LIFT.z1 + 0.5, px + 0.8, Y + 9.6, LIFT.z1 + 1.3, { faces: 'xXzZ' }); solid(px, Y, LIFT.z1 + 0.5, px + 0.8, Y + 9.6, LIFT.z1 + 1.3, { mat: 'metal' }); }
   Gd.box(LIFT.x0 - 2.0, Y + 7.4, LIFT.z1 + 0.5, LIFT.x1 + 2.0, Y + 9.6, LIFT.z1 + 1.3, { faces: 'xXzZy' });
   { const S = B.get('sign', 'tw'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.6, DUSK + code) }); signQuad(S, [(LIFT.x0 + LIFT.x1) / 2, Y + 8.5, LIFT.z1 + 1.34], [0, 0, 1], 11.2, 1.9, SIGN.gate); }
-  // the lift bay behind the portal is lit (a warm back wall and a floor wash): an open, bright bay, not a dark panel
-  Gd.set({ col: [0.6, 0.5, 0.32], rm: [0.6, 0.1, 0], em: em(GOLD, 0.55, DUSK + code) });
-  Gd.box(LIFT.x0 - 0.3, Y + 0.9, T.z1, LIFT.x1 + 0.3, Y + 7.4, T.z1 + 0.06, { faces: 'Z' });
-  Gd.set({ col: [0.3, 0.24, 0.12], rm: [0.4, 0.7, 0], em: em(GOLD, 0.15, DUSK + code) });
-  for (let yy = Y + 2.2; yy < Y + 7.4; yy += 1.3) Gd.box(LIFT.x0 - 0.3, yy, T.z1 + 0.06, LIFT.x1 + 0.3, yy + 0.08, T.z1 + 0.1, { faces: 'Z' });
+  // the lift bay behind the portal: a dark recessed shaft wall with three big lit 'up' chevrons, the guide rails lit
+  // gold up the whole face (an open lift going up, not a door)
+  Gd.set({ col: [0.035, 0.035, 0.04], rm: [0.7, 0.2, 0], em: [0, 0, 0, 0] });
+  Gd.box(LIFT.x0 - 0.3, Y, T.z1, LIFT.x1 + 0.3, Y + 9, T.z1 + 0.05, { faces: 'Z' });
+  Gd.set({ col: [0.6, 0.4, 0.12], rm: [0.5, 0.2, 0], em: em([1, 0.66, 0.22], 1.5, DUSK + code) });
+  { const xc = (LIFT.x0 + LIFT.x1) / 2, zf = T.z1 + 0.07; for (const y0 of [Y + 2.3, Y + 3.9, Y + 5.5]) {
+      Gd.quad([xc - 2.2, y0, zf], [xc - 2.2, y0 - 0.5, zf], [xc, y0 + 0.6, zf], [xc, y0 + 1.1, zf]);
+      Gd.quad([xc, y0 + 1.1, zf], [xc, y0 + 0.6, zf], [xc + 2.2, y0 - 0.5, zf], [xc + 2.2, y0, zf]); } }
   solid(T.x0, Y, T.z0, T.x1, RY, T.z1, { mat: 'glass' });
 
   // ---- the roof deck: concrete, a helipad H in the middle, parapets with two gaps (south: the lift; west: the jump)
