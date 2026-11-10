@@ -1,3 +1,4 @@
+import { vendAtlas } from './vending.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
@@ -195,6 +196,7 @@ export function buildStreet(ctx = {}) {
   // ---------------------------------------------------------------- furniture
   const sign = new Acc(), halo = new Acc(), arch2 = new Acc();
   const { E: SE } = signAtlas();
+  const { E: VE } = vendAtlas(), vacc = new Acc();   // vending fronts: their own hi-res atlas
   // LED street lamps: grey pole, a slim head over the road, cool-white pool
   const lamp = (x, z, dir) => {
     const hx = x + dir[0] * 2.2, hz = z + dir[1] * 2.2;
@@ -290,11 +292,11 @@ export function buildStreet(ctx = {}) {
     const c = Math.cos(ang), s = Math.sin(ang);
     for (let i = 0; i < n; i++) {
       const ox = x + c * (i - (n - 1) / 2) * 1.05, oz = z - s * (i - (n - 1) / 2) * 1.05;
-      const e = SE.vend[Math.floor(rng() * SE.vend.length)];
+      const e = VE.vend[Math.floor(rng() * VE.vend.length)];
       const N = [s, 0, c];
       prop.set({ col: hex(0xd8d6d0), rm: [0.4, 0.3, 0] });
       prop.obox(ox - N[0] * 0.38, 0.95 + CURB, oz - N[2] * 0.38, 0.5, 0.95, 0.38, ang);
-      signQuad(sign, [ox + N[0] * 0.005, CURB + 0.95, oz + N[2] * 0.005], N, 0.98, 1.84, e.uv, 1.25);
+      signQuad(vacc, [ox + N[0] * 0.005, CURB + 0.95, oz + N[2] * 0.005], N, 0.98, 1.84, e.uv, 1.25);
       colliders.push({ min: [ox - 0.55, 0, oz - 0.55], max: [ox + 0.55, 2.0, oz + 0.55], data: { mat: 'metal', kind: 'vending' } });
     }
     lights.push({ x: x + s * 1.6, z: z + c * 1.6, w: n * 1.2 + 1.5, d: 3.4, ang: -ang, color: [1.3, 1.35, 1.45], k: 0.9 });
@@ -405,6 +407,7 @@ export function buildStreet(ctx = {}) {
   const propMat = rmMat({});
   root.add(prop.mesh(propMat, { shadow: true }));
   root.add(sign.mesh(signMaterial()));
+  if (vacc.vn) root.add(vacc.mesh(signMat(vendAtlas().tex)));
   root.add(arch2.mesh(signMat(signAtlas2().tex)));
   if (halo.vn) root.add(halo.mesh(haloMaterial()));
   return { root, colliders, panes, groundMats: ground, anchors: { glows, lights }, info: { tris: prop.tris + mk.tris } };
@@ -419,7 +422,7 @@ function archSign() {
   neon('黒金センター街', 380, 66, 82, '#ff4fc0', JP);
   neon('KUROGANE CENTER-GAI', 820, 66, 40, '#4ff0ff', 'Anton, sans-serif');
   const t = canvasTex(c, { repeat: false, aniso: 4 });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.6), signMat(t, { color: 1.6, vc: false }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(14.6, 1.825), signMat(t, { color: 1.6, vc: false }));   // at the canvas aspect (8:1)
   return m;
 }
 
