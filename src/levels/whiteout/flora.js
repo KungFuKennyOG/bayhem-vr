@@ -170,7 +170,10 @@ export function buildFlora(ctx) {
     if (Math.hypot(x + 93, z - 110.6) < (big ? 50 : 40)) continue;   // the opening view stays open (small dark rocks on the bank read as floating)
     if (!near && !big && rng() < 0.7) continue;
     if (near && !big && sl > 0.3 && rng() < 0.5) { addRock(x, z, 0.8 + rng() * 2.5, (rng() * 3) | 0, 0.4); continue; }
-    addRock(x, z, big ? 3 + rng() * 6 : 0.6 + rng() * 2.2, big ? 0 : (rng() * 3) | 0, big ? 0.5 : 0.35);
+    const rs = big ? 3 + rng() * 6 : 0.6 + rng() * 2.2, rv = big ? 0 : (rng() * 3) | 0;
+    // big ones whose flanks would bulge into a walkable area have no collider (too big for a box): leave them out
+    if (rs >= 6 && [0, 1, 2, 3, 4, 5, 6, 7].some(k => walkable(x + Math.cos(k * 0.785) * rs * 1.25, z + Math.sin(k * 0.785) * rs * 1.25))) continue;
+    addRock(x, z, rs, rv, big ? 0.5 : 0.35);
     if (rocks.reduce((a, r) => a + r.length, 0) > 520) break;
   }
   // hand-placed: boulders along the road edges as cover-ish dressing, a rock rib above leg 3 (the sniper ledge)
@@ -182,7 +185,7 @@ export function buildFlora(ctx) {
     m.castShadow = true; m.receiveShadow = true;
     m.computeBoundingSphere();
     root.add(m);
-    for (const r of list) if (r.s > 1.2 && r.s < 6) { const h = r.s * 0.72; colliders.push({ min: [r.x - r.s * 0.8, r.y, r.z - r.s * 0.8], max: [r.x + r.s * 0.8, r.y + r.s * 0.35 + h * 0.6, r.z + r.s * 0.8], data: { kind: 'rock', mat: 'concrete' } }); }
+    for (const r of list) if (r.s > 0.7 && r.s < 6) { const h = r.s * 0.72; colliders.push({ min: [r.x - r.s * 0.8, r.y, r.z - r.s * 0.8], max: [r.x + r.s * 0.8, r.y + r.s * 0.35 + h * 0.6, r.z + r.s * 0.8], data: { kind: 'rock', mat: 'concrete' } }); }
   });
 
   // ---------------------------------------------------------------- avalanche snow-bridges (steel), rows on the steep walls

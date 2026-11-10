@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { YARD, MID, MID_HALL, TRACK_X, LINE, PYLON, HALL, DOCK, lineY, terrainAt, groundAt, SNIPERS } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, driftBox, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
 import { buildGroomer } from './groomer.js';
 import { dressStation } from './interior.js';
 import { signTexture } from './tex.js';
@@ -93,6 +93,7 @@ export function buildStation(ctx) {
       B.metal.add(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 12), M4(wx, wy, wz), [0.3, 0.3, 0.32]);
       B.metal.add(new THREE.CylinderGeometry(0.3, 0.3, 5.6, 10), M4(wx, Y + 2.8, wz), [0.25, 0.25, 0.27]);
       B.paintIn.add(rbox(3.0, 1.8, 2.2, 0.08), M4(wx - 8, Y + 0.9, wz + 1), [0.2, 0.32, 0.22]);   // drive motor housing
+      col(wx - 9.5, Y, wz - 0.1, wx - 6.5, Y + 1.8, wz + 2.1, { mat: 'metal' });
       col(wx - 0.5, Y, wz - 0.5, wx + 0.5, Y + 5, wz + 0.5, { mat: 'metal' });
       named.bullWheel = new THREE.Vector3(wx, wy, wz);
     }
@@ -128,7 +129,7 @@ export function buildStation(ctx) {
       }
       B.stone.add(rbox(0.3, 1.3, z1 - z0 + 0.2, 0.03), M4(wx + face * 0.12, Y + 0.65, (z0 + z1) / 2), footAO(Y, 1.3, 0.4, [0.72, 0.7, 0.68]), { uvScale: 2.6 });
     }
-    B.stone.add(rbox(x1 - x0 + 0.4, 1.3, 0.3, 0.03), M4((x0 + x1) / 2, Y + 0.65, z1 + 0.1), footAO(Y, 1.3, 0.4, [0.72, 0.7, 0.68]), { uvScale: 2.6 });
+    for (const [a, b] of [[x0 - 0.2, 72], [98, x1 + 0.2]]) { B.stone.add(rbox(b - a, 1.3, 0.3, 0.03), M4((a + b) / 2, Y + 0.65, z1 + 0.1), footAO(Y, 1.3, 0.4, [0.72, 0.7, 0.68]), { uvScale: 2.6 }); col(a, Y, z1, b, Y + 1.3, z1 + 0.25); }
     for (const cx of [73, 97]) B.metal.add(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 8), M4(cx, Y + 2.1, z1 + 4.5), [0.3, 0.3, 0.32]);
     B.metal.add(new THREE.BoxGeometry(26, 0.25, 5), M4(85, Y + 4.25, z1 + 2.4), [0.3, 0.3, 0.32]);
     B.snow.add(snowCap(25.8, 4.8, 0.35, 5, 10, 3), M4(85, Y + 4.55, z1 + 2.4), [0.95, 0.97, 1]);
@@ -138,6 +139,7 @@ export function buildStation(ctx) {
     B.snow.add(driftWedge(z1 - z0 - 2, 1.2, 2.2, 3), M4(x0 - 0.02, Y - 0.05, (z0 + z1) / 2, 0, -PI / 2, 0), dcol);
     B.snow.add(driftWedge(z1 - z0 - 2, 1.0, 1.9, 5), M4(x1 + 0.02, Y - 0.05, (z0 + z1) / 2, 0, PI / 2, 0), dcol);
     B.snow.add(driftWedge(9, 0.9, 1.6, 7), M4(67, Y - 0.05, z1 + 0.05), dcol); B.snow.add(driftWedge(11, 1.0, 1.7, 9), M4(104, Y - 0.05, z1 + 0.05), dcol);
+    col(...driftBox(9, 0.9, M4(67, Y - 0.05, z1 + 0.05)), { kind: 'drift', mat: 'snow' }); col(...driftBox(11, 1.0, M4(104, Y - 0.05, z1 + 0.05)), { kind: 'drift', mat: 'snow' });
     // the name on the front: GRAUHORN-BAHN
     {
       const t = signTexture([['GRAUHORN-BAHN', 120]], { w: 1024, h: 160, bg: '#c8c2b4', fg: '#7a1410', border: null, font: 'Anton', seed: 21, age: 0.6 });
@@ -183,13 +185,13 @@ export function buildStation(ctx) {
     // snow banked along the door bottoms and drifted into the gaps between the doors / at the corners
     { const dc = (q) => { const k = 0.84 + 0.16 * Math.min(1, (q.y - Y) / 0.9); return [k * 0.95, k * 0.97, k]; };
       for (const dz of [23, 31, 39]) B.snow.add(driftWedge(5.0, 0.28, 0.9, dz), M4(sx0 - 0.08, Y - 0.04, dz - 1.4, 0, -PI / 2, 0), dc);
-      for (const [gz, L, h] of [[25.6, 2.0, 0.9], [33.6, 2.0, 0.75], [18.3, 1.2, 1.0], [41.3, 1.6, 1.1]]) B.snow.add(driftWedge(L, h, h * 1.9, gz | 0), M4(sx0 - 0.05, Y - 0.05, gz, 0, -PI / 2, 0), dc); }
+      for (const [gz, L, h] of [[25.6, 2.0, 0.9], [33.6, 2.0, 0.75], [18.3, 1.2, 1.0], [41.3, 1.6, 1.1]]) { B.snow.add(driftWedge(L, h, h * 1.9, gz | 0), M4(sx0 - 0.05, Y - 0.05, gz, 0, -PI / 2, 0), dc); col(...driftBox(L, h, M4(sx0 - 0.05, Y - 0.05, gz, 0, -PI / 2, 0)), { kind: 'drift', mat: 'snow' }); } }
     // downpipes at the corners, a gutter along the eave, a lit window + the PISTENFAHRZEUGE sign on the west face
     for (const pz of [sz0 + 0.3, sz1 - 0.3]) B.metal.add(new THREE.CylinderGeometry(0.07, 0.07, sh, 8), M4(sx0 - 0.2, Y + sh / 2, pz), [0.34, 0.35, 0.36]);
     B.metal.add(new THREE.BoxGeometry(0.2, 0.16, sz1 - sz0 + 0.6), M4(sx0 - 0.25, Y + sh - 0.05, (sz0 + sz1) / 2), [0.34, 0.35, 0.36]);
     { const t = signTexture([['PISTENFAHRZEUGE', 80]], { w: 1024, h: 128, bg: '#2a4a8a', fg: '#f2efe6', border: '#f2efe6', seed: 88, age: 0.5 });
       const m = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.62), new THREE.MeshStandardMaterial({ map: t, roughness: 0.7 })); m.position.set(sx0 - 0.03, Y + 5.55, sz0 + 3.6); m.rotation.y = -PI / 2; root.add(m); }
-    col(sx0, Y, sz0, sx1, Y + sh + 0.3, sz1);
+    col(sx0 - 0.35, Y, sz0, sx1, Y + sh + 0.3, sz1);
     named.shedRoof = new THREE.Vector3(SNIPERS.shed.x, Y + sh + 0.3, SNIPERS.shed.z);
     // the fuel tank (west side of the yard) — big, horizontal, on saddles: the yard's money shot
     {
@@ -235,17 +237,17 @@ export function buildStation(ctx) {
       { const t = signTexture([['DIESEL', 92], ['UN 1202 · 30 000 L', 34]], { w: 512, h: 192, bg: '#d9a316', fg: '#151515', border: '#151515', seed: 77, age: 0.6 });
         const pm = new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2 });
         for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.82), pm); m.position.set(tx + s * (r + 0.02), ty - 0.05, tz - 0.1); m.rotation.y = s * PI / 2; root.add(m); } }
-      col(tx - r, Y, tz - len / 2 - r, tx + r, Y + r * 2 + 0.6, tz + len / 2 + r, { kind: 'tank', mat: 'metal' });
+      col(tx - r, Y, tz - len / 2 - r, tx + r + 0.3, Y + r * 2 + 0.6, tz + len / 2 + r, { kind: 'tank', mat: 'metal' });   // (+ the ladder on the east side)
       explosives.push({ p: new THREE.Vector3(tx, Y + r + 0.55, tz), r: r + 0.4, hp: 10, kind: 'fueltank', size: 3.2 });
       named.fuelTank = new THREE.Vector3(tx, Y + r + 0.55, tz);
       // diesel drums beside it
-      for (let i = 0; i < 4; i++) { const dx = tx + 2.6 + (i % 2) * 0.68, dz = tz - 3 + Math.floor(i / 2) * 0.7; B.paint.add(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 12), M4(dx, Y + 0.44, dz, 0, i, 0), [0.1, 0.22, 0.42]); B.snow.add(new THREE.CylinderGeometry(0.29, 0.31, 0.07, 10), M4(dx, Y + 0.92, dz), [0.95, 0.97, 1]); explosives.push({ p: new THREE.Vector3(dx, Y + 0.45, dz), r: 0.4, hp: 3, kind: 'drum', size: 0.9 }); }
+      for (let i = 0; i < 4; i++) { const dx = tx + 2.6 + (i % 2) * 0.68, dz = tz - 3 + Math.floor(i / 2) * 0.7; B.paint.add(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 12), M4(dx, Y + 0.44, dz, 0, i, 0), [0.1, 0.22, 0.42]); B.snow.add(new THREE.CylinderGeometry(0.29, 0.31, 0.07, 10), M4(dx, Y + 0.92, dz), [0.95, 0.97, 1]); col(dx - 0.3, Y, dz - 0.3, dx + 0.3, Y + 0.92, dz + 0.3, { kind: 'drum', mat: 'metal' }); explosives.push({ p: new THREE.Vector3(dx, Y + 0.45, dz), r: 0.4, hp: 3, kind: 'drum', size: 0.9 }); }
     }
     // shipping containers + pallets as cover in the middle of the yard
     const cont = (x, z, yaw, c) => { B.paint.add(rbox(6.0, 2.6, 2.44, 0.04), M4(x, Y + 1.3, z, 0, yaw, 0), (p, n, l) => { const r = (0.85 + 0.15 * Math.sin(l.x * 9.5 + l.z * 9.5)) * (l.y < -1.0 ? 0.75 : 1) * (Math.abs(l.y) > 1.2 ? 0.8 : 1); return [c[0] * r, c[1] * r, c[2] * r]; }); for (const ex of [-3.02, 3.02]) for (const bz of [-0.75, -0.3, 0.3, 0.75]) B.metal.add(new THREE.CylinderGeometry(0.03, 0.03, 2.4, 5), M4(x + Math.cos(yaw) * ex + Math.sin(yaw) * bz, Y + 1.3, z - Math.sin(yaw) * ex + Math.cos(yaw) * bz), [0.25, 0.25, 0.26]); B.snow.add(snowCap(6.0, 2.44, 0.3, x, 6, 3), M4(x, Y + 2.72, z, 0, yaw, 0), [0.95, 0.97, 1]); const C = Math.abs(Math.cos(yaw)), S = Math.abs(Math.sin(yaw)); col(x - C * 3 - S * 1.22, Y, z - S * 3 - C * 1.22, x + C * 3 + S * 1.22, Y + 2.6, z + S * 3 + C * 1.22, { kind: 'container', mat: 'metal' }); };
     cont(76, 28, 0.05, [0.42, 0.12, 0.08]); cont(94, 34, PI / 2 + 0.08, [0.14, 0.24, 0.36]); cont(88, 22, 0.02, [0.2, 0.3, 0.18]);
     // drifts banked against the containers' windward (north) sides, pallets + crates between them
-    const drift = (x, z, yaw, L, h, seed) => B.snow.add(driftWedge(L, h, h * 1.9, seed), M4(x, Y - 0.05, z, 0, yaw, 0), (q) => { const k = 0.86 + 0.14 * Math.min(1, (q.y - Y) / h); return [k * 0.95, k * 0.97, k]; });
+    const drift = (x, z, yaw, L, h, seed) => { col(...driftBox(L, h, M4(x, Y - 0.05, z, 0, yaw, 0)), { kind: 'drift', mat: 'snow' }); B.snow.add(driftWedge(L, h, h * 1.9, seed), M4(x, Y - 0.05, z, 0, yaw, 0), (q) => { const k = 0.86 + 0.14 * Math.min(1, (q.y - Y) / h); return [k * 0.95, k * 0.97, k]; }); };
     drift(76, 26.6, PI, 6, 1.0, 21); drift(88, 20.6, PI, 6, 0.9, 23); drift(92.6, 34, -PI / 2, 6, 0.8, 25);
     for (const [px, pz, n] of [[70, 36, 3], [100, 26, 2], [82, 12, 3]]) {
       for (let i = 0; i < n; i++) { const yw = rng() * 0.4; B.wood.add(rbox(1.2, 0.14, 1.0, 0.01), M4(px + i * 0.1, Y + 0.07 + i * 0.15, pz, 0, yw, 0), [0.4, 0.3, 0.2]); }
@@ -260,12 +262,13 @@ export function buildStation(ctx) {
     {
       const gx = 68, gz = 41.5, yaw = PI / 2 + 0.25;
       { const GR = buildGroomer({ seed: 3, paint: [0.66, 0.07, 0.05] }); GR.root.position.set(gx, Y, gz); GR.root.rotation.y = yaw; root.add(GR.root); glows.push({ p: new THREE.Vector3(0.6, 3.35, -0.5).applyMatrix4(M4(gx, Y, gz, 0, yaw, 0)).toArray(), color: [2.4, 1.2, 0.2], size: 0.9, blink: true, rate: 4 }); }
-      const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(gx - c * 2.2 - sn * 3.6, Y, gz - sn * 2.2 - c * 3.6, gx + c * 2.2 + sn * 3.6, Y + 3.2, gz + sn * 2.2 + c * 3.6, { kind: 'wreck', mat: 'metal' });
+      const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(gx - c * 2.3 - sn * 4.0, Y, gz - sn * 2.3 - c * 4.0, gx + c * 2.3 + sn * 4.0, Y + 3.2, gz + sn * 2.3 + c * 4.0, { kind: 'wreck', mat: 'metal' });
       // the snow fence: dark posts, an orange plastic mesh (slats), drifts banked on its windward side
       for (let fz = 12; fz < 36; fz += 2.4) {
         B.wood.add(new THREE.BoxGeometry(0.1, 1.6, 0.1), M4(50.6, Y + 0.8, fz), [0.16, 0.12, 0.09]);
         for (let k = 0; k < 6; k++) B.paint.add(new THREE.BoxGeometry(0.03, 0.09, 2.4), M4(50.6, Y + 0.35 + k * 0.2, fz + 1.2), [0.85, 0.32, 0.06]);
       }
+      col(49.6, Y, 11.9, 50.85, Y + 1.6, 38.6, { kind: 'fence', mat: 'wood', noBullet: true });   // (+ the drift banked behind it)
       B.snow.add(driftWedge(24, 0.8, 1.6, 41), M4(50.3, Y - 0.05, 24, 0, -PI / 2, 0), (q) => { const k = 0.86 + 0.14 * Math.min(1, (q.y - Y) / 0.8); return [k * 0.95, k * 0.97, k]; });
     }
     // packed grey-brown slush where everything stops: the station doorway, the shed doors, round the tank and the pallets

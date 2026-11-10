@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { ROAD, ROAD_SEGS, ROAD_W, ROAD_LEN, roadAt, terrainAt, LEG1, LEG2, LEG3, HP1, HP2, VALLEY } from './layout.js';
+import { ROAD, ROAD_SEGS, ROAD_W, ROAD_LEN, roadAt, terrainAt, LEG1, LEG2, LEG3, HP1, HP2, VALLEY, PULLOUT } from './layout.js';
 import { roadSnowTexture, signTexture } from './tex.js';
 import { Bucket, M4, mats, rbox, snowCap, hexc, snowPatch } from './kit.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
@@ -105,7 +105,10 @@ export function buildRoad(ctx) {
         for (const [a, hh] of PRO) {
           const lat = side * (W + 0.05 + a / 1.6 * reach);
           const x = F.x + F.nx * lat, z = F.z + F.nz * lat;
-          const y = F.y + 0.02 + hh * h - (a > 1.4 && !upSide ? 0.1 : 0);
+          // the pull-out is cleared ground: the bank flattens across it and builds back up over 3 m past its ends
+          const dP = Math.hypot(Math.max(PULLOUT.x0 - x, 0, x - PULLOUT.x1), Math.max(PULLOUT.z0 - z, 0, z - PULLOUT.z1));
+          const kP = 0.12 + 0.88 * Math.min(1, dP / 3);
+          const y = F.y + 0.02 + hh * h * kP - (a > 1.4 && !upSide ? 0.1 : 0);
           pos.push(x, y, z);
           const ao = 0.86 + 0.14 * hh;
           col.push(ao * 0.98, ao, ao * 1.02);
@@ -216,6 +219,7 @@ export function buildRoad(ctx) {
     const F = frame(s), lat = -F.up * (W + 0.75);
     const x = F.x + F.nx * lat, z = F.z + F.nz * lat, y = F.y;
     const lean = (Math.sin(s * 1.37) * 0.04);
+    colliders.push({ min: [x - 0.08, y - 0.2, z - 0.08], max: [x + 0.08, y + 1.95, z + 0.08], data: { kind: 'pole', mat: 'metal', noBullet: true } });
     metal.add(new THREE.CylinderGeometry(0.035, 0.04, 2.1, 6), M4(x, y + 0.9, z, lean, 0, lean * 0.6), (P, N, L) => { const band = Math.floor((L.y + 1.05) / 0.35) % 2 === 0; return band ? [0.95, 0.32, 0.05] : [0.06, 0.06, 0.06]; });
     glows.push({ p: [x - F.nx * 0.05 * F.up, y + 1.8, z - F.nz * 0.05 * F.up], color: [1.6, 1.4, 1.1], size: 0.09, near: true });
   }

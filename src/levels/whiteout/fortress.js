@@ -2,8 +2,8 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { dressStation } from './interior.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { HALL, HALL_WALK, DOCK, COURT, BLOCK, TOWER, STAIR_A, LAND_A, STAIR_B, LAND_B, GALLERY, RAILCAR, TRACK_X, SUMMIT_Y, terrainAt, groundAt, lineY } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, floorPools, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
+import { HALL, HALL_WALK, DOCK, COURT, BLOCK, TOWER, STAIR_A, LAND_A, STAIR_B, LAND_B, STAIR_RAIL, GALLERY, RAILCAR, TRACK_X, SUMMIT_Y, terrainAt, groundAt, lineY } from './layout.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, driftBox, floorPools, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
 import { buildGroomer } from './groomer.js';
 import { signTexture } from './tex.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
@@ -124,11 +124,13 @@ export function buildFortress(ctx) {
         B.paint.add(rbox(1.4, 1.0, 1.0, 0.03), M4(cx, Y + 0.5 + h * 1.0, cz, 0, yaw + (rng() - 0.5) * 0.2, 0), (q, n, l) => (Math.abs(l.y) > 0.38 || Math.abs(l.x) > 0.6 ? [cc[0] * 0.7, cc[1] * 0.7, cc[2] * 0.7] : cc));
         if (top || h === 0 && lx > 2) B.snow.add(snowCap(1.4, 1.0, 0.14, cx + k, 3, 2), M4(cx, Y + 1.05 + h * 1.0, cz, 0, yaw, 0), [0.95, 0.97, 1]);
       }
-      const [ax, az] = at(-0.2, 0); col(ax - 1.6, Y, az - 1.1, ax + 1.6, Y + 2.0, az + 1.1, { kind: 'crate', mat: 'wood' });
+      // the stack's box, turned with the cluster (it used to ignore the yaw, and the 4th crate stood outside it)
+      { const lx1 = k % 2 ? 2.95 : 1.5, cs = [[-1.5, -0.95], [lx1, -0.95], [lx1, 0.65], [-1.5, 0.65]].map(([lx, lz]) => at(lx, lz));
+        col(Math.min(...cs.map(c => c[0])), Y, Math.min(...cs.map(c => c[1])), Math.max(...cs.map(c => c[0])), Y + 2.0, Math.max(...cs.map(c => c[1])), { kind: 'crate', mat: 'wood' }); }
       // drums beside the stack (one of them goes up)
-      for (let i = 0; i < 3; i++) { const [dx, dz] = at(-2.3 + (i % 2) * 0.66, -0.3 + Math.floor(i / 2) * 0.66); B.paint.add(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 12), M4(dx, Y + 0.44, dz, 0, i, 0), i === 0 ? [0.55, 0.12, 0.06] : [0.12, 0.2, 0.3]); B.snow.add(new THREE.CylinderGeometry(0.29, 0.31, 0.06, 10), M4(dx, Y + 0.91, dz), [0.95, 0.97, 1]); if (i === 0) explosives.push({ p: new THREE.Vector3(dx, Y + 0.45, dz), r: 0.4, hp: 3, kind: 'drum', size: 0.9 }); }
+      for (let i = 0; i < 3; i++) { const [dx, dz] = at(-2.3 + (i % 2) * 0.66, -0.3 + Math.floor(i / 2) * 0.66); B.paint.add(new THREE.CylinderGeometry(0.3, 0.3, 0.88, 12), M4(dx, Y + 0.44, dz, 0, i, 0), i === 0 ? [0.55, 0.12, 0.06] : [0.12, 0.2, 0.3]); B.snow.add(new THREE.CylinderGeometry(0.29, 0.31, 0.06, 10), M4(dx, Y + 0.91, dz), [0.95, 0.97, 1]); col(dx - 0.3, Y, dz - 0.3, dx + 0.3, Y + 0.92, dz + 0.3, { kind: 'drum', mat: 'metal' }); if (i === 0) explosives.push({ p: new THREE.Vector3(dx, Y + 0.45, dz), r: 0.4, hp: 3, kind: 'drum', size: 0.9 }); }
       // the drift banked on the windward side
-      const [wx, wz] = at(0, -1.2); B.snow.add(driftWedge(3.6, 0.7, 1.4, k * 7 + 3), M4(wx, Y - 0.05, wz, 0, yaw + PI, 0), (q) => { const kk = 0.86 + 0.14 * Math.min(1, (q.y - Y) / 0.7); return [kk * 0.95, kk * 0.97, kk]; });
+      const [wx, wz] = at(0, -1.2); col(...driftBox(3.6, 0.7, M4(wx, Y - 0.05, wz, 0, yaw + PI, 0)), { kind: 'drift', mat: 'snow' }); B.snow.add(driftWedge(3.6, 0.7, 1.4, k * 7 + 3), M4(wx, Y - 0.05, wz, 0, yaw + PI, 0), (q) => { const kk = 0.86 + 0.14 * Math.min(1, (q.y - Y) / 0.7); return [kk * 0.95, kk * 0.97, kk]; });
     };
     [[70, -348, 0.3], [112, -347, -0.2], [128, -364, 0.4], [76, -370, -0.1], [134, -330, 0.1], [62, -334, PI / 2 - 0.2]].forEach(([x, z, yw], k) => cluster(x, z, yw, k));
     // a floodlight tower that came down (the cable whipped across it?): lying in the snow, its lamp still lit
@@ -157,7 +159,7 @@ export function buildFortress(ctx) {
       col(mx - 0.25, Y, mz - 0.25, mx + 0.25, Y + 11, mz + 0.25, { mat: 'metal' });
     }
     // the enemy snowcat parked by the block (cover)
-    { const sx = 96, sz = -372, yaw = PI / 2 + 0.1; const GR = buildGroomer({ seed: 11, paint: [0.32, 0.34, 0.33] }); GR.root.position.set(sx, Y, sz); GR.root.rotation.y = yaw; root.add(GR.root); const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(sx - c * 2.2 - sn * 3.6, Y, sz - sn * 2.2 - c * 3.6, sx + c * 2.2 + sn * 3.6, Y + 3.0, sz + sn * 2.2 + c * 3.6, { kind: 'wreck', mat: 'metal' }); }
+    { const sx = 96, sz = -372, yaw = PI / 2 + 0.1; const GR = buildGroomer({ seed: 11, paint: [0.32, 0.34, 0.33] }); GR.root.position.set(sx, Y, sz); GR.root.rotation.y = yaw; root.add(GR.root); const c = Math.abs(Math.cos(yaw)), sn = Math.abs(Math.sin(yaw)); col(sx - c * 2.2 - sn * 4.0, Y, sz - sn * 2.2 - c * 4.0, sx + c * 2.2 + sn * 4.0, Y + 3.0, sz + sn * 2.2 + c * 4.0, { kind: 'wreck', mat: 'metal' }); }
   }
 
   // ---------------------------------------------------------------- the north block (two storeys; the roof walk)
@@ -191,7 +193,7 @@ export function buildFortress(ctx) {
     col(x0, Y, z0, x1, roofY, z1);   // the block itself (its top is the roof walk)
     for (const [a, b] of [[x0, LAND_A.x0], [LAND_A.x1, x1]]) {
       B.stone.add(rbox(b - a, 1.05, 0.5, 0.03), M4((a + b) / 2, roofY + 0.52, z1 - 0.25), [0.7, 0.69, 0.67], { uvScale: 2.6 });
-      B.snow.add(snowCap(b - a, 0.55, 0.16, a, 10, 1), M4((a + b) / 2, roofY + 1.1, z1 - 0.25), [0.95, 0.97, 1]);
+      B.snow.add(snowCap(b - a - 0.5, 0.55, 0.16, a, 10, 1), M4((a + b) / 2, roofY + 1.1, z1 - 0.25), [0.95, 0.97, 1]);   // (kept off the landing gap)
       col(a, roofY, z1 - 0.5, b, roofY + 1.05, z1, { kind: 'parapet' });
     }
     // north edge: a steel railing (the slope rises behind it)
@@ -208,7 +210,7 @@ export function buildFortress(ctx) {
   }
 
   // ---------------------------------------------------------------- stair A (courtyard → roof walk), stair B (roof → tower terrace)
-  const steelStair = (sx0, sx1, sz0, sz1, y0, y1, alongX, railSides) => {
+  const steelStair = (sx0, sx1, sz0, sz1, y0, y1, alongX, railSides, railFrom = 0) => {
     const L = alongX ? sx1 - sx0 : sz1 - sz0, W = alongX ? sz1 - sz0 : sx1 - sx0, n = Math.round((y1 - y0) / 0.19);
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n, h = y0 + (y1 - y0) * (i + 1) / n;
@@ -222,19 +224,22 @@ export function buildFortress(ctx) {
       const ex = alongX ? (sx0 + sx1) / 2 : (s ? sx1 : sx0), ez = alongX ? (s ? sz1 : sz0) : (sz0 + sz1) / 2, ey = (y0 + y1) / 2;
       B.paint.add(new THREE.BoxGeometry(alongX ? L / Math.cos(pitch) : 0.08, 0.3, alongX ? 0.08 : L / Math.cos(pitch)), M4(ex, ey - 0.15, ez, alongX ? 0 : pitch, 0, alongX ? pitch : 0), [0.42, 0.18, 0.08]);
       if (railSides.includes(s)) {
-        B.paint.add(new THREE.BoxGeometry(alongX ? L / Math.cos(pitch) : 0.06, 0.06, alongX ? 0.06 : L / Math.cos(pitch)), M4(ex, ey + 1.0, ez, alongX ? 0 : pitch, 0, alongX ? pitch : 0), [0.85, 0.65, 0.08]);
-        for (let k = 0; k <= 6; k++) { const t = k / 6; const px = alongX ? sx0 + L * t : ex, pz = alongX ? ez : sz1 - L * t, py = y0 + (y1 - y0) * t; B.metal.add(new THREE.BoxGeometry(0.05, 1.0, 0.05), M4(px, py + 0.5, pz), [0.4, 0.4, 0.42]); }
+        // the rail runs from railFrom up the run to the top (matches its collider: the low first steps stay open)
+        const t0 = railFrom / L, Lr = L * (1 - t0), mt = (t0 + 1) / 2;
+        const rx = alongX ? sx0 + L * mt : ex, rz = alongX ? ez : sz1 - L * mt, ry = y0 + (y1 - y0) * mt;
+        B.paint.add(new THREE.BoxGeometry(alongX ? Lr / Math.cos(pitch) : 0.06, 0.06, alongX ? 0.06 : Lr / Math.cos(pitch)), M4(rx, ry + 1.0, rz, alongX ? 0 : pitch, 0, alongX ? pitch : 0), [0.85, 0.65, 0.08]);
+        for (let k = 0; k <= 5; k++) { const t = t0 + (1 - t0) * k / 5; const px = alongX ? sx0 + L * t : ex, pz = alongX ? ez : sz1 - L * t, py = y0 + (y1 - y0) * t; B.metal.add(new THREE.BoxGeometry(0.05, 1.0, 0.05), M4(px, py + 0.5, pz), [0.4, 0.4, 0.42]); }
       }
     }
   };
-  steelStair(STAIR_A.x0, STAIR_A.x1, STAIR_A.z0, STAIR_A.z1, STAIR_A.y0, STAIR_A.y1, true, [1]);
-  col(STAIR_A.x0 + 1.4, Y, STAIR_A.z1 - 0.12, STAIR_A.x1, BLOCK.roofY + 1.1, STAIR_A.z1 + 0.05, { kind: 'rail', noBullet: true });   // its outer rail (enter at the bottom)
+  steelStair(STAIR_A.x0, STAIR_A.x1, STAIR_A.z0, STAIR_A.z1, STAIR_A.y0, STAIR_A.y1, true, [1], STAIR_RAIL);
+  col(STAIR_A.x0 + STAIR_RAIL, Y, STAIR_A.z1 - 0.12, STAIR_A.x1, BLOCK.roofY + 1.1, STAIR_A.z1 + 0.05, { kind: 'rail', noBullet: true });   // its outer rail (enter at the bottom)
   // the landing at the top
   B.metal.add(new THREE.BoxGeometry(LAND_A.x1 - LAND_A.x0, 0.12, LAND_A.z1 - LAND_A.z0), M4((LAND_A.x0 + LAND_A.x1) / 2, BLOCK.roofY - 0.06, (LAND_A.z0 + LAND_A.z1) / 2), [0.32, 0.31, 0.3]);
   col(LAND_A.x0, BLOCK.roofY, LAND_A.z1 - 0.1, LAND_A.x1, BLOCK.roofY + 1.1, LAND_A.z1 + 0.05, { kind: 'rail', noBullet: true });
   col(LAND_A.x1 - 0.1, BLOCK.roofY, LAND_A.z0, LAND_A.x1 + 0.05, BLOCK.roofY + 1.1, LAND_A.z1, { kind: 'rail', noBullet: true });
-  steelStair(STAIR_B.x0, STAIR_B.x1, STAIR_B.z0, STAIR_B.z1, STAIR_B.y0, STAIR_B.y1, false, [1]);
-  col(STAIR_B.x1 - 0.05, BLOCK.roofY, STAIR_B.z0, STAIR_B.x1 + 0.1, TOWER.roofY + 1.1, STAIR_B.z1 - 2.2, { kind: 'rail', noBullet: true });
+  steelStair(STAIR_B.x0, STAIR_B.x1, STAIR_B.z0, STAIR_B.z1, STAIR_B.y0, STAIR_B.y1, false, [1], STAIR_RAIL);
+  col(STAIR_B.x1 - 0.05, BLOCK.roofY, STAIR_B.z0, STAIR_B.x1 + 0.1, TOWER.roofY + 1.1, STAIR_B.z1 - STAIR_RAIL, { kind: 'rail', noBullet: true });
   B.metal.add(new THREE.BoxGeometry(LAND_B.x1 - LAND_B.x0, 0.12, LAND_B.z1 - LAND_B.z0), M4((LAND_B.x0 + LAND_B.x1) / 2, TOWER.roofY - 0.06, (LAND_B.z0 + LAND_B.z1) / 2), [0.32, 0.31, 0.3]);
   col(LAND_B.x1 - 0.05, TOWER.roofY, LAND_B.z0, LAND_B.x1 + 0.1, TOWER.roofY + 1.1, LAND_B.z1, { kind: 'rail', noBullet: true });
 
@@ -266,7 +271,7 @@ export function buildFortress(ctx) {
     named.dome = new THREE.Vector3(dx, roofY + 4, dz);
     // the antenna mast on the tower's NE corner (rimed lattice, red lights) — a silhouette for the storm
     const ax = x0 + 2, az = z0 + 2;   // NW corner: out of the terrace's view up the face
-    B.concrete.add(rbox(1.6, 0.8, 1.6, 0.05), M4(ax, roofY + 0.4, az), [0.6, 0.59, 0.57]);
+    B.concrete.add(rbox(1.6, 0.8, 1.6, 0.05), M4(ax, roofY + 0.4, az), [0.6, 0.59, 0.57]); col(ax - 0.8, roofY, az - 0.8, ax + 0.8, roofY + 18, az + 0.8, { kind: 'mast', mat: 'metal' });
     for (const [gx, gz] of [[1, 1], [1, 0], [0, 1]]) {   // guy wires down to the parapet
       const a = new THREE.Vector3(ax + gx * 7, roofY + 1.2, az + gz * 7), b = new THREE.Vector3(ax, roofY + 13, az), d = b.clone().sub(a), L = d.length();
       const m = new THREE.Matrix4().compose(a.clone().add(b).multiplyScalar(0.5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()), new THREE.Vector3(1, 1, 1));
@@ -322,9 +327,9 @@ export function buildFortress(ctx) {
   }
 
   // ---------------------------------------------------------------- snow drifted against the walls (the wind banks it up on the faces)
-  const drift = (x0, x1, z, face, h, seed) => { const L = x1 - x0; B.snow.add(driftWedge(L, h, h * 1.9, seed), M4((x0 + x1) / 2, Y - 0.05, z, 0, face > 0 ? 0 : Math.PI, 0), (p) => { const k = 0.86 + 0.14 * Math.min(1, (p.y - Y) / h); return [k * 0.95, k * 0.97, k]; }); };
-  const driftZ = (z0, z1, x, face, h, seed) => { const L = z1 - z0; B.snow.add(driftWedge(L, h, h * 1.9, seed), M4(x, Y - 0.05, (z0 + z1) / 2, 0, face > 0 ? Math.PI / 2 : -Math.PI / 2, 0), (p) => { const k = 0.86 + 0.14 * Math.min(1, (p.y - Y) / h); return [k * 0.95, k * 0.97, k]; }); };
-  drift(BLOCK.x0 + 1, 88, BLOCK.z1 + 0.05, 1, 1.1, 3); drift(92, 108, BLOCK.z1 + 0.05, 1, 0.9, 5); drift(127, BLOCK.x1 - 1, BLOCK.z1 + 0.05, 1, 1.3, 7);
+  const drift = (x0, x1, z, face, h, seed) => { const L = x1 - x0; col(...driftBox(L, h, M4((x0 + x1) / 2, Y - 0.05, z, 0, face > 0 ? 0 : Math.PI, 0)), { kind: 'drift', mat: 'snow' }); B.snow.add(driftWedge(L, h, h * 1.9, seed), M4((x0 + x1) / 2, Y - 0.05, z, 0, face > 0 ? 0 : Math.PI, 0), (p) => { const k = 0.86 + 0.14 * Math.min(1, (p.y - Y) / h); return [k * 0.95, k * 0.97, k]; }); };
+  const driftZ = (z0, z1, x, face, h, seed) => { const L = z1 - z0; col(...driftBox(L, h, M4(x, Y - 0.05, (z0 + z1) / 2, 0, face > 0 ? Math.PI / 2 : -Math.PI / 2, 0)), { kind: 'drift', mat: 'snow' }); B.snow.add(driftWedge(L, h, h * 1.9, seed), M4(x, Y - 0.05, (z0 + z1) / 2, 0, face > 0 ? Math.PI / 2 : -Math.PI / 2, 0), (p) => { const k = 0.86 + 0.14 * Math.min(1, (p.y - Y) / h); return [k * 0.95, k * 0.97, k]; }); };
+  drift(BLOCK.x0 + 1, 88, BLOCK.z1 + 0.05, 1, 1.1, 3); drift(92, 103.5, BLOCK.z1 + 0.05, 1, 0.9, 5); drift(127, BLOCK.x1 - 1, BLOCK.z1 + 0.05, 1, 1.3, 7);
   drift(HALL.x0 + 1, 75, HALL.z0 - 0.05, -1, 1.2, 9); drift(99, HALL.x1 - 1, HALL.z0 - 0.05, -1, 1.0, 11);
   drift(TOWER.x0 + 1, TOWER.x1 - 1, TOWER.z1 + 0.05, 1, 1.4, 13);
   driftZ(COURT.z0 + 2, COURT.z1 - 2, COURT.x0 + 0.05, 1, 0.9, 15); driftZ(COURT.z0 + 2, COURT.z1 - 8, COURT.x1 - 0.05, -1, 0.8, 17);
@@ -335,6 +340,13 @@ export function buildFortress(ctx) {
     const r0 = s * 1.1, gy0 = Math.min(terrainAt(x, z), terrainAt(x + r0, z), terrainAt(x - r0, z), terrainAt(x, z + r0), terrainAt(x, z - r0)); B.rock.add(g, M4(x, gy0 - s * 0.3, z, rng(), rng() * 6, 0, s * 1.2, s, s), [0.8, 0.8, 0.8], { uvScale: 5 });
   }
 
+  const SEARCH = [[TOWER.x1 - 3, TOWER.roofY + 1.6, TOWER.z1 - 2, 0.6, TOWER.roofY], [BLOCK.x0 + 20, BLOCK.roofY + 1.4, BLOCK.z1 - 1, -0.4, BLOCK.roofY], [HALL.x1 - 3, HALL.roofY + 1.6, HALL.z1 - 2, 2.6, HALL.roofY]];
+  for (const [bx, by, bz, , fy] of SEARCH) {
+    B.metal.add(new THREE.CylinderGeometry(0.42, 0.5, 0.12, 12), M4(bx, fy + 0.06, bz), [0.22, 0.22, 0.23]);
+    B.metal.add(new THREE.CylinderGeometry(0.07, 0.11, by - fy - 0.5, 8), M4(bx, (fy + by - 0.5) / 2, bz), [0.3, 0.3, 0.32]);
+    B.metal.add(new THREE.CylinderGeometry(0.32, 0.32, 0.12, 12), M4(bx, by - 0.5, bz), [0.22, 0.22, 0.23]);
+    col(bx - 0.65, fy, bz - 0.65, bx + 0.65, by + 0.6, bz + 0.65, { kind: 'lamp', mat: 'metal' });
+  }
   for (const [k, b] of Object.entries(B)) {
     if (!b.vn) continue;
     const m = k === 'lamp' ? mats.lamp() : mats[k]();
@@ -350,7 +362,7 @@ export function buildFortress(ctx) {
     transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, side: THREE.DoubleSide, fog: false,
   });
   const beamGeo = new THREE.ConeGeometry(5, 60, 20, 1, true); beamGeo.translate(0, -35, 0); beamGeo.rotateX(-PI / 2);   // apex at the origin, pointing -z
-  for (const [bx, by, bz, a0] of [[TOWER.x1 - 3, TOWER.roofY + 1.6, TOWER.z1 - 2, 0.6], [BLOCK.x0 + 20, BLOCK.roofY + 1.4, BLOCK.z1 - 1, -0.4], [HALL.x1 - 3, HALL.roofY + 1.6, HALL.z1 - 2, 2.6]]) {
+  for (const [bx, by, bz, a0] of SEARCH) {
     const head = new THREE.Group(); head.position.set(bx, by, bz);
     const m = new THREE.Mesh(beamGeo, beamMat); m.renderOrder = 22; m.frustumCulled = false; head.add(m);
     const lampG = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.9, 12).rotateX(PI / 2), mats.paint()); head.add(lampG);
