@@ -3,7 +3,7 @@ import { makeRng } from '../../rng.js';
 import { Buckets, em, mul3, hexc, GOLD, SODIUM, DIST, DUSK } from './kit.js';
 import { materials, SHADOW_KEYS } from './mats.js';
 import { lampPost } from './kitbuild.js';
-import { Y, PLZ, ROAD, BLOCK_X, BRIDGE, PODIUM, TOWER, LIFT, ROOFTOP, COVER, WATER_Y, QUAY, RIVER, roadDist, bridgeDist } from './layout.js';
+import { Y, LZ, PLZ, ROAD, BLOCK_X, BRIDGE, PODIUM, TOWER, LIFT, ROOFTOP, COVER, WATER_Y, QUAY, RIVER, roadDist, bridgeDist } from './layout.js';
 
 // =====================================================================================
 //  LIGHTS OUT — the route: Kuixing Plaza and the cliff road on the south bank, the bridge, the
@@ -50,7 +50,7 @@ export function buildRoute(ctx = {}) {
     Cc.box(PLZ.x0, Y - 0.6, ROAD.lane[1], X1, Y + 0.02, ROAD.front, { faces: 'Y', s: 1 });
     // lane paint: a broken centre line, solid edge lines (they point down the road)
     const P = B.get('plain', 's'); P.set({ col: [0.62, 0.6, 0.52], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
-    for (let x = ROAD.x0 + 30; x < X1; x += 9) P.box(x, Y, 433.92, x + 4, Y + 0.012, 434.08, { faces: 'Y' });
+    for (let x = ROAD.x0 + 30; x < X1; x += 9) P.box(x, Y, LZ - 0.08, x + 4, Y + 0.012, LZ + 0.08, { faces: 'Y' });
     P.box(ROAD.x0, Y, ROAD.lane[0] + 0.3, X1, Y + 0.012, ROAD.lane[0] + 0.42, { faces: 'Y' });
     P.box(ROAD.x0, Y, ROAD.lane[1] - 0.42, X1, Y + 0.012, ROAD.lane[1] - 0.3, { faces: 'Y' });
     // the railing over the gorge (a gap where the bridge leaves)
@@ -134,15 +134,15 @@ export function buildRoute(ctx = {}) {
       // the stays: fans down to the deck's edge both ways (gold-lit, thick, in the plane beside the kerb)
       const St = B.get('plain', 'b');
       for (const dir of [-1, 1]) for (let k = 1; k <= 6; k++) {
-        const zd = mz + dir * k * 9.2; if (zd < z0 + 2 || zd > z1 - 2) continue;
-        const ya = top - 4 - (6 - k) * 9.5, code = bridgeDist(zd);
+        const zd = mz + dir * k * 10.4; if (zd < z0 + 2 || zd > z1 - 2) continue;
+        const ya = top - 4 - (6 - k) * 10.5, code = bridgeDist(zd);
         St.set({ col: [0.5, 0.42, 0.28], rm: [0.4, 0.6, 0], em: em(GOLD, 0.5, DUSK + code) });
         St.tube([cx - sx * 1.2, ya, mz + dir * 2.2], [sx < 0 ? x0 - 0.9 : x1 + 0.9, Y - 0.3, zd], 0.16, 5);
       }
     }
     // the bridge's lamps: on the parapets, both sides, staggered (codes south → north so they can die behind you)
     let side = 0;
-    for (let z = z1 - 14; z > z0 + 6; z -= 13) {
+    for (let z = z1 - 9; z > z0 + 6; z -= 12) {
       const sx = (side++ % 2) ? x1 - 0.25 : x0 + 0.25;
       lampPost(B, 'b', sx, Y + 0.75, z, { dir: [sx < 692 ? 1 : -1, 0, 0], h: 5.6, code: bridgeDist(z), lights, glows, grp: 2, col: [1.0, 0.78, 0.5] });
     }

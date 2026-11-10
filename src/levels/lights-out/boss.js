@@ -91,7 +91,7 @@ export class Gunship {
     m.root.visible = true;
     const hp = this.hp0 * (g.auto ? 1.3 : 1);   // the autopilot (demo / trailer) is a crack shot: a longer fight for the camera
     const river = this.mode === 'river';
-    const p0 = river ? [head.x + 34, Y - 34, 384] : [TOWER.x0 - 46, R.y - 46, TC.z + 6];
+    const p0 = river ? [head.x + 34, Y - 16, RIVER.z1 - 40] : [TOWER.x0 - 46, R.y - 46, TC.z + 6];
     this.H = { pos: m.root.position.set(...p0), vel: new THREE.Vector3(0, 15, 0), yaw: river ? 0 : -Math.PI / 2, hp, maxHp: hp, phase: 'rise', t: 0, rocketT: 4.5, gunT: 1.4, burst: 0, wp: new THREE.Vector3(), wpT: 0, alive: true, bank: 0, pitch: 0, hitT: 0, orbit: Math.PI, diveT: 16, drops: river ? [] : [4, 2], dropT: 6, fightT: 0, rise: new THREE.Vector3(p0[0], river ? Y + 20 : R.y + 8, p0[2]) };
     g.audio.musicStinger('boss');
     g.events.push({ type: 'heliUp', mode: this.mode });
@@ -210,7 +210,7 @@ export class Gunship {
         H.wpT = range(3.5, 5.5);
         if (river) {
           // over the gorge beside the road: ahead of you or level with you, 35–60 m off the rail, a little above the road
-          H.wp.set(clamp(head.x + range(-26, 46), ROAD.x0 + 20, ROAD.x1 - 10), Y + range(9, 24), RIVER.z1 - range(34, 60));
+          H.wp.set(clamp(head.x + range(-26, 46), ROAD.x0 + 20, ROAD.x1 - 10), Y + range(9, 24), RIVER.z1 - range(32, 54));
         } else {
           const toP = Math.atan2(head.z - TC.z, head.x - TC.x);
           H.orbit = toP + range(-0.95, 0.95);
@@ -302,7 +302,7 @@ export class Gunship {
     const p = H.pos;
     if (this.mode === 'river') {
       if (H.phase !== 'dying' && p.z > RIVER.z1 - 22) H.vel.z -= (p.z - (RIVER.z1 - 22)) * 5 * dt;
-      if (p.y < Y - 40) H.vel.y = damp(H.vel.y, 8, 3, dt);
+      if (p.y < Y - 12) H.vel.y = damp(H.vel.y, 8, 3, dt);
       return;
     }
     const hx = (TOWER.x1 - TOWER.x0) / 2 + 13, hz = (TOWER.z1 - TOWER.z0) / 2 + 13;

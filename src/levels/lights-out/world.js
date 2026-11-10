@@ -20,7 +20,7 @@ export class LightsWorld {
   constructor(E) {
     this.E = E; this.scene = E.scene;
     this.group = new THREE.Group(); this.scene.add(this.group);
-    this.col = new CollisionWorld({ cell: 8, minX: 330, minZ: 20, maxX: 800, maxZ: 500 });
+    this.col = new CollisionWorld({ cell: 8, minX: 330, minZ: 20, maxX: 800, maxZ: 380 });
     this.panes = []; this.glowList = []; this.updaters = []; this.named = {};
     this.time = 0; this.tris = {};
     this.baker = new LightBaker();
@@ -57,7 +57,7 @@ export class LightsWorld {
     this.river = await take(by['./river.js']?.buildRiver, 'river');
     this.props = await take(by['./props.js']?.buildProps, 'props');
     // the war in the city: smoke columns standing over fires across Longwu (game.js feeds them), a fire glow at each foot
-    this.named.smokeColumns = [[150, 84, -210, 1.3], [1010, 92, -160, 1.2], [210, 88, 660, 1.4], [1040, 96, 700, 1.1], [-240, 78, 580, 1.0]];
+    this.named.smokeColumns = [[150, 84, -210, 1.3], [1010, 92, -160, 1.2], [210, 70, 520, 1.4], [1040, 80, 560, 1.1], [-240, 60, 470, 1.0]];
     for (const [x, y, z, k] of this.named.smokeColumns) this.glowList.push({ p: [x, y + 2, z], color: [2.4, 0.9, 0.25], size: 18 * k, flick: true, code: 16 + 15, far: true });
     // the batch is capped: the set pieces' halos (the landslide, Jinlong's crown) go first so they are never the ones dropped
     this.glowList.sort((a, b) => (b.prio | 0) - (a.prio | 0));
@@ -85,7 +85,7 @@ export class LightsWorld {
       });
       return ok;
     };
-    this.nav = new NavGrid(col, { x0: 370, z0: 94, x1: 736, z1: 464, y: 1e6, cell: 1, clearance: 0.42, walkable: free });
+    this.nav = new NavGrid(col, { x0: 370, z0: 94, x1: 736, z1: 344, y: 1e6, cell: 1, clearance: 0.42, walkable: free });
     for (const b of deck) b.enabled = true;
     const nav = this.nav, cen = nav.center.bind(nav);
     nav.center = (j, out) => { cen(j, out); out.y = groundAt(out.x, out.z); return out; };

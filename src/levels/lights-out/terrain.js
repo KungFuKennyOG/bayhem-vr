@@ -49,7 +49,7 @@ export const rockEm = (code) => (p) => { const k = Math.max(0, 1 - (p[1] - QUAY.
 // the south cliff's face under the road: v 0 = the water, 1 = the road's edge. Layered sandstone, overhangs, a talus foot.
 export function southP(x, v) {
   const y = WATER_Y - 3 + (Y - 0.4 - WATER_Y + 3) * v;
-  const lean = (1 - v) * (1 - v) * 16;                                       // the foot runs out into the river
+  const lean = (1 - v) * (1 - v) * 7;                                       // the foot runs out into the river
   const z = FARBANK.z - 0.4 - lean - (fbm(x * 0.035, y * 0.07) - 0.5) * 5 * (1 - v * v) - Math.sin(y * 0.8 + fbm(x * 0.03, y * 0.05) * 3) * 0.6 * (1 - v);
   return [x, y, Math.min(FARBANK.z - 0.3, z)];
 }
@@ -78,7 +78,7 @@ export function buildTerrain(ctx = {}) {
     C.box(-900, QUAY.y - 1, QUAY.z0 - 2, SLIDE.x0, QUAY.y, RIVER.z0, { faces: 'YZ', s: 1 });
     C.box(-900, WATER_Y - 3, RIVER.z0, SLIDE.x0, QUAY.y, RIVER.z0 + 1.2, { faces: 'YZ', s: 1 });
     // the step up from the shelf to the plateau behind
-    C.set({ col: [0.36, 0.35, 0.33] }); C.box(-900, 55, SLIDE.crack - 1.5, SLIDE.x0, Y, SLIDE.crack, { faces: 'ZY', s: 1 });
+    C.set({ col: [0.36, 0.35, 0.33] }); C.box(-900, 55, SLIDE.crack - 1.5, SLIDE.x0, TERR.y0, SLIDE.crack, { faces: 'ZY', s: 1 });
   }
   // ---------------------------------------------------------------- the north bank east of the tower's podium: terraces down to the quay
   {
@@ -94,7 +94,7 @@ export function buildTerrain(ctx = {}) {
   // ---------------------------------------------------------------- the plateau behind the north bank (the towers stand on it)
   {
     const G = B.get('concrete', 'northp'); G.set({ col: [0.18, 0.18, 0.18], rm: [0.95, 0, 0], em: [0, 0, 0, 0] });
-    G.box(-900, Y - 1, -900, 1500, Y - 0.05, SLIDE.crack - 1.4, { faces: 'Y', s: 1 });
+    G.box(-900, TERR.y0 - 1, -900, 1500, TERR.y0 - 0.05, SLIDE.crack - 1.4, { faces: 'Y', s: 1 });
     void HILLE; void BRIDGE; void PLZ;
   }
   const { tris } = B.finish(root, { shadowKeys: [] });

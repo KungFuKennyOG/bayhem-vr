@@ -155,6 +155,7 @@ export class SetPieces {
     const L = this.lift; if (L.state !== 'bottom') return;
     L.state = 'up'; L.t = 0; L.v = 0;
     if (this.tw) this.tw.gate.visible = true;
+    for (const s of this.g.soldiers) if (s.alive) { s.alive = false; s.root.visible = false; }   // nobody snipes the lift from the ground
     this.audio.play('container_doors', { volume: 0.7, pitch: 1.3 });
     this.audio.play('gear_rattle', { volume: 0.6, pitch: 0.6 });
     this.g.events.push({ type: 'liftUp' });
@@ -373,7 +374,7 @@ export class SetPieces {
     });
     // two armed barges on the river either side of the line (gunners + a searchlight each): they open up as you come over them
     this.barges = [];
-    for (const [x, z, v, s] of [[322, 304, 0.5, 392], [228, 277, -0.4, 487]]) {
+    for (const [x, z, v, s] of [[322, 248, 0.5, 380], [228, 221, -0.4, 473]]) {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
       const t0 = Math.max(4, s / GLIDE_SPEED - 15);
       const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }));

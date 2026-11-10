@@ -3,7 +3,7 @@ import { makeRng } from '../../rng.js';
 import { Buckets, hexc, mix3, mul3, em, GOLD, DIST, DUSK, hipRoof, signQuad } from './kit.js';
 import { SIGN, SIGN_LIST } from './signs.js';
 import { materials, SHADOW_KEYS } from './mats.js';
-import { RIVER, ROAD, PODIUM, SLIDE, HILLE, TOWER, Y } from './layout.js';
+import { RIVER, ROAD, PODIUM, SLIDE, HILLE, TOWER, TERR, Y } from './layout.js';
 
 // =====================================================================================
 //  LIGHTS OUT — the city around the play space: residential slabs, office towers and old tiled
@@ -17,8 +17,8 @@ const WALLS = [hexc(0xc9bba3), hexc(0xd8c7b6), hexc(0xb8b0a4), hexc(0xe0dad0), h
 const GLASSY = [hexc(0x5b6670), hexc(0x4a5560), hexc(0x6f6a5e), hexc(0x3d4650)];
 
 // the ground the skylines stand on: both banks climb away from the river
-export const northBase = (x, z) => Y + Math.min(90, Math.max(0, (SLIDE.crack - 10 - z)) * 0.11);
-export const southBase = (x, z) => Y + Math.min(110, Math.max(0, (z - ROAD.z1 - 30)) * 0.13);
+export const northBase = (x, z) => TERR.y0 + Math.min(90, Math.max(0, (SLIDE.crack - 10 - z)) * 0.11);
+export const southBase = (x, z) => Y + Math.min(150, Math.max(0, (z - ROAD.z1 - 24)) * 0.3);   // the south bank climbs steeply: the city stacks up behind the road
 
 // keep-out boxes (the route, the hillside, the tower, the river): [x0, z0, x1, z1]
 const KEEP = [
