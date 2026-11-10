@@ -240,7 +240,7 @@ export function buildSlide(ctx = {}) {
   }
   // ---- a strip of the hillside district between xa..xb, za..zb: terrace paving, retaining walls (shops, lit lines), railings,
   // lamps, lanterns, stairways, housing; the quay and river wall if it reaches the river. code = the streets' power district
-  const streets = (B, reg, xa, xb, za, zb, gl, c, code) => {
+  const streets = (B, reg, xa, xb, za, zb, gl, c, code, houseCb = null) => {
   const As = B.get('asphalt', reg), Cc = B.get('concrete', reg), St = B.get('stone', reg), Mt = B.get('metal', reg);
   As.set({ col: [0.42, 0.42, 0.44], rm: [0.5, 0, 0], em: [0, 0, 0, 0] });
   Cc.set({ col: [0.56, 0.54, 0.5], rm: [0.9, 0, 0], em: em([1.0, 0.6, 0.3], 0.05, DUSK + code) });
@@ -297,7 +297,7 @@ export function buildSlide(ctx = {}) {
       const d = k === 0 ? 7 + r() * 2 : 8 + r() * 3, n = k === 0 ? 4 + Math.floor(r() * 6) : (r() < 0.15 ? 5 + Math.floor(r() * 3) : 2 + Math.floor(r() * 3)), h = n * 3;
       const t = { x0: x, z0: z0 + 0.6, x1: xe, z1: z0 + 0.6 + d, y0: y, h, style: r() < 0.65 ? 0 : 2, podium: k > 0 && n > 4 && r() < 0.6, plinth: 0, seed: seed++,
         crown: h > 26 && r() < 0.35 ? 'frame' : null, ledCol: [1.0, 0.82, 0.55], roofSign: h > 24 && r() < 0.22 ? SIGN_LIST.roofs[(r() * SIGN_LIST.roofs.length) | 0] : null, signN: [0, 0, 1], dist: r() < 0.38 ? code : DIST.EAST };
-      towerBlock(B, t, reg, gl);
+      { const H = houseCb ? houseCb(t) : null; towerBlock(H ? H.B : B, t, reg, H ? H.gl : gl); }
       x = xe + 2.5 + r() * 3;
     }
   }
@@ -356,7 +356,21 @@ export function buildSlide(ctx = {}) {
     sideFace(R, xa, -1, P); sideFace(R, xb, 1, P);
     if (rw > 0) crossFace(R, za, xa, xb, -1, hillY(za + 1e-3));                         // back break (faces up-slope)
     if (rw < 2) crossFace(R, zb, xa, xb, 1, hillY(zb + 1e-3));                          // front break below the next terrace
-    streets(B, reg, xa, xb, za, zb, gl, c, CODE);
+    // every house is its own bone (a child of the piece): as the ground goes, each one comes apart on its own —
+    // pancaking down into its terrace or toppling downslope, at its own moment
+    const houses = [];
+    streets(B, reg, xa, xb, za, zb, gl, c, CODE, (t) => { const H = { t, B: mkB(M), gl: [] }; houses.push(H); return H; });
+    for (const H of houses) {
+      const t = H.t, hp = new THREE.Vector3((t.x0 + t.x1) / 2, t.y0, (t.z0 + t.z1) / 2);
+      const hb = new THREE.Bone(); hb.position.copy(hp).sub(pv); grp.add(hb); bones.push(hb);
+      tris += collect(H.B, bones.length - 1, skin);
+      for (const q of H.gl) gl.push({ ...q, _obj: hb, _pv: hp });
+      const topple = t.h > 9 && r() < 0.45;
+      H.bone = hb; H.rest = hb.position.clone(); H.h = t.h; H.w = t.x1 - t.x0; H.top = new THREE.Vector3(0, t.h * 0.6, 0);
+      H.d = 0.2 + r() * (SLUMP + 4.5); H.dur = topple ? 2.6 + r() * 1.5 : 1.8 + r() * 1.6; H.topple = topple;
+      H.sink = topple ? 0.15 + r() * 0.2 : 0.55 + r() * 0.4; H.rx = topple ? 0.9 + r() * 0.6 : range(-0.12, 0.3); H.rz = range(-0.3, 0.3) * (topple ? 1.3 : 1); H.ry = range(-0.25, 0.25);
+      H.fire = r() < 0.3; H.st = 0; delete H.B; delete H.gl; delete H.t;
+    }
     // the crest buildings' front halves (top row)
     if (rw === 0) SHELLS.forEach((S, k) => { if (S.c === c) shellHalf(B, reg, S, false, 77 + k * 13); });
     // ---- the towers (top row): child bones in two segments, broken at a floor line
@@ -387,7 +401,7 @@ export function buildSlide(ctx = {}) {
       delete G._obj; delete G._pv;
       glows.push(G); bg.push(G);
     }
-    blocks.push({ c, rw, xa, xb, za, zb, grp, pv, towers, glows: bg,
+    blocks.push({ c, rw, xa, xb, za, zb, grp, pv, towers, houses, glows: bg,
       front: new THREE.Vector3(cx, hillY(zb - 1e-3), zb).sub(pv), back: new THREE.Vector3(cx, hillY(za + 1e-3), za).sub(pv),
       delay: Math.abs(cx - IMPACT_X) / 55 + [1.7, 0.8, 0][rw] + 0.5 + r() * 1.1, acc: 3.0 + r() * 2.2, pitch: [0.2, 0.28, 0.26][rw] + r() * 0.16, yaw: range(-0.22, 0.22), roll: (r() < 0.5 ? -1 : 1) * range(0.08, 0.28), drop: range(2, 8),
       wet: false, hidden: false, last: new THREE.Vector3(), vel: new THREE.Vector3(), arced: false });
@@ -433,7 +447,7 @@ export function buildSlide(ctx = {}) {
 //  towers topple off their block, fold at the break and snap. Dust boils out of every opening gap
 //  and rolls off the leading edges; each block that hits the water throws spray and a swell ring.
 // =====================================================================================
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _e = new THREE.Euler(), _m4 = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _v2 = new THREE.Vector3(), _e = new THREE.Euler(), _m4 = new THREE.Matrix4();
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const SLUMP = 2.0, DIRS = [new THREE.Vector3(0, -0.75, 0.66), new THREE.Vector3(0, -0.6, 0.8), new THREE.Vector3(0, -0.5, 0.866)];
 export class Landslide {
@@ -509,6 +523,12 @@ export class Landslide {
     if (tau < SLUMP) B.grp.position.y += Math.sin(T * 37 + B.c) * 0.1 * (1 - k);
     _e.set(0.12 * k + B.pitch * ss(6, 90, s), B.yaw * (0.3 * k + 0.7 * ss(0, 70, s)), B.roll * (0.55 * k + 0.45 * ss(8, 100, s)), 'XYZ');
     B.grp.quaternion.setFromEuler(_e);
+    for (const H of B.houses) {
+      const u = ss(H.d, H.d + H.dur, tau); if (u <= 0 && !H.st) continue;
+      const u2 = u * u;
+      H.bone.position.copy(H.rest); H.bone.position.y -= H.h * H.sink * u2;
+      _e.set(H.rx * u2, H.ry * u, H.rz * u, 'XYZ'); H.bone.quaternion.setFromEuler(_e);
+    }
     for (const t of B.towers) {
       const u = ss(t.d + 0.6, t.d + 5.5, tau);
       _e.set(t.phi * u * u, 0, t.roll * u, 'XYZ'); t.grp.quaternion.setFromEuler(_e);
@@ -532,7 +552,7 @@ export class Landslide {
   }
   // a big rolling cloud of dust (brown-grey, lit from below by the fires)
   _dust(x, y, z, vx, vy, vz, s0, s1, life = range(14, 18)) {
-    this.g.clouds.spawn({ x, y, z, vx, vy, vz, drag: 0.55, buoy: 0.12, s0, s1, life, a: 0.88, fadeIn: 0.06, fadeOut: 0.5, r: 0.22, g: 0.15, b: 0.08, r1: 0.2, g1: 0.15, b1: 0.1, glow: 1.0, glowFade: 5 });
+    this.g.clouds.spawn({ x, y, z, vx, vy, vz, drag: 0.55, buoy: 0.12, s0, s1, life: life * 0.75, a: 0.62, fadeIn: 0.06, fadeOut: 0.55, r: 0.22, g: 0.15, b: 0.08, r1: 0.2, g1: 0.15, b1: 0.1, glow: 1.0, glowFade: 5 });
   }
   _ring(x, z, k, delay) { const R = this.S.rings.find(q => !q.go); if (R) { R.go = true; R.t = -delay - 1e-3; R.k = k; R.m.position.set(x, WATER_Y + 0.12, z); } }
   update(dt) {
@@ -572,6 +592,17 @@ export class Landslide {
       }
       if (tau <= 0) continue;
       const wk = (B.xb - B.xa) / 55;
+      // the houses coming apart: wall slabs and floor plates thrown off, a burst of dust as each one goes, fires catching
+      for (const H of B.houses) {
+        const ht = tau - H.d; if (ht < 0 || ht > H.dur + 0.6) continue;
+        const p = _w.copy(H.top).applyMatrix4(H.bone.matrixWorld); if (p.y < WATER_Y) continue;
+        if (!H.st) { H.st = 1;
+          if (rand() < 0.4) g.clouds.spawn({ x: p.x, y: p.y - H.h * 0.3, z: p.z + 2, vx: range(-2, 2), vy: range(2, 5), vz: B.vel.z * 0.5 + range(0, 3), drag: 0.7, buoy: 0.12, s0: H.w * 0.7, s1: H.w * range(1.8, 2.6), life: range(3.5, 5.5), a: 0.5, fadeIn: 0.04, fadeOut: 0.55, r: 0.26, g: 0.2, b: 0.13, r1: 0.2, g1: 0.17, b1: 0.13, glow: 0.8, glowFade: 3 });
+          if (rand() < 0.25) this.audio.play('collapse_impact', { x: p.x, y: p.y, z: p.z, volume: 0.7, pitch: 1.0 + rand() * 0.5 });
+        }
+        if (rand() < dt * 7) g.fx.spawnDebris(_v2.set(p.x + range(-0.5, 0.5) * H.w, p.y - range(0, 0.5) * H.h, p.z + range(0, 4)), B.vel.x + range(-5, 5), range(1, 8), B.vel.z + range(1, 9), range(1.6, 4.2), H.fire && rand() < 0.4);
+        if (H.fire && rand() < dt * 5) g.fx.flame(_v2.set(p.x + range(-0.3, 0.3) * H.w, p.y - range(0.1, 0.5) * H.h, p.z + 1), range(2.5, 4.5), B.vel);
+      }
       const front = _v.copy(B.front).applyMatrix4(W), fx = front.x, fy = front.y, fz = front.z;
       const back = _w.copy(B.back).applyMatrix4(W), by = back.y, bz = back.z;
       const local = (x, y, z) => _v.set(x - B.pv.x, y - B.pv.y, z - B.pv.z).applyMatrix4(W);
@@ -581,7 +612,7 @@ export class Landslide {
       if (tau > SLUMP + 0.6 && tau < 10 && rand() < dt * wk * (B.rw === 0 ? 0.8 : 0.3)) this._dust(range(B.xa, B.xb), by - range(0, 8), bz + range(-2, 4), range(-2, 2), range(7, 12), range(-2, 1), 10, range(40, 56));
       if (tau > SLUMP + 1.2 && fy > WATER_Y + 4 && rand() < dt * 0.3 * wk) this._dust(range(B.xa, B.xb), fy - range(0, 6), fz - range(0, 4), B.vel.x * 0.3 + range(-2, 2), range(3, 6), range(0, 2), 10, range(34, 46));
       // the rolling front: low, wide dust pushed ahead of the moving toe (it is what says 'the ground is moving')
-      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 1.3 * wk) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(6, 8), a: 0.6, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
+      if (tau > SLUMP * 0.6 && fy > WATER_Y - 2 && rand() < dt * 0.7 * wk) { const p = g.clouds.spawn({ x: range(B.xa, B.xb), y: fy + range(0, 4), z: fz + range(3, 9), vx: range(-1, 1), vy: range(0.5, 2.5), vz: B.vel.z * 0.9 + range(2, 5), drag: 0.6, buoy: 0.05, s0: range(8, 11), s1: range(22, 30), life: range(6, 8), a: 0.6, fadeIn: 0.05, fadeOut: 0.55, r: 0.24, g: 0.17, b: 0.1, r1: 0.2, g1: 0.16, b1: 0.12, glow: 0.7, glowFade: 4, st: 2.0 }); void p; }
       // rock and wreckage pouring off its front; fires catching in the housing
       if (tau > 0.6 && fy > WATER_Y + 2 && rand() < dt * 14 * wk) g.fx.spawnDebris(new THREE.Vector3(range(B.xa, B.xb), fy + range(-2, 1), fz + range(0, 2)), B.vel.x + range(-3, 3), B.vel.y + range(-1, 4), B.vel.z + range(1, 6), range(0.8, 2.2), rand() < 0.12);
       if (tau > 1 && fy > WATER_Y + 4 && rand() < dt * 1.5 * wk) { const zz = range(B.za + 2, B.zb - 2); g.fx.flame(local(range(B.xa + 4, B.xb - 4), hillY(zz) + 2, zz).clone(), range(1.4, 2.4)); }

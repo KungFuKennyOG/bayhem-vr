@@ -94,13 +94,14 @@ export const LOCKER = { x: 350, z: 152.2 };                                     
 // ---------------------------------------------------------------- the Chaotian bridge (cable-stayed, across the river) and the glide
 export const CHAOTIAN = { x: -150, z0: 112, z1: 604, y: 32, w: 26, pylons: [262, 470], pylonH: 156 };   // its north end tunnels into the cliff under the store
 export const FARARCH = [{ x: 680, y: 36, code: 13 }, { x: -760, y: 34, code: 11 }];        // two arched bridges up- and downstream (backdrop)
-// the glide rail (a Catmull-Rom through these points; ~630 m, ~77 s, a steady 2.6:1 glide from the roof to the gunboat's
-// deck). Out over the river, then EAST, upstream, along the foot of the hillside district at 80-150 m: the hill slides
-// into the river right beside / under you, Jinlong comes down across the scar behind you (it falls east, into the hole
-// the hill left: its top lands ~40 m behind the line), then over the gold arch bridge and down onto the boat
+// the glide rail (a Catmull-Rom through these points; ~630 m, ~77 s, to the gunboat's deck). A steep first leg (0.6)
+// out over the river, then EAST, upstream, low along the foot of the hillside district: 40-100 m off its toe and about
+// 100 m up, so the hill comes apart right beside you, pieces going into the water under your feet. Jinlong comes down
+// across the scar behind you (it falls east, into the hole the hill left). Then THROUGH the gold arch bridge, between
+// the deck (y 36) and the rib (y 73 here), in the gap between two hangers (z 232 and 248), and down onto the boat
 export const GLIDE = [
-  [340, 240.5, 158], [343, 231.7, 180], [352, 221.7, 204], [372, 209.9, 226], [402, 196.9, 240], [440, 181.7, 248], [480, 165.9, 252], [520, 150.2, 254], [560, 134.4, 255],
-  [600, 118.8, 256], [640, 103.1, 258], [680, 87.3, 260], [720, 71.5, 264], [760, 55.7, 270], [800, 39.7, 278], [840, 23.6, 287], [880, 8.1, 294], [915, 2.8, 298],
+  [340, 240.5, 158], [343, 228, 178], [354, 212, 200], [376, 193, 216], [406, 172, 224], [440, 150, 226], [474, 128, 226], [505, 112, 226], [540, 100, 227], [575, 89, 229],
+  [610, 78, 232], [645, 66.5, 236], [680, 55, 240], [715, 45, 246], [755, 35, 256], [795, 25, 268], [835, 16, 280], [875, 8, 291], [912, 2.8, 298],
 ];
 export const GLIDE_SPEED = 8.2;                                                           // m/s along the rail
 export const BOAT = { x0: -340, z: 298, speed: 1.6 };                                    // the gunboat steams east toward the landing

@@ -241,13 +241,13 @@ export class Director {
                       }
           if (A && H && H.phase === 'chase' && H.t > 2) { g.cinematicLook = null; }
           // the camera follows the tower's top down
-          if (A && sp.fall && !this.downT) { const k = clamp(sp.fall.a / 1.2, 0, 1); g.cinematicLook = V(350 + 215 * k, 165 - 140 * k, 140 + 75 * k); }
+          if (A && sp.fall && !this.downT) { const k = clamp(sp.fall.a / 1.2, 0, 1); g.cinematicLook = V(350 + 215 * k, 165 - 140 * k, 140 - 50 * k); }
           if (A && H && H.phase === 'dying') { g.cinematicLook = H.pos.clone(); g.cinematicW = 1.4; }
-          if (A && this.slideT >= 0 && !sp.fall) { g.cinematicLook = V(clamp(g.headPos.x - 30, 430, 560), 22, 150); g.cinematicW = 1.0; }
+          if (A && this.slideT >= 0 && !sp.fall) { g.cinematicLook = V(clamp(g.headPos.x - 25, 430, 575), 25, 140); g.cinematicW = 1.0; }
           // the hill took Jinlong's footings: once it's sliding, the tower goes (look-gated, 9 s cap)
-          if (this.slideT >= 0 && t > this.slideT + 7 && g.headPos.x > 550 && first('towerhint')) say('The hill took Jinlong\'s footings — LOOK BACK, she\'s going!', 3.2);
-          // (not before you're past x 545: its top comes down across the line ~40 m behind you)
-          if (this.slideT >= 0 && !sp.fall && t > this.slideT + 7.5 && g.headPos.x > 560) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || g.headPos.x > 590) sp.towerFall(); }
+          if (this.slideT >= 0 && t > this.slideT + 7 && g.headPos.x > 525 && first('towerhint')) say('The hill took Jinlong\'s footings — LOOK BACK, she\'s going!', 3.2);
+          // (it falls into the scar, ~100 m off the line; from x 535 you are past its reach and it fills the view behind-left)
+          if (this.slideT >= 0 && !sp.fall && t > this.slideT + 7.5 && g.headPos.x > 535) { this.lookT = looking(V(342, 160, 140), 0.55) ? this.lookT + dt : 0; if (this.lookT > 0.35 || g.headPos.x > 560) sp.towerFall(); }
           if (sp.fall && ((this.downT && t > this.downT + 3) || t > 60) && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); if (A) g.cinematicLook = null; }
           if (A && g.cinematicLook && this.downT && t > this.downT + 2.6 && first('fallLookEnd')) g.cinematicLook = null;
           if (sp.rail.len - sp.rail.s < 150 && first('boathint')) { say('Gunboat under you! The drums on its stern — hit them!', 3.2); for (const s of sp.boatCrew || []) s.delay = Math.min(s.delay, 0.5); }

@@ -410,7 +410,7 @@ export class SetPieces {
     F.t += dt;
     // a falling rod: a'' = 1.5 g / L · sin a (L ~ 190 m), plus the shear's kick
     if (F.gone) return;
-    const L = 190, axis = _v.set(0.35, 0, -1).normalize();
+    const L = 190, axis = _v.set(-0.25, 0, -1).normalize();   // it falls east-north-east: into the hole the hill left, away from the glide line
     if (!F.free) {
       F.av += (1.5 * 9.8 / L * Math.sin(F.a + 0.04)) * dt;
       F.a += F.av * dt;
@@ -460,7 +460,7 @@ export class SetPieces {
       if (rand() < 0.4) g.clouds.spawn({ x: p.x, y: p.y + 2, z: p.z, vx: range(-2, 2), vy: range(2, 5), vz: range(-2, 2), drag: 0.5, buoy: 0.3, s0: 4, s1: 18, life: range(6, 9), a: 0.8, fadeIn: 0.05, fadeOut: 0.5, r: 0.06, g: 0.05, b: 0.045, r1: 0.1, g1: 0.09, b1: 0.08, glow: 0.6, glowFade: 2.5 });
     }
     // impact: the top hits the river / the east bank
-    if (!F.hit && top.y < WATER_Y + 3) {
+    if (!F.hit && (top.y < WATER_Y + 3 || F.rest)) {   // (or it has come to rest across the scar: the lights die there too)
       F.hit = true;
       const P = top.clone(); P.y = Math.max(WATER_Y + 1, P.y);
       g.slowmo(2.0, 0.3, true);
