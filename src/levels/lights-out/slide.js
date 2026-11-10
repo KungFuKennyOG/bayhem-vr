@@ -32,7 +32,7 @@ import { SLIDE, TERR, HILLE, hillY, scarY0, QUAY, RIVER, PLAZA, WATER_Y } from '
 //  below y 70 after the blackout, full and flickering while it goes, dark when the tower hits);
 //  the rest are on the dead grid (EAST: emergency windows only).
 // =====================================================================================
-const CODE = DIST.TOWER;
+const CODE = DIST.HILL;
 const C0 = SLIDE.crack, ZF = RIVER.z0 + 1.2, Y0 = TERR.y0;
 // the slip surface: gullied and stepped (strata ledges); no noise at the crest so it meets the hill top
 export const scarY = (x, z) => {
@@ -335,7 +335,7 @@ export function buildSlide(ctx = {}) {
   // lanterns (on Jinlong's generators, so it stays lit after the blackout)
   {
     const B = mkB(M), gl = [];
-    for (let x = 176; x < 315; x += 70) streets(B, 'wq', x, Math.min(316, x + 70), TERR.z0 + TERR.d * (TERR.n - 1), TERR.quay, gl, -1, DIST.TOWER);
+    // (the old level's west quay street is gone: the bank west of the slide is terrain.js's rock shelf)
     tris += B.finish(root).tris;
     for (const q of gl) glows.push({ ...q, far: true });
   }

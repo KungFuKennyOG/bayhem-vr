@@ -10,7 +10,7 @@ import { groundAt } from './layout.js';
 //  light the gallery 10 m below). The blackout dims each group with its district.
 //  Patched into every lit material (kit.js) through LM.
 // =====================================================================================
-export const LMR = { x0: -182, z0: 24, x1: 382, z1: 172, w: 1024, h: 272 };
+export const LMR = { x0: 360, z0: 92, x1: 744, z1: 476, w: 768, h: 768 };   // the whole route: plaza, cliff road, bridge, forecourt (0.5 m per texel)
 export const LM = {
   tex: { value: null }, col: { value: null }, hgt: { value: null },
   rect: { value: new THREE.Vector4(LMR.x0, LMR.z0, 1 / (LMR.x1 - LMR.x0), 1 / (LMR.z1 - LMR.z0)) },

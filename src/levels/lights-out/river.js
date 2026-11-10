@@ -134,14 +134,11 @@ export function buildRiver(ctx = {}) {
   water.position.set((RIVER.x0 + RIVER.x1) / 2, WATER_Y, (RIVER.z0 + FARBANK.z + 20) / 2);
   water.renderOrder = -5;
   root.add(water);
-  // the ravine's stream (a strip of the same water)
-  const stream = new THREE.Mesh(new THREE.PlaneGeometry(56, 560, 1, 1).rotateX(-Math.PI / 2), water.material);
-  stream.position.set(142, 1.6, -120); root.add(stream);
   // mist: one sheet low on the water, one up at the bridge decks' height, one in the ravine
   const mist = [];
   for (const [y, k, sc, sp] of [[7, 0.6, 0.005, 0.8], [26, 0.32, 0.003, 0.5]]) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(4000, 900, 1, 1).rotateX(-Math.PI / 2), mistMaterial(fog, { y, k, scale: sc, speed: sp }));
-    m.position.set(200, y, 380); m.renderOrder = 18; root.add(m); mist.push(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(4000, 250, 1, 1).rotateX(-Math.PI / 2), mistMaterial(fog, { y, k, scale: sc, speed: sp }));
+    m.position.set(200, y, 290); m.renderOrder = 18; root.add(m); mist.push(m);
   }
   // (the ravine mist sheet read as a flat quad edge-on from the river; the height fog does that job now)
   // river traffic: two lit cruisers and two dark barges (they move; anchors for the glide)
@@ -154,7 +151,7 @@ export function buildRiver(ctx = {}) {
     B.finish(g);
     root.add(g); return g;
   };
-  const defs = [[70, 3, DIST.FAR_C, true, -300, 420, 3.2], [60, 5, DIST.FAR_W, true, 500, 470, -2.6], [80, 7, 0, false, -700, 260, 1.8], [90, 9, 0, false, 900, 520, -1.4]];
+  const defs = [[70, 3, DIST.FAR_E, true, 1050, 235, -3.2], [60, 5, DIST.FAR_W, true, -260, 345, 2.6], [80, 7, 0, false, -700, 250, 1.8], [90, 9, 0, false, 1250, 380, -1.4]];
   for (const [len, seed, code, lit, x, z, v] of defs) { const g = mk(len, seed, code, lit); g.position.set(x, WATER_Y + 0.2, z); boats.push({ g, v, lit, code, len }); }
   // reflections: the brightest lights on both banks get a column on the water (filled in by the world after every module reported its glows)
   const refl = new Reflections(scene, { max: 320, fog });

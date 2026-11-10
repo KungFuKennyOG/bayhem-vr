@@ -70,7 +70,7 @@ export class GlideRail {
     this.curve.arcLengthDivisions = 2000;
     this.len = this.curve.getLength();
     this.s = 0; this.steer = 0; this.steerV = 0;
-    this.pos = new THREE.Vector3(...GLIDE[0]); this.tan = new THREE.Vector3(0, 0, 1);
+    this.pos = new THREE.Vector3(...GLIDE[0]); this.tan = this.curve.getTangentAt(0, new THREE.Vector3());
     this.yaw = Math.atan2(-this.tan.x, -this.tan.z);
   }
   get u() { return clamp(this.s / this.len, 0, 1); }

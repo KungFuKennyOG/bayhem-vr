@@ -13,7 +13,7 @@ import { Birds } from '../downtown-haven/birds.js';
 import { Traffic } from './traffic.js';
 import { SKY } from './sky.js';
 import { POWER, HFOG } from './kit.js';
-import { START, groundAt, STAIRS, stairY } from './layout.js';
+import { START, groundAt, PLZ, Y } from './layout.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -102,9 +102,9 @@ export class LightsGame {
     this.dustDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 12), new THREE.MeshBasicMaterial({ color: 0x3a3028, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
     this.dustDome.renderOrder = -99; this.dustDome.frustumCulled = false; this.dustDome.visible = false;
     E.scene.add(this.dustDome);
-    // pigeons on the Hundred Steps' landings (they go up with the first shot)
+    // pigeons along the promenade rail (they go up with the first shot)
     { const spots = []; const r = (a, b) => a + rand() * (b - a);
-      for (let i = 0; i < 26; i++) { const x = r(-124, -70), z = r(STAIRS.z0 + 1, STAIRS.z1 - 1); spots.push(new THREE.Vector3(x, stairY(x), z)); }
+      for (let i = 0; i < 26; i++) { const x = r(PLZ.x1 + 4, PLZ.x1 + 60), z = r(422, 425.5); spots.push(new THREE.Vector3(x, Y, z)); }
       this.birds = new Birds(this, spots); }
     world.buildNav();
     this.glass.blockNav?.(world.nav);
