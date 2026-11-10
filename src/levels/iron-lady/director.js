@@ -43,7 +43,7 @@ export class Director {
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; }
           setp.T.state.sparkle = 1;
-          hud.showTitle(V(60, 30, -70), 'THE IRON LADY', 'LEVEL 5  •  PARIS, 21:00', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(60, 30, -70), 'THE IRON LADY', 'BAYHEM 2  •  LEVEL 1  •  PARIS, 21:00', trailer ? 4.4 : 5.8);
           audio.startMusic();
           this.introSnipers = [sniper('n1', { delay: 1.4 }), sniper('n2', { delay: 2.6, lockTime: 2.4 })];
           for (const s of this.introSnipers) s.holdFire = true;

@@ -61,7 +61,7 @@ export class Director {
           night(0.26);
           hud.black.material.opacity = 1;
           if (g.player) { g.player.camDip = 0.6; g.player.camDipRate = 0.5; }
-          hud.showTitle(V(-100, 74, 132), 'LIGHTS OUT', 'LEVEL 9  •  LONGWU, 18:40', trailer ? 4.4 : 5.8);
+          hud.showTitle(V(-100, 74, 132), 'LIGHTS OUT', 'LEVEL 5  •  LONGWU, 18:40', trailer ? 4.4 : 5.8);
           audio.startMusic();
           later(0.9, () => say('Longwu. A city built on a cliff, in the fog, two rivers deep. Last stop.', 3.6));
           later(5.0, () => say('Their whole crew is holed up in Jinlong Tower — the gold one, way across the ravine. Down the Hundred Steps.', 4));

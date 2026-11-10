@@ -133,14 +133,14 @@ export class Director {
       { name: 'credits', wp: null, music: 0.6, dusk: 0.62, enter: () => {
           setp.holdNight = 0; // the hold goes to red night lighting as the credits roll
           const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 'S'}`;
-          // not the game's end any more: a level-complete card rolls through the sky band, then on to Paris
+          // the end of BAYHEM: a level-complete card rolls through the sky band, then the BAYHEM 2 sting (Paris)
           setp.rollCredits([
             { text: 'AIRPORT NO RETURN', big: true, sub: 'LEVEL 4 COMPLETE' },
             null,
             { text: `${pl(g.kills, 'GOON')}  •  ${pl(g.jetsDown, 'JET')}  •  ${pl(g.carsDown, 'SUV')}`, dim: true },
             { text: `${pl(g.headshots, 'HEADSHOT')}  •  SCORE ${g.score}`, dim: true },
             null, null,
-            { text: 'NEXT STOP', dim: true }, { text: 'PARIS', big: true },
+            { text: 'NEXT STOP: PARIS', dim: true }, { text: 'BAYHEM 2', big: true, sub: 'TO BE CONTINUED' },
           ]);
           say('Hey — where are we flying?', 2.4, 'DRIVER');
           later(3.0, () => say('...Is that a question I should be worried about?', 2.8, 'DRIVER'));
