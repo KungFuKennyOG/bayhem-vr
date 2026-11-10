@@ -182,7 +182,7 @@ export class Director {
           this.heroP = V(HERO.x, 360, HERO.z);
           this.sp.strikes.addTarget(this.sp.heroTarget, 360);
           this.sp.strikes.on = true;
-          later(1.0, () => say('SARAB SPIRE. Seven hundred metres of command post. Paint her, then hang on to something.', 3.8));
+          later(1.0, () => say('SARAB SPIRE. Eight hundred metres of command post. Paint her, then hang on to something.', 3.8));
           later(5.2, () => hud.objective('Paint the SARAB SPIRE'));
         }, update: (t, dt) => {
           rail.face(this.heroP);
@@ -204,7 +204,7 @@ export class Director {
             later(6.0, () => { this.sp.wall.start(1050, 1500, 740); });
             later(7.5, () => this.sp.fallTower('N1', g.headPos, { x: 0.3, z: 1 }));
             later(13, () => { rail.dive(-20); say('...She is down. Al-Sarab just lost its skyline.', 3); });
-            if (this.auto) { g.cinematicLook = V(HERO.x + 60, 260, HERO.z); g.cinematicW = 1.2; }
+            if (this.auto) { g.cinematicLook = V(HERO.x + 60, 380, HERO.z); g.cinematicW = 1.2; }
           }
         }, until: (t) => this.heroGo && this.sp.hero.done() && t > 20 },
       // 8 ---- out over the dust sea to the Gulf at sunset, limping

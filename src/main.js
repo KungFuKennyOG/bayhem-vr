@@ -238,8 +238,8 @@ const MENU_CSS_G2 = `
     background:repeating-linear-gradient(135deg,rgba(14,22,36,0.88) 0 14px,rgba(10,16,26,0.88) 14px 28px)}
   #bay.g2 .lv.soon .t{color:#9fb2c8}
   #bay.g2 .lv.soon .b,#bay.g2 .lv.soon .g,#bay.g2 .lv.soon .dz{opacity:0.75}
-  #bay .lv.soon .stamp{position:absolute;right:16px;top:44px;transform:rotate(-10deg);
-    font:400 26px Anton,Impact,sans-serif;letter-spacing:0.12em;color:rgba(255,122,42,0.9);border:3px solid rgba(255,122,42,0.8);padding:2px 12px;
+  #bay .lv.soon .stamp{position:absolute;right:16px;top:50px;transform:rotate(-8deg);
+    font:400 21px Anton,Impact,sans-serif;letter-spacing:0.12em;color:rgba(255,122,42,0.9);border:3px solid rgba(255,122,42,0.8);padding:1px 10px;
     box-shadow:0 0 18px rgba(255,90,20,0.25);pointer-events:none}
   #bay.g2 .route .stop.soon{color:#5f7894}
   #bay.g2 .route .stop.soon i{border-style:dashed;border-color:#5f7894}

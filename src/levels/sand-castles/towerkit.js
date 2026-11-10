@@ -194,9 +194,21 @@ export function buildTower(gb, t, opts = {}) {
     if (roof === 'pool') gb.box(-W * 0.32, h + 0.25, -D * 0.22, W * 0.32, h + 0.3, D * 0.22, K.POOL, TT);
     // cabanas / a bar
     gb.box(-W / 2 + 1, h + 0.25, D / 2 - 6, -W / 2 + 9, h + 3.4, D / 2 - 1, K.MECH, TT);
+  } else if (roof === 'crown' && rng() < 0.62) {
+    // crown variants, so the skyline isn't one picket fence repeated: a stepped lantern (dark metal tiers with
+    // LED lines) or a mast cluster on a ring deck
+    if (rng() < 0.55) {
+      let tw = rw * 0.78, td = rd * 0.78, y = h; const tiers = 3 + Math.floor(rng() * 2);
+      for (let k = 0; k < tiers; k++) { const th = 7 + rng() * 9; gb.box(-tw / 2, y, -td / 2, tw / 2, y + th, td / 2, k % 2 ? K.MECH : K.FIN, TT, k * 3); y += th; tw *= 0.68; td *= 0.68; }
+      gb.box(-0.9, y, -0.9, 0.9, y + 18 + rng() * 34, 0.9, K.FIN, TT);
+    } else {
+      gb.box(-inner * 0.32, h, -inner * 0.32, inner * 0.32, h + 3, inner * 0.32, K.MECH, TT);
+      const nm = 3 + Math.floor(rng() * 3);
+      for (let k = 0; k < nm; k++) { const a = k / nm * Math.PI * 2 + rng(), r = inner * 0.2, mh = 14 + rng() * 40, mw = 0.5 + rng() * 0.6; gb.box(Math.cos(a) * r - mw, h + 3, Math.sin(a) * r - mw, Math.cos(a) * r + mw, h + 3 + mh, Math.sin(a) * r + mw, K.FIN, TT); }
+    }
   } else if (roof === 'crown') {
     // fins rising round the perimeter: the crown reads the skyline from kilometres away
-    const fh = 16 + rng() * 22, nf = Math.max(8, Math.round((rw + rd) * 2 / 6));
+    const fh = 16 + rng() * 22, nf = Math.max(8, Math.round((rw + rd) * 2 / 9));
     for (let i = 0; i < nf; i++) {
       const a = (i / nf) * Math.PI * 2;
       const px = Math.cos(a) * rw * 0.47, pz = Math.sin(a) * rd * 0.47;
@@ -204,7 +216,7 @@ export function buildTower(gb, t, opts = {}) {
       const cc = Math.cos(rr), ss = Math.sin(rr);
       const F3 = (p) => TT([p[0] * cc - p[2] * ss + px, p[1], p[0] * ss + p[2] * cc + pz]);
       F3.n = (q) => TT.n([q[0] * cc - q[2] * ss, q[1], q[0] * ss + q[2] * cc]);
-      gb.box(-2.2, h, -0.6, 2.2, h + fh * (0.8 + 0.2 * Math.cos(a * 2)), 0.6, K.FIN, F3, i * 4);
+      gb.box(-3.2, h, -0.7, 3.2, h + fh * (0.7 + 0.3 * Math.cos(a * 3)), 0.7, K.FIN, F3, i * 4);
     }
     // a slim spire on the tallest
     if (h > 260) gb.box(-1.2, h, -1.2, 1.2, h + fh + 30 + rng() * 40, 1.2, K.FIN, TT);
@@ -225,6 +237,14 @@ export function buildTower(gb, t, opts = {}) {
     if (roof === 'aa' && Math.hypot(px, pz) < 10) continue;
     const a = 1.2 + rng() * 1.6;
     gb.box(px - a, h, pz - a * 0.7, px + a, h + 1.2 + rng() * 1.2, pz + a * 0.7, K.MECH, TT);
+  }
+  // roof plant big enough to read from 300 m: a mechanical penthouse, a row of cooling-tower blocks, a water tank
+  if (roof !== 'pad' && roof !== 'pool' && roof !== 'aa' && roof !== 'crown' && inner > 16) {
+    const pw = inner * (0.28 + rng() * 0.18), pd = inner * (0.22 + rng() * 0.14), ox = (rng() - 0.5) * (inner - pw) * 0.6, oz = (rng() - 0.5) * (inner - pd) * 0.6;
+    gb.box(ox - pw / 2, h, oz - pd / 2, ox + pw / 2, h + 4 + rng() * 5, oz + pd / 2, K.MECH, TT);
+    const nC = 2 + Math.floor(rng() * 3), cz = oz + (oz > 0 ? -1 : 1) * (pd / 2 + 5);
+    for (let i = 0; i < nC; i++) { const cx = ox - (nC - 1) * 3.4 + i * 6.8; gb.box(cx - 2.8, h, cz - 2.8, cx + 2.8, h + 3.6, cz + 2.8, K.MECH, TT, i); }
+    if (rng() < 0.6) { const tx = -ox * 0.8, tz = -oz * 0.8 + (rng() - 0.5) * 6; gb.box(tx - 2.2, h + 2.5, tz - 2.2, tx + 2.2, h + 8.5, tz + 2.2, K.MECH, TT); for (const [dx, dz] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) gb.box(tx + dx - 0.2, h, tz + dz - 0.2, tx + dx + 0.2, h + 2.5, tz + dz + 0.2, K.MECH, TT); }
   }
   // masts on some
   if (rng() < 0.3 && roof !== 'pad' && roof !== 'aa') { const px = (rng() - 0.5) * inner * 0.5, pz = (rng() - 0.5) * inner * 0.5, mh = 12 + rng() * 26; gb.box(px - 0.5, h, pz - 0.5, px + 0.5, h + mh, pz + 0.5, K.MECH, TT); }

@@ -1,6 +1,6 @@
 # Level 8 — SAND CASTLES (`?level=sand-castles`)
 
-Door gunner on **HAMMER ONE**, a utility helicopter on rails, over **Al-Sarab** — a fictional Gulf megacity (no real towers or names). Hot, hazy afternoon → a haboob swallows the city → the storm breaks into sunset. The finale is staggered: by the money shot most towers are already down behind the dust; only the hero (**SARAB SPIRE**) and at most one neighbour fall at the same moment. Runs at **72 Hz** (requested from the XR session).
+Gunner (minigun in hand) on **HAMMER ONE**, a utility helicopter on rails, over **Al-Sarab** — a fictional Gulf megacity (no real towers or names). Hot, hazy afternoon → a haboob swallows the city → the storm breaks into sunset. The finale is staggered: by the money shot most towers are already down behind the dust; only the hero (**SARAB SPIRE**) and at most one neighbour fall at the same moment. Runs at **72 Hz** (requested from the XR session).
 
 The grey-box tech test stays at `?level=dubai-proto` (URL only). This level reuses its tech: the hero chunk collapse (`hero.js`, adapted), the mid-tower vertex rig (`midrig.js`, now on real kit towers), the swap-proof horizon dust ring (`storm.js` `HorizonWallC`, re-centred), the overhead dust shading (`OverDust`, imported unchanged), the rail comfort model (`rail.js`, open path) and the perf panel (`PerfPanel`, imported, behind `&perf=1`).
 
@@ -28,7 +28,7 @@ The grey-box tech test stays at `?level=dubai-proto` (URL only). This level reus
 | `sky.js` | Sky shader (afternoon haze / sunset / haboob), three baked reflection environments, `applyLook(sunset, storm, elevation)`. |
 | `helimodel.js` | HAMMER — lofted utility helicopter (your own and the wingman): fuselage, glazing, cowl, boom, fin, stabilator, tail rotor, stub wings with tank + rocket pod, wheels, rotor + blur disc, panel lines. |
 | `cabin.js` | The cabin interior (quilted lining, ribs, troop seats, cargo net, extinguisher, red light, cockpit with pilots and lit displays). The lining is lit only where a ray to the sun leaves through the door opening. |
-| `doorgun.js` | The M134-class door gun on a pintle: replaces the right-hand rifle (the shared `Gun` state machine drives it), aims where the right controller points (desktop: the crosshair), spins up, heats, cools down; feed chute; a glove on the right controller. |
+| `doorgun.js` | The minigun in your right hand (the model is `buildMinigun()` in `src/weapons.js`, the same kit as the rifle / launcher): replaces the right-hand rifle (the shared `Gun` state machine drives it), spins up, heats, cools down; the belt hangs to an ammo can at your right hip; brass piles on the floor. |
 | `rail.js` | The open-path rail (see comfort below). |
 | `game.js` | Combat: rooftop squads (rifles, RPG teams), rockets, grenades, AA guns + flak, WIDOWMAKER 4, HAMMER TWO, hit tests (generous spheres for men at range, towers as boxes in their own frame), the autopilot hooks. |
 | `midrig.js` | The fallers: kit towers in one draw on the prototype's vertex rig (tilt / lean / pancake + crush mound). |
