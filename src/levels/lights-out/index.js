@@ -51,7 +51,7 @@ export async function create(E) {
     pushCircle: (...a) => col.pushCircle(...a),
     groundAt: (x, z, y) => {
       const lf = setp.liftFloor(x, z, y); if (lf !== undefined) return lf;
-      if (y > 150) return roofWalk(x, z) ? ROOFTOP.y : -1e9;
+      if (y > ROOFTOP.y - 40) return roofWalk(x, z) ? ROOFTOP.y : -1e9;
       return walkable(x, z) ? Y : -1e9;
     },
   };

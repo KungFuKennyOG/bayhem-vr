@@ -111,7 +111,7 @@ export class Director {
           }
           if (A && H && H.phase === 'dying') { g.cinematicLook = H.pos.clone(); g.cinematicW = 1.5; }
           if (A && this.crashT >= 0) { g.cinematicLook = HILL.clone(); g.cinematicW = 1.0; }
-        }, until: (t) => (this.crashT >= 0 && t > this.crashT + (trailer ? 12 : 15)) || t > 140 },
+        }, until: (t) => (this.crashT >= 0 && t > this.crashT + (trailer ? 5 : 6)) || t > 140 },
       // 4 ---- the wave: downstream goes, then the cliff road, lamp by lamp, past you and on ahead; the bridge is still lit
       { name: 'wave', wp: null, music: 0.6, enter: () => {
           night(0.7); this.waveT = 0;
@@ -200,18 +200,21 @@ export class Director {
           hud.setWaypoint(null);
           this._pt = 0; this.downT = 0; this.flyT = -1;
           later(1.4, () => say('Canopy\'s open! Good! ...Now LOOK BACK!', 2.6));
-          if (A) later(1.6, () => { g.cinematicLook = JIN.clone().setY(150); g.cinematicW = 1.3; });
+          if (A) later(1.6, () => { g.cinematicLook = JIN.clone().setY(ROOFTOP.y - 50); g.cinematicW = 1.3; });
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t; void dt;
           if (sp.glide?.state === 'fly' && this.flyT < 0) this.flyT = t;
           const ft = this.flyT < 0 ? -1 : t - this.flyT;
           // she goes 3 s after the canopy opens, whatever you are looking at: she comes past you on her own
           if (ft > 3.0 && !sp.fall) { sp.towerFall(); later(2.2, () => say('She\'s coming DOWN — right side! She\'s coming down WITH you!', 3)); }
-          for (const e of g.events) if (e.type === 'towerDown') { this.downT = t; hud.setWaypoint(null); later(1.4, () => say('...Jinlong Tower. Gone. Into the river.', 2.8)); later(4.6, () => say('And that was the last light in Longwu.', 2.6)); }
+          for (const e of g.events) if (e.type === 'towerDown') { this.downT = t; hud.setWaypoint(null); later(13, () => say('...Jinlong Tower. Gone. Into the river.', 2.8)); later(21, () => say('And that was the last light in Longwu.', 2.6)); }
           // the marker rides her crown while she falls (VR: where to look), the desktop / trailer camera follows it
           if (sp.fall && !this.downT && sp.fall.top) { if (sp.fall.t > 1.5) hud.setWaypoint(sp.fall.top.clone()); if (A) { g.cinematicLook = sp.fall.top.clone().lerp(V(HINGE_X, Y + 30, HINGE_Z), 0.35); g.cinematicW = 1.4; } }
           if (A && this.downT && t > this.downT + 3 && first('fallLookEnd')) g.cinematicLook = null;
-          if (this.downT && t > this.downT + 5 && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); }
+          if (this.downT && t > this.downT + 22 && first('jumpers')) { for (let i = 0; i < 3; i++) later(i * 2.2, () => sp.spawnJumper(i)); later(1.5, () => say('Jumpers! Behind you — they followed you off the roof!', 3)); }
+          // THE money shot: she has landed on the hillside district, the only thing in Longwu still lit, and as you come
+          // level with it the hill lets go: it goes into the river beside you, east to west, with its lights on
+          if (sp.fall?.hit && sp.rail.s > 105 && first('slideGo')) sp.landslide(false, 3);
           // the damage, from the air: as you run along the scar the gas mains under the torn terraces go, one after another, just ahead of you
           for (const [sx, bx, by, bz] of [[140, 548, 26, 122], [190, 500, 20, 128], [240, 446, 24, 112], [290, 398, 16, 134]]) if (sp.rail.s > sx && first('gas' + sx)) {
             const P = V(bx, by, bz);
@@ -275,7 +278,8 @@ export class Director {
       g.quietScore = true; g.fx.later(3, () => { g.quietScore = false; });
       g.night = NIGHT[jump] ?? 1; this.nightTarget = g.night;
       this.cut1 = -99; sp.cutNow([DIST.FAR_E], 0.1);
-      if (ji > idx('heron')) { sp.heron1.skip(); sp.landslide(true); }
+      if (ji > idx('heron')) { sp.heron1.skip(); POWER.pow.value[DIST.EAST] = 0.14; }
+      if (ji > idx('glide')) sp.landslide(true);
       if (ji > idx('wave')) sp.cutNow([DIST.FAR_W, DIST.R0, DIST.R1, DIST.R2, DIST.R3, DIST.FAR_S], 0.1);
       if (ji > idx('bridge')) { sp.cutNow([DIST.BR0, DIST.BR1, DIST.BR2]); sp.cutNow([DIST.FAR_N], 0.1); for (const k of ['br0', 'br1', 'br2']) this.once.add(k); }
       if (ji > idx('lift')) { sp.cutNow([DIST.FORE]); sp.liftTop(); }

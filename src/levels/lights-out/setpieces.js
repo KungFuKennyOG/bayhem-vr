@@ -133,7 +133,7 @@ export class SetPieces {
   // the end: when the tower lands, whatever was still on goes with it
   lightsOut() {
     if (this.dark) return; this.dark = true;
-    for (const [id] of CITY) if (POWER.pow.value[id] > 0.01 && id !== DIST.TOWER) this.cut(id, { delay: rand() * 0.5, kind: 'flick', arcs: false, quiet: true, rest: id === DIST.FORE ? 0 : 0.1 });
+    for (const [id] of CITY) if (POWER.pow.value[id] > 0.01 && id !== DIST.TOWER && !(id === DIST.HILL && !SLIDE.gone)) this.cut(id, { delay: rand() * 0.5, kind: 'flick', arcs: false, quiet: true, rest: id === DIST.FORE ? 0 : 0.1 });
     this.audio.play('power_down', { volume: 1 });
     this.g.events.push({ type: 'lightsOut' });
   }
@@ -151,7 +151,7 @@ export class SetPieces {
     this.slide.start(fast, c0);
     if (fast) { POWER.pow.value[DIST.HILL] = 0; POWER.pow.value[DIST.EAST] = 0.12; this._glowNow(); }
     else {
-      this.cut(DIST.HILL, { delay: 15, kind: 'flick', arcs: false, quiet: true }); this.cut(DIST.EAST, { delay: 13, kind: 'flick', rest: 0.14 });
+      this.cut(DIST.HILL, { delay: 15, kind: 'flick', arcs: false, quiet: true }); if (POWER.pow.value[DIST.EAST] > 0.3) this.cut(DIST.EAST, { delay: 13, kind: 'flick', rest: 0.14 });
       // fire follows the slide down: along the crest first, then the broken terraces, then the quay; it keeps burning (the scar is lit for the rest of the level)
       const g = this.g;
       for (let i = 0; i < 46; i++) g.fx.later(2.5 + i * 0.2 + rand() * 0.2, () => { const x = range(SLIDE.x0 + 10, SLIDE.x1 - 10), s0 = range(12, 18); g.clouds.spawn({ x, y: range(4, 22), z: range(140, 172), vx: range(-2, 2), vy: range(1, 5), vz: range(5, 11), drag: 0.5, buoy: 0.06, s0, s1: s0 * range(2.8, 3.6), life: range(9, 13), a: 0.7, fadeIn: 0.06, fadeOut: 0.5, r: 0.3, g: 0.22, b: 0.14, r1: 0.2, g1: 0.165, b1: 0.13, glow: 1.6, glowFade: 4 }); });
@@ -320,7 +320,9 @@ export class SetPieces {
       g.fx.light(P, 1800, 1.6, 0xffa050, true, 500);
       g.events.push({ type: 'towerDown', P: P.clone() });
       g.addScore(5000, null);
-      this.lightsOut();
+      // THE money shot: she lands on the hillside district, still lit, and the hill lets go under her. It goes into the
+      // river beside you with its lights on; then Longwu is dark
+      this.lightsOut();   // (the hill stays lit: director.js lets it go as you come level with it)
     }
   }
   // the impact on the ground: a wall of dust thrown out both sides along its whole length, panels and steel flung
@@ -394,7 +396,7 @@ export class SetPieces {
     });
     // two armed barges on the river either side of the line (gunners + a searchlight each): they open up as you come over them
     this.barges = [];
-    for (const [x, z, v, s] of [[330, 254, 0.5, 372], [244, 222, -0.4, 458]]) {
+    for (const [x, z, v, s] of [[372, 254, 0.5, 338], [306, 214, -0.4, 404]]) {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
       const t0 = Math.max(4, s / GLIDE_SPEED - 15);
       const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }));

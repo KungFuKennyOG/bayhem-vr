@@ -33,12 +33,12 @@ export const ROAD = { x0: 372, x1: 716, z0: 301, z1: 326, lane: [306, 322], rail
 export const LZ = 314;                                               // the road's centre line
 export const BLOCK_X = 712;                                          // the road is barricaded east of the bridge mouth
 // ---------------------------------------------------------------- the bridge (north–south, 141 m, deck at the route's level, one pair of masts)
-export const BRIDGE = { x0: 684, x1: 700, z0: 160, z1: 301, y: Y, masts: [230], mastH: 104 };
+export const BRIDGE = { x0: 684, x1: 700, z0: 160, z1: 301, y: Y, masts: [230], mastH: 84 };
 // ---------------------------------------------------------------- the north bank: the tower's podium (its forecourt), the tower, the lift, the roof
 export const PODIUM = { x0: 650, x1: 734, z0: 96, z1: 160 };
-export const TOWER = { x0: 676, x1: 708, z0: 104, z1: 136, base: Y, h: 195 };
-export const LIFT = { x0: 687, x1: 697, z0: 136, z1: 141, y0: Y, y1: 215, speed: 6.5 };   // an open platform up the south face
-export const ROOFTOP = { x0: 676, x1: 708, z0: 104, z1: 136, y: 215, gap: [114, 126], locker: { x: 681.5, z: 130.5 } };   // gap: the jump (west parapet, a z range)
+export const TOWER = { x0: 676, x1: 708, z0: 104, z1: 136, base: Y, h: 130 };
+export const LIFT = { x0: 687, x1: 697, z0: 136, z1: 141, y0: Y, y1: 150, speed: 6.5 };   // an open platform up the south face
+export const ROOFTOP = { x0: 676, x1: 708, z0: 104, z1: 136, y: 150, gap: [114, 126], locker: { x: 681.5, z: 130.5 } };   // gap: the jump (west parapet, a z range)
 export const HINGE = { x: TOWER.x0, y: Y, z: (TOWER.z0 + TOWER.z1) / 2 };   // the tower goes over its west edge
 export const FALL_DIR = [-1, 0, 0.06];                                // ...due west along the bank, into the hole the hill left
 
@@ -49,8 +49,11 @@ export const FALL_DIR = [-1, 0, 0.06];                                // ...due 
 // and 150 → 90 m up (far enough out that you look ACROSS at the slope, not down on it): the torn hillside, the tower lying across it and everything burning are beside you for 25 s.
 // Then it eases out to mid-river and down to the gunboat.
 export const GLIDE = [
-  [674.6, 216.6, 120], [641.5, 200.7, 146.5], [612, 184.9, 176], [585, 169.5, 206], [552, 154, 229], [514, 139.3, 239], [474, 124.1, 241], [434, 108.9, 241],
-  [394, 93.8, 241], [354, 78.6, 240], [314, 63.5, 238], [274, 48.3, 236], [234, 33.1, 234], [196, 18.7, 234], [164, 6.6, 234], [152, 2.4, 234],
+  // off the west edge and south-west past the falling tower, then west along the hill's own face at the hill's own
+  // height (106 → 31 m, 22–50 m off its toe: the district goes into the river beside you, not under you), then a
+  // flatter run-in down the river to the gunboat
+  [674.6, 151.6, 120], [644, 136.4, 146], [614, 120.6, 175], [584, 105.8, 200], [548, 90.8, 216], [508, 75.5, 222], [468, 60.4, 224], [428, 45.2, 228],
+  [390, 30.8, 232], [350, 22.7, 234], [310, 14.7, 234], [275, 7.7, 234], [252, 2.4, 234],
 ];
 export const GLIDE_SPEED = 8.2;
 export const STEER_MAX = 10;

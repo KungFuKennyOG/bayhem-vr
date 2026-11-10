@@ -3,7 +3,7 @@ import { rand, range, chance, clamp, lerp, damp } from '../../rng.js';
 import { CELL, BillboardBatch } from '../../particles.js';
 import { buildHeli } from '../../heli.js';
 import { MAT } from '../../vehicles.js';
-import { ROOFTOP, TOWER, ROAD, RIVER, CRASH, Y, groundAt } from './layout.js';
+import { ROOFTOP, TOWER, ROAD, RIVER, CRASH, Y, DIST, groundAt } from './layout.js';
 
 // =====================================================================================
 //  LIGHTS OUT — the two gunships (the engine's WIDOWMAKER from src/heli.js).
@@ -411,7 +411,9 @@ export class Gunship {
     if (river) {
       this.wreck = this.sp.slide.attach(m.root, I);
       g.fx.later(1.6, () => !g.quietScore && g.addScore(1500, 'STRAIGHT INTO THE HILL!', head.clone().addScaledVector(g.playerFwd, 6).setY(head.y - 0.5), 'big'));
-      g.fx.later(0.5, () => this.sp.landslide(false, 1));
+      // it is wedged in the gold block on the hill's crest, burning (it rides the hill down at the end). The hill holds;
+      // the feeder east of it does not
+      g.fx.later(1.2, () => this.sp.cut(DIST.EAST, { kind: 'flick', rest: 0.14 }));
     } else {
       // wedged in the west face, burning; it goes down with the tower
       this.sp.tw?.inner.attach(m.root);
