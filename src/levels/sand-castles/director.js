@@ -36,11 +36,39 @@ export class Director {
       if (e.type === 'heliHit' && first('hit1')) later(0.4, () => say("We're hit — we're still flying. Keep shooting!", 2.6));
       if (e.type === 'kill' && e.m.role === 'rpg' && first('rpgkill')) later(0.6, () => say('RPG team down. Good.', 2));
       if (e.type === 'aaDown' && e.how !== 'strike' && first('aagun')) later(0.6, () => say('You shot the flak gun off a skyscraper. With a door gun. Noted.', 3));
+      if (e.type === 'swarm' && first('swarm')) later(0.4, () => say('Drones off the door! Shoot them before they reach us!', 2.6));
+      if (e.type === 'viperUp' && first('viper')) later(0.3, () => say("Enemy chopper on our left — he's making a gun run!", 2.6));
+      if (e.type === 'viperDown' && first('viperdown')) later(0.8, () => say('Chopper down! Scratch one!', 2));
+      if (e.type === 'boom' && e.chain >= 3 && first('chain')) later(0.6, () => say('Did you just chain that?! Beautiful.', 2.4));
+      else if (e.type === 'boom' && first('boom')) later(0.6, () => say('That was a fuel depot. WAS.', 2.2));
       if (e.type === 'towerLanded' && first('landed')) later(0.8, () => say('...And that was a forty-storey building. Insurance is going to love us.', 3.2));
     };
     // the fight stations' squads
     this.squads = [];
     this.watch = [];
+    // ---- the close threats (threats.js): fuel on the fight roofs, enemy helos parked on the pads
+    const TH = g.threats;
+    this.TH = TH;
+    W.plan.fights.forEach((f, i) => {
+      const from = rail.point(f.s);
+      if (f.roof === 'pad') TH.addParked(f.tower, from);
+      TH.addDepots(f.tower, f.roof === 'pad' ? 1 : 2, from, f.roof === 'pad' ? 0.44 : 0.3);
+    });
+    // the strike loop: three rooftop squads with fuel round them (spread round the loop, a little inside the
+    // route, at most 160 m so they sit under the door), and a fuel-tanker convoy on the street through the middle
+    { const c = { x: 560, z: -720 }, picked = [];
+      const cand = W.plan.towers.filter(t => t.role === 'static' && t.h > 95 && t.h <= 160 && Math.hypot(t.x - c.x, t.z - c.z) > 280 && Math.hypot(t.x - c.x, t.z - c.z) < 400)
+        .map(t => ({ t, a: Math.atan2(t.z - c.z, t.x - c.x) })).sort((p, q) => q.t.h - p.t.h);
+      for (const k of cand) if (picked.length < 3 && picked.every(p => Math.abs(((k.a - p.a + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 1.6)) picked.push(k);
+      this.loopRoofs = picked.map(p => p.t);
+      for (const t of this.loopRoofs) {
+        const hw = 0.5 * Math.min(t.w, t.d); g.col.add([t.x - hw, 0, t.z - hw], [t.x + hw, t.h, t.z + hw], { kind: 'roof' });
+        const out = V(c.x + (t.x - c.x) * 1.4, 0, c.z + (t.z - c.z) * 1.4);
+        TH.addDepots(t, 2, out);
+      }
+      TH.addConvoy(V(110, 0, -750), V(735, 0, -750), 4); }
+    this.swarmAt = (t, n, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':sw' + t)) TH.spawnSwarm(n, opts); };
+    this.viperAt = (t, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':vp' + t)) { const v = TH.spawnViper(opts); if (v) g.events.push({ type: 'viperUp' }); } };
     // the haboob's look: it starts darkening while the wall is still ~750 m off (its shadow and the dust ahead of it)
     // and is fully on ~400 m inside; never faster than 10 s end to end, so it rolls over you instead of switching on
     this.rampStorm = (dt) => {
@@ -78,8 +106,9 @@ export class Director {
           const cur = [0, 1, 2].find(i => alive(this.squads[i]) > 0);
           rail.face(cur != null ? roofP(cur) : null);
           if (cur != null) hud.setWaypoint(roofP(cur));
+          this.swarmAt(16, 4);
           if (cur == null && first('marinaClear')) { say('Marina clear. Moving down the boulevard.', 2.4); rail.release(); }
-        }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && rail.s > S('marina2')) || (rail.holding && t > 70 * T) || t > 110 },
+        }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && !TH.active && rail.s > S('marina2')) || (rail.holding && t > 70 * T) || t > 110 },
       // 3 ---- the boulevard: the canyon, three more roofs, HAMMER TWO goes down
       { name: 'blvd', music: 0.7, enter: () => {
           rail.release(); speed(0.9); hud.setWaypoint(roofP(3));
@@ -111,6 +140,8 @@ export class Director {
             const r = g.rockets.find(x => x.wing);
             if (!r || r.pos.distanceTo(g.wing.pos) < 6) { if (r) g.explodeRocket(r, false); g.shootDownWing(); this.wingDown = true; g.slowmoReq(2.2, 0.3, true); later(0.8, () => say("HAMMER TWO is hit! He's going in — he's going in!", 2.8)); later(5, () => say("...No chutes. Make them pay for it.", 2.6)); }
           }
+          this.viperAt(9);
+          this.swarmAt(34, 3, { trueFrac: 0.4 });
           if (cur == null && first('blvdClear')) { rail.release(); later(0.5, () => say('Boulevard clear. Turning south.', 2)); }
         }, until: (t) => (t > 8 && this.squads.every(q => alive(q) === 0) && rail.s > S('blvd2') + 200) || (rail.holding && t > 60 * T) || t > 120 },
       // 4 ---- the haboob: look south, a 900 m wall of sand rolls over the city
@@ -130,11 +161,14 @@ export class Director {
           if (this.auto) g.cinematicLook = this.habP;
           // the storm look comes on as the front reaches you
           this.rampStorm(dt);
+          // a swarm out of the dust ahead of the wall (something to shoot while it rolls in)
+          this.swarmAt(9, 5, { ahead: 300, out: 420 });
         }, until: (t) => this.sp.storm > 0.7 || t > 40 },
       // 5 ---- WIDOWMAKER 4 in the murk; it ends up in a tower
       { name: 'gunship', music: 0.9, enter: () => {
           g.cinematicLook = null;
           speed(0.78);
+          TH.clearAir();
           g.spawnGunship();
           hud.objective('WIDOWMAKER 4 — shoot it down');
           later(0.5, () => say("Contact! Gunship in the dust — WIDOWMAKER again. How many of these do they HAVE?", 3.6));
@@ -168,6 +202,14 @@ export class Director {
           later(5.5, () => hud.objective('Paint the flak towers — hold the laser on them'));
           rail.holdAt(S('strike3') + 60);
           this.escT = 18;
+          // something to shoot while you paint: three rooftop squads (they open up as you come in range), Vipers, swarms
+          // (two men a roof: with the flak and the Vipers on you too, more than that just wears you down while you paint)
+          this.squads = this.loopRoofs.map((t, i) => g.spawnRoof(t, 2, i === 1 ? 1 : 0, { delay: 1 + i * 2 }));
+          // you're painting with one hand: everyone shoots a bit worse here (the flak, the squads, the Vipers and the drones
+          // all at once wore a full-health player down to nothing in ~25 s on the autopilot)
+          this.accWas = g.enemyAcc; g.enemyAcc *= 0.6;
+          // the strike towers fall only in front of the door
+          this.sp.fallGate = (T_) => this._inDoor(T_, 70, 3200);
         }, update: (t, dt) => {
           const left = ['T1', 'T2', 'T3', 'T4'].map(id => this.sp.tower(id)).filter(T_ => !this.sp.strikes.targets.get(T_)?.called);
           // the nearest unpainted target: door toward it, waypoint on it, the autopilot paints it
@@ -175,7 +217,7 @@ export class Director {
           // a called strike in flight wins the door: you see the missiles hit and the tower go, then the next target
           this.watch = this.watch.filter(w => (w.fallT == null ? this.total - w.t < 20 : this.total - w.fallT < 6));
           const W_ = this.watch[0]?.T;
-          if (W_) { const P = V(W_.x, W_.h * 0.6, W_.z); rail.face(P); speed(0.45); g.paintTarget = null; if (best) hud.setWaypoint(V(best.x, best.h * 0.86, best.z)); }
+          if (W_) { const P = V(W_.x, W_.h * 0.6, W_.z); rail.face(P); speed(this._inDoor(W_, 60, 1e9) ? 0.45 : 0.2); /* brake hard if it's off to one side: the crab swings further */ g.paintTarget = null; if (best) hud.setWaypoint(V(best.x, best.h * 0.86, best.z)); }
           else { speed(0.72); if (best) { const P = V(best.x, best.h * 0.86, best.z); rail.face(P); hud.setWaypoint(P); g.paintTarget = this.auto ? P : null; } else { g.paintTarget = null; rail.face(null); } }
           // escalation: the enemy blows its own towers — one at a time, only when it is out of the door with a clear
           // line to it (never behind you or behind another building), and never more than two towers falling at once
@@ -194,11 +236,15 @@ export class Director {
             if (first('bombers')) say('Bombers have the rest. Come about — the Spire.', 2.6);
           }
           g.sunsetTarget = clamp(0.25 + t / 120, 0, 0.8);
+          this.viperAt(7); this.swarmAt(16, 4, { trueFrac: 0.22 }); this.viperAt(38); this.swarmAt(52, 5, { trueFrac: 0.22 }); this.swarmAt(78, 4, { trueFrac: 0.22 }); this.viperAt(92); this.swarmAt(108, 5, { trueFrac: 0.22 });
+          if (t > 4 && first('convoy')) later(0.5, () => say('Fuel tankers on the street below — light them up!', 2.6));
         }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && !this.watch.length && ['E1', 'E2', 'E3'].every(i => this.sp.mids.isDown(this.sp.tower(i).rigIdx)) && rail.s > S('strike3') - 200) || t > 140 },
       // 7 ---- the Spire: hover, paint the base, the money shot
       { name: 'spire', music: 1.0, enter: () => {
           g.paintTarget = null;
           speed(0.7);
+          TH.clearAir(); for (const q of this.squads) g.dropSquad(q);
+          if (this.accWas != null) g.enemyAcc = this.accWas;
           rail.holdAt(S('spire'));
           for (const a of g.aas) a.active = false;
           this.heroP = V(HERO.x, 360, HERO.z);
