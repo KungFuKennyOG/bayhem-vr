@@ -11,7 +11,8 @@ shot "beat=heron&yaw=11"                 03_heron   270,2760,2850,2940
 shot "beat=wave"                          04_wave    150
 shot "beat=bridge&px=692&pz=276&yaw=0"    05_bridge  60
 shot "beat=fore"                          06_fore    40
-shot "beat=lift&yaw=140"                  07_lift    40,1500
+shot "beat=lift"                          07_lift    40
+shot "beat=lift&yaw=140"                  07b_ride   1500
 shot "beat=roof&yaw=90"               08_roof    300,560
 shot "beat=jump"                          09_jump    40
 shot "beat=glide&yaw=35"                 10_glide   300,360,420

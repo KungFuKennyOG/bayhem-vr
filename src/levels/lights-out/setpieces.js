@@ -71,9 +71,9 @@ export class SetPieces {
       const d = f.p.distanceTo(head);
       if (f.lamp) { const k = f.lamp(); if (k > 0.02 && d < 60) near.push({ f, d: d * 0.5, k }); continue; }   // a lamp: light only (the two pooled lights go to whatever is nearest)
       near.push({ f, d });
-      if (d > 220) continue;
-      const far = d > 110 ? 0.4 : 1;
-      if (rand() < dt * 14 * f.size * far) g.fx.flame(_v.set(f.p.x + range(-1, 1) * f.size, f.p.y + range(0, 0.6), f.p.z + range(-1, 1) * f.size), range(0.9, 1.6) * f.size);
+      if (d > 420) continue;
+      const far = d > 110 ? 0.45 : 1, big = d > 110 ? 1.7 : 1;
+      if (rand() < dt * 14 * f.size * far) g.fx.flame(_v.set(f.p.x + range(-1, 1) * f.size, f.p.y + range(0, 0.6), f.p.z + range(-1, 1) * f.size), range(0.9, 1.6) * f.size * big);
       if (f.smoke && rand() < dt * 1.2 * far) g.clouds.spawn({ x: f.p.x + range(-1, 1), y: f.p.y + 2 * f.size, z: f.p.z + range(-1, 1), vx: range(-0.5, 0.5) - 0.6, vy: range(2.5, 4), vz: range(-0.5, 0.5), drag: 0.2, buoy: 0.3, s0: 2 * f.size, s1: 9 * f.size, life: range(6, 9), a: 0.8, fadeIn: 0.05, fadeOut: 0.5, r: 0.05, g: 0.045, b: 0.04, r1: 0.1, g1: 0.09, b1: 0.08, glow: 1.8, glowFade: 3 });
     }
     this.fires = this.fires.filter(f => !f.dead);
@@ -123,8 +123,8 @@ export class SetPieces {
     const n = Math.min(pts.length, 5 + (rand() * 4 | 0));
     for (let i = 0; i < n; i++) g.fx.later(rand() * 0.9, () => {
       const p = pts[(rand() * pts.length) | 0], d = p.distanceTo(g.headPos), sz = 4 + d * 0.05;
-      g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.FLASH, s0: sz, s1: sz * 2.4, life: 0.18, r: 2.4, g: 3.0, b: 4.2, fadeIn: 0, fadeOut: 0.5 });
-      g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.GLOW, s0: sz * 3, s1: sz * 4, life: 0.35, r: 0.5, g: 0.8, b: 1.4, a: 1, fadeIn: 0, fadeOut: 0.6 });
+      g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.FLASH, s0: sz * 0.35, s1: sz * 0.9, life: 0.14, r: 0.9, g: 1.25, b: 1.9, fadeIn: 0, fadeOut: 0.5 });
+      g.fx.main.spawn({ x: p.x, y: p.y, z: p.z, frame: CELL.GLOW, s0: sz * 1.4, s1: sz * 2.2, life: 0.3, r: 0.22, g: 0.36, b: 0.7, a: 1, fadeIn: 0, fadeOut: 0.6 });
       for (let k = 0; k < 14; k++) g.fx.sparks.spawn({ x: p.x, y: p.y, z: p.z, vx: range(-6, 6), vy: range(0, 8), vz: range(-6, 6), grav: 9.8, drag: 0.15, frame: CELL.SPARK, s0: 1 + d * 0.004, w: 0.05 + d * 0.0003, len: 0.2, life: range(0.5, 1.4), r: 2.2, g: 2.6, b: 3.4, a: 1, fadeOut: 0.4 });
       if (d < 160) g.fx.light(p, 50, 0.1, 0x9ec8ff, true, 50);
       if (d < 400) this.audio.play('impact_metal', { x: p.x, y: p.y, z: p.z, volume: 0.6, pitch: 1.8 });
@@ -133,7 +133,7 @@ export class SetPieces {
   // the end: when the tower lands, whatever was still on goes with it
   lightsOut() {
     if (this.dark) return; this.dark = true;
-    for (const [id] of CITY) if (POWER.pow.value[id] > 0.01 && id !== DIST.TOWER) this.cut(id, { delay: rand() * 0.5, kind: 'flick', arcs: false, quiet: true });
+    for (const [id] of CITY) if (POWER.pow.value[id] > 0.01 && id !== DIST.TOWER) this.cut(id, { delay: rand() * 0.5, kind: 'flick', arcs: false, quiet: true, rest: id === DIST.FORE ? 0 : 0.1 });
     this.audio.play('power_down', { volume: 1 });
     this.g.events.push({ type: 'lightsOut' });
   }
@@ -150,7 +150,13 @@ export class SetPieces {
     if (this.slide.active) return;
     this.slide.start(fast, c0);
     if (fast) { POWER.pow.value[DIST.HILL] = 0; POWER.pow.value[DIST.EAST] = 0.12; this._glowNow(); }
-    else { this.cut(DIST.HILL, { delay: 9, kind: 'flick', arcs: false, quiet: true }); this.cut(DIST.EAST, { delay: 6, kind: 'flick', rest: 0.12 }); }
+    else {
+      this.cut(DIST.HILL, { delay: 15, kind: 'flick', arcs: false, quiet: true }); this.cut(DIST.EAST, { delay: 13, kind: 'flick', rest: 0.14 });
+      // fire follows the slide down: along the crest first, then the broken terraces, then the quay; it keeps burning (the scar is lit for the rest of the level)
+      const g = this.g;
+      for (const [t, fx, fy, fz, k] of [[1.0, 447, 66, 46, 2.6], [2.4, 505, 60, 50, 2.0], [3.2, 400, 58, 52, 2.0], [4.5, 470, 40, 86, 2.4], [5.2, 545, 44, 80, 2.2], [6.4, 425, 30, 104, 2.2], [7.0, 515, 26, 112, 2.6], [8.2, 575, 30, 110, 2.0], [9.0, 460, 14, 142, 2.4], [9.8, 540, 12, 148, 2.2], [10.6, 395, 12, 150, 2.0], [11.4, 600, 22, 120, 1.8]])
+        g.fx.later(t, () => { const P = new THREE.Vector3(fx, fy, fz); g.fx.explosion(P.clone().setY(fy + 4), 2.6, { noRing: true }); this.heron1.megaFireball(P.clone().setY(fy + 6), 1.5, [0, 0, 1]); this.addFire(P, k, { life: 1e9 }); this.audio.play('explosion_big', { x: fx, y: fy, z: fz, volume: 0.7 }); });
+    }
   }
 
   // ================================================================== the lift
@@ -361,14 +367,14 @@ export class SetPieces {
     this.boat.position.set(this.boatX, WATER_Y + 0.15, BOAT.z - this.boat.userData.deck.z);
     this._spawnGlideEnemies();
     // what the hill left: fires all down the scar and along the quay, so the wreckage is lit when you fly along it
-    for (const [fx, fy, fz, k] of [[575, 30, 110, 2.2], [545, 14, 150, 1.8], [515, 36, 92, 2.0], [488, 10, 158, 1.6], [460, 28, 104, 2.4], [432, 12, 150, 1.8], [405, 30, 96, 2.0], [384, 9, 156, 1.6], [620, 24, 118, 1.8]]) this.addFire(new THREE.Vector3(fx, fy, fz), k, { life: 200 });
+    if (this.fires.length < 8) for (const [fx, fy, fz, k] of [[575, 30, 110, 2.2], [545, 14, 150, 1.8], [515, 36, 92, 2.0], [488, 10, 158, 1.6], [460, 28, 104, 2.4], [432, 12, 150, 1.8], [405, 30, 96, 2.0], [384, 9, 156, 1.6], [620, 24, 118, 1.8]]) this.addFire(new THREE.Vector3(fx, fy, fz), k, { life: 200 });   // (a ?beat= jump: the slide's own fires never ran)
     this.g.events.push({ type: 'canopy' });
   }
   _spawnGlideEnemies() {
     const g = this.g, S = this.search, T = this.rail.len / GLIDE_SPEED;
     const ud = this.boat.userData;
     this.boatCrew = [ud.gunner, ...ud.crew].map((p, i) => g.spawnSoldier({ x: this.boat.position.x + p.x, y: p.y, z: this.boat.position.z + p.z, role: 'deck', carrier: { obj: this.boat, local: p.clone(), vel: new THREE.Vector3(BOAT.speed, 0, 0) }, delay: T - 24 + i, range: 90, noNade: true }));
-    this.boatLight = S.add({ p: ud.lamp.clone(), carrier: { obj: this.boat, local: ud.lamp.clone() }, yaw0: 0, pitch0: 0.55, sweep: [0.6, 0.2, 0.3], len: 150, spread: 0.06, shooters: this.boatCrew });
+    this.boatLight = S.add({ p: ud.lamp.clone(), carrier: { obj: this.boat, local: ud.lamp.clone() }, yaw0: 0, pitch0: 0.55, sweep: [0.6, 0.2, 0.3], len: 150, spread: 0.06, shooters: this.boatCrew, color: [1.1, 1.05, 0.95] });
     const drumsP = () => ud.drumsP.clone().applyMatrix4(this.boat.matrixWorld);
     this.drums = { hp: 6, dead: false };
     const D = this.drums, self = this;
@@ -386,7 +392,7 @@ export class SetPieces {
       const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
       const t0 = Math.max(4, s / GLIDE_SPEED - 15);
       const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }));
-      const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: 0, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew });
+      const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: 0, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew, color: [1.1, 1.05, 0.95] });
       this.barges.push({ g: b, v, crew, L });
       const m = new THREE.Mesh(new THREE.BoxGeometry(34, 2.6, 10), new THREE.MeshStandardMaterial({ color: 0x24221f, roughness: 0.8, metalness: 0.3 })); m.position.y = 0.6; b.add(m);
       const h = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 7), new THREE.MeshStandardMaterial({ color: 0x3a3833, roughness: 0.7 })); h.position.set(12, 3.5, 0); b.add(h);

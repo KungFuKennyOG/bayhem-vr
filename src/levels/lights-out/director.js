@@ -80,7 +80,7 @@ export class Director {
           if (t > 8.5 && !this.cut1) {
             if (first('uphint')) { say('Hold on. Upstream — past the bridge. LOOK.', 2.6); hud.setWaypoint(UPSTREAM.clone()); if (A) { g.cinematicLook = UPSTREAM.clone(); g.cinematicW = 1.4; } }
             this.lookT = looking(UPSTREAM, 0.8) ? this.lookT + dt : 0;
-            if (this.lookT > 0.5 || t > 14) { this.cut1 = t; sp.cut(DIST.FAR_E, { kind: 'cut', c0: 330, c1: 40, dur: 3.2 }); hud.setWaypoint(null); later(2.6, () => say('That was a whole district. ...They\'re pulling the plug on the city. Move.', 3.4)); }
+            if (this.lookT > 0.5 || t > 14) { this.cut1 = t; sp.cut(DIST.FAR_E, { kind: 'cut', c0: 330, c1: 40, dur: 3.2, rest: 0.1 }); hud.setWaypoint(null); later(2.6, () => say('That was a whole district. ...They\'re pulling the plug on the city. Move.', 3.4)); }
           }
         }, until: (t) => this.cut1 && t > this.cut1 + (trailer ? 3.5 : 5.2) },
       // 2 ---- the cliff road, first half: the jam, gunmen in the traffic and on the shop terraces to your right
@@ -90,7 +90,7 @@ export class Director {
           for (const [x, z, d, fl] of [[446, 310, 0.6], [462, 318, 1.4], [478, 311, 2.2], [494, 317, 3.0, true], [512, 310, 4.4], [530, 318, 6, true], [548, 312, 8]]) S({ x, z, delay: d, flanker: !!fl });
           for (const [x, d] of [[470, 2.4], [520, 5]]) { const P = perchNear(x); if (P) perchAt(P, d); }
           S({ x: 540, z: 314, role: 'rusher', delay: 16, entry: V(560, 0, 314) });
-          later(7, () => say('Terraces on your right! They\'re up over the shops!', 2.4));
+          later(7, () => say('Rooftops on your right! They\'re up over the shops!', 2.4));
           A?.go([go(420, 314, { slow: 0.6 }), go(446, 314, { slow: 0.5 }), go(474, 314, { slow: 0.5 }), go(502, 314, { slow: 0.5 }), go(526, 314, {})]);
         }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper' && s.role !== 'perch') === 0 && px() > 520) || t > 150 * T },
       // 3 ---- NIGHT HERON ONE: up out of the gorge beside you. Shot down, it goes into the hill across the river — and the hill goes
@@ -117,9 +117,9 @@ export class Director {
           night(0.7); this.waveT = 0;
           g.cinematicLook = null;
           say('Oh no. Look — LOOK at the city.', 2.4);
-          sp.cut(DIST.FAR_W, { kind: 'cut', c0: 330, c1: 40, dur: 3 });
-          sp.cut(DIST.R0, { delay: 2.2 }); sp.cut(DIST.R1, { delay: 3.3 }); sp.cut(DIST.R2, { delay: 4.4 }); sp.cut(DIST.R3, { delay: 5.5 });
-          sp.cut(DIST.FAR_S, { delay: 4.2, kind: 'cut', c0: 330, c1: 50, dur: 4.5 });
+          sp.cut(DIST.FAR_W, { kind: 'cut', c0: 330, c1: 40, dur: 3, rest: 0.1 });
+          sp.cut(DIST.R0, { delay: 2.2, rest: 0.08 }); sp.cut(DIST.R1, { delay: 3.3, rest: 0.08 }); sp.cut(DIST.R2, { delay: 4.4, rest: 0.08 }); sp.cut(DIST.R3, { delay: 5.5, rest: 0.08 });
+          sp.cut(DIST.FAR_S, { delay: 4.2, kind: 'cut', c0: 330, c1: 50, dur: 4.5, rest: 0.1 });
           later(6.6, () => say('Bridges. The river. The whole south bank. ...Every light in Longwu.', 3.6));
           if (A) { g.cinematicLook = V(px() - 140, Y + 40, ROAD.front + 40); g.cinematicW = 1.2; later(4.5, () => { g.cinematicLook = V(BX, Y + 40, 230); }); }
         }, until: (t) => t > (trailer ? 8 : 9.5) },
@@ -136,7 +136,7 @@ export class Director {
           // the lamps go out behind you, span by span; mid-river the north skyline goes too
           const z = pz(), on = px() > BRIDGE.x0 - 2 && px() < BRIDGE.x1 + 2;
           if (on && z < 276 && first('br0')) sp.cut(DIST.BR0);
-          if (on && z < 232 && first('br1')) { sp.cut(DIST.BR1); sp.cut(DIST.FAR_N, { delay: 0.8, kind: 'cut', c0: 330, c1: 50, dur: 4 }); later(2.2, () => say('It\'s following you across. Don\'t stop.', 2.4)); }
+          if (on && z < 232 && first('br1')) { sp.cut(DIST.BR1); sp.cut(DIST.FAR_N, { delay: 0.8, kind: 'cut', c0: 330, c1: 50, dur: 4, rest: 0.1 }); later(2.2, () => say('It\'s following you across. Don\'t stop.', 2.4)); }
           if (on && z < 190 && first('br2')) sp.cut(DIST.BR2);
         }, until: (t) => (t > 8 && alive(s => s.role !== 'sniper') === 0 && pz() < BRIDGE.z0 + 14) || t > 300 * T },
       // 6 ---- the forecourt: the last fight on foot, lit by the tower alone
@@ -237,8 +237,7 @@ export class Director {
           later(4.6, () => say('...Huh. Somebody found the breakers.', 2.6));
           if (A) g.cinematicLook = V(g.headPos.x + 200, 80, 320);
           later(trailer ? 4 : 6.4, () => {
-            const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 'S'}`;
-            const sub = `${pl(g.kills, 'GOON')}  •  2 GUNSHIPS  •  ${pl(g.jumpersDown, 'CANOPY')}  •  1 HILLSIDE  •  1 TOWER  •  SCORE ${g.score}`;
+            const sub = `${g.kills} GOONS  •  2 GUNSHIPS  •  1 HILL  •  1 TOWER  •  ${g.score}`;
             const P = g.headPos.clone().add(V(14, 5, 6));
             hud.showTitle(P, 'LIGHTS OUT', sub, 999);
             g.cinematicLook = P.clone();
@@ -265,7 +264,7 @@ export class Director {
     // ?beat=<name>: jump straight to a beat (screenshots / testing)
     const jump = game.params.get('beat');
     const RY = ROOFTOP.y;
-    const START_P = { road: [404, Y, 314], heron: [530, Y, 314], wave: [560, Y, 314], bridge: [566, Y, 314], fore: [BX, Y, 166], lift: [LX, Y, 146], roof: [LX, RY, 132], jump: [LX + 2, RY, 124], glide: [ROOFTOP.x0 + 2, RY, RZ], outro: [ROOFTOP.x0 + 2, RY, RZ], credits: [ROOFTOP.x0 + 2, RY, RZ] };
+    const START_P = { road: [404, Y, 314], heron: [530, Y, 314], wave: [552, Y, 314], bridge: [566, Y, 314], fore: [BX, Y, 166], lift: [LX, Y, 146], roof: [LX, RY, 132], jump: [LX + 2, RY, 124], glide: [ROOFTOP.x0 + 2, RY, RZ], outro: [ROOFTOP.x0 + 2, RY, RZ], credits: [ROOFTOP.x0 + 2, RY, RZ] };
     const YAW = { road: -Math.PI / 2, heron: -Math.PI / 2, wave: -Math.PI / 2, bridge: -Math.PI / 2, fore: 0, lift: 0, roof: 0, jump: Math.PI / 2, glide: Math.PI / 2 };
     const ji = jump ? this.steps.findIndex(s => s.name === jump) : -1;
     const NIGHT = { intro: 0.3, road: 0.38, heron: 0.5, wave: 0.7, bridge: 0.85 };
@@ -275,14 +274,14 @@ export class Director {
       const idx = (n) => this.steps.findIndex(s => s.name === n);
       g.quietScore = true; g.fx.later(3, () => { g.quietScore = false; });
       g.night = NIGHT[jump] ?? 1; this.nightTarget = g.night;
-      this.cut1 = -99; sp.cutNow([DIST.FAR_E]);
+      this.cut1 = -99; sp.cutNow([DIST.FAR_E], 0.1);
       if (ji > idx('heron')) { sp.heron1.skip(); sp.landslide(true); }
-      if (ji > idx('wave')) sp.cutNow([DIST.FAR_W, DIST.R0, DIST.R1, DIST.R2, DIST.R3, DIST.FAR_S]);
-      if (ji > idx('bridge')) { sp.cutNow([DIST.BR0, DIST.BR1, DIST.BR2, DIST.FAR_N]); for (const k of ['br0', 'br1', 'br2']) this.once.add(k); }
+      if (ji > idx('wave')) sp.cutNow([DIST.FAR_W, DIST.R0, DIST.R1, DIST.R2, DIST.R3, DIST.FAR_S], 0.1);
+      if (ji > idx('bridge')) { sp.cutNow([DIST.BR0, DIST.BR1, DIST.BR2]); sp.cutNow([DIST.FAR_N], 0.1); for (const k of ['br0', 'br1', 'br2']) this.once.add(k); }
       if (ji > idx('lift')) { sp.cutNow([DIST.FORE]); sp.liftTop(); }
       if (ji > idx('roof')) { sp.heron2.skip(); sp.towerHit(); }
       if (ji >= idx('glide')) { sp.takeRig(); sp.jump(); g.slowT = 0; }
-      if (ji > idx('glide')) { sp.towerFall(true); sp.cutNow([DIST.TOWER, DIST.EAST]); }
+      if (ji > idx('glide')) { sp.towerFall(true); sp.cutNow([DIST.TOWER, DIST.HILL]); sp.dark = true; sp.rail.s = sp.rail.len - 3; }   // (you come in to land at once)
       g.score = [0, 0, 2400, 7800, 9000, 15600, 19400, 20000, 27000, 28000, 37000, 44000][ji] || 0;
       for (const c of hud.callouts) hud.scene.remove(c.s); hud.callouts.length = 0;
       for (const L of Object.values(hud.lanes || {})) { L.q.length = 0; L.cur = null; }

@@ -120,6 +120,15 @@ export function buildTerrain(ctx = {}) {
       if (r() < 0.6) glows.push({ p: [x + w / 2, 61.5, PLAZA.z1 - 2], color: [2.0, 1.1, 0.45], size: 2.6, code: DUSK + dist, far: true });
       x += w + 3 + r() * 9;
     }
+    // the quay under that shelf: a row of old waterfront houses and its lamps (the glide comes down past them)
+    for (let qx = -300; qx < SLIDE.x0 - 8; ) {
+      const w = 9 + r() * 10, h = 6 + Math.floor(r() * 4) * 3, dist = qx < 250 ? DIST.FAR_W : DIST.EAST;
+      T.set({ col: W[Math.floor(r() * W.length)], rm: [0.85, 0, 0], em: [0, 0, 0, dist], cell: [3.0, 3.0, 700 + Math.round(qx), 2] });
+      T.box(qx, QUAY.y, QUAY.z0 + 1, qx + w, QUAY.y + h, QUAY.z0 + 11, { faces: 'xXZ', s: 1, wy0: QUAY.y, foot: 0.25 });
+      Rf.set({ col: [0.26, 0.25, 0.26], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(qx - 0.2, QUAY.y + h, QUAY.z0 + 0.8, qx + w + 0.2, QUAY.y + h + 0.4, QUAY.z0 + 11.3, { faces: 'xXZY', s: 1 });
+      if (r() < 0.55) glows.push({ p: [qx + w / 2, QUAY.y + 6, RIVER.z0 - 2], color: [2.2, 1.3, 0.5], size: 2.8, code: DUSK + dist, far: true });
+      qx += w + (r() < 0.2 ? 4 + r() * 5 : 0.5);
+    }
     L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(GOLD, 1.1, DUSK + DIST.FAR_W) }); L.box(-520, 56.9, PLAZA.z1 + 1.2, 250, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
     L.set({ em: em(GOLD, 1.1, DUSK + DIST.EAST) }); L.box(250, 56.9, PLAZA.z1 + 1.2, SLIDE.x0 - 1, 57.15, PLAZA.z1 + 1.4, { faces: 'Z' });
   }

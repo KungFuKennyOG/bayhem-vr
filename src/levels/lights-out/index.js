@@ -27,7 +27,7 @@ export async function create(E) {
   E.flare.visible = false;
   applyLook(n0, 1, 0, { sun: E.sun, hemi: E.hemi, fog: scene.fog, renderer, scene });
   scene.fog.near = 40; scene.fog.far = 1080;   // the fog city: the far skylines and the ridges fade to silhouettes
-  E.sun.castShadow = true;
+  E.sun.castShadow = params.get('shadows') === '1';   // off: at dusk-to-night the sun shadow bought nothing and cost a second geometry pass (?shadows=1 to compare)
   camera.far = 5000; camera.updateProjectionMatrix();
   // dark kit in a dark city: a lift and lit reflective bands so they read against the fog and the lights
   setGunmanLook({ lift: 0.26, band: 0.6 });

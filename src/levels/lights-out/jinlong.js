@@ -48,7 +48,7 @@ export function buildJinlong(ctx = {}) {
   Gd.set({ em: em(GOLD, 1.6, DUSK + code) });
   for (const by of [Y + 48, Y + 87, Y + 126, Y + 165]) Gd.box(T.x0 - 0.5, by, T.z0 - 0.5, T.x1 + 0.5, by + 0.9, T.z1 + 0.5, { faces: 'xXzZ' });
   // the entrance: two gold columns and a lit beam with the tower's name across the foot of the lift (the platform runs up behind it)
-  Gd.set({ col: [0.42, 0.31, 0.14], rm: [0.35, 0.8, 0], em: em(GOLD, 0.9, DUSK + code) });
+  Gd.set({ col: [0.5, 0.38, 0.18], rm: [0.35, 0.8, 0], em: em(GOLD, 0.2, DUSK + code) });
   for (const px of [LIFT.x0 - 2.0, LIFT.x1 + 1.2]) { Gd.box(px, Y, LIFT.z1 + 0.5, px + 0.8, Y + 9.6, LIFT.z1 + 1.3, { faces: 'xXzZ' }); solid(px, Y, LIFT.z1 + 0.5, px + 0.8, Y + 9.6, LIFT.z1 + 1.3, { mat: 'metal' }); }
   Gd.box(LIFT.x0 - 2.0, Y + 7.4, LIFT.z1 + 0.5, LIFT.x1 + 2.0, Y + 9.6, LIFT.z1 + 1.3, { faces: 'xXzZy' });
   { const S = B.get('sign', 'tw'); S.set({ col: [1, 1, 1], rm: [0.6, 0, 0], em: em([1, 1, 1], 1.6, DUSK + code) }); signQuad(S, [(LIFT.x0 + LIFT.x1) / 2, Y + 8.5, LIFT.z1 + 1.34], [0, 0, 1], 11.2, 1.9, SIGN.gate); }
@@ -56,10 +56,10 @@ export function buildJinlong(ctx = {}) {
 
   // ---- the roof deck: concrete, a helipad H in the middle, parapets with two gaps (south: the lift; west: the jump)
   const Cc = B.get('concrete', 'tw'), Pl = B.get('plain', 'tw'), Mt = B.get('metal', 'tw');
-  Cc.set({ col: [0.62, 0.61, 0.6], rm: [0.7, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+  Cc.set({ col: [0.62, 0.61, 0.6], rm: [0.7, 0, 0], em: em(GOLD, 0.045, DUSK + code), cell: [0, 0, 0, 0] });   // the crown's floods on the deck
   Cc.box(T.x0, RY - 0.6, T.z0, T.x1, RY, T.z1, { faces: 'xXzZY', s: 1 });
   const cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
-  Pl.set({ col: [0.72, 0.68, 0.5], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
+  Pl.set({ col: [0.6, 0.56, 0.38], rm: [0.8, 0, 0], em: em(GOLD, 0.03, DUSK + code) });
   Pl.box(cx - 2.6, RY, cz - 3.4, cx - 1.8, RY + 0.012, cz + 3.4, { faces: 'Y' }); Pl.box(cx + 1.8, RY, cz - 3.4, cx + 2.6, RY + 0.012, cz + 3.4, { faces: 'Y' }); Pl.box(cx - 1.8, RY, cz - 0.4, cx + 1.8, RY + 0.012, cz + 0.4, { faces: 'Y' });
   for (let i = 0; i < 28; i++) { const a0 = i / 28 * Math.PI * 2, a1 = (i + 0.7) / 28 * Math.PI * 2, r0 = 8.4, r1 = 9.0; Pl.quad([cx + Math.cos(a0) * r1, RY + 0.012, cz + Math.sin(a0) * r1], [cx + Math.cos(a0) * r0, RY + 0.012, cz + Math.sin(a0) * r0], [cx + Math.cos(a1) * r0, RY + 0.012, cz + Math.sin(a1) * r0], [cx + Math.cos(a1) * r1, RY + 0.012, cz + Math.sin(a1) * r1]); }
   const par = (x0, z0, x1, z1) => { Cc.set({ col: [0.4, 0.39, 0.37] }); Cc.box(x0, RY, z0, x1, RY + 1.1, z1, { s: 1 }); solid(x0, RY, z0, x1, RY + 1.1, z1, { mat: 'concrete' });
@@ -76,17 +76,17 @@ export function buildJinlong(ctx = {}) {
   Gd.box(R.x0 + 0.4, RY, R.gap[0] - 0.2, R.x0 + 3.4, RY + 0.02, R.gap[0], { faces: 'Y' }); Gd.box(R.x0 + 0.4, RY, R.gap[1], R.x0 + 3.4, RY + 0.02, R.gap[1] + 0.2, { faces: 'Y' });
 
   // ---- the crown: four corner columns and a ring beam 16 m up (a lantern cage: over you, not around you); a mast on the NE column
-  Gd.set({ col: [0.36, 0.27, 0.13], rm: [0.4, 0.8, 0], em: em(GOLD, 0.7, DUSK + code) });
+  Gd.set({ col: [0.5, 0.38, 0.18], rm: [0.4, 0.8, 0], em: em(GOLD, 0.16, DUSK + code) });
   for (const [px, pz] of [[R.x0 + 0.9, R.z0 + 0.9], [R.x1 - 0.9, R.z0 + 0.9], [R.x0 + 0.9, R.z1 - 0.9], [R.x1 - 0.9, R.z1 - 0.9]]) {
     Gd.box(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { faces: 'xXzZ' });
     solid(px - 0.7, RY, pz - 0.7, px + 0.7, RY + CROWN_H, pz + 0.7, { mat: 'metal' });
     ride(px, RY + 2.2, pz, { color: [2.6, 1.6, 0.7], size: 2.4 });
   }
-  Gd.set({ em: em(GOLD, 1.4, DUSK + code) });
+  Gd.set({ em: em(GOLD, 0.3, DUSK + code) });
   Gd.box(R.x0, RY + CROWN_H, R.z0, R.x1, RY + CROWN_H + 1.6, R.z0 + 1.6, {}); Gd.box(R.x0, RY + CROWN_H, R.z1 - 1.6, R.x1, RY + CROWN_H + 1.6, R.z1, {});
   Gd.box(R.x0, RY + CROWN_H, R.z0 + 1.6, R.x0 + 1.6, RY + CROWN_H + 1.6, R.z1 - 1.6, {}); Gd.box(R.x1 - 1.6, RY + CROWN_H, R.z0 + 1.6, R.x1, RY + CROWN_H + 1.6, R.z1 - 1.6, {});
   // the lantern cage: cross-braces between the columns from 6 m up (over your head), the tower's name on the ring beam
-  Gd.set({ col: [0.36, 0.27, 0.13], rm: [0.4, 0.8, 0], em: em(GOLD, 0.8, DUSK + code) });
+  Gd.set({ col: [0.46, 0.35, 0.17], rm: [0.4, 0.8, 0], em: em(GOLD, 0.13, DUSK + code) });
   { const y0 = RY + 6.2, y1 = RY + CROWN_H, n = 4;
     for (let k = 0; k < n; k++) {
       const u0 = k / n, u1 = (k + 1) / n, xa = R.x0 + 1.6 + (R.x1 - R.x0 - 3.2) * u0, xb = R.x0 + 1.6 + (R.x1 - R.x0 - 3.2) * u1, za = R.z0 + 1.6 + (R.z1 - R.z0 - 3.2) * u0, zb = R.z0 + 1.6 + (R.z1 - R.z0 - 3.2) * u1;
@@ -141,8 +141,12 @@ export function buildJinlong(ctx = {}) {
       for (let z = z0 + 0.1; z <= z1 - 0.05; z += (z1 - z0 - 0.2) / 3) D.box(sx - 0.05, 0, z - 0.05, sx + 0.05, 1.1, z + 0.05, { faces: 'xXzZ' });
       D.beam([sx, 1.1, z0], [sx, 1.1, z1], 0.1, 0.07); D.beam([sx, 0.55, z0], [sx, 0.55, z1], 0.05, 0.05);
     }
-    E.set({ col: [0.5, 0.36, 0.14], rm: [0.4, 0.5, 0], em: em(GOLD, 2.4, DUSK + DIST.ALWAYS) });
-    E.box(x0, 0, z0, x1, 0.02, z0 + 0.12, { faces: 'Y' }); E.box(x0, 0, z1 - 0.12, x1, 0.02, z1, { faces: 'Y' }); E.box(x0, 0, z0, x0 + 0.12, 0.02, z1, { faces: 'Y' }); E.box(x1 - 0.12, 0, z0, x1, 0.02, z1, { faces: 'Y' });
+    E.set({ col: [0.5, 0.36, 0.14], rm: [0.4, 0.5, 0], em: em(GOLD, 1.5, DUSK + DIST.ALWAYS) });
+    E.box(x0, 0, z0, x1, 0.02, z0 + 0.06, { faces: 'Y' }); E.box(x0, 0, z1 - 0.06, x1, 0.02, z1, { faces: 'Y' }); E.box(x0, 0, z0, x0 + 0.06, 0.02, z1, { faces: 'Y' }); E.box(x1 - 0.06, 0, z0, x1, 0.02, z1, { faces: 'Y' });
+    // hazard chevrons across the deck's open edge, a warm glow up through the grating
+    E.set({ col: [0.75, 0.55, 0.1], rm: [0.7, 0, 0], em: em([1, 0.7, 0.2], 0.25, DUSK + DIST.ALWAYS) });
+    for (let cx2 = x0 + 0.5; cx2 < x1 - 0.6; cx2 += 1.2) E.quad([cx2, 0.012, z1 - 0.1], [cx2 + 0.6, 0.012, z1 - 0.1], [cx2 + 0.95, 0.012, z1 - 0.75], [cx2 + 0.35, 0.012, z1 - 0.75]);
+    D.set({ col: [0.42, 0.4, 0.38], rm: [0.55, 0.5, 0], em: em(GOLD, 0.1, DUSK + DIST.ALWAYS) }); D.box(x0 + 0.1, 0, z0 + 0.1, x1 - 0.1, 0.008, z1 - 0.8, { faces: 'Y', s: 1 });
     E.box(x0, -0.32, z1, x1, -0.02, z1 + 0.03, { faces: 'Z' });
     LB.finish(lift, { shadowKeys: SHADOW_KEYS });
   }

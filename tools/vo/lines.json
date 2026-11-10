@@ -808,16 +808,6 @@
   ]
  },
  {
-  "key": "ed5cdfef",
-  "text": "Red dot — he's got the angle on you!",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
   "key": "ea294796",
   "text": "Sniper! Watch for the red line in the fog!",
   "levels": [
@@ -850,16 +840,6 @@
  {
   "key": "2b88f86f",
   "text": "That's a long way down for him.",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "2d7ec255",
-  "text": "It's leaking! Again!",
   "levels": [
    "lights-out"
   ],
@@ -918,6 +898,16 @@
   ]
  },
  {
+  "key": "c8836815",
+  "text": "They had ANOTHER one! West edge — it's coming up the west side!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
   "key": "7d82dea9",
   "text": "It's roping guys onto the roof! Get them on the ropes!",
   "levels": [
@@ -958,18 +948,8 @@
   ]
  },
  {
-  "key": "2b29f462",
-  "text": "It put rockets into the TOWER! It's pulling back — it'll be back.",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "da745855",
-  "text": "It's BACK — right on your tail! Shoot it down!",
+  "key": "e3b63623",
+  "text": "That's a kill! It's coming round — it's going to hit the TOWER—",
   "levels": [
    "lights-out"
   ],
@@ -998,8 +978,8 @@
   ]
  },
  {
-  "key": "4b2e6332",
-  "text": "Their whole crew is holed up in Jinlong Tower — the gold one, way across the ravine. Down the Hundred Steps.",
+  "key": "7b30b046",
+  "text": "The gold tower past the bridge — Jinlong. Their whole crew is in it. Straight down this road.",
   "levels": [
    "lights-out"
   ],
@@ -1008,8 +988,8 @@
   ]
  },
  {
-  "key": "5a24b389",
-  "text": "They're on the landings below you — and up on the flyover. Look up, look down.",
+  "key": "d08062c7",
+  "text": "Hold on. Upstream — past the bridge. LOOK.",
   "levels": [
    "lights-out"
   ],
@@ -1018,8 +998,8 @@
   ]
  },
  {
-  "key": "ef074e05",
-  "text": "Lantern Street. Go east — the red gate takes you down into Lantern Cliff.",
+  "key": "21966d75",
+  "text": "That was a whole district. ...They're pulling the plug on the city. Move.",
   "levels": [
    "lights-out"
   ],
@@ -1028,78 +1008,8 @@
   ]
  },
  {
-  "key": "de4f4c62",
-  "text": "Rooftops on your left! They're over the shops!",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "0e8b6677",
-  "text": "Down the stairs, along the gallery. They're on the balconies over you — and the roofs under you.",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "4c93bc55",
-  "text": "Qiansi bridge. Don't look down. ...Okay, look down a little. Then look UP — the arch!",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "af2763bf",
-  "text": "Interchange. Two decks of road over your head — and they're up on both.",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "32790ce0",
-  "text": "Tanker up on the top deck — right over the substation. ...You're going to shoot it, aren't you.",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "b4c25050",
-  "text": "The TANKER! Up on the top deck!",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "50412027",
-  "text": "The whole deck's going — BOTH decks—",
-  "levels": [
-   "lights-out"
-  ],
-  "files": [
-   "src/levels/lights-out/director.js"
-  ]
- },
- {
-  "key": "a58ef76d",
-  "text": "...and the substation.",
+  "key": "4ab07594",
+  "text": "Rooftops on your right! They're up over the shops!",
   "levels": [
    "lights-out"
   ],
@@ -1128,8 +1038,8 @@
   ]
  },
  {
-  "key": "e5352326",
-  "text": "Jinlong's still lit — generators. Up the steps, onto Sky Street, over the footbridge.",
+  "key": "7b2c3887",
+  "text": "The bridge still has power — and so does Jinlong. Onto the bridge. GO.",
   "levels": [
    "lights-out"
   ],
@@ -1138,8 +1048,8 @@
   ]
  },
  {
-  "key": "46cf3d32",
-  "text": "Sky lobby. Clear it. ...Does that building sound right to you?",
+  "key": "b989014f",
+  "text": "It's following you across. Don't stop.",
   "levels": [
    "lights-out"
   ],
@@ -1148,8 +1058,28 @@
   ]
  },
  {
-  "key": "3b70e359",
-  "text": "Lobby's clear. There's a BASE rig up on the helipad — take the lift. ...Roof. Now.",
+  "key": "db2551d9",
+  "text": "Jinlong. Last light in the city. Clear the forecourt — the lift's on the tower's face, dead ahead.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "b899e9a2",
+  "text": "Forecourt's clear. Step onto the lift — there's a BASE rig up on the roof. It's the only way back down.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "ecc76bec",
+  "text": "Look at that. The whole city, dark. ...You did not do that. Mostly.",
   "levels": [
    "lights-out"
   ],
@@ -1198,6 +1128,16 @@
   ]
  },
  {
+  "key": "74a669ad",
+  "text": "She's coming DOWN — right side! She's coming down WITH you!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
   "key": "6ebea8d5",
   "text": "...Jinlong Tower. Gone. Into the river.",
   "levels": [
@@ -1208,8 +1148,8 @@
   ]
  },
  {
-  "key": "0403c777",
-  "text": "The hill took Jinlong's footings — LOOK BACK, she's going!",
+  "key": "85f97cca",
+  "text": "And that was the last light in Longwu.",
   "levels": [
    "lights-out"
   ],
@@ -1220,6 +1160,16 @@
  {
   "key": "1538be83",
   "text": "Jumpers! Behind you — they followed you off the roof!",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "e8221749",
+  "text": "The gas mains under the hill — it's all going up! Stay off the bank!",
   "levels": [
    "lights-out"
   ],
@@ -1240,6 +1190,16 @@
  {
   "key": "e5b3c67e",
   "text": "...Nice landing. I'm two minutes out. Don't touch anything.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "903a599a",
+  "text": "...Huh. Somebody found the breakers.",
   "levels": [
    "lights-out"
   ],

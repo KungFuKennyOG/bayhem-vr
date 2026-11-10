@@ -142,16 +142,17 @@ export function buildRoute(ctx = {}) {
       else if (k < 0.7) { scooter(B, 's', px, Y + 0.02, ROAD.front - 1.0, Math.PI / 2 + (r() - 0.5) * 0.5, li++); if (r() < 0.5) scooter(B, 's', px + 0.9, Y + 0.02, ROAD.front - 1.05, Math.PI / 2 + (r() - 0.5) * 0.5, li++); }
       else { const C2 = B.get('wood', 's'); C2.set({ col: [0.45, 0.36, 0.26], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); C2.box(px, Y, ROAD.front - 1.5, px + 0.9, Y + 0.7, ROAD.front - 0.6, { s: 1 }); C2.box(px + 0.15, Y + 0.7, ROAD.front - 1.4, px + 0.8, Y + 1.25, ROAD.front - 0.7, { s: 1 }); }
     }
-    // ---- the promenade: lantern strings from lamp to lamp along the rail (they run WITH the road, at its edge)
+    // ---- lantern strings from lamp to lamp along the shops' kerb (they run WITH the road, at its edge)
     for (let lx = ROAD.x0 + 30; lx < BLOCK_X + 60; lx += 28) {
       if ((lx > BRIDGE.x0 - 36 && lx < BRIDGE.x1 + 8)) continue;
-      lanternString(B, 's', [lx, Y + 4.2, ROAD.rail + 0.5], [lx + 28, Y + 4.2, ROAD.rail + 0.5], 7, 0.8, roadDist(lx + 14), glows, 0.75);
+      // (on the SHOP side, between the kerb lamps: a string along the rail hung across your view of the hill)
+      lanternString(B, 's', [lx - 14, Y + 6.2, ROAD.lane[1] + 0.7], [lx + 14, Y + 6.2, ROAD.lane[1] + 0.7], 7, 0.9, roadDist(lx), glows, 0.85);
     }
     // road wear: darker wheel tracks and patches, manholes, a zebra at the plaza (flat decals just over the asphalt)
     {
       const D = B.get('plain', 's');
-      for (let dx = ROAD.x0 + 6; dx < X1; dx += 22 + r() * 30) { const w = 5 + r() * 12, z0 = ROAD.lane[0] + 1 + r() * 11; D.set({ col: [0.035, 0.035, 0.04], rm: [0.22, 0, 0], em: [0, 0, 0, 0] }); D.box(dx, Y, z0, dx + w, Y + 0.006, z0 + 1.6 + r() * 2.6, { faces: 'Y' }); }
-      for (let dx = ROAD.x0 + 24; dx < X1; dx += 34 + r() * 20) { const z0 = ROAD.lane[0] + 3 + r() * 9; D.set({ col: [0.09, 0.09, 0.1], rm: [0.5, 0.6, 0], em: [0, 0, 0, 0] }); D.cyl(dx, Y - 0.05, z0, 0.42, 0.42, Y + 0.008, 10); }
+      for (let dx = ROAD.x0 + 6; dx < X1; dx += 22 + r() * 30) { const w = 5 + r() * 12, z0 = ROAD.lane[0] + 1 + r() * 11; D.set({ col: [0.05, 0.05, 0.055], rm: [0.6, 0, 0], em: [0, 0, 0, 0] }); D.box(dx, Y, z0, dx + w, Y + 0.006, z0 + 1.6 + r() * 2.6, { faces: 'Y' }); }
+      for (let dx = ROAD.x0 + 24; dx < X1; dx += 34 + r() * 20) { const z0 = ROAD.lane[0] + 3 + r() * 9; D.set({ col: [0.035, 0.035, 0.04], rm: [0.85, 0, 0], em: [0, 0, 0, 0] }); D.cyl(dx, Y - 0.05, z0, 0.42, 0.42, Y + 0.008, 12); }
       D.set({ col: [0.62, 0.6, 0.52], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
       for (let z = ROAD.lane[0] + 0.9; z < ROAD.lane[1] - 0.9; z += 1.3) D.box(PLZ.x1 + 3, Y, z, PLZ.x1 + 7, Y + 0.012, z + 0.6, { faces: 'Y' });
     }
@@ -163,6 +164,24 @@ export function buildRoute(ctx = {}) {
     for (let lx = ROAD.x0 + 30; lx < X1; lx += 28) {
       if (lx > BRIDGE.x0 - 8 && lx < BRIDGE.x1 + 8) continue;
       lampPost(B, 's', lx, Y, ROAD.rail + 0.5, { dir: [0, 0, 1], h: 4.4, code: roadDist(lx), lights, glows, grp: lx < 544 ? 0 : 1, col: [1.0, 0.72, 0.42] });
+    }
+    // ---- under the road: the retaining wall is a wall of old riverside houses hanging over the water (stilt houses:
+    // lit windows, tiled roofs under the promenade, a gold lamp line along the road's edge). You see it from the bridge,
+    // the lift and the whole glide
+    {
+      const Tw = B.get('tile', 'sw'), Rw = B.get('roof', 'sw'), Lw = B.get('plain', 'sw'), Ww = B.get('wood', 'sw');
+      let wx = X0 - 220;
+      while (wx < X1 + 220) {
+        const w = 8 + r() * 9, h = 7 + r() * 9, out = 2.5 + r() * 3.5, y1 = Y - 1.2 - r() * 2.5, code = wx < 250 ? DIST.FAR_W : wx > 800 ? DIST.FAR_E : roadDist(wx + w / 2);
+        if (wx + w > BRIDGE.x0 - 6 && wx < BRIDGE.x1 + 6) { wx = BRIDGE.x1 + 6; continue; }
+        Tw.set({ col: WALLS[Math.floor(r() * WALLS.length)], rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [2.8, 3.0, 500 + Math.round(wx), 2] });
+        Tw.box(wx, y1 - h, ROAD.rail - 0.4 - out, wx + w, y1, ROAD.rail - 0.3, { faces: 'xXz', s: 1, wy0: y1 - h });
+        Rw.set({ col: [0.24, 0.23, 0.24], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rw.box(wx - 0.3, y1, ROAD.rail - 0.9 - out, wx + w + 0.3, y1 + 0.35, ROAD.rail - 0.3, { faces: 'xXzY', s: 1 });
+        Ww.set({ col: [0.2, 0.17, 0.14], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
+        for (let px = wx + 1; px < wx + w; px += 3) Ww.box(px - 0.12, WATER_Y - 2, ROAD.rail - 0.6 - out, px + 0.12, y1 - h, ROAD.rail - 0.36 - out, { faces: 'xXz' });
+        wx += w + (r() < 0.2 ? 3 + r() * 5 : 0.4);
+      }
+      for (let lx = X0 - 220; lx < X1 + 220; lx += 60) { const code = lx < 250 ? DIST.FAR_W : lx > 800 ? DIST.FAR_E : roadDist(lx + 30); Lw.set({ col: [0.3, 0.22, 0.1], rm: [0.4, 0.7, 0], em: em(GOLD, 1.3, DUSK + code) }); Lw.box(lx, Y - 0.5, ROAD.rail - 0.42, lx + 60, Y - 0.32, ROAD.rail - 0.36, { faces: 'z' }); }
     }
     // ---- the barricade east of the bridge mouth: the road goes on, you don't
     Cc.set({ col: [0.55, 0.54, 0.5], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
@@ -190,7 +209,7 @@ export function buildRoute(ctx = {}) {
     // the masts: a pair of free-standing pylons at each of two stations, outside the deck (no cross-beam over the road)
     for (const mz of BRIDGE.masts) for (const sx of [-1, 1]) {
       const cx = sx < 0 ? x0 - 3.2 : x1 + 3.2, top = Y + BRIDGE.mastH;
-      Cc.set({ col: [0.5, 0.49, 0.46], em: em(GOLD, 0.05, DUSK + bridgeDist(mz)) });
+      Cc.set({ col: [0.5, 0.49, 0.46], em: em(GOLD, 0.11, DUSK + bridgeDist(mz)) });
       Cc.box(cx - 2.0, WATER_Y - 4, mz - 3.2, cx + 2.0, Y - 2.6, mz + 3.2, { faces: 'xXzZ', s: 1 });                          // the pier
       Cc.box(cx - 1.5, Y - 2.6, mz - 2.4, cx + 1.5, Y + BRIDGE.mastH * 0.55, mz + 2.4, { faces: 'xXzZY', s: 1, top: [0.62, 0.58, 0.5] });   // the mast (floodlit gold), stepping in twice on the way up
       Cc.box(cx - 1.15, Y + BRIDGE.mastH * 0.55, mz - 1.9, cx + 1.15, top - 6, mz + 1.9, { faces: 'xXzZY', s: 1 });
@@ -206,7 +225,7 @@ export function buildRoute(ctx = {}) {
       for (const dir of [-1, 1]) for (let k = 1; k <= 6; k++) {
         const zd = mz + dir * k * 10.4; if (zd < z0 + 2 || zd > z1 - 2) continue;
         const ya = top - 4 - (6 - k) * 10.5, code = bridgeDist(zd);
-        St.set({ col: [0.5, 0.42, 0.28], rm: [0.4, 0.6, 0], em: em(GOLD, 0.5, DUSK + code) });
+        St.set({ col: [0.34, 0.3, 0.24], rm: [0.45, 0.7, 0], em: em(GOLD, 0.1, DUSK + code) });   // painted steel catching the floods, not a strip light
         St.tube([cx - sx * 1.2, ya, mz + dir * 2.2], [sx < 0 ? x0 - 0.9 : x1 + 0.9, Y - 0.3, zd], 0.16, 5);
       }
     }

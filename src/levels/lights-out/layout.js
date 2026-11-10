@@ -109,7 +109,7 @@ export const roofWalk = (x, z) => inR(x, z, ROOFTOP, -0.6) || (x > LIFT.x0 + 0.3
 // ---------------------------------------------------------------- the lanes that must stay clear (checked by tools: nothing > 1.2 m inside them)
 export const LANES = [
   { x0: 396, x1: 706, z0: 311, z1: 317 },        // down the middle of the cliff road
-  { x0: 689, x1: 695, z0: 150, z1: 317 },        // the bridge's centre line, from the road onto the forecourt
+  { x0: 688.2, x1: 695.8, z0: 150, z1: 317 },        // the bridge's centre line, from the road onto the forecourt
   { x0: 688, x1: 696, z0: 141, z1: 160 },        // the forecourt, bridge mouth → lift
 ];
 
@@ -127,8 +127,8 @@ export const CARS = [
   // the barricade east of the bridge mouth
   [714.5, 310, 20, 'police', 'haz'], [714.8, 318, 160, 'police', 'haz'],
   // the bridge: west lane (x ~686.8), east lane (x ~697.2)
-  [686.9, 290.7, 4, 'sedan'], [686.7, 274.5, -6, 'taxi', 'open'], [686.9, 256.7, 3, 'van'], [686.8, 237.3, 8, 'sedan', 'haz'], [686.9, 215.1, -4, 'taxi'], [686.7, 193.5, 5, 'suv'], [686.9, 174, 2, 'sedan', 'alarm'],
-  [697.2, 283.2, 178, 'taxi'], [697.3, 264.8, 186, 'sedan', 'open'], [697.1, 245.4, 180, 'wreck', 'burn'], [697.3, 225.9, 176, 'bus'], [697.2, 204.3, 184, 'sedan'], [697.1, 183.8, 172, 'taxi', 'haz'], [697.3, 167.6, 180, 'police', 'haz'],
+  [686.3, 290.7, 4, 'sedan'], [686.2, 274.5, -6, 'taxi', 'open'], [686.3, 256.7, 3, 'van'], [686.3, 237.3, 8, 'sedan', 'haz'], [686.3, 215.1, -4, 'taxi'], [686.2, 193.5, 5, 'suv'], [686.3, 174, 2, 'sedan', 'alarm'],
+  [697.8, 283.2, 178, 'taxi'], [697.8, 264.8, 186, 'sedan', 'open'], [697.7, 245.4, 180, 'wreck', 'burn'], [697.8, 225.9, 176, 'bus'], [697.8, 204.3, 184, 'sedan'], [697.7, 183.8, 172, 'taxi', 'haz'], [697.8, 167.6, 180, 'police', 'haz'],
   // the forecourt: their trucks, off to the sides
   [664, 150.5, 90, 'suv'], [671, 143, 60, 'van', 'open'], [719, 150.5, -90, 'suv', 'haz'], [713, 143, -60, 'suv'],
 ];
@@ -141,8 +141,8 @@ export const COVER = [
   // promenade planters (by the railing)
   [470, 302.2, 476, 303.6, 0.9], [520, 302.2, 526, 303.6, 0.9], [586, 302.2, 592, 303.6, 0.9], [640, 302.2, 646, 303.6, 0.9],
   // bridge: barriers at the lane edges
-  [688.2, 281, 688.8, 284, 0.85], [695.2, 269.1, 695.8, 272.1, 0.85], [688.2, 250.8, 688.8, 253.8, 0.85], [695.2, 235.6, 695.8, 238.6, 0.85], [688.2, 219.4, 688.8, 222.4, 0.85],
-  [695.2, 198.9, 695.8, 201.9, 0.85], [688.2, 184.9, 688.8, 187.9, 0.85], [695.2, 169.7, 695.8, 172.7, 0.85],
+  [687.4, 281, 688, 284, 0.85], [696, 269.1, 696.6, 272.1, 0.85], [687.4, 250.8, 688, 253.8, 0.85], [696, 235.6, 696.6, 238.6, 0.85], [687.4, 219.4, 688, 222.4, 0.85],
+  [696, 198.9, 696.6, 201.9, 0.85], [687.4, 184.9, 688, 187.9, 0.85], [696, 169.7, 696.6, 172.7, 0.85],
   // forecourt: planters and crates either side of the lane
   [656, 146, 660, 149, 1], [676, 152, 682, 154.4, 1], [702, 152, 708, 154.4, 1], [724, 146, 728, 149, 1], [660, 138, 668, 140, 1], [716, 138, 724, 140, 1], [678, 144, 684, 145.4, 1], [700, 144, 706, 145.4, 1],
   // the roof: plant housings by the corners (the middle and the west edge stay open)
