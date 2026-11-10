@@ -178,8 +178,14 @@ export const SPECIAL = [
   { id: 'T2', role: 'target', x: 640, z: -480, w: 50, d: 50, h: 292, kind: 'chamfer', rot: 0.5, roof: 'aa', mode: 'pancake' },
   { id: 'T3', role: 'target', x: 790, z: -780, w: 44, d: 52, h: 262, kind: 'box', rot: -0.2, roof: 'aa', mode: 'lean' },
   { id: 'T4', role: 'target', x: 520, z: -940, w: 40, d: 40, h: 284, kind: 'round', rot: 0, roof: 'aa', mode: 'tilt' },
-  // the tower WIDOWMAKER 4 goes into (south of the boulevard, on the storm leg)
-  { id: 'C1', role: 'crash', x: -330, z: 640, w: 48, d: 44, h: 230, kind: 'twist', rot: 0.3, roof: 'crown', mode: 'tilt' },
+  // the towers WIDOWMAKER 4 can go into: one every few hundred metres along the storm leg, all on the DOOR side
+  // (+z while flying west, -x / -z on the turn back east), ~180–210 m out. The director picks the one in front
+  // of the door when he dies, so the crash always happens where you're looking.
+  { id: 'C1', role: 'crash', x: 230, z: 985, w: 48, d: 44, h: 232, kind: 'twist', rot: 0.3, roof: 'crown', mode: 'tilt' },
+  { id: 'C2', role: 'crash', x: -220, z: 975, w: 46, d: 46, h: 238, kind: 'stepped', rot: -0.2, roof: 'pad', mode: 'lean' },
+  { id: 'C3', role: 'crash', x: -690, z: 860, w: 44, d: 44, h: 226, kind: 'round', rot: 0, roof: 'crown', mode: 'tilt' },
+  { id: 'C4', role: 'crash', x: -990, z: 420, w: 48, d: 42, h: 236, kind: 'chamfer', rot: 0.6, roof: 'mech', mode: 'pancake' },
+  { id: 'C5', role: 'crash', x: -560, z: -60, w: 44, d: 48, h: 228, kind: 'twist', rot: -0.4, roof: 'crown', mode: 'tilt' },
   // escalation: neighbours that come down while you paint (one at a time, behind the dust)
   { id: 'E1', role: 'mid', x: 1230, z: -1150, w: 42, d: 42, h: 200, kind: 'slab', rot: 0.9, roof: 'mech', mode: 'pancake' },
   { id: 'E2', role: 'mid', x: -300, z: -560, w: 44, d: 40, h: 170, kind: 'chamfer', rot: 0.2, roof: 'pad', mode: 'lean' },
@@ -227,6 +233,12 @@ export function buildPlan(F) {
     const T = take({ id: 'F' + i, role: 'fight', x, z, w, d, h, kind: f.kind, rot: 0, roof: f.roof, style: Math.floor(rng() * 8), district: district(x, z) });
     fights.push({ ...f, i, s, tower: T });
   });
+  // the crash towers' sightlines: from every bit of route within reach, nothing may stand taller than the door's
+  // eye line between it and the tower (the gunship's death dive has to be seen, not heard behind a building)
+  const crashLines = [];
+  for (const C of towers.filter(t => t.role === 'crash')) for (let i = 0; i < dense.length; i += 4) {
+    const p = dense[i]; if (Math.hypot(p.x - C.x, p.z - C.z) < 520) crashLines.push({ ax: p.x, az: p.z, bx: C.x, bz: C.z, y: p.y, cr: Math.hypot(C.w, C.d) * 0.5 });
+  }
   // 3. the grid: towers on the lots
   const G = GRID;
   for (let gx = G.x0; gx < G.x1; gx += G.pitch) for (let gz = G.z0; gz < G.z1; gz += G.pitch) {
@@ -257,6 +269,11 @@ export function buildPlan(F) {
         else h = Math.min(h, R.ymin - 38);
         if (h < 30) continue;
       }
+      for (const s of crashLines) {
+        if (Math.hypot(x - s.bx, z - s.bz) < s.cr + r + 10) continue;
+        if (segDist(x, z, s.ax, s.az, s.bx, s.bz) < r + 25) h = Math.min(h, s.y - 50);
+      }
+      if (h < 30) continue;
       // the money shot's sightline (the hover north of the Spire -> its break): keep it clear
       { const ax = 0, az = -900, bx = HERO.x, bz = HERO.z, dd = segDist(x, z, ax, az, bx, bz);
         if (dd < r + 60) { const t = Math.min(1, Math.max(0, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2))); h = Math.min(h, (F.alt * 2.6) * (1 - t) + 290 * t - 70); if (h < 30) continue; } }
