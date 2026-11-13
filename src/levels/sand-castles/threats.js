@@ -192,7 +192,7 @@ export class Threats {
     const m = buildHammer(this.enemyMats);
     g.scene.add(m.root);
     const pos = H.clone().addScaledVector(f.fwd, 650).addScaledVector(f.left, 380 * side).add(_v.set(0, 50, 0));
-    const v = { m, id: ++this._id, pos, vel: f.fwd.clone().multiplyScalar(-30), yaw: 0, hp: 70, maxHp: 70, phase: delay > 0 ? 'wait' : 'pass', t: -delay, passX: 260, lat: range(45, 70), up: range(-6, 18), gunT: 1.5, burst: 0, rocketT: range(2, 4), hit: 0, spin: 0, side };
+    const v = { m, id: ++this._id, pos, vel: f.fwd.clone().multiplyScalar(-30), yaw: 0, hp: 70, maxHp: 70, phase: delay > 0 ? 'wait' : 'pass', t: -delay, passX: 100, lat: range(45, 70), up: range(-6, 18), gunT: 1.5, burst: 0, rocketT: range(2, 4), hit: 0, spin: 0, side };
     m.root.visible = delay <= 0; m.root.position.copy(pos);
     this.vipers.push(v);
     return v;
@@ -202,6 +202,9 @@ export class Threats {
     if (v.phase === 'dying' || v.phase === 'gone') return;
     const g = this.g;
     v.phase = 'dying'; v.t = 0; v.spin = 0.8;
+    // it goes down where you shot it: keep the heli's own speed (no aft slide), drift a little out from the door
+    { const f = this._cabinFrame(); const relX = _v2.subVectors(v.pos, g.heliPos).dot(f.fwd);
+      v.vel.copy(g.W.rail.vel || _v.set(0, 0, 0)).setY(Math.min(0, v.vel.y)).addScaledVector(f.left, 7 * v.side).addScaledVector(f.fwd, -relX / 9); } // drifts toward the middle of the door as it falls
     g.fx.explosion(v.pos.clone().add(_v.set(0, 2, 4)), 1.2, { noRing: true });
     g.audio.play('metal_crash', { x: v.pos.x, y: v.pos.y, z: v.pos.z });
     g.slowmoReq(1.3, 0.35);
@@ -220,10 +223,11 @@ export class Threats {
       const m = v.m;
       if (v.phase === 'wait') { if (v.t >= 0) { v.phase = 'pass'; m.root.visible = true; } else continue; }
       if (v.phase === 'pass' || v.phase === 'wide') {
-        // a strafing run: a station that slides from ahead of the door to behind it at ~30 m/s relative,
-        // 45–70 m out; then swing wide (250 m out) and come round ahead for the next pass
-        if (v.phase === 'pass') { v.passX -= dt * 30; if (v.passX < -200) { v.phase = 'wide'; v.wideT = 0; } }
-        else { v.wideT += dt; v.passX = 300; if (v.wideT > 7) { v.phase = 'pass'; v.lat = range(42, 70); v.up = range(-8, 20); } }
+        // a strafing run: a station that slides across the door at ~20 m/s relative, 45–70 m out, from ~45°
+        // ahead to ~45° behind (the door frame cuts the view at ~54°: the old ±75° sweep spent most of the run
+        // behind the posts); then swing wide (260 m out, still in the door) and come round ahead for the next pass
+        if (v.phase === 'pass') { v.passX -= dt * 20; if (v.passX < -75) { v.phase = 'wide'; v.wideT = 0; } }
+        else { v.wideT += dt; v.passX = 220; if (v.wideT > 6) { v.phase = 'pass'; v.passX = 100; v.lat = range(48, 70); v.up = range(-8, 20); } }
         const lat = v.phase === 'wide' ? 260 : v.lat;
         const want = _v.copy(H).addScaledVector(f.fwd, v.passX).addScaledVector(f.left, lat * v.side).add(_v2.set(0, v.phase === 'wide' ? 40 : v.up, 0));
         // track the station's own velocity too (the heli's, plus the slide), or it lags ~60 m and swings across the cabin

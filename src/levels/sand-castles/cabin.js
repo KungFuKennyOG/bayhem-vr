@@ -5,16 +5,19 @@ import { buildHammer, heliMaterials } from './helimodel.js';
 
 // =====================================================================================
 //  HAMMER ONE's cabin — what you look at between the explosions. Heli frame (forward -z,
-//  floor y = 0, the open door on the left at x = -1.25). Quilted sound-proofing between frame
-//  ribs, a ribbed floor with tie-down rails, troop seats with red webbing on the far wall, a cargo
+//  floor y = 0, the gunner's door on the left at x = -1.25, and the right door open too, so you can
+//  turn round and watch what's behind you). Quilted sound-proofing between frame ribs, a ribbed
+//  floor with tie-down rails, troop seats with red webbing fore and aft of the right door, a cargo
 //  net, the extinguisher, cable runs, a red cabin light, and through the passage the cockpit:
 //  two pilots, the instrument panel with lit displays, the windscreen.
 //  Lighting: no shadow maps up here, so the lining lets the sun in only where a ray toward the
-//  sun leaves through the door opening (analytic, in the shader), and the fill dims away from
-//  the door — the cabin is a shaded room with a bright doorway, not a lit box.
+//  sun leaves through either door opening (analytic, in the shader), and the fill dims away from
+//  the doors — the cabin is a shaded room with two bright doorways, not a lit box.
 // =====================================================================================
 
 export const DOOR = { x: -1.25, z0: -1.25, z1: 1.05, y1: 2.12 };
+// the right-hand door (opposite the gun): the same opening, mirrored
+export const DOOR_R = { x: 1.25, z0: -1.25, z1: 1.05, y1: 2.12 };
 const CAB = { x0: -1.25, x1: 1.25, z0: -1.75, z1: 1.95, h: 2.28 };
 
 const U = { uW2H: { value: new THREE.Matrix4() }, uSun: { value: new THREE.Vector3() }, uRed: { value: 0.25 }, uWarn: { value: 0 }, uTime: { value: 0 } };
@@ -28,8 +31,9 @@ float cN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
              mix(mix(cH(i + vec3(0,0,1)), cH(i + vec3(1,0,1)), f.x), mix(cH(i + vec3(0,1,1)), cH(i + vec3(1,1,1)), f.x), f.y), f.z); }
 float doorSun(vec3 p){
   vec3 L = normalize((uW2H * vec4(uSun, 0.0)).xyz);
-  if (L.x > -0.02) return 0.0;
-  float t = (${DOOR.x.toFixed(2)} - p.x) / L.x;
+  if (abs(L.x) < 0.02) return 0.0;
+  // whichever side the sun is on, it comes in through that side's door
+  float t = ((L.x < 0.0 ? ${DOOR.x.toFixed(2)} : ${DOOR_R.x.toFixed(2)}) - p.x) / L.x;
   vec3 h = p + L * t;
   float inZ = smoothstep(${DOOR.z0.toFixed(2)}, ${DOOR.z0.toFixed(2)} + 0.06, h.z) * smoothstep(${DOOR.z1.toFixed(2)}, ${DOOR.z1.toFixed(2)} - 0.06, h.z);
   float inY = smoothstep(-0.05, 0.02, h.y) * smoothstep(${DOOR.y1.toFixed(2)}, ${DOOR.y1.toFixed(2)} - 0.06, h.y);
@@ -82,7 +86,7 @@ function lineMat() {
       .replace('#include <lights_fragment_begin>', `float dSun = doorSun(vObj);\n${begin}`)
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
         // fill dims away from the door; the red cabin light spills a little
-        float near = 1.0 - smoothstep(0.2, 2.3, vObj.x - ${DOOR.x.toFixed(2)});
+        float near = 1.0 - smoothstep(0.2, 2.3, min(vObj.x - ${DOOR.x.toFixed(2)}, ${DOOR_R.x.toFixed(2)} - vObj.x) * 1.6);
         float into = 1.0 - smoothstep(0.3, 1.6, max(${DOOR.z0.toFixed(2)} - vObj.z, vObj.z - ${DOOR.z1.toFixed(2)}));
         float fill = 0.45 + 0.55 * near * mix(0.55, 1.0, into); // never a black hole when you turn round into the cabin
         float cao = smoothstep(0.0, 0.35, vObj.y) * smoothstep(0.0, 0.3, 2.28 - vObj.y) * smoothstep(0.0, 0.3, 1.25 - vObj.x) * smoothstep(0.0, 0.3, 1.95 - vObj.z);
@@ -126,8 +130,20 @@ function buildLining() {
   piece(L, 0.1, 0.05, DOOR.z1 - DOOR.z0, x0 + 0.03, 0.02, (DOOR.z0 + DOOR.z1) / 2, DARK);
   // ceiling
   piece(L, x1 - x0, T, z1 - z0, 0, h + T / 2, (z0 + z1) / 2, QUILT, 1);
-  // right wall (opposite the door) + rear and front bulkheads
-  piece(L, T, h, z1 - z0, x1 + T / 2, h / 2, (z0 + z1) / 2, QUILT, 1);
+  // the right door's sill (the same stripes as the gunner's side)
+  for (let z = DOOR_R.z0; z < DOOR_R.z1; z += 0.2) piece(L, 0.12, 0.03, 0.1, x1 - 0.06, 0.015, z + 0.05, YEL);
+  piece(L, 0.1, 0.05, DOOR_R.z1 - DOOR_R.z0, x1 - 0.03, 0.02, (DOOR_R.z0 + DOOR_R.z1) / 2, DARK);
+  // right wall round its door: front post, rear post, header + the jamb; then the rear and front bulkheads
+  piece(L, T, h, DOOR_R.z0 - z0, x1 + T / 2, h / 2, (z0 + DOOR_R.z0) / 2, QUILT, 1);
+  piece(L, T, h, z1 - DOOR_R.z1, x1 + T / 2, h / 2, (DOOR_R.z1 + z1) / 2, QUILT, 1);
+  piece(L, T, h - DOOR_R.y1, DOOR_R.z1 - DOOR_R.z0, x1 + T / 2, (h + DOOR_R.y1) / 2, (DOOR_R.z0 + DOOR_R.z1) / 2, QUILT, 1);
+  piece(L, 0.16, DOOR_R.y1, 0.07, x1 + 0.05, DOOR_R.y1 / 2, DOOR_R.z0 - 0.035, [0.24, 0.25, 0.18], 5);
+  piece(L, 0.16, DOOR_R.y1, 0.07, x1 + 0.05, DOOR_R.y1 / 2, DOOR_R.z1 + 0.035, [0.24, 0.25, 0.18], 5);
+  piece(L, 0.16, 0.07, DOOR_R.z1 - DOOR_R.z0 + 0.14, x1 + 0.05, DOOR_R.y1 + 0.035, (DOOR_R.z0 + DOOR_R.z1) / 2, [0.24, 0.25, 0.18], 5);
+  for (const z of [DOOR_R.z0 - 0.075, DOOR_R.z1 + 0.075]) for (let y = 0.1; y < 0.6; y += 0.16) piece(L, 0.01, 0.07, 0.075, x1 - 0.035, y, z, YEL, 0, 0.5);
+  cyl(L, 0.016, DOOR_R.z1 - DOOR_R.z0 - 0.2, x1 - 0.42, h - 0.1, (DOOR_R.z0 + DOOR_R.z1) / 2, STEEL, 0, Math.PI / 2);
+  for (const z of [DOOR_R.z0 - 0.12, DOOR_R.z1 + 0.12]) cyl(L, 0.016, 0.5, x1 - 0.08, 1.2, z, [0.38, 0.3, 0.1]);
+  const inDoorR = (z, m = 0.05) => z > DOOR_R.z0 - m && z < DOOR_R.z1 + m;
   piece(L, x1 - x0, h, T, 0, h / 2, z1 + T / 2, QUILT, 1);
   // front bulkhead with the cockpit passage (x -0.45..0.45, y 0.25..1.75)
   piece(L, 0.8, h, T, -0.85, h / 2, z0 - T / 2, QUILT, 1); piece(L, 0.8, h, T, 0.85, h / 2, z0 - T / 2, QUILT, 1);
@@ -143,16 +159,16 @@ function buildLining() {
   for (const z of [DOOR.z0 - 0.075, DOOR.z1 + 0.075]) for (let y = 0.1; y < 0.6; y += 0.16) piece(L, 0.01, 0.07, 0.075, x0 + 0.035, y, z, YEL, 0, 0.5);
   // frame ribs (vertical) and stringers
   for (let z = z0 + 0.3; z < z1; z += 0.55) {
-    piece(L, 0.06, h, 0.05, x1 - 0.02, h / 2, z, RIB);
+    if (!inDoorR(z)) piece(L, 0.06, h, 0.05, x1 - 0.02, h / 2, z, RIB);
     piece(L, x1 - x0, 0.06, 0.05, 0, h - 0.02, z, RIB);
     if (z < DOOR.z0 - 0.05 || z > DOOR.z1 + 0.05) piece(L, 0.06, h, 0.05, x0 + 0.02, h / 2, z, RIB);
   }
-  for (const y of [0.55, 1.35]) piece(L, 0.04, 0.04, z1 - z0, x1 - 0.03, y, (z0 + z1) / 2, RIB);
+  for (const y of [0.55, 1.35]) for (const [a, b] of [[z0, DOOR_R.z0 - 0.05], [DOOR_R.z1 + 0.05, z1]]) piece(L, 0.04, 0.04, b - a, x1 - 0.03, y, (a + b) / 2, RIB);
   // grab bar over the door + a handle on each post
   cyl(L, 0.016, DOOR.z1 - DOOR.z0 - 0.2, x0 + 0.42, h - 0.1, (DOOR.z0 + DOOR.z1) / 2, STEEL, 0, Math.PI / 2);
   for (const z of [DOOR.z0 - 0.12, DOOR.z1 + 0.12]) cyl(L, 0.016, 0.5, x0 + 0.08, 1.2, z, [0.38, 0.3, 0.1]);
-  // troop seats on the far wall: tube frames + red webbing backs, folded pans
-  for (const z of [-1.3, -0.65, 0.0, 0.65, 1.3]) {
+  // troop seats on the far wall, fore and aft of its door: tube frames + red webbing backs, folded pans
+  for (const z of [-1.5, 1.5]) {
     piece(L, 0.06, 0.6, 0.5, x1 - 0.1, 0.95, z, RED, 0); // webbing back
     for (let k = -1; k <= 1; k++) piece(L, 0.065, 0.02, 0.5, x1 - 0.09, 0.95 + k * 0.18, z, [0.2, 0.03, 0.02]);
     piece(L, 0.42, 0.05, 0.46, x1 - 0.3, 0.45, z, [0.26, 0.04, 0.03]); // pan
@@ -170,10 +186,10 @@ function buildLining() {
   for (const x of [-0.6, -0.5, 0.55]) cyl(L, 0.022, z1 - z0 - 0.2, x, h - 0.06, (z0 + z1) / 2, [0.08, 0.08, 0.08], 0, Math.PI / 2);
   piece(L, 0.4, 0.3, 0.12, 1.05, 1.75, 1.6, OD); piece(L, 0.05, 0.05, 0.02, 1.0, 1.82, 1.53, [0.2, 0.9, 0.3], 3); piece(L, 0.05, 0.05, 0.02, 1.08, 1.82, 1.53, [0.95, 0.6, 0.1], 3);
   // monkey straps and a coiled gunner's tether hanging from the ceiling track (it's a working cabin)
-  for (const [x, z, l] of [[-0.55, -0.9, 0.55], [-0.35, 0.35, 0.42], [0.2, -0.3, 0.6], [0.6, 0.9, 0.5]]) { piece(L, 0.035, l, 0.006, x, h - l / 2 - 0.04, z, [0.12, 0.12, 0.08]); piece(L, 0.05, 0.03, 0.02, x, h - l - 0.04, z, STEEL); }
+  for (const [x, z, l] of [[-0.55, -0.9, 0.55], [-0.35, 0.35, 0.42], [0.25, -1.45, 0.6], [0.6, 1.45, 0.5]]) { piece(L, 0.035, l, 0.006, x, h - l / 2 - 0.04, z, [0.12, 0.12, 0.08]); piece(L, 0.05, 0.03, 0.02, x, h - l - 0.04, z, STEEL); }
   for (let i = 0; i < 5; i++) cyl(L, 0.012, 0.09, -0.2 + Math.sin(i * 1.3) * 0.03, h - 0.5 - i * 0.07, -0.95, [0.5, 0.42, 0.1], 0, 0, Math.PI / 2 + Math.sin(i) * 0.2);
   // stencils: rivet rows along the ribs (dark dots)
-  for (let z = z0 + 0.3; z < z1; z += 0.55) for (let y = 0.2; y < h - 0.1; y += 0.12) piece(L, 0.012, 0.012, 0.012, x1 - 0.055, y, z + 0.026, [0.25, 0.25, 0.23]);
+  for (let z = z0 + 0.3; z < z1; z += 0.55) if (!inDoorR(z)) for (let y = 0.2; y < h - 0.1; y += 0.12) piece(L, 0.012, 0.012, 0.012, x1 - 0.055, y, z + 0.026, [0.25, 0.25, 0.23]);
   // an ICS intercom box + cord by the door
   piece(L, 0.12, 0.18, 0.08, x0 + 0.06, 1.5, DOOR.z0 - 0.25, OD); piece(L, 0.03, 0.03, 0.01, x0 + 0.06, 1.55, DOOR.z0 - 0.205, [0.2, 0.9, 0.3], 3);
   // ---- cockpit (through the passage): seats, pilots, consoles, the instrument panel
@@ -215,6 +231,9 @@ export class Cabin {
     const door = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ color: 0x3a3d2c, roughness: 0.75, metalness: 0.15 })); this.root.add(door);
     const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 3.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.5, metalness: 0.6 })); rail.position.set(-1.38, DOOR.y1 + 0.1, 0.55); this.root.add(rail);
     const rail2 = rail.clone(); rail2.position.y = -0.04; this.root.add(rail2);
+    // and the right-hand door, slid back too
+    { const doorR = door.clone(); doorR.position.x = 2.84; this.root.add(doorR);
+      for (const r of [rail, rail2]) { const c = r.clone(); c.position.x = 1.38; this.root.add(c); } }
     // stencils: worn military markings on the bulkheads and the door post (one canvas, a few quads)
     { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d');
       x.fillStyle = 'rgba(0,0,0,0)'; x.fillRect(0, 0, 512, 256);
@@ -230,7 +249,7 @@ export class Cabin {
       const quad = (u0, v0, u1, v1, w, h, pos, ry) => { const g = new THREE.PlaneGeometry(w, h); const uv = g.attributes.uv; for (let i = 0; i < 4; i++) uv.setXY(i, u0 + (u1 - u0) * uv.getX(i), v0 + (v1 - v0) * uv.getY(i)); const m = new THREE.Mesh(g, mat); m.position.set(...pos); m.rotation.y = ry; m.renderOrder = 1; this.root.add(m); };
       quad(0, 0.5, 0.5, 1, 0.9, 0.45, [0.1, 1.72, CAB.z1 - 0.03], Math.PI);           // HAMMER 1 / SECURE ALL CARGO
       quad(0.58, 0.64, 0.97, 0.93, 0.36, 0.13, [-0.95, 1.58, CAB.z1 - 0.03], Math.PI); // FIRE EXT.
-      quad(0, 0, 1, 0.28, 1.2, 0.17, [CAB.x1 - 0.04, 0.12, 0.2], -Math.PI / 2);       // hazard stripes on the far wall's foot
+      quad(0, 0, 1, 0.28, 0.5, 0.17, [CAB.x1 - 0.04, 0.12, 1.5], -Math.PI / 2);       // hazard stripes at the far wall's foot, aft of its door
       }
     // our own skin: back faces cull away from inside; the lining is what we see
     scene.add(this.root);
