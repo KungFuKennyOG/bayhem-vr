@@ -22,6 +22,28 @@ export const TOUCH = (() => {
   return (navigator.maxTouchPoints || 0) > 0 && matchMedia('(pointer: coarse)').matches;
 })();
 
+// ---------------- no page zoom ----------------
+// iOS Safari zooms the page on a quick double tap (and on a pinch) even with touch-action set, and a zoomed
+// game is stuck zoomed. On touch devices: no double-tap zoom anywhere (CSS manipulation + a quick-second-tap
+// guard), no pinch (Safari's gesture events), and the play overlay cancels every touch outright (see below).
+// The menu still scrolls.
+if (TOUCH) {
+  const st = document.createElement('style');
+  st.textContent = 'html,body{touch-action:manipulation}';
+  document.head.appendChild(st);
+  const stop = (e) => { if (e.cancelable) e.preventDefault(); };
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, stop, { passive: false });
+  let lastEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    // a second tap within 350 ms is what Safari reads as "zoom": cancel it unless it is on a button / link
+    // (those already ignore double-tap zoom, and cancelling would eat their click)
+    const t = e.timeStamp;
+    if (t - lastEnd < 350 && e.cancelable && !e.target.closest?.('button,a,input,select,textarea')) e.preventDefault();
+    lastEnd = t;
+  }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) stop(e); }, { passive: false }); // two-finger pinch
+}
+
 // ---------------- full screen ----------------
 const de = document.documentElement;
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -134,8 +156,12 @@ export class TouchControls {
     const fsSync = () => this.btn.fs?.classList.toggle('full', isFullscreen());
     onFullscreenChange(fsSync); fsSync();
     d.addEventListener('pointerdown', (e) => this._down(e), { passive: false });
+    // the overlay owns every touch during play: cancelling the touch events stops Safari's zoom, magnifier and
+    // callout on the buttons and the look pad (pointer events still arrive, they're dispatched first)
+    for (const ev of ['touchstart', 'touchmove', 'touchend']) d.addEventListener(ev, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
     d.addEventListener('pointermove', (e) => this._move(e), { passive: false });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) d.addEventListener(ev, (e) => this._up(e.pointerId));
+    this.btn.fs?.addEventListener('pointerup', () => fullscreenAction(this.game));
     d.addEventListener('contextmenu', (e) => e.preventDefault());
     // a call, a notification shade or an app switch drops every touch without a pointerup
     const reset = () => this.reset();
@@ -162,7 +188,7 @@ export class TouchControls {
   _down(e) {
     e.preventDefault(); // no emulated mouse events, no double-tap zoom, no text selection
     const b = e.target.closest?.('[data-b]')?.dataset.b || null;
-    if (b === 'fs') { fullscreenAction(this.game); return; }
+    if (b === 'fs') return; // acts on pointerup (below): browsers only allow full screen from a touch's end, not its start
     try { this.root.setPointerCapture(e.pointerId); } catch (err) { /* already gone */ }
     const t = { role: 'look', x: e.clientX, y: e.clientY, ox: e.clientX, oy: e.clientY };
     if (b === 'fire') { t.role = 'fire'; this.s.fire = true; }
