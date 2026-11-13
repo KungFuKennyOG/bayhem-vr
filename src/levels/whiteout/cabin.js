@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
 import { CABIN, HANG } from './layout.js';
+export const DOOR = { z0: 0.3, z1: 1.5 };   // the doorway along the +x flank (local z)
 import { Bucket, M4, mats, rbox, snowCap } from './kit.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
 
@@ -43,19 +44,26 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
   //      leaning in toward the roof), livery: red lower body, a cream belt line, a silver roof
   const lowH = 1.05, glassTop = 2.2;
   const R0 = 0.62;
+  // the doorway (+x side, rear half): a real opening in the shell, the sliding door covers it when shut
+  const DZ0 = DOOR.z0, DZ1 = DOOR.z1;
   // perimeter of a rounded rectangle inset by `ins` (points CCW from the front-right corner), with the arc-length param
   const perim = (ins) => {
     const A = w / 2 - ins, B = l / 2 - ins, r = Math.max(0.06, R0 - ins), pts = [];
     // a closed loop of four corner arcs (7 points each): front-right, front-left, back-left, back-right
     const C = [[A - r, -(B - r), 0, -PI / 2], [-(A - r), -(B - r), -PI / 2, -PI], [-(A - r), B - r, PI, PI / 2], [A - r, B - r, PI / 2, 0]];
     for (const [cx, cz, t0, t1] of C) for (let k = 0; k <= 6; k++) { const t = t0 + (t1 - t0) * k / 6; pts.push([cx + Math.cos(t) * r, cz + Math.sin(t) * r]); }
+    // the +x straight side (from the back-right arc to the front-right arc) gets the doorway's edges: segment
+    // DOOR_SEG (28 → 29) is the opening
+    const zm = B - r - 0.005;
+    pts.push([A, Math.min(DZ1, zm)], [A, Math.min(DZ0, zm - 0.01)]);
     return pts;
   };
   // loft rings: [y, inset, colour]
-  const loft = (bucket, rings, mat) => {
+  const DOOR_SEG = 28;
+  const loft = (bucket, rings, mat, door = false) => {
     const n = perim(0).length, pos = [], col = [], idx = [];
     for (const [y, ins, c] of rings) for (const [x, z] of perim(ins)) { pos.push(x, y, z); col.push(c[0], c[1], c[2]); }
-    for (let j = 0; j < rings.length - 1; j++) for (let i = 0; i < n; i++) { const i2 = (i + 1) % n, a0 = j * n + i, a1 = j * n + i2, b0 = a0 + n, b1 = a1 + n; idx.push(a0, b0, a1, a1, b0, b1); }
+    for (let j = 0; j < rings.length - 1; j++) for (let i = 0; i < n; i++) { if (door && i === DOOR_SEG && rings[j][0] >= 0.05) continue; const i2 = (i + 1) % n, a0 = j * n + i, a1 = j * n + i2, b0 = a0 + n, b1 = a1 + n; idx.push(a0, b0, a1, a1, b0, b1); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     // orientation: make the faces point outward (flip if the first face normal points in)
     const P0 = new THREE.Vector3(pos[0], pos[1], pos[2]), N = g.attributes.normal; if (N.getX(0) * P0.x + N.getZ(0) * P0.z < 0) { for (let k = 0; k < idx.length; k += 3) { const t = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = t; } g.setIndex(idx); g.computeVertexNormals(); }
@@ -63,7 +71,7 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
   };
   const cream = [0.9, 0.86, 0.76], silver = [0.72, 0.74, 0.76], rubber = [0.05, 0.05, 0.055], redD = [red[0] * 0.75, red[1] * 0.75, red[2] * 0.75];
   // the lower body: a rubber bump strip at the floor, the belly tucked under, red flanks, the cream belt line under the glass
-  loft(P, [[-0.32, 0.42, redD], [-0.2, 0.2, redD], [-0.06, 0.07, rubber], [0.06, 0.03, rubber], [0.12, 0.04, red], [0.78, 0.0, red], [0.84, 0.0, cream], [0.96, 0.0, cream], [lowH - 0.02, 0.0, silver], [lowH, 0.03, silver]]);
+  loft(P, [[-0.32, 0.42, redD], [-0.2, 0.2, redD], [-0.06, 0.07, rubber], [0.06, 0.03, rubber], [0.12, 0.04, red], [0.78, 0.0, red], [0.84, 0.0, cream], [0.96, 0.0, cream], [lowH - 0.02, 0.0, silver], [lowH, 0.03, silver]], null, true);
   // the floor pan under the belly
   { const pts = perim(0.42); const sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, z))); const g = new THREE.ShapeGeometry(sh, 2); g.rotateX(PI / 2); g.translate(0, -0.32, 0); P.add(g, null, redD); }
   // the roof: a silver crown leaning in from the glass, then a low dome, an equipment box, vents
@@ -79,26 +87,32 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
   const postAt = (i) => rod(new THREE.Vector3(p0[i][0] * 0.985, lowH, p0[i][1] * 0.985), new THREE.Vector3(p1[i][0] * 0.985, glassTop, p1[i][1] * 0.985), 0.045, [0.16, 0.16, 0.17]);
   for (let c = 0; c < 4; c++) { postAt(c * 7); postAt(c * 7 + 6); }
   rod(new THREE.Vector3(-w / 2 + 0.02, lowH, 0), new THREE.Vector3(-w / 2 + 0.12, glassTop, 0), 0.045, [0.16, 0.16, 0.17]);
-  rod(new THREE.Vector3(w / 2 - 0.02, lowH, 0.35), new THREE.Vector3(w / 2 - 0.12, glassTop, 0.35), 0.045, [0.16, 0.16, 0.17]);
+  // the doorway: dark steel jambs (full height), a head, a ribbed aluminium threshold plate
+  for (const zz of [DZ0 - 0.03, DZ1 + 0.03]) P.add(new THREE.BoxGeometry(0.16, glassTop + 0.02, 0.07), M4(w / 2 - 0.05, (glassTop + 0.02) / 2, zz), [0.14, 0.14, 0.15]);
+  P.add(new THREE.BoxGeometry(0.16, 0.08, DZ1 - DZ0 + 0.13), M4(w / 2 - 0.05, glassTop - 0.03, (DZ0 + DZ1) / 2), [0.14, 0.14, 0.15]);
+  P.add(new THREE.BoxGeometry(0.42, 0.025, DZ1 - DZ0), M4(w / 2 - 0.06, 0.07, (DZ0 + DZ1) / 2), [0.34, 0.35, 0.37]);   // runs out over the platform gap
+  for (let k = 0; k < 7; k++) P.add(new THREE.BoxGeometry(0.28, 0.01, 0.02), M4(w / 2 - 0.12, 0.087, DZ0 + 0.1 + k * (DZ1 - DZ0 - 0.2) / 6), [0.2, 0.2, 0.22]);
   // lights: headlights + a red light at each end, a beacon on the roof
   for (const sx of [-0.7, 0.7]) { L.add(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 10).rotateX(PI / 2), M4(sx, 0.5, -l / 2 - 0.0), [1.8, 1.7, 1.4]); L.add(new THREE.BoxGeometry(0.16, 0.06, 0.04), M4(sx, 0.5, l / 2), [1.6, 0.15, 0.08]); }
   L.add(new THREE.CylinderGeometry(0.06, 0.07, 0.1, 10), M4(0.45, glassTop + 0.8, -0.3), [1.8, 0.7, 0.08]);
   // livery: the line name on both flanks, the number on the flanks and the nose
   const nc = makeCanvas(128, 128), nx = nc.getContext('2d'); nx.fillStyle = 'rgba(0,0,0,0)'; nx.fillRect(0, 0, 128, 128); nx.fillStyle = '#efe8d8'; nx.font = '700 110px Anton, Impact, sans-serif'; nx.textAlign = 'center'; nx.textBaseline = 'middle'; nx.fillText(String(num), 64, 70);
   const numMat = new THREE.MeshBasicMaterial({ map: canvasTex(nc, { repeat: false }), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const sd of [-1, 1]) { const q = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), numMat); q.position.set(sd * (w / 2 + 0.012), 0.48, -l * 0.3); q.rotation.y = sd * PI / 2; body.add(q); }
+  for (const sd of [-1, 1]) { const k = sd > 0 ? 0.74 : 1; const q = new THREE.Mesh(new THREE.PlaneGeometry(0.42 * k, 0.42 * k), numMat); q.position.set(sd * (w / 2 + 0.012), 0.48, sd > 0 ? -1.33 : -l * 0.3); q.rotation.y = sd * PI / 2; body.add(q); }
   { const q = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), numMat); q.position.set(0, 0.62, -l / 2 - 0.012); q.rotation.y = PI; body.add(q); }
   const lc = makeCanvas(512, 64), lx = lc.getContext('2d'); lx.fillStyle = 'rgba(0,0,0,0)'; lx.fillRect(0, 0, 512, 64); lx.fillStyle = '#f2ece0'; lx.font = '700 46px Anton, Impact, sans-serif'; lx.textAlign = 'center'; lx.textBaseline = 'middle'; lx.fillText('GRAUHORN-BAHN', 256, 34);
   const logoMat = new THREE.MeshBasicMaterial({ map: canvasTex(lc, { repeat: false }), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const sd of [-1, 1]) { const q = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.2), logoMat); q.position.set(sd * (w / 2 + 0.012), 0.48, l * 0.12); q.rotation.y = sd * PI / 2; body.add(q); }
+  // (on the door side it sits forward of the doorway)
+  for (const sd of [-1, 1]) { const k = sd > 0 ? 0.78 : 1; const q = new THREE.Mesh(new THREE.PlaneGeometry(1.6 * k, 0.2 * k), logoMat); q.position.set(sd * (w / 2 + 0.012), 0.48, sd > 0 ? -0.45 : l * 0.12); q.rotation.y = sd * PI / 2; body.add(q); }
   // interior: floor, handrail, the attendant's console at the front
   TF.add(new THREE.BoxGeometry(w - 0.2, 0.06, l - 0.2), M4(0, 0.03, 0), [0.5, 0.5, 0.52], { uvScale: 1.0 });   // ribbed rubber floor
-  for (const [x, z, ww, ll] of [[-w / 2 + 0.2, 0, 0.05, l - 0.5], [w / 2 - 0.2, -0.6, 0.05, l * 0.5], [0, l / 2 - 0.2, w - 0.5, 0.05]]) I.add(new THREE.BoxGeometry(ww, 0.05, ll), M4(x, 1.0, z), steel);
+  for (const [x, z, ww, ll] of [[-w / 2 + 0.2, 0, 0.05, l - 0.5], [w / 2 - 0.2, -0.85, 0.05, 1.7], [0, l / 2 - 0.2, w - 0.5, 0.05]]) I.add(new THREE.BoxGeometry(ww, 0.05, ll), M4(x, 1.0, z), steel);
   I.add(rbox(1.0, 0.95, 0.4, 0.03), M4(-0.6, 0.48, -l / 2 + 0.35), [0.25, 0.27, 0.3]);
   for (let i = 0; i < 6; i++) L.add(new THREE.BoxGeometry(0.06, 0.02, 0.06), M4(-0.95 + i * 0.12, 0.96, -l / 2 + 0.3), i % 2 ? [0.2, 1.4, 0.3] : [1.6, 0.4, 0.1]);
   // interior lining: grey wall panels below the windows, a pale ceiling with a vent strip (the red stays outside)
   const lin = [0.42, 0.43, 0.44], ceil = [0.62, 0.62, 0.6];
-  for (const sx of [-1, 1]) TL.add(new THREE.BoxGeometry(0.03, lowH - 0.12, l - 0.3), M4(sx * (w / 2 - 0.115), (lowH - 0.12) / 2 + 0.06, 0), [0.62, 0.63, 0.64], { uvScale: 1.0 });
+  TL.add(new THREE.BoxGeometry(0.03, lowH - 0.12, l - 0.3), M4(-(w / 2 - 0.115), (lowH - 0.12) / 2 + 0.06, 0), [0.62, 0.63, 0.64], { uvScale: 1.0 });
+  for (const [za, zb] of [[-l / 2 + 0.15, DZ0 - 0.06], [DZ1 + 0.06, l / 2 - 0.15]]) TL.add(new THREE.BoxGeometry(0.03, lowH - 0.12, zb - za), M4(w / 2 - 0.115, (lowH - 0.12) / 2 + 0.06, (za + zb) / 2), [0.62, 0.63, 0.64], { uvScale: 1.0 });
   for (const sz of [-1, 1]) TL.add(new THREE.BoxGeometry(w - 0.3, lowH - 0.12, 0.03), M4(0, (lowH - 0.12) / 2 + 0.06, sz * (l / 2 - 0.115)), [0.62, 0.63, 0.64], { uvScale: 1.0 });
   TL.add(new THREE.BoxGeometry(w - 0.12, 0.03, l - 0.12), M4(0, h - 0.3, 0), [0.85, 0.85, 0.83], { uvScale: 1.0 });
   I.add(new THREE.BoxGeometry(0.5, 0.02, l * 0.7), M4(0.75, h - 0.325, 0), [0.3, 0.3, 0.3]);
@@ -107,7 +121,9 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
   for (const sx of [-0.8, 0.8]) I.add(new THREE.BoxGeometry(0.05, 0.45, 0.4), M4(sx, 0.23, l / 2 - 0.4), steel);
   const seal = [0.07, 0.07, 0.075], wy0 = lowH, wy1 = h - 0.3;
   for (const sz of [-1, 1]) { I.add(new THREE.BoxGeometry(w - 0.2, 0.06, 0.08), M4(0, wy0 + 0.03, sz * (l / 2 - 0.02)), seal); I.add(new THREE.BoxGeometry(w - 0.2, 0.06, 0.08), M4(0, wy1 - 0.03, sz * (l / 2 - 0.02)), seal); }
-  for (const sx of [-1, 1]) { I.add(new THREE.BoxGeometry(0.08, 0.06, l - 0.2), M4(sx * (w / 2 - 0.02), wy0 + 0.03, 0), seal); I.add(new THREE.BoxGeometry(0.08, 0.06, l - 0.2), M4(sx * (w / 2 - 0.02), wy1 - 0.03, 0), seal); }
+  for (const sx of [-1, 1]) { I.add(new THREE.BoxGeometry(0.08, 0.06, l - 0.2), M4(sx * (w / 2 - 0.02), wy1 - 0.03, 0), seal); }
+  I.add(new THREE.BoxGeometry(0.08, 0.06, l - 0.2), M4(-(w / 2 - 0.02), wy0 + 0.03, 0), seal);
+  for (const [za, zb] of [[-l / 2 + 0.1, DZ0 - 0.06], [DZ1 + 0.06, l / 2 - 0.1]]) I.add(new THREE.BoxGeometry(0.08, 0.06, zb - za), M4(w / 2 - 0.02, wy0 + 0.03, (za + zb) / 2), seal);
   // grab poles
   for (const [x, z] of [[-1.05, 1.5], [-1.05, -1.45]]) I.add(new THREE.CylinderGeometry(0.025, 0.025, h - 0.4, 8), M4(x, (h - 0.4) / 2, z), steel);
   // ceiling light
@@ -138,6 +154,7 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
     const g0 = perim(0.0), g1 = perim(0.1), n = g0.length, by = [[], [], [], [], [], []];
     const which = (x, z) => (z < -(l / 2 - 0.45) ? 0 : z > l / 2 - 0.45 ? 1 : (x < 0 ? (z < 0 ? 2 : 3) : (z < 0 ? 4 : 5)));
     for (let i = 0; i < n; i++) {
+      if (i === DOOR_SEG) continue;   // the doorway (the door has its own glass)
       const i2 = (i + 1) % n, mx = (g0[i][0] + g0[i2][0]) / 2, mz = (g0[i][1] + g0[i2][1]) / 2;
       by[which(mx, mz)].push([g0[i], g0[i2], g1[i], g1[i2]]);
     }
@@ -152,8 +169,14 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
   }
   // the door (sliding, +x side, rear half): a red lower panel, a framed glass upper, a grab handle; slides back when open
   const door = new THREE.Group();
-  { const D = new Bucket(); D.add(rbox(0.07, lowH - 0.05, 1.2, 0.02), M4(0, lowH / 2 + 0.03, 0), red); D.add(rbox(0.05, 0.84, 0.86, 0.01), M4(0, 1.62, 0), [0.1, 0.13, 0.16]); for (const [yy, hh, zz, ll] of [[lowH, 0.08, 0, 1.2], [glassTop - 0.05, 0.08, 0, 1.2], [1.62, 1.1, -0.56, 0.08], [1.62, 1.1, 0.56, 0.08]]) D.add(new THREE.BoxGeometry(0.09, hh, ll), M4(0, yy, zz), [0.16, 0.16, 0.17]); D.add(new THREE.BoxGeometry(0.06, 0.32, 0.04), M4(0.06, 0.95, -0.45), [0.7, 0.7, 0.72]); door.add(D.mesh(mats.cabin(), { shadow: true })); }
-  door.position.set(w / 2 + 0.05, 0, 1.05); body.add(door);
+  const DL = DZ1 - DZ0 + 0.1, DC = (DZ0 + DZ1) / 2;
+  { const D = new Bucket(); D.add(rbox(0.07, lowH - 0.05, DL, 0.02), M4(0, lowH / 2 + 0.03, 0), red); D.add(new THREE.BoxGeometry(0.075, 0.1, DL), M4(0, 0.86, 0), cream); for (const [yy, hh, zz, ll] of [[lowH, 0.08, 0, DL], [glassTop - 0.05, 0.08, 0, DL], [1.62, 1.1, -DL / 2 + 0.04, 0.08], [1.62, 1.1, DL / 2 - 0.04, 0.08]]) D.add(new THREE.BoxGeometry(0.09, hh, ll), M4(0, yy, zz), [0.16, 0.16, 0.17]); D.add(new THREE.BoxGeometry(0.06, 0.32, 0.04), M4(0.06, 0.95, DL / 2 - 0.12), [0.7, 0.7, 0.72]); door.add(D.mesh(mats.cabin(), { shadow: true }));
+    // its inner skin matches the cabin's lining (no red livery facing in)
+    { const ig = new THREE.BoxGeometry(0.012, lowH - 0.1, DL - 0.06); ig.setAttribute('color', new THREE.Float32BufferAttribute(new Array(ig.attributes.position.count * 3).fill(0.62), 3)); const ip = new THREE.Mesh(ig, interiorMats().lining); ip.position.set(-0.042, lowH / 2 + 0.03, 0); door.add(ip); }
+    const dg = new THREE.Mesh(new THREE.PlaneGeometry(DL - 0.1, glassTop - lowH - 0.1), glassM); dg.rotation.y = PI / 2; dg.position.set(0, (glassTop + lowH) / 2, 0); dg.renderOrder = 6; door.add(dg); panes.push({ mesh: dg, broken: false, n: new THREE.Vector3(1, 0, 0) }); }
+  // the door's track: a rail along the flank over the window band's sill, the door hangs off it outside the shell
+  P.add(new THREE.BoxGeometry(0.06, 0.06, DL * 2.2), M4(w / 2 + 0.06, glassTop + 0.02, DC - DL * 0.55), [0.3, 0.3, 0.32]);
+  door.position.set(w / 2 + 0.07, 0, DC); body.add(door);
   root.traverse(o => { if (o.isMesh && o.material === glassM) o.castShadow = false; });
   return {
     root, body, hanger, panes, door, glassM,
@@ -168,9 +191,14 @@ export function buildCabin({ num = 1, seed = 1, paint = 0x9c1712 } = {}) {
       { min: [-w / 2, 0, -l / 2], max: [w / 2, h, -l / 2 + 0.12] },
       { min: [-w / 2, 0, l / 2 - 0.12], max: [w / 2, h, l / 2] },
       { min: [-w / 2, 0, -l / 2], max: [-w / 2 + 0.12, h, l / 2] },
-      { min: [w / 2 - 0.12, 0, -l / 2], max: [w / 2, h, 0.35] },
+      { min: [w / 2 - 0.12, 0, -l / 2], max: [w / 2, h, DZ0] },
+      { min: [w / 2 - 0.12, 0, DZ1], max: [w / 2, h, l / 2] },
     ],
-    setDoor(open) { door.position.z = open ? 1.05 + 1.15 : 1.05; },
+    // the shell as rays see it while it's moving (local boxes: floor, lower walls, roof; the window band is open)
+    shell: [[-w / 2, -0.32, -l / 2, w / 2, 0.06, l / 2], [-w / 2, 0, -l / 2, -w / 2 + 0.12, lowH, l / 2], [w / 2 - 0.12, 0, -l / 2, w / 2 + 0.1, lowH, l / 2],
+      [-w / 2, 0, -l / 2, w / 2, lowH, -l / 2 + 0.12], [-w / 2, 0, l / 2 - 0.12, w / 2, lowH, l / 2], [-w / 2, glassTop, -l / 2, w / 2, glassTop + 0.45, l / 2]],
+    door: { z0: DZ0, z1: DZ1 },
+    setDoor(open) { door.position.z = open ? DC - DL - 0.05 : DC; },
     breakPane(i) { const p = panes[i]; if (!p || p.broken) return false; p.broken = true; p.mesh.visible = false; return true; },
   };
 }
