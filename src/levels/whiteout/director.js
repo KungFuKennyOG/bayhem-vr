@@ -75,7 +75,7 @@ export class Director {
           if (t > 6 && first('lookup')) later(0.1, () => { if (alive(s => s.pos.y > py() + 4) > 0) say('They\'re shooting down from the road above! Over the wall — UP!', 3); });
         }, until: (t) => (t > 8 && alive() === 0 && px() > 30) || t > 120 * T },
       // 3 ---- leg 2: west, a sniper on the rib, and they come up the road BEHIND and BELOW you
-      { name: 'road2', wp: ROAD2_END, hunt: true, arrive: () => alive(s => s.role === 'sniper') === 0 || this.t > 50, gate: () => { const s = g.soldiers.find(s => s.alive && s.role === 'sniper'); return s ? s.pos.clone().setY(s.pos.y + 2) : null; }, gateMsg: 'SNIPER — ON THE ROCKS', music: 0.75, storm: 1, enter: () => {
+      { name: 'road2', wp: ROAD2_END, hunt: true, arrive: true, music: 0.75, storm: 1, enter: () => {
           hud.objective('Hairpin 2 — the Berghaus');
           L(LEG2, 0.18, 0.8, { delay: 0.5 }); L(LEG2, 0.32, -1.5, { delay: 1.4 }); L(LEG2, 0.5, 1.0, { delay: 2.4, flanker: true }); L(LEG2, 0.72, -0.4, { delay: 4 });
           L(LEG3, 0.25, -2.4, { delay: 5 }); L(LEG3, 0.4, -2.6, { delay: 9 });
@@ -98,7 +98,7 @@ export class Director {
           A?.go([go(-36, 53, { slow: 0.6 }), go(-16, 51, { slow: 0.45 }), go(6, 49, { slow: 0.45 }), go(26, 47, { slow: 0.5 }), go(44, 42, { slow: 0.6 }), go(ROAD3_END.x, ROAD3_END.z, { slow: 0.6 })]);
         }, until: (t) => (t > 8 && alive() === 0 && px() > 48) || t > 120 * T },
       // 5 ---- the yard: containers, the fuel tank, the shed sniper
-      { name: 'yard', wp: V(85, 31.5, 6), hunt: true, arrive: () => alive(s => s.role === 'sniper') === 0, gate: () => { const s = g.soldiers.find(s => s.alive && s.role === 'sniper'); return s ? s.pos.clone().setY(s.pos.y + 2) : null; }, gateMsg: 'SNIPER — ON THE SHED', music: 0.9, storm: 1, enter: () => {
+      { name: 'yard', wp: V(85, 31.5, 6), hunt: true, arrive: true, music: 0.9, storm: 1, enter: () => {
           hud.objective('Clear the station yard');
           S({ x: 72, z: 26, delay: 0.5 }); S({ x: 82, z: 18, delay: 1 }); S({ x: 98, z: 26, delay: 1.6, flanker: true }); S({ x: 64, z: 16, delay: 2.4 }); S({ x: 104, z: 14, delay: 3.2 });
           S({ x: 86, z: 2, delay: 9, entry: V(86, 30, 12) }); S({ x: 78, z: -4, delay: 11, entry: V(78, 30, 10) }); S({ x: 92, z: -6, delay: 13, role: 'rusher' });

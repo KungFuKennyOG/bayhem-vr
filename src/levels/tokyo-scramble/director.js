@@ -80,7 +80,7 @@ export class Director {
           A?.go([go(36, -12, { slow: 0.6 }), go(56, -14, { slow: 0.55 }), go(76, -18, { slow: 0.6 }), go(79, -22, { slow: 0.6 })]);
         }, until: (t) => (t > 6 && alive(s => s.role !== 'sniper') === 0 && px() > 44 && pz() < -18) || t > 110 * T },
       // 4 ---- the bus plaza: under the deck ring, gunmen pacing the decks overhead, more in the plaza
-      { name: 'eastexit', wp: V(95, EDECK.y + 2, -27), hunt: true, arrive: false, music: 0.8, enter: () => {
+      { name: 'eastexit', wp: V(95, EDECK.y + 2, -27), hunt: true, arrive: () => py() > EDECK.y - 1, music: 0.8, enter: () => {
           hud.objective('Clear the plaza — they\'re on the decks above you');
           later(0.6, () => say('Look up! They\'re on the walkways — every bridge over the plaza.', 3));
           const perch = (x, z, d) => S({ x, z, y: EDECK.y, role: 'perch', delay: d, noNade: d < 3 });
