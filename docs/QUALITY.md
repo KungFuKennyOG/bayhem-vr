@@ -28,7 +28,7 @@ These came out of the first Quest playtest. Desktop testing hid all of them.
   - They face the player whenever they know where the player is, and run sideways with the gun on target between covers.
   - They only turn their back once they've lost track of the player.
   - Use contact shadows, and `setGunmanLook` so they don't vanish against dark scenery at dusk.
-- **Reaching the marker must move the beat on.** Never gate a beat only on "every soldier dead": one hidden perch or straggler leaves the player standing on the marker with nothing happening for a minute. Combat beats with a waypoint opt into `arrive` (`src/beats.js`): at the marker they advance once ≤ 2 soldiers are near, or after 6 s regardless, and far stragglers leave.
+- **Reaching the marker must move the beat on.** Never gate a beat only on "every soldier dead": one hidden perch or straggler leaves the player standing on the marker with nothing happening for a minute. Combat beats with a waypoint opt into `arrive` (`src/beats.js`): the moment the player reaches the marker the beat moves on, however many enemies are left (close ones keep fighting into the next beat, far stragglers leave). `arrive()` may wait on a set piece or the player's position, **never on enemies** (snipers, boats, operators included).
 - **Test the real-play path, not just the autopilot:** add `noauto=1` to the screenshot query. The autopilot and trailer code paths can hide broken beat logic.
 - **Scale and distance:** guns, doorways, stair heights and the truck bed must feel right at 1:1. Anything that "reads small at 720p" reads smaller in a headset.
 

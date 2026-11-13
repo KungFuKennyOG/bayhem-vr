@@ -77,7 +77,7 @@ export class Director {
           later(0.8, () => say('More of them in the stacks. Use the barrels — everything here burns.', 3.2));
           A?.go([ground(0.6, -27, { slow: 0.6 }), ground(0.2, -36, { slow: 0.55 }), ground(3.1, -46, { slow: 0.5 }), ground(3.0, -52, { slow: 0.5 }), ground(0, -58, { slow: 0.5 })]);
         }, until: (t) => cleared(t, 5) || t > 75 * T },
-      { name: 'crane', wp: V(0, 2.5, -106), music: 0.75, dusk: 0.42, enter: () => {
+      { name: 'crane', wp: V(0, 2.5, -106), arrive: () => setp.crane.mode === 'after' || setp.crane.mode === 'done', music: 0.75, dusk: 0.42, enter: () => {
           this.lightsOn([4, 5], 0.3);
           setp.craneStart();
           later(0.4, () => say('Uh... the crane\'s moving. Why is the crane moving?!', 3));
@@ -109,7 +109,7 @@ export class Director {
           if (!this.forkGo && (pz() < -109 || t > 12)) { this.forkGo = true; setp.forkliftStart(); later(0.5, () => say('Forklift! Forklift full of fuel drums! Of course!', 3)); }
           for (const e of g.events) if (e.type === 'forkliftWreck') later(1.5, () => say('...I have never seen a forklift do that.', 2.6));
         }, until: (t) => (t > 6 && this.forkGo && alive(s => s.floorY < 1) === 0 && setp.fork.state !== 'charge') || t > 75 * T },
-      { name: 'board', wp: V(23.5, DECK_Y + 2.4, -152), music: 0.85, dusk: 0.64, enter: () => {
+      { name: 'board', wp: V(23.5, DECK_Y + 2.4, -152), arrive: () => g.rig.position.y > DECK_Y - 0.5, music: 0.85, dusk: 0.64, enter: () => {
           audio.play('ship_horn', { x: 30, y: 30, z: -170, volume: 1 });
           hud.objective('Board the ship');
           later(2.2, () => say('That\'s her. Up the gangway — the fuel hold is mid-ship.', 3.2));

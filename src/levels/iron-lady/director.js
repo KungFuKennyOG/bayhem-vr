@@ -55,7 +55,7 @@ export class Director {
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 5.8 : 7.8) },
       // 2 ---- the quay fight
-      { name: 'quay', wp: V(70, LOW_Y + 2.4, 44), hunt: true, arrive: () => !setp.boat || setp.boat.state !== 'cruise', gate: () => (setp.boat && setp.boat.state === 'cruise' ? setp.boat.fuelW.clone().setY(setp.boat.fuelW.y + 3) : null), gateMsg: 'SINK THE BOAT!', music: 0.65, dusk: 0.25, enter: () => {
+      { name: 'quay', wp: V(70, LOW_Y + 2.4, 44), hunt: true, arrive: true, music: 0.65, dusk: 0.25, enter: () => {
           g.cinematicLook = null;
           hud.objective('Fight down the quay to the bridge');
           if (g.player) g.player.autoState.holdFire = false;
