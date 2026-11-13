@@ -104,7 +104,7 @@ export function buildSteps(ctx = {}) {
     // granite steps (polish pass, Nov 13): flat granite treads (no texture: the board-marked concrete made the
     // flights read as one brown ramp), a worn pale nosing on every step and a dark riser under it, so from the top
     // the flight reads as STEPS; a stepped granite cheek down both sides; landings in granite paving.
-    const S = B.get('plain', 'stairs'), Pv = B.get('stone', 'stairs');
+    const S = B.get('granite', 'stairs'), Pv = B.get('stone', 'stairs');
     Pv.set({ col: [0.62, 0.6, 0.57], rm: [0.62, 0, 0], em: [0, 0, 0, 0] });
     const CHEEK = 0.4;
     for (let i = 1; i < STAIR_PROFILE.length; i++) {
@@ -116,14 +116,16 @@ export function buildSteps(ctx = {}) {
         const g = 0.94 + ((k * 37) % 7) / 70;
         // the tread (worn darker down the middle where people walk), the riser below its front edge
         S.set({ col: [0.5 * g, 0.49 * g, 0.47 * g], rm: [0.55, 0, 0], em: [0, 0, 0, 0] });
-        S.box(xa, yb - 0.6, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'Y' });
-        S.set({ col: [0.43 * g, 0.42 * g, 0.4 * g] }); S.box(xa + 0.02, ya, STAIRS.z0 + 3.2, xa + run - 0.06, ya + 0.003, STAIRS.z1 - 3.2, { faces: 'Y' });
-        S.set({ col: [0.27 * g, 0.26 * g, 0.25 * g] }); S.box(xa + run - 0.02, yb, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'X' });
+        // (the tread darkens toward both cheeks: grime and wet where nobody walks)
+        S.quad([xa, ya, STAIRS.z1], [xa + run, ya, STAIRS.z1], [xa + run, ya, STAIRS.z0], [xa, ya, STAIRS.z0], [xa, -STAIRS.z1, xa + run, -STAIRS.z0]);
+        for (const [za, zb, k0, k1] of [[STAIRS.z0, STAIRS.z0 + 1.6, 0.55, 1], [STAIRS.z1 - 1.6, STAIRS.z1, 1, 0.55]]) { const c0 = [0.5 * g * k0, 0.49 * g * k0, 0.47 * g * k0], c1 = [0.5 * g * k1, 0.49 * g * k1, 0.47 * g * k1]; S.quad([xa, ya + 0.002, zb], [xa + run, ya + 0.002, zb], [xa + run, ya + 0.002, za], [xa, ya + 0.002, za], [xa, -zb, xa + run, -za], c0, [c1, c1, c0, c0]); }
+        S.set({ col: [0.43 * g, 0.42 * g, 0.4 * g] }); S.box(xa + 0.02, ya, STAIRS.z0 + 3.2, xa + run - 0.06, ya + 0.003, STAIRS.z1 - 3.2, { faces: 'Y', s: 1 });
+        S.set({ col: [0.3 * g, 0.29 * g, 0.28 * g] }); S.box(xa + run - 0.02, yb, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'X', s: 1 });
         // the nosing: a pale, polished lip along each tread's edge
-        S.set({ col: [0.74 * g, 0.72 * g, 0.68 * g], rm: [0.35, 0, 0] }); S.box(xa + run - 0.06, ya, STAIRS.z0 + CHEEK, xa + run, ya + 0.004, STAIRS.z1 - CHEEK, { faces: 'Y' });
+        S.set({ col: [0.8 * g, 0.78 * g, 0.74 * g], rm: [0.3, 0, 0] }); S.box(xa + run - 0.06, ya, STAIRS.z0 + CHEEK, xa + run, ya + 0.004, STAIRS.z1 - CHEEK, { faces: 'Y', s: 1 });
         // the cheeks: a stepped granite kerb 12 cm proud of the treads down both edges
         S.set({ col: [0.38 * g, 0.37 * g, 0.355 * g], rm: [0.7, 0, 0] });
-        for (const [za, zb] of [[STAIRS.z0, STAIRS.z0 + CHEEK], [STAIRS.z1 - CHEEK, STAIRS.z1]]) S.box(xa, yb, za, xa + run, ya + 0.12, zb, { faces: 'YXzZ' });
+        for (const [za, zb] of [[STAIRS.z0, STAIRS.z0 + CHEEK], [STAIRS.z1 - CHEEK, STAIRS.z1]]) S.box(xa, yb, za, xa + run, ya + 0.12, zb, { faces: 'YXzZ', s: 1, foot: 0.35 });
       }
     }
     // wall handrails down both sides (steel tube on brackets off the plinths): the middle of the flight stays open
@@ -145,6 +147,63 @@ export function buildSteps(ctx = {}) {
       Pl.set({ col: [0.07, 0.06, 0.05], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); Pl.box(x0 + 1.05, y + 0.68, z - 0.45, x0 + 2.95, y + 0.72, z + 0.45, { faces: 'Y' });
       for (let k = 0; k < 6; k++) { const a = k * 1.9 + x0, d = k ? 0.45 : 0, cx = x0 + 2 + Math.cos(a) * d * 1.6, cz = z + Math.sin(a) * d * 0.6, rr = 0.42 + ((k * 37) % 5) * 0.05, g = 0.6 + (k % 3) * 0.15;
         Pl.set({ col: [0.045 * g, 0.07 * g, 0.04 * g] }); Pl.cyl(cx, y + 0.7, cz, rr * 0.7, rr, y + 0.7 + rr * 0.8, 8, { cap: false }); Pl.cyl(cx, y + 0.7 + rr * 0.8, cz, rr, rr * 0.3, y + 0.7 + rr * 1.5, 8); }
+    }
+    // ---- street life along the edges (polish, Nov 13): never in the middle of the flight. Wet patches and a drain gutter on
+    // every landing; outside the stalls: produce crates, stacked plastic stools, a tub of mops, bagged rubbish, potted
+    // plants by the doors; laundry on poles out of the upper windows (high over the edges, never across the stair)
+    {
+      const r2 = makeRng(4421), Pd = B.get('plain', 'stairs'), Wd = B.get('wood', 'stairs');
+      const LAND = [[-127.5, -119.5, 64], [-111.5, -99.5, 59.5], [-91.5, -77.5, 55], [-68.8, -64.2, 50]];
+      for (const [la, lb, y] of LAND) {
+        // gutters: a dark slot with a grate along both edges
+        for (const z of [STAIRS.z0 + 0.25, STAIRS.z1 - 0.25]) { Pd.set({ col: [0.05, 0.05, 0.05], rm: [0.5, 0.2, 0], em: [0, 0, 0, 0] }); Pd.box(la, y + 0.002, z - 0.12, lb, y + 0.006, z + 0.12, { faces: 'Y' });
+          Pd.set({ col: [0.16, 0.16, 0.16], rm: [0.4, 0.8, 0] }); for (let x = la + 0.1; x < lb - 0.1; x += 0.12) Pd.box(x, y + 0.006, z - 0.12, x + 0.04, y + 0.012, z + 0.12, { faces: 'Y' }); }
+        // wet patches: dark, near-mirror (they pick up the lanterns and signs through the env map)
+        for (let k = 0; k < 4; k++) { const cx = la + 1 + r2() * (lb - la - 2), cz = STAIRS.z0 + 1 + r2() * (STAIRS.z1 - STAIRS.z0 - 2), rx = 0.5 + r2() * 1.3, rz = 0.4 + r2() * 0.9;
+          Pd.set({ col: [0.06, 0.06, 0.065], rm: [0.06, 0.2, 0], em: [0, 0, 0, 0] });
+          for (let q = 0; q < 10; q++) { const a0 = q / 10 * Math.PI * 2, a1 = (q + 1) / 10 * Math.PI * 2, w0 = 0.75 + 0.25 * Math.sin(q * 2.3 + k), w1 = 0.75 + 0.25 * Math.sin((q + 1) * 2.3 + k);
+            Pd.tri([cx, y + 0.008, cz], [cx + Math.cos(a1) * rx * w1, y + 0.008, cz + Math.sin(a1) * rz * w1], [cx + Math.cos(a0) * rx * w0, y + 0.008, cz + Math.sin(a0) * rz * w0]); } }
+        // props against both walls
+        for (const side of [0, 1]) {
+          const zw = side ? STAIRS.z1 : STAIRS.z0, inn = side ? -1 : 1;
+          let x = la + 0.6 + r2() * 1.2;
+          while (x < lb - 1.2) {
+            const kind = Math.floor(r2() * 5), zc = zw + inn * (0.75 + r2() * 0.25);
+            if (kind === 0) {       // produce crates, two high, fruit on top
+              for (let t = 0; t < 1 + (r2() < 0.6 ? 1 : 0); t++) { Wd.set({ col: [0.36, 0.27, 0.17], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); Wd.obox(x + 0.3, y + 0.17 + t * 0.34, zc, 0.3, 0.17, 0.22, (r2() - 0.5) * 0.3, { faces: 'xXzZY', s: 1 }); }
+              const fc = [[0.55, 0.25, 0.04], [0.35, 0.42, 0.08], [0.5, 0.08, 0.05]][Math.floor(r2() * 3)];
+              Pd.set({ col: fc, rm: [0.6, 0, 0] }); for (let f = 0; f < 6; f++) Pd.cyl(x + 0.1 + (f % 3) * 0.2, y + 0.68, zc - 0.08 + Math.floor(f / 3) * 0.16, 0.07, 0.05, y + 0.76, 6);
+              colliders.push({ min: [x, y, zc - 0.25], max: [x + 0.6, y + 0.72, zc + 0.25], data: { mat: 'wood', kind: 'crate' } }); x += 0.9;
+            } else if (kind === 1) {   // a stack of plastic stools
+              const sc = [[0.6, 0.1, 0.07], [0.1, 0.25, 0.55], [0.12, 0.4, 0.2]][Math.floor(r2() * 3)], n = 2 + Math.floor(r2() * 4);
+              Pd.set({ col: sc, rm: [0.45, 0, 0] }); for (let t = 0; t < n; t++) Pd.cyl(x + 0.2, y + 0.38 + t * 0.07, zc, 0.17, 0.16, y + 0.42 + t * 0.07, 10);
+              for (const [dx, dz] of [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]]) Pd.box(x + 0.2 + dx - 0.02, y, zc + dz - 0.02, x + 0.2 + dx + 0.02, y + 0.38, zc + dz + 0.02, { faces: 'xXzZ' });
+              x += 0.7;
+            } else if (kind === 2) {   // bagged rubbish
+              for (let b = 0; b < 2 + Math.floor(r2() * 3); b++) { Pd.set({ col: r2() < 0.7 ? [0.03, 0.03, 0.035] : [0.08, 0.15, 0.3], rm: [0.25, 0, 0] }); Pd.obox(x + 0.25 + b * 0.32, y + 0.2, zc + (r2() - 0.5) * 0.2, 0.2, 0.2 + r2() * 0.06, 0.18, r2() * 3, { faces: 'xXzZY' }); Pd.cyl(x + 0.25 + b * 0.32, y + 0.38, zc, 0.06, 0.02, y + 0.5, 5); }
+              x += 1.2;
+            } else if (kind === 3) {   // a potted plant
+              Pd.set({ col: [0.32, 0.16, 0.1], rm: [0.8, 0, 0] }); Pd.cyl(x + 0.3, y, zc, 0.2, 0.26, y + 0.42, 10);
+              for (let f = 0; f < 5; f++) { const a = f * 1.26 + x, g2 = 0.7 + (f % 2) * 0.3; Pd.set({ col: [0.05 * g2, 0.1 * g2, 0.04 * g2], rm: [0.8, 0, 0] }); Pd.cyl(x + 0.3 + Math.cos(a) * 0.12, y + 0.42, zc + Math.sin(a) * 0.12, 0.12, 0.2, y + 0.75 + (f % 3) * 0.12, 6); }
+              x += 0.8;
+            } else {                   // a yellow tub with mops
+              Pd.set({ col: [0.55, 0.42, 0.06], rm: [0.5, 0, 0] }); Pd.cyl(x + 0.25, y, zc, 0.2, 0.24, y + 0.32, 10);
+              Pd.set({ col: [0.4, 0.34, 0.25] }); for (const dz of [-0.06, 0.06]) Pd.beam([x + 0.25, y + 0.1, zc + dz], [x + 0.28, y + 1.35, zc + dz + inn * 0.2], 0.03, 0.03);
+              x += 0.8;
+            }
+            x += 0.4 + r2() * 1.6;
+          }
+        }
+      }
+      // laundry: a pole out of a third-floor window every few lots, shirts and towels pegged along it (over the edge, high)
+      const Lw = B.get('dbl', 'stairs');
+      for (const side of [0, 1]) for (let x = -124; x < -66; x += 6 + r2() * 5) {
+        const zw = side ? STAIRS.z1 : STAIRS.z0, inn = side ? -1 : 1, y = stairY(x) + 8.6 + r2() * 1.6, len = 1.4 + r2() * 0.6;
+        Mt.set({ col: [0.3, 0.3, 0.3], rm: [0.4, 0.7, 0] }); Mt.tube([x, y, zw], [x, y + 0.05, zw + inn * len], 0.02, 4);
+        for (let c = 0; c < 3; c++) { const z = zw + inn * (0.35 + c * 0.42), h = 0.5 + r2() * 0.35, w = 0.32 + r2() * 0.1;
+          const lc = [[0.6, 0.6, 0.62], [0.55, 0.15, 0.12], [0.15, 0.25, 0.45], [0.5, 0.45, 0.3], [0.25, 0.35, 0.25]][Math.floor(r2() * 5)];
+          Lw.set({ col: lc, rm: [0.95, 0, 0], em: [0, 0, 0, 0] }); Lw.quad([x - w, y - h, z], [x + w, y - h, z], [x + w, y, z], [x - w, y, z]); }
+      }
     }
     // the shophouses on both sides (shops on every landing and along the flights, stepping down with them)
     const signsN = ['shop0', 'shop13', 'shop1', 'shop5', 'shop2', 'shop8', 'shop15'], signsS = ['shop3', 'shop11', 'shop4', 'shop9', 'shop14', 'shop6'];

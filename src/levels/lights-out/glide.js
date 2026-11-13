@@ -114,60 +114,121 @@ export function buildGunboat() {
     const keel = -1.7 + bow * bow * 1.3 + (u < 0.08 ? (0.08 - u) * 6 : 0);
     sec.push([x, hwD, yD, hwC, 0.15 + bow * 0.6, keel]);
   }
-  const HULL = hexc(0x4a5157), HULL2 = hexc(0x3a4046), BOOT = [0.82, 0.82, 0.8];
-  A.set({ col: HULL, rm: [0.55, 0.35, 0], em: [0, 0, 0, 0] });
+  const HULL = [0.3, 0.33, 0.36], HULL2 = [0.2, 0.22, 0.24], BOOT = [0.78, 0.78, 0.76], PAINT = [0.56, 0.59, 0.61];
+  const St = B.get('steel', 'b'), Dk = B.get('deck', 'b');
+  const ALW = DUSK + DIST.ALWAYS;
+  // a quad on the hull with metre uvs (so the plate texture is the same scale everywhere); sd < 0 mirrors the winding
+  const hq = (Acc, sd, p0, p1, p2, p3, col, u0, v0, u1, v1) => { Acc.set({ col }); if (sd > 0) Acc.quad(p0, p1, p2, p3, [u0, v0, u1, v1]); else Acc.quad(p1, p0, p3, p2, [u1, v0, u0, v1]); };
+  St.set({ col: HULL, rm: [0.55, 0.3, 0], em: [0, 0, 0, 0] });
   for (let i = 0; i < sec.length - 1; i++) {
     const [xa, wa, ya, ca, cya, ka] = sec[i], [xb, wb, yb, cb, cyb, kb] = sec[i + 1];
     for (const sd of [-1, 1]) {
-      const q = (p0, p1, p2, p3, col) => { A.set({ col }); if (sd > 0) A.quad(p0, p1, p2, p3); else A.quad(p0, p3, p2, p1); };
-      // topsides (deck edge to chine), the boot-top stripe, the bottom (chine to keel)
-      q([xa, cya + 0.3, sd * ca], [xb, cyb + 0.3, sd * cb], [xb, yb, sd * wb], [xa, ya, sd * wa], i % 2 ? HULL : mix3(HULL, HULL2, 0.4));
-      q([xa, cya, sd * ca], [xb, cyb, sd * cb], [xb, cyb + 0.3, sd * cb], [xa, cya + 0.3, sd * ca], BOOT);
-      q([xa, ka, 0], [xb, kb, 0], [xb, cyb, sd * cb], [xa, cya, sd * ca], HULL2);
+      // topsides (chine to the sheer), the boot-top, the bottom (chine to keel)
+      hq(St, sd, [xa, cya + 0.3, sd * ca], [xb, cyb + 0.3, sd * cb], [xb, yb, sd * wb], [xa, ya, sd * wa], HULL, xa, cya + 0.3, xb, ya);
+      hq(A, sd, [xa, cya, sd * ca], [xb, cyb, sd * cb], [xb, cyb + 0.3, sd * cb], [xa, cya + 0.3, sd * ca], BOOT, 0, 0, 1, 1);
+      hq(St, sd, [xa, ka, 0], [xb, kb, 0], [xb, cyb, sd * cb], [xa, cya, sd * ca], [0.22, 0.1, 0.07], xa, ka, xb, cya);
     }
   }
+  A.set({ col: HULL2, rm: [0.55, 0.35, 0], em: [0, 0, 0, 0] });
   // the transom
-  { const [x, w, y, c, cy, k] = sec[0]; A.set({ col: HULL2 }); const K = [x, k, 0], Cp = [x, cy, c], Cm = [x, cy, -c], Wp = [x, y, w], Wm = [x, y, -w]; for (const [a1, b1] of [[Cp, Wp], [Wp, Wm], [Wm, Cm]]) { A.tri(K, a1, b1); A.tri(K, b1, a1); } }
-  // the deck (triangle strips over the sections) and a gunwale on top of the sheer
-  const D = B.get('metal', 'b'); D.set({ col: [0.2, 0.215, 0.21], rm: [0.75, 0.35, 0], em: em([1.0, 0.8, 0.55], 0.035, DUSK + DIST.ALWAYS) });   // steel deck, lit by the deck lamps
-  for (let i = 0; i < sec.length - 1; i++) { const [xa, wa, ya] = sec[i], [xb, wb, yb] = sec[i + 1]; D.quad([xa, ya, wa - 0.15], [xb, yb, wb - 0.15], [xb, yb, -wb + 0.15], [xa, ya, -wa + 0.15]); }
-  Mt.set({ col: [0.55, 0.57, 0.6], rm: [0.4, 0.8, 0], em: [0, 0, 0, 0] });
+  { const [x, w, y, c, cy, k] = sec[0]; St.set({ col: HULL2 }); const K = [x, k, 0], Cp = [x, cy, c], Cm = [x, cy, -c], Wp = [x, y, w], Wm = [x, y, -w]; for (const [a1, b1] of [[Cp, Wp], [Wp, Wm], [Wm, Cm]]) { St.tri(K, a1, b1, [[0, k], [c, cy], [-c, y]]); St.tri(K, b1, a1, [[0, k], [-c, y], [c, cy]]); } }
+  // ---- the deck: anti-skid steel on a 1 m grid, so it can carry the floodlights' warm pools (baked per vertex) and
+  // contact grime at the bulkheads and the bulwarks
+  const FLOOD = [[-7.3, 3.55, -2.3], [-7.3, 3.55, 2.3], [4.6, 3.8, 0]];
+  const pool = (x, z) => { let k = 0; for (const [fx, , fz] of FLOOD) { const dx = (x - (fx - (fx < 0 ? 2.4 : -2.2))) / 2.6, dz = (z - fz * 0.55) / 2.2; k += Math.exp(-(dx * dx + dz * dz)); } return Math.min(1.2, k); };
+  const inHouse = (x, z) => x > -7 && x < 4.5 && Math.abs(z) < 2.6;
+  const grime = (x, z, hw) => { let k = 1; const dh = Math.max(Math.max(-7 - x, x - 4.5), Math.abs(z) - 2.6); if (dh > -0.01) k *= 0.62 + 0.38 * Math.min(1, dh / 0.9); k *= 0.7 + 0.3 * Math.min(1, (hw - Math.abs(z)) / 0.6); return k; };
+  const DC = [0.36, 0.38, 0.37];
+  for (let i = 0; i < sec.length - 1; i++) {
+    const [xa, wa, ya] = sec[i], [xb, wb, yb] = sec[i + 1];
+    const NZ = 8;
+    for (let j = 0; j < NZ; j++) {
+      const ta = -1 + 2 * j / NZ, tb = -1 + 2 * (j + 1) / NZ, ia = wa - 0.12, ib = wb - 0.12;
+      const P = [[xa, ya, ta * ia], [xb, yb, ta * ib], [xb, yb, tb * ib], [xa, ya, tb * ia]];
+      if (P.every(q => inHouse(q[0], q[2]))) continue;
+      const cols = P.map(q => DC.map(c => c * grime(q[0], q[2], q[0] === xa ? wa : wb)));
+      const ems = P.map(q => { const k = pool(q[0], q[2]); const e = 0.045 * k * k; return [1.0 * e, 0.78 * e, 0.5 * e, ALW]; });
+      Dk.set({ col: DC, rm: [0.78, 0.3, 0] });
+      Dk.quad(P[0], P[3], P[2], P[1], [P[0][0], P[0][2], P[1][0], P[3][2]], DC, [cols[0], cols[3], cols[2], cols[1]], [ems[0], ems[3], ems[2], ems[1]]);
+    }
+  }
+  // bulwark: a 25 cm steel lip round the deck edge, freeing ports, then the guard rail (dark, thick: thin bright rails
+  // read as laser lines) on stanchions every 1.2 m with a middle rail
   for (let i = 0; i < sec.length - 1; i++) for (const sd of [-1, 1]) {
     const [xa, wa, ya] = sec[i], [xb, wb, yb] = sec[i + 1];
-    Mt.beam([xa, ya + 0.95, sd * (wa - 0.1)], [xb, yb + 0.95, sd * (wb - 0.1)], 0.06, 0.06);
-    if (i % 2 === 0 && wa > 0.4) Mt.box(xa - 0.03, ya, sd * (wa - 0.1) - 0.03, xa + 0.03, ya + 0.95, sd * (wa - 0.1) + 0.03, { faces: 'xXzZ' });
+    hq(St, -sd, [xa, ya, sd * (wa - 0.12)], [xb, yb, sd * (wb - 0.12)], [xb, yb + 0.28, sd * (wb - 0.1)], [xa, ya + 0.28, sd * (wa - 0.1)], mul3(PAINT, 0.8), xa, ya, xb, ya + 0.28);
+    St.set({ col: mul3(PAINT, 0.7) }); St.beam([xa, ya + 0.29, sd * (wa - 0.11)], [xb, yb + 0.29, sd * (wb - 0.11)], 0.06, 0.04);
+    Mt.set({ col: [0.26, 0.28, 0.29], rm: [0.4, 0.75, 0], em: [0, 0, 0, 0] });
+    Mt.tube([xa, ya + 1.0, sd * (wa - 0.12)], [xb, yb + 1.0, sd * (wb - 0.12)], 0.028, 6);
+    Mt.tube([xa, ya + 0.62, sd * (wa - 0.12)], [xb, yb + 0.62, sd * (wb - 0.12)], 0.018, 5);
+    for (let x = xa; x < xb - 0.05; x += 1.0) if (wa > 0.5) { const t = (x - xa) / (xb - xa), w = lerp(wa, wb, t) - 0.12, y = lerp(ya, yb, t); Mt.tube([x, y + 0.28, sd * w], [x, y + 1.02, sd * w], 0.022, 5); Mt.box(x - 0.05, y + 0.28, sd * w - 0.05, x + 0.05, y + 0.31, sd * w + 0.05, { faces: 'xXzZY' }); }
   }
-  // the hull number on both bows (white stencil from the sign atlas would need text; blocky digits instead)
-  A.set({ col: [0.85, 0.85, 0.82] });
-  for (const sd of [-1, 1]) for (const [dx, h] of [[0, 1.1], [0.8, 1.1], [1.6, 1.1]]) { const x = 7 + dx, w = 0.55; const hw = 3.55 - (x - 4) * 0.12; A.box(x, 1.0, sd * hw - 0.02, x + w, 1.0 + h, sd * hw + 0.02, { faces: sd > 0 ? 'Z' : 'z' }); }
-  // superstructure: a long deckhouse, the bridge on top (lit windows wrapping round), a funnel aft
-  A.set({ col: hexc(0x5a6168), em: em([1.0, 0.75, 0.5], 0.06, DUSK + DIST.ALWAYS) });
-  A.box(-7, 1.25, -2.6, 4.5, 3.6, 2.6, { faces: 'xXzZY' });
-  A.box(-3.5, 3.6, -2.2, 3.5, 6.0, 2.2, { faces: 'xXzZY' });
-  W.set({ col: [0.2, 0.22, 0.24], rm: [0.25, 0, 0], em: em([0.9, 1.0, 0.85], 0.35, DUSK + DIST.ALWAYS), cell: [0, 0, 0, 0] });   // the bridge: lit glass all round
-  W.box(-3.52, 4.6, -2.22, 3.52, 5.6, 2.22, { faces: 'xXzZ', s: 1, wy0: 4.5 });
-  W.box(-7.02, 2.2, -2.62, 4.52, 3.0, 2.62, { faces: 'zZ', s: 1, wy0: 2.1 });
-  // the funnel: an oval stack with a red band and a black cap
-  A.set({ col: hexc(0x3a4046) }); const fsv = A.push(new THREE.Matrix4().makeScale(1, 1, 0.62).setPosition(-5.3, 0, 0)); A.cyl(0, 3.6, 0, 1.0, 0.92, 6.2, 12);
-  A.set({ col: [0.5, 0.06, 0.04] }); A.cyl(0, 5.3, 0, 0.94, 0.935, 5.75, 12, { cap: false }); A.set({ col: [0.04, 0.04, 0.04] }); A.cyl(0, 6.2, 0, 0.92, 0.9, 6.6, 12); A.pop(fsv);
-  // the deckhouse's aft bulkhead (you land 1.5 m from it): plating seams, a steel door with a lit port, a bulkhead lamp,
-  // a pipe run, a lifebuoy rack, a kick plate. And seams down both sides
-  A.set({ col: hexc(0x3a4046), em: [0, 0, 0, 0] });
-  for (let z = -1.95; z <= 2; z += 1.3) A.box(-7.025, 1.25, z - 0.015, -7.0, 3.6, z + 0.015, { faces: 'x' });
-  A.box(-7.025, 2.42, -2.6, -7.0, 2.46, 2.6, { faces: 'x' }); A.box(-7.03, 1.25, -2.6, -7.0, 1.5, 2.6, { faces: 'xY' });
-  for (const sd of [-1, 1]) for (let x = -5.8; x < 4.4; x += 1.3) A.box(x - 0.015, 1.25, sd * 2.6, x + 0.015, 3.6, sd * 2.625, { faces: sd > 0 ? 'Z' : 'z' });
-  A.set({ col: hexc(0x272b30) });
-  A.box(-7.07, 1.32, -1.75, -7.0, 3.25, -0.8, { faces: 'xzZY' });                                  // the door
-  A.box(-7.1, 1.3, -1.82, -7.0, 1.36, -0.73, { faces: 'xzZY' }); A.box(-7.1, 3.22, -1.82, -7.0, 3.3, -0.73, { faces: 'xzZYy' });
-  Mt.set({ col: [0.5, 0.5, 0.48], rm: [0.35, 0.8, 0] });
-  Mt.box(-7.13, 2.2, -0.98, -7.07, 2.3, -0.86); Mt.box(-7.1, 1.6, -1.74, -7.07, 1.68, -1.68); Mt.box(-7.1, 2.9, -1.74, -7.07, 2.98, -1.68);   // handle, hinges
-  Mt.set({ col: [0.3, 0.32, 0.34], rm: [0.4, 0.7, 0] });
-  Mt.box(-7.12, 3.38, -2.6, -7.04, 3.46, 2.6); Mt.box(-7.12, 1.25, 1.9, -7.04, 3.4, 1.98);                                         // pipe runs
-  Lt.set({ col: [1, 0.9, 0.7], rm: [0.3, 0, 0], em: em([1, 0.85, 0.6], 2.6, DUSK + DIST.ALWAYS) });
-  Lt.box(-7.09, 2.55, -1.42, -7.07, 2.8, -1.13, { faces: 'x' });                                   // the door's port
-  Lt.box(-7.16, 3.05, -0.45, -7.0, 3.17, -0.2);                                                    // bulkhead lamp
-  Lt.set({ col: [0.9, 0.35, 0.08], rm: [0.6, 0, 0], em: em([1, 0.4, 0.1], 0.25, DUSK + DIST.ALWAYS) });
-  for (const [y0, z0, y1, z1] of [[1.9, 0.5, 2.0, 1.3], [2.6, 0.5, 2.7, 1.3], [1.9, 0.5, 2.7, 0.6], [1.9, 1.2, 2.7, 1.3]]) Lt.box(-7.09, y0, z0, -7.0, y1, z1);   // lifebuoy
+  // the hull number on both bows: see the 7-segment digits further down
+  // ---- superstructure: a long deckhouse, the bridge on top with framed windows all round, a funnel aft. Painted steel with
+  // grime gradients at the base, a darker roof edge, the plating seams in the texture
+  St.set({ col: PAINT, rm: [0.6, 0.25, 0], em: [0, 0, 0, 0] });
+  St.box(-7, 1.25, -2.6, 4.5, 3.6, 2.6, { faces: 'xXzZ', s: 1, foot: 0.4, top: mul3(PAINT, 1.05) });
+  St.set({ col: mul3(PAINT, 0.82) }); St.box(-7, 3.6, -2.6, 4.5, 3.62, 2.6, { faces: 'Y', s: 1 });
+  St.set({ col: mul3(PAINT, 0.7) }); St.box(-7.06, 3.55, -2.66, 4.56, 3.68, 2.66, { faces: 'xXzZy', s: 1 });   // roof edge gutter
+  St.set({ col: mul3(PAINT, 1.02) }); St.box(-3.5, 3.6, -2.2, 3.5, 6.0, 2.2, { faces: 'xXzZ', s: 1, foot: 0.3 });
+  St.set({ col: mul3(PAINT, 0.8) }); St.box(-3.6, 6.0, -2.3, 3.6, 6.12, 2.3, { faces: 'xXzZYy', s: 1 });
+  // windows: dark glass with a faint lit interior, steel frames with a sill; the bridge gets a continuous band
+  const win = (x0w, x1w, y0w, y1w, zf, sd, lit, rows = 1) => {
+    const Gl = B.get('plain', 'b'); Gl.set({ col: [0.06, 0.07, 0.08], rm: [0.12, 0.6, 0], em: em(lit > 0.3 ? [0.8, 0.92, 1] : [1, 0.8, 0.55], lit, ALW) });
+    Gl.box(x0w, y0w, zf - 0.01, x1w, y1w, zf + 0.01, { faces: sd > 0 ? 'Z' : 'z' });
+    Mt.set({ col: [0.2, 0.21, 0.22], rm: [0.4, 0.7, 0] });
+    const fz = zf + sd * 0.03;
+    for (const [a, b, c, d] of [[x0w - 0.05, y0w - 0.05, x1w + 0.05, y0w], [x0w - 0.05, y1w, x1w + 0.05, y1w + 0.05], [x0w - 0.05, y0w, x0w, y1w], [x1w, y0w, x1w + 0.05, y1w]]) Mt.box(a, b, Math.min(zf, fz), c, d, Math.max(zf, fz), { faces: 'xXzZyY' });
+    Mt.box(x0w - 0.08, y0w - 0.09, Math.min(zf, zf + sd * 0.08), x1w + 0.08, y0w - 0.05, Math.max(zf, zf + sd * 0.08), { faces: 'xXzZY' });
+    void rows;
+  };
+  for (const sd of [-1, 1]) {
+    for (let x = -5.9; x < 3.8; x += 1.35) if (Math.abs(x + 5.3) > 0.9) win(x, x + 0.7, 2.25, 3.0, sd * 2.605, sd, 0.18 + ((x * 7) % 2 > 1 ? 0.12 : 0));
+    for (let x = -3.2; x < 3.2; x += 0.92) win(x, x + 0.8, 4.55, 5.55, sd * 2.205, sd, 0.36);
+  }
+  { const Gl = B.get('plain', 'b'); Gl.set({ col: [0.06, 0.07, 0.08], rm: [0.12, 0.6, 0], em: em([0.8, 0.92, 1], 0.4, ALW) });
+    for (let z = -1.9; z < 1.8; z += 0.95) { Gl.box(3.495, 4.55, z, 3.51, 5.55, z + 0.8, { faces: 'X' }); Mt.box(3.5, 4.5, z - 0.05, 3.54, 5.6, z, { faces: 'xXzZ' }); }
+    Mt.box(3.5, 4.48, -2.2, 3.62, 4.53, 2.2, { faces: 'XY' }); }
+  // the funnel: an oval stack with a red band and a black cap (soot down its aft side)
+  A.set({ col: [0.28, 0.3, 0.31], rm: [0.6, 0.2, 0], em: [0, 0, 0, 0] }); const fsv = A.push(new THREE.Matrix4().makeScale(1, 1, 0.62).setPosition(-5.3, 0, 0)); A.cyl(0, 3.6, 0, 1.0, 0.92, 6.2, 14);
+  A.set({ col: [0.42, 0.05, 0.03] }); A.cyl(0, 5.3, 0, 0.94, 0.935, 5.75, 14, { cap: false }); A.set({ col: [0.03, 0.03, 0.03] }); A.cyl(0, 6.2, 0, 0.92, 0.9, 6.6, 14); A.pop(fsv);
+  // ---- the deckhouse's aft bulkhead: you land 1.5 m from it and look at it under the credits, so it gets the most:
+  // a watertight door (frame, six dogs, a lit round port), a caged bulkhead lamp, a lifebuoy ring on its rack, a fire
+  // extinguisher, a junction box and conduit, a vent louvre, a ladder to the roof, a hazard-striped kick plate
+  const BX = -7.0;
+  St.set({ col: mul3(PAINT, 0.72) });
+  St.box(BX - 0.08, 1.28, -1.86, BX, 3.32, -0.7, { faces: 'xzZY', s: 1 });                       // the door frame (a raised coaming)
+  St.set({ col: mul3(PAINT, 0.88) }); St.box(BX - 0.12, 1.4, -1.78, BX - 0.08, 3.22, -0.78, { faces: 'xzZYy', s: 1 });   // the door leaf
+  Mt.set({ col: [0.35, 0.35, 0.33], rm: [0.35, 0.8, 0] });
+  for (const [y, zz] of [[1.75, -1.72], [2.35, -1.72], [2.95, -1.72], [1.75, -0.84], [2.35, -0.84], [2.95, -0.84]]) { Mt.box(BX - 0.17, y - 0.025, zz - 0.02, BX - 0.11, y + 0.025, zz + 0.02); Mt.box(BX - 0.19, y - 0.11, zz - 0.015, BX - 0.16, y + 0.03, zz + 0.015); }
+  Mt.tube([BX - 0.16, 2.72, -1.28], [BX - 0.1, 2.72, -1.28], 0.17, 12);
+  Lt.set({ col: [1, 0.88, 0.66], rm: [0.2, 0, 0], em: em([1, 0.82, 0.55], 1.8, ALW) }); Lt.tube([BX - 0.17, 2.72, -1.28], [BX - 0.16, 2.72, -1.28], 0.13, 12);
+  // the caged lamp over the door
+  Mt.set({ col: [0.16, 0.17, 0.17], rm: [0.4, 0.6, 0] }); Mt.box(BX - 0.12, 3.38, -1.42, BX, 3.46, -1.14, { faces: 'xzZYy' });
+  Lt.set({ col: [1, 0.92, 0.75], em: em([1, 0.85, 0.6], 3.2, ALW) }); Lt.tube([BX - 0.1, 3.3, -1.28], [BX - 0.1, 3.38, -1.28], 0.1, 10); Lt.tube([BX - 0.1, 3.22, -1.28], [BX - 0.1, 3.3, -1.28], 0.085, 10);
+  for (const zz of [-1.38, -1.18]) Mt.tube([BX - 0.2, 3.2, zz], [BX - 0.2, 3.38, zz], 0.008, 4); Mt.tube([BX - 0.2, 3.2, -1.38], [BX - 0.2, 3.2, -1.18], 0.008, 4);
+  // the lifebuoy: an orange ring with four white bands on a bracket, a coiled line under it
+  { const cz = 0.95, cy = 2.35, R = 0.31, N = 16;
+    Mt.set({ col: [0.25, 0.26, 0.26] }); Mt.box(BX - 0.1, cy + R - 0.05, cz - 0.04, BX, cy + R + 0.07, cz + 0.04);
+    for (let k = 0; k < N; k++) { const a0 = k / N * Math.PI * 2, a1 = (k + 1) / N * Math.PI * 2;
+      Lt.set({ col: k % 4 === 0 ? [0.85, 0.84, 0.8] : [0.85, 0.28, 0.06], rm: [0.65, 0, 0], em: [0, 0, 0, 0] });
+      Lt.tube([BX - 0.1, cy + Math.sin(a0) * R, cz + Math.cos(a0) * R], [BX - 0.1, cy + Math.sin(a1) * R, cz + Math.cos(a1) * R], 0.065, 7); }
+    A.set({ col: [0.6, 0.55, 0.42] }); for (let k = 0; k < 10; k++) { const a0 = k / 10 * Math.PI * 2, a1 = (k + 1) / 10 * Math.PI * 2; A.tube([BX - 0.07, 1.75 + Math.sin(a0) * 0.16, cz + Math.cos(a0) * 0.12], [BX - 0.07, 1.75 + Math.sin(a1) * 0.16, cz + Math.cos(a1) * 0.12], 0.02, 4); } }
+  // fire extinguisher on a bracket, a red cabinet, a junction box with conduit up to the roof edge, a vent louvre
+  A.set({ col: [0.55, 0.06, 0.04], rm: [0.4, 0.2, 0] }); A.cyl(BX - 0.14, 1.36, 1.9, 0.09, 0.09, 1.92, 10); A.set({ col: [0.08, 0.08, 0.08] }); A.cyl(BX - 0.14, 1.92, 1.9, 0.04, 0.03, 2.02, 6);
+  St.set({ col: [0.4, 0.08, 0.06] }); St.box(BX - 0.18, 2.6, 1.62, BX, 3.15, 2.18, { faces: 'xzZYy', s: 1 }); St.set({ col: [0.3, 0.06, 0.05] }); St.box(BX - 0.19, 2.64, 1.66, BX - 0.18, 3.11, 2.14, { faces: 'x', s: 1 });
+  A.set({ col: [0.7, 0.68, 0.62] }); A.box(BX - 0.195, 3.0, 1.74, BX - 0.19, 3.06, 2.06, { faces: 'x' }); Mt.set({ col: [0.6, 0.6, 0.58], rm: [0.3, 0.8, 0] }); Mt.box(BX - 0.23, 2.8, 1.68, BX - 0.19, 2.9, 1.72);
+  Mt.set({ col: [0.32, 0.34, 0.34], rm: [0.4, 0.6, 0] }); Mt.box(BX - 0.14, 2.0, -0.42, BX, 2.36, -0.1, { faces: 'xzZYy' });
+  Mt.tube([BX - 0.06, 2.36, -0.26], [BX - 0.06, 3.55, -0.26], 0.025, 6); Mt.tube([BX - 0.06, 2.0, -0.18], [BX - 0.06, 1.3, -0.18], 0.025, 6);
+  St.set({ col: mul3(PAINT, 0.6) }); for (let k = 0; k < 6; k++) St.box(BX - 0.06, 3.0 + k * 0.08, -0.05, BX, 3.04 + k * 0.08, 0.45, { faces: 'xYy', s: 1 });
+  // hazard stripes on the kick plate along the bulkhead's foot (worn: dark yellow on black)
+  for (let k = 0; k < 13; k++) { const z = -2.6 + k * 0.4; A.set({ col: k % 2 ? [0.42, 0.33, 0.06] : [0.05, 0.05, 0.05], rm: [0.7, 0, 0] }); A.box(BX - 0.02, 1.25, z, BX, 1.45, Math.min(2.6, z + 0.4), { faces: 'x' }); }
+  // the ladder up the port aft corner to the deckhouse roof
+  Mt.set({ col: [0.24, 0.25, 0.26], rm: [0.4, 0.7, 0] });
+  for (const zz of [-2.45, -2.05]) Mt.tube([BX - 0.22, 1.25, zz], [BX - 0.22, 4.4, zz], 0.025, 6);
+  for (let y = 1.55; y < 3.7; y += 0.3) Mt.tube([BX - 0.22, y, -2.45], [BX - 0.22, y, -2.05], 0.018, 5);
+  // stiffener ribs and seams down the deckhouse's long sides
+  St.set({ col: mul3(PAINT, 0.76) }); for (const sd of [-1, 1]) for (let x = -5.8; x < 4.4; x += 1.3) St.box(x - 0.03, 1.25, Math.min(sd * 2.6, sd * 2.64), x + 0.03, 3.6, Math.max(sd * 2.6, sd * 2.64), { faces: sd > 0 ? 'ZxX' : 'zxX', s: 1 });
   // the lattice radar mast with a yard, a horn antenna on top
   Mt.set({ col: [0.3, 0.32, 0.34], rm: [0.4, 0.7, 0] });
   for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) Mt.beam([dx * 2, 6.0, dz * 2], [dx * 0.4, 11, dz * 0.4], 0.07, 0.07);
@@ -221,8 +282,21 @@ export function buildGunboat() {
       Sb.set({ col: [0.42 * g2, 0.38 * g2, 0.27 * g2], rm: [0.95, 0, 0], em: [0, 0, 0, 0] }); for (const yy of [1.45, 1.75]) Sb.obox(9.5 + c * 1.75, yy + 0.15, sn * 1.75, 0.38, 0.15, 0.22, -a + Math.PI / 2); }
     Mt.set({ col: [0.22, 0.27, 0.18], rm: [0.6, 0.4, 0] }); Mt.box(7.5, 1.6, 1.3, 8.1, 1.95, 1.75); }
   // deck floods on the deckhouse's aft corners: a warm pool on the aft deck you land on
-  Lt.set({ col: [1, 0.95, 0.85], rm: [0.3, 0, 0], em: em([1, 0.85, 0.6], 3.2, DUSK + DIST.ALWAYS) }); for (const z of [-2.3, 2.3]) Lt.box(-7.25, 3.45, z - 0.18, -7.05, 3.6, z + 0.18, { faces: 'xy' });
-  { const P2 = B.get('plain', 'b'); P2.set({ col: [0.05, 0.05, 0.05], rm: [0.9, 0, 0], em: em([1, 0.78, 0.5], 0.22, DUSK + DIST.ALWAYS) }); P2.box(-12.6, 1.3, -2.6, -7.2, 1.305, 2.6, { faces: 'Y' }); }
+  // the deck floods: caged housings on the deckhouse roof's aft corners, tilted down at the aft deck (their pools are baked
+  // into the deck's vertices above), and one at the foot of the mast over the foredeck
+  for (const [fx, fy, fz, dir] of [[-7.3, 3.68, -2.3, -1], [-7.3, 3.68, 2.3, -1], [4.62, 3.68, 0, 1]]) {
+    const hsv = Mt.push(new THREE.Matrix4().makeRotationZ(dir * 0.5).setPosition(fx, fy + 0.18, fz));
+    Mt.set({ col: [0.15, 0.16, 0.16], rm: [0.4, 0.6, 0] }); Mt.box(-0.2, -0.15, -0.17, 0.2, 0.15, 0.17, { faces: 'xXzZYy' });
+    Mt.box(dir * 0.2 - 0.02, -0.17, -0.19, dir * 0.2 + 0.02, 0.17, 0.19, { faces: 'zZYy' }); Mt.pop(hsv);
+    const lsv = Lt.push(new THREE.Matrix4().makeRotationZ(dir * 0.5).setPosition(fx, fy + 0.18, fz)); Lt.set({ col: [1, 0.95, 0.85], rm: [0.3, 0, 0], em: em([1, 0.85, 0.6], 2.4, ALW) }); Lt.box(dir * 0.2 - 0.005, -0.12, -0.14, dir * 0.2 + 0.005, 0.12, 0.14, { faces: dir < 0 ? 'x' : 'X' }); Lt.pop(lsv);
+    Mt.set({ col: [0.15, 0.16, 0.16] }); Mt.box(fx - 0.04, 3.62, fz - 0.04, fx + 0.04, fy + 0.1, fz + 0.04, { faces: 'xXzZ' });
+  }
+  // the stern: mooring bitts, a fairlead, two coils of line, a towing hook on the transom
+  Mt.set({ col: [0.12, 0.12, 0.13], rm: [0.45, 0.6, 0] });
+  for (const sd of [-1, 1]) { for (const dx of [0, 0.55]) Mt.cyl(-14.9 + dx, 1.25, sd * 2.7, 0.14, 0.14, 1.72, 10); Mt.box(-14.95, 1.25, sd * 2.7 - 0.18, -14.3, 1.32, sd * 2.7 + 0.18); }
+  A.set({ col: [0.3, 0.26, 0.18], rm: [0.95, 0, 0], em: [0, 0, 0, 0] });
+  for (const [cx, cz] of [[-11.4, -1.9], [-10.6, 2.1]]) for (let l = 0; l < 4; l++) { const R = 0.42 - l * 0.035, y = 1.3 + l * 0.05; for (let k = 0; k < 12; k++) { const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2; A.tube([cx + Math.cos(a0) * R, y, cz + Math.sin(a0) * R], [cx + Math.cos(a1) * R, y, cz + Math.sin(a1) * R], 0.035, 4); } }
+  Mt.set({ col: [0.2, 0.21, 0.22] }); Mt.box(x0 - 0.12, 1.6, -0.3, x0 + 0.05, 1.9, 0.3); Mt.tube([x0 - 0.12, 1.75, 0], [x0 - 0.4, 1.5, 0], 0.05, 6);
   B.finish(g);
   const B2 = new Buckets(); for (const [k, m] of Object.entries(M)) B2.mat(k, m);
   // a twin heavy-MG mount: a pedestal, the cradle, an angled shield, two barrels with flash hiders, ammo cans
@@ -236,8 +310,17 @@ export function buildGunboat() {
   B2.finish(gun); g.add(gun);
   // the stern: red fuel drums lashed by the rail (the boat's weak spot)
   const drums = new THREE.Group(); const B3 = new Buckets(); for (const [k, m] of Object.entries(M)) B3.mat(k, m);
-  const Dr = B3.get('plain', 'd'); Dr.set({ col: hexc(0x8a1a12), rm: [0.5, 0.3, 0], em: [0, 0, 0, 0] });
-  for (const [x, z] of [[-14, -1.9], [-14, -0.9], [-13, -1.9], [-13, -0.9], [-14, 0.1]]) Dr.cyl(x, 1.25, z, 0.3, 0.3, 2.15, 10);
+  // (on a pallet, under a ratchet strap: ribbed steel drums, chipped red with grey lids and a hazard label)
+  const Dr = B3.get('steel', 'd'), Pw = B3.get('wood', 'd'), Ds = B3.get('plain', 'd');
+  Pw.set({ col: [0.34, 0.26, 0.18], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); for (let k = 0; k < 5; k++) Pw.box(-14.55, 1.25, -2.45 + k * 0.6, -12.45, 1.37, -2.3 + k * 0.6, { faces: 'xXzZY', s: 1 });
+  for (const [x, z, t] of [[-14, -1.9, 0], [-14, -0.9, 1], [-13, -1.9, 2], [-13, -0.9, 0], [-14, 0.1, 1], [-13, 0.1, 2]]) {
+    const c = [[0.42, 0.07, 0.05], [0.5, 0.1, 0.06], [0.38, 0.06, 0.04]][t];
+    Dr.set({ col: c, rm: [0.5, 0.35, 0], em: [0, 0, 0, 0] }); Dr.cyl(x, 1.37, z, 0.29, 0.29, 2.25, 14, { cap: false, uS: 1 });
+    for (const yy of [1.66, 1.96]) Dr.cyl(x, yy, z, 0.302, 0.302, yy + 0.04, 14, { cap: false });
+    Ds.set({ col: [0.32, 0.33, 0.33], rm: [0.4, 0.6, 0], em: [0, 0, 0, 0] }); Ds.cyl(x, 2.25, z, 0.3, 0.29, 2.28, 14); Ds.set({ col: [0.15, 0.15, 0.15] }); Ds.cyl(x + 0.14, 2.28, z + 0.08, 0.04, 0.04, 2.3, 6);
+    Ds.set({ col: [0.75, 0.6, 0.1], rm: [0.7, 0, 0] }); Ds.box(x - 0.08, 1.75, z - 0.3, x + 0.08, 1.9, z - 0.29, { faces: 'z' }); Ds.box(x - 0.08, 1.75, z + 0.29, x + 0.08, 1.9, z + 0.3, { faces: 'Z' });
+  }
+  Ds.set({ col: [0.65, 0.5, 0.08], rm: [0.8, 0, 0] }); for (const x of [-14.3, -12.75]) Ds.box(x, 2.28, -2.25, x + 0.05, 2.3, 0.45, { faces: 'Y' });
   B3.finish(drums); g.add(drums);
   // the wake: a foam V spreading behind the stern, and the bow wave (noise-streaked, scrolling with the boat)
   const wakeMat = new THREE.ShaderMaterial({
@@ -267,7 +350,7 @@ export function buildGunboat() {
   wake.renderOrder = 16; wake.frustumCulled = false; g.add(wake);
   g.userData = { gun, drums, wake, deck: new THREE.Vector3(-8.5, 1.3, 0.8), lamp: new THREE.Vector3(0.6, 6.4, 0), gunner: new THREE.Vector3(8.2, 1.25, 0), crew: [new THREE.Vector3(-5, 1.25, -2.4), new THREE.Vector3(5.8, 1.6, 2.4)], drumsP: new THREE.Vector3(-13.5, 1.7, -1.2),
     nav: [[new THREE.Vector3(0, 6.25, -2.4), [3, 0.15, 0.1]], [new THREE.Vector3(0, 6.25, 2.4), [0.15, 3, 0.4]], [new THREE.Vector3(0, 13.4, 0), [3, 2.9, 2.6]],
-      [new THREE.Vector3(-7.3, 3.5, -2.3), [1.6, 1.3, 0.9]], [new THREE.Vector3(-7.3, 3.5, 2.3), [1.6, 1.3, 0.9]], [new THREE.Vector3(4.6, 3.8, 0), [1.6, 1.3, 0.9]], [new THREE.Vector3(x1 - 1, 2.9, 0), [1.4, 1.2, 0.8]]],
+      [new THREE.Vector3(-7.52, 3.74, -2.3), [1.2, 1.0, 0.7]], [new THREE.Vector3(-7.52, 3.74, 2.3), [1.2, 1.0, 0.7]], [new THREE.Vector3(4.84, 3.74, 0), [1.2, 1.0, 0.7]], [new THREE.Vector3(x1 - 1, 2.9, 0), [1.4, 1.2, 0.8]]],
     funnel: new THREE.Vector3(-5.3, 6.7, 0) };
   return g;
 }

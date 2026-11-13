@@ -9,7 +9,7 @@ import { makeRng } from '../../rng.js';
 //  with moss, worn granite steps, wet asphalt, stained plaster, dark timber, grey clay tile roofs,
 //  layered sandstone.
 // =====================================================================================
-export const TS = { concrete: 4, stone: 3, asphalt: 6, plaster: 4, wood: 2, roof: 2.4, rock: 9, tile: 2, metal: 3 };
+export const TS = { concrete: 4, stone: 3, asphalt: 6, plaster: 4, wood: 2, roof: 2.4, rock: 9, tile: 2, metal: 3, steel: 3, deck: 2, granite: 1.6 };
 const S = 512;
 
 function px(c) { const x = c.getContext('2d'); return { x, img: x.createImageData(c.width, c.height) }; }
@@ -212,11 +212,83 @@ export function metalTex(seed = 91) {
   return { map: canvasTex(c) };
 }
 
+// ---------------------------------------------------------------- painted ship steel (the gunboat, the barges): welded plates
+// (1.5 × 1 m), seams with a highlight above and a shadow below, chipped paint showing primer and rust, rust weeping DOWN
+// from the seams and the fixings, rain streaks. Near-neutral grey: vertex colours tint it.
+export function steelTex(seed = 61) {
+  const c = makeCanvas(S, S), { x, img } = px(c), d = img.data, H = new Float32Array(S * S);
+  const n1 = makeNoise(seed, 8), n2 = makeNoise(seed + 1, 32), n3 = makeNoise(seed + 2, 128), n4 = makeNoise(seed + 3, 16);
+  const r = makeRng(seed);
+  // rust runs: start on a horizontal seam or a random fixing, run down the canvas (= down the wall)
+  const runs = new Float32Array(S * S);
+  for (let k = 0; k < 40; k++) {
+    const x0 = Math.floor(r() * S), y0 = r() < 0.75 ? Math.floor(Math.floor(r() * 3) * S / 3) : Math.floor(r() * S), len = 15 + r() * 110, w = 0.6 + r() * 1.8, a = 0.2 + r() * 0.45;
+    for (let yy = 0; yy < len; yy++) { const fy = (y0 + yy) % S, fall = (1 - yy / len) * a, wob = Math.sin(yy * 0.07 + k) * 1.2;
+      for (let i = -Math.ceil(w); i <= Math.ceil(w); i++) { const fx = (x0 + i + Math.round(wob) + S) % S; runs[fy * S + fx] = Math.max(runs[fy * S + fx], fall * (1 - Math.abs(i) / (w + 1))); } }
+  }
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const u = xx / S, v = y / S, i = y * S + xx;
+    const pu = (u * 2) % 1, pv = (v * 3) % 1;                       // plates: 2 across, 3 down a 3 m tile
+    const sx = Math.min(pu, 1 - pu) * S / 2, sy = Math.min(pv, 1 - pv) * S / 3;
+    const seam = Math.min(sx, sy) < 1.6 ? 1 : 0, bead = Math.min(sx, sy) < 3.2 ? 1 - Math.min(sx, sy) / 3.2 : 0;
+    const big = fbm(n1, u, v, 2, 4), mid = fbm(n2, u, v, 8, 3), fine = n3(u * 128, v * 128);
+    const chip = Math.max(0, fbm(n4, u, v, 16, 3) - 0.66) * 5;      // paint chips
+    const streak = (fbm(n2, u * 6, v * 0.4, 4, 2) - 0.5) * 0.12;   // rain streaks (stretched vertically)
+    let L = 0.74 + (big - 0.5) * 0.12 + (mid - 0.5) * 0.08 + (fine - 0.5) * 0.04 + streak;
+    L *= seam ? 0.55 : 1;
+    // rust: a dull orange-brown (not red: bright red runs read as blood at night), mixed over the paint
+    const a = Math.min(0.7, runs[i] * 0.8 + chip * 0.35 + seam * 0.12 * mid), rk = 0.65 + 0.35 * mid;
+    const dark = Math.min(1, chip * 0.4), g = L * (1 - dark * 0.25);
+    const R = g * (1 - a) + 0.46 * rk * a, G = g * (1 - a) + 0.3 * rk * a, Bb = g * (1 - a) + 0.18 * rk * a;
+    const i4 = i * 4; d[i4] = cl(R * 255); d[i4 + 1] = cl(G * 255); d[i4 + 2] = cl(Bb * 255); d[i4 + 3] = 255;
+    H[i] = bead * 0.6 - seam * 0.3 + (big - 0.5) * 0.25 - chip * 0.08 + fine * 0.04;
+  }
+  x.putImageData(img, 0, 0);
+  return { map: canvasTex(c), normal: heightToNormal(H, S, S, 2.4) };
+}
+// ---------------------------------------------------------------- anti-skid deck: grit, scuffed walkways, rust spots, weld lines
+export function deckTex(seed = 71) {
+  const c = makeCanvas(S, S), { x, img } = px(c), d = img.data, H = new Float32Array(S * S);
+  const n1 = makeNoise(seed, 8), n2 = makeNoise(seed + 1, 32), n3 = makeNoise(seed + 2, 256), n4 = makeNoise(seed + 3, 16);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const u = xx / S, v = y / S, i = y * S + xx;
+    const grit = n3(u * 256, v * 256), big = fbm(n1, u, v, 2, 4), mid = fbm(n2, u, v, 8, 3);
+    const weld = Math.min((u * 1) % 1, 1 - (u * 1) % 1) * S < 1.4 ? 1 : 0;
+    const scuff = Math.max(0, fbm(n4, u * 0.6, v * 2.2, 4, 3) - 0.48) * 1.6;      // boot wear
+    const rust = Math.max(0, fbm(n4, u + 0.37, v + 0.11, 8, 3) - 0.68) * 3.5;
+    let L = 0.6 + (big - 0.5) * 0.16 + (mid - 0.5) * 0.1 + (grit - 0.5) * 0.22 + scuff * 0.14;
+    L *= weld ? 0.6 : 1;
+    const i4 = i * 4; d[i4] = cl((L * (1 - rust * 0.2) + rust * 0.18) * 255); d[i4 + 1] = cl((L * (1 - rust * 0.5) + rust * 0.07) * 255); d[i4 + 2] = cl((L * (1 - rust * 0.7) + rust * 0.02) * 255); d[i4 + 3] = 255;
+    H[i] = (grit - 0.5) * 0.5 - weld * 0.3 - scuff * 0.15;
+  }
+  x.putImageData(img, 0, 0);
+  return { map: canvasTex(c), normal: heightToNormal(H, S, S, 1.6) };
+}
+// ---------------------------------------------------------------- speckled granite (the Hundred Steps' treads): no joints, so it
+// can run across any tread; black and white flecks, a soft mottle, polished where feet go, grime in the low spots
+export function graniteTex(seed = 81) {
+  const c = makeCanvas(S, S), { x, img } = px(c), d = img.data, H = new Float32Array(S * S);
+  const n1 = makeNoise(seed, 8), n2 = makeNoise(seed + 1, 64), n3 = makeNoise(seed + 2, 256), n4 = makeNoise(seed + 3, 24);
+  for (let y = 0; y < S; y++) for (let xx = 0; xx < S; xx++) {
+    const u = xx / S, v = y / S, i = y * S + xx;
+    const fleck = n3(u * 256, v * 256), f2 = n2(u * 64, v * 64), big = fbm(n1, u, v, 2, 4);
+    let L = 0.66 + (big - 0.5) * 0.1 + (f2 - 0.5) * 0.1;
+    if (fleck > 0.78) L *= 0.45; else if (fleck < 0.12) L *= 1.22;    // biotite / quartz
+    const dirt = Math.max(0, fbm(n4, u, v, 4, 3) - 0.55) * 1.5;
+    L *= 1 - dirt * 0.25;
+    const pink = (fbm(n1, u + 0.4, v, 4, 2) - 0.5) * 0.06;
+    const i4 = i * 4; d[i4] = cl((L + pink) * 240); d[i4 + 1] = cl(L * 232); d[i4 + 2] = cl((L - pink * 0.5) * 224); d[i4 + 3] = 255;
+    H[i] = (fleck - 0.5) * 0.2 + (big - 0.5) * 0.3 - dirt * 0.2;
+  }
+  x.putImageData(img, 0, 0);
+  return { map: canvasTex(c), normal: heightToNormal(H, S, S, 1.2) };
+}
+
 // ---------------------------------------------------------------- one place to get them (built once)
 let _T = null;
 export function textures() {
   if (_T) return _T;
-  _T = { concrete: concreteTex(), stone: stoneTex(), asphalt: asphaltTex(), plaster: plasterTex(), wood: woodTex(), roof: roofTex(), rock: rockTex(), tile: tileTex(), metal: metalTex() };
+  _T = { concrete: concreteTex(), stone: stoneTex(), asphalt: asphaltTex(), plaster: plasterTex(), wood: woodTex(), roof: roofTex(), rock: rockTex(), tile: tileTex(), metal: metalTex(), steel: steelTex(), deck: deckTex(), granite: graniteTex() };
   return _T;
 }
 export { THREE };
