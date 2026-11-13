@@ -116,7 +116,7 @@ export class Director {
           this._chaseBar();
           const c = setp.cargo;
           const ready = setp.gap !== undefined && setp.gap < 9 && (c.state === 'rotate' || c.state === 'climb');
-          if (ready && !this.jumpPrompt) { this.jumpPrompt = true; hud.objective(g.player.mode === 'vr' ? 'JUMP!  (grip / A)' : 'JUMP!  (SPACE)', 2.5); say('NOW! JUMP!!', 1.6); g.slowmo(1.2, 0.45, true); }
+          if (ready && !this.jumpPrompt) { this.jumpPrompt = true; hud.objective(g.player.mode === 'vr' ? 'JUMP!  (grip / A)' : g.player.touch ? 'JUMP!  (FIRE)' : 'JUMP!  (SPACE)', 2.5); say('NOW! JUMP!!', 1.6); g.slowmo(1.2, 0.45, true); }
           if (ready && (this._jumpPressed() || A || t > 30)) setp.beginLeap();
           if (this.jumpPrompt && !setp.leapT && this.t > 0 && this._promptT === undefined) this._promptT = 0;
           if (this._promptT !== undefined && setp.leapT === undefined) { this._promptT += 1 / 30; if (this._promptT > 3) setp.beginLeap(); }
@@ -178,7 +178,7 @@ export class Director {
   }
   _jumpPressed() {
     const p = this.g.player;
-    if (p.mode === 'desktop') return !!(p.keys?.Space) || !!p.mouseDown?.[0];
+    if (p.mode === 'desktop') return !!(p.keys?.Space) || !!p.mouseDown?.[0] || !!p.touch?.fire;
     for (const c of p.controllers) { const gp = c.source?.gamepad; if (gp && (gp.buttons[1]?.pressed || gp.buttons[4]?.pressed || gp.buttons[5]?.pressed)) return true; }
     return false;
   }

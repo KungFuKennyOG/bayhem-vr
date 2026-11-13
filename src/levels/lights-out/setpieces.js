@@ -514,7 +514,7 @@ export class SetPieces {
       let st = 0;
       const P = g.player;
       if (P?.mode === 'vr') { for (const c of P.controllers) if (c.hand === 'left') { const ax = c.source?.gamepad?.axes?.[2] ?? 0; if (Math.abs(ax) > 0.2) st = ax; } }
-      else if (P?.keys) st = (P.keys.KeyD ? 1 : 0) - (P.keys.KeyA ? 1 : 0);
+      else if (P?.keys) st = Math.max(-1, Math.min(1, (P.keys.KeyD ? 1 : 0) - (P.keys.KeyA ? 1 : 0) + (P.touch?.mx || 0))); // touch: the stick's x
       if (g.auto) st = 0;
       this.rail.step(dt, st);
       const k = clamp(G.t / 0.8, 0, 1);

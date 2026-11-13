@@ -52,7 +52,7 @@ export class Director {
           if (g.player) g.player.autoState.holdFire = true; // let the title breathe
         }, update: (t) => { hud.black.material.opacity = Math.max(0, 1 - t / 1.8); },
         until: (t) => t > (trailer ? 5.5 : 7.5) },
-      { name: 'avenue', wp: V(0, 2.5, -40), hunt: true, arrive: () => alive(s => s.role === 'sniper') === 0, gate: () => this.sniperAt(), gateMsg: 'SNIPER STILL UP!', music: 0.65, dusk: 0.1, enter: () => {
+      { name: 'avenue', wp: V(0, 2.5, -40), hunt: true, arrive: true, music: 0.65, dusk: 0.1, enter: () => {
           hud.objective('Take out the rooftop snipers');
           if (g.player) g.player.autoState.holdFire = false;
           if (!this.introSnipers) this.introSnipers = [sniper('s1', { delay: 0.2 }), sniper('s2', { delay: 0.4, lockTime: 2.4 })];
@@ -65,7 +65,7 @@ export class Director {
           later(2.0, () => say('Two on the roofs, more in the cars! Use the traffic for cover.', 3));
           A?.go([ground(-4.6, 24.5, { slow: 0.55 }), ground(5.4, 15.6, { slow: 0.5 }), ground(-0.6, 6.2, { slow: 0.45 })]);
         }, until: (t) => (t > 4 && alive() === 0) || t > 75 * T },
-      { name: 'avenue2', wp: V(0, 2.5, -53), hunt: true, arrive: () => alive(s => s.role === 'sniper') === 0, gate: () => this.sniperAt(), gateMsg: 'SNIPER STILL UP!', music: 0.8, dusk: 0.16, enter: () => {
+      { name: 'avenue2', wp: V(0, 2.5, -53), hunt: true, arrive: true, music: 0.8, dusk: 0.16, enter: () => {
           sniper('s3', { delay: 0.5 }); sniper('s4', { delay: 2.5, lockTime: 1.9 });
           S({ x: -30, z: -51, delay: 0.6, entry: V(-7.5, 0, -40) });
           S({ x: 30, z: -55, delay: 1.4, entry: V(7.4, 0, -38), flanker: true });
@@ -93,7 +93,7 @@ export class Director {
             }
           }
         }, until: (t) => (setp.heli && !setp.heli.alive && t > 3 && !g.cinematicLook) || t > 150 },
-      { name: 'lobby', wp: V(15.5, 2.6, LOBBY.doors[0][0] + 2), hunt: true, music: 0.85, dusk: 0.3, enter: () => {
+      { name: 'lobby', wp: V(15.5, 2.6, LOBBY.doors[0][0] + 2), hunt: true, arrive: () => setp.lobbyDone, music: 0.85, dusk: 0.3, enter: () => {
           hud.objective('Clear the Haven Trust lobby');
           later(0.8, () => say('They\'re dug in behind the glass at Haven Trust. Go in loud.', 3));
           for (const [x, z, o] of [[21.5, -93, {}], [26, -100, { flanker: true }], [30.4, -103, {}], [34.5, -95, {}], [24.5, -112, {}], [33, -116, { flanker: true }], [38, -107, {}]]) S({ x, z, delay: range(0.2, 1.6), noNade: false, ...o });

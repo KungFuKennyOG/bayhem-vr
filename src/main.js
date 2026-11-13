@@ -12,6 +12,7 @@ import { seed } from './rng.js';
 import { settings, setSetting } from './settings.js';
 import { LEVELS, levelsOf, soonOf, levelById, findLevel, loadLevel, nextLevel } from './levels/index.js';
 import { PAGE_GAME, GAMES, gameUrl } from './game.js';
+import { TOUCH, TouchControls, enterFullscreen, toggleFullscreen, fullscreenAction, fullscreenUseful, isFullscreen, onFullscreenChange } from './touch.js';
 
 // =====================================================================================
 //  BAYHEM boot: shared engine (renderer, atmosphere, FX, HUD, audio) + one level module.
@@ -36,6 +37,7 @@ const MOVED = !CAPTURE && asked && asked.game !== PAGE_GAME;
 if (MOVED) location.replace(gameUrl(asked.game, asked.id));
 const GAME = levelById(LEVEL_ID).game;
 document.title = GAME === 2 ? 'BAYHEM 2' : 'BAYHEM';
+let touchUI = null; // phones / tablets: on-screen controls (src/touch.js)
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
 
@@ -43,14 +45,18 @@ async function boot() {
   const ui = CAPTURE ? null : buildStartScreen();
   await Promise.all([document.fonts.load('400 64px Anton'), document.fonts.load('700 64px Oswald'), document.fonts.load('500 64px Oswald')]).catch(() => {});
   const isQuest = /OculusBrowser|Quest/i.test(navigator.userAgent);
-  const quality = isQuest ? 'quest' : 'high';
+  // phones / tablets get the Quest budget (a Quest 3 is a phone-class GPU): smaller FX pools, cloud pools and
+  // shadow maps. Every level reads E.isQuest only as that budget switch. ?lite=0 forces the full budget.
+  const lite = isQuest || (TOUCH && params.get('lite') !== '0');
+  const quality = lite ? 'quest' : 'high';
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: CAPTURE });
-  renderer.setPixelRatio(CAPTURE ? 1 : Math.min(devicePixelRatio, isQuest ? 1 : 2));
-  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(CAPTURE ? 1 : Math.min(devicePixelRatio, isQuest ? 1 : TOUCH ? 1.5 : 2));
+  // CSS sizes the canvas (100% of the page, see index.html); we only size its drawing buffer (updateStyle = false)
+  renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = (isQuest || params.has('pcf')) ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = (lite || params.has('pcf')) ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   if (params.has('noshadow')) renderer.shadowMap.enabled = false;
   renderer.xr.enabled = true;
   renderer.xr.setReferenceSpaceType('local-floor');
@@ -66,14 +72,14 @@ async function boot() {
 
   const sky = createSky(); scene.add(sky);
   const flare = createSunFlare(); scene.add(flare);
-  const { sun, hemi } = createLights(scene, isQuest ? 1024 : 2048);
+  const { sun, hemi } = createLights(scene, lite ? 1024 : 2048);
   const atlas = buildAtlas(renderer);
   const fx = new FX(scene, atlas, scene.fog, quality);
   const hud = new HUD(scene, camera);
   hud.setAspect(innerWidth / innerHeight);
   const audio = new SoundBus(CAPTURE);
   attachVoice(hud, audio, LEVEL_ID); // driver lines are spoken over the radio
-  const E = { scene, renderer, camera, rig, sky, flare, sun, hemi, atlas, fx, hud, audio, params, quality, flags, isQuest };
+  const E = { scene, renderer, camera, rig, sky, flare, sun, hemi, atlas, fx, hud, audio, params, quality, flags, isQuest: lite, touch: TOUCH };
 
   const levelMod = await loadLevel(LEVEL_ID);
   const L = await levelMod.create(E);
@@ -133,18 +139,36 @@ async function boot() {
 
   // ---------------- live loop + start screen ----------------
   let last = performance.now();
+  // fit the drawing buffer to the canvas as CSS lays it out (width / height 100%), checked every frame. Never
+  // trust innerWidth / innerHeight for this: on iPhone (Safari, and home-screen web apps) they can keep the
+  // portrait values after rotating to landscape, which left the game drawn in a portrait-width box on the left
+  // of the screen while the touch overlay (sized by CSS) filled it. Two number compares a frame; never in VR.
+  const cv = renderer.domElement;
+  let fitW = -1, fitH = -1;
+  const fit = () => {
+    if (renderer.xr.isPresenting) return;
+    const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
+    if (w === fitW && h === fitH) return;
+    fitW = w; fitH = h;
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+    hud.setAspect(camera.aspect);
+  };
+  fit();
   renderer.setAnimationLoop(() => {
     const n = performance.now();
     const rdt = Math.min(1 / 20, (n - last) / 1000); last = n;
+    fit();
     frame(rdt);
   });
-  addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-    hud.setAspect(camera.aspect);
-  });
+  addEventListener('resize', fit);
+  // desktop: F toggles full screen (the menu has a button too)
+  addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && !renderer.xr.isPresenting && !TOUCH) toggleFullscreen(); });
+  if (TOUCH && !AUTO) touchUI = new TouchControls(player, camera, { game: GAME });
   if (AUTO) { ui?.remove(); const kick = async () => { removeEventListener('pointerdown', kick); await audio.init(); }; addEventListener('pointerdown', kick); start(); return; }
   const go = async (vr) => {
+    // phones: PLAY goes full screen (landscape where the browser allows it). Must run inside the tap, before any await.
+    if (!vr && TOUCH) enterFullscreen();
     try {
       // request the XR session first: it must happen inside the click's user activation
       const sessionP = vr ? navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] }) : null;
@@ -156,14 +180,16 @@ async function boot() {
         await renderer.xr.setSession(session);
         player.setupVR();
         hud.setVR(true);
+        touchUI?.hide();
         session.addEventListener('end', () => {
-          hud.setVR(false); player.mode = 'desktop';
+          hud.setVR(false); player.mode = 'desktop'; touchUI?.show();
           for (const g of [player.rifle, player.launcher]) { camera.add(g.holder); g.model.setMode?.('desktop'); }
           player.onExitVR?.();
         });
-      } else renderer.domElement.requestPointerLock?.();
+      } else if (!TOUCH) renderer.domElement.requestPointerLock?.();
     } catch (e) { console.warn(e); }
     ui.remove();
+    if (!renderer.xr.isPresenting) touchUI?.show();
     start();
   };
   ui.ready(go);
@@ -195,7 +221,19 @@ const MENU_CSS = `
   #bay button.opt.on{color:#ffd9a8;border-color:rgba(255,179,90,0.7)}
   #bay a.xg{font:700 14px Oswald,sans-serif;letter-spacing:0.22em;color:#ffd9a8;text-decoration:none;padding:8px 16px;border-radius:4px;border:1px solid rgba(255,179,90,0.45);background:rgba(20,10,4,0.5)}
   #bay a.xg:hover{border-color:#ffb35a;color:#fff3df}
-  #bay small{font:500 13px Oswald,sans-serif;color:#d9b99a;letter-spacing:0.08em;max-width:620px;line-height:1.6}`;
+  #bay small{font:500 13px Oswald,sans-serif;color:#d9b99a;letter-spacing:0.08em;max-width:620px;line-height:1.6}
+  /* phones (on their side, or upright): compact cards, PLAY right under the title */
+  @media (max-height: 560px), (max-width: 560px){
+    #bay{gap:10px;padding:10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left))}
+    #bay h1{font-size:clamp(44px,13vh,84px)}
+    #bay .playrow{order:1} #bay .levels{order:2} #bay .opts{order:3} #bay small{order:4;font-size:11px;line-height:1.45}
+    #bay .levels{gap:8px}
+    #bay .lv{width:min(250px,44vw);padding:8px 12px}
+    #bay .lv .t{font-size:21px;margin:1px 0 2px} #bay .lv .n{font-size:12px} #bay .lv .g{font-size:10px;letter-spacing:0.14em}
+    #bay .lv .b,#bay .lv .dz{display:none}
+    #bay button.go{font-size:18px;padding:10px 22px;min-width:150px}
+  }
+  @media (max-width: 560px){ #bay .lv{width:92vw} }`;
 
 // BAYHEM 2: night-blue steel instead of sunset brass, a molten 2, mission-dossier cards, the route across the top
 const MENU_CSS_G2 = `
@@ -246,7 +284,8 @@ const MENU_CSS_G2 = `
   #bay.g2 button.alt{background:rgba(8,14,24,0.7);border-color:#7fa6cf;box-shadow:0 0 18px rgba(80,140,220,0.25)}
   #bay.g2 button.opt,#bay.g2 a.xg{color:#b9cde4;border-color:rgba(140,180,225,0.4);background:rgba(8,14,24,0.6)}
   #bay.g2 button.opt.on{color:#e6f0fc;border-color:rgba(170,205,245,0.75)}
-  #bay.g2 small{color:#93a8c0}`;
+  #bay.g2 small{color:#93a8c0}
+  @media (max-height: 560px), (max-width: 560px){ #bay.g2 h1{font-size:clamp(40px,12vh,78px)} #bay.g2 .lv .dz{display:none} #bay.g2 .lv{padding:8px 14px} #bay.g2 .route{order:1;margin:0} #bay.g2 .sub{margin:-6px 0 0} #bay .lv.soon .stamp{top:10px;font-size:15px} }`;
 
 function buildStartScreen() {
   const d = document.createElement('div');
@@ -261,15 +300,21 @@ function buildStartScreen() {
     ${G.sub ? `<div class="sub">${G.sub}</div>` : ''}
     ${route.length ? `<div class="route">${route.map((l, i) => `${i ? '<span class="leg"></span>' : ''}<span class="stop${l.id === lv.id ? ' sel' : ''}${soon.includes(l) ? ' soon' : ''}"><i></i>${l.code}</span>`).join('')}</div>` : ''}
     <div class="levels">${list.map(l => `<button class="lv${l.id === lv.id ? ' sel' : ''}" data-id="${l.id}">${l.loc ? `<div class="dz"><b>${l.loc}</b><span>${l.time}</span></div>` : ''}<div class="n">LEVEL ${l.num}${l.final ? ' \u00b7 FINAL' : ''}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div></button>`).join('')}${soon.map(l => `<div class="lv soon">${l.loc ? `<div class="dz"><b>${l.loc}</b><span>${l.time}</span></div>` : ''}<div class="n">LEVEL ${l.num}${l.final ? ' \u00b7 FINAL' : ''}</div><div class="t">${l.title}</div><div class="g">${l.tagline}</div><div class="b">${l.blurb}</div><div class="stamp">COMING SOON</div></div>`).join('')}</div>
-    <div class="row"><button id="vr" class="go" disabled>LOADING…</button><button id="play" class="go alt" disabled>LOADING…</button></div>
-    <div class="row"><button id="comfort" class="opt"></button><a class="xg" href="${gameUrl(other, null, false)}">${other === 2 ? 'BAYHEM 2: ABROAD →' : '← BAYHEM: HAVEN CITY'}</a></div>
-    <small>${lv.help}<br>VR: right trigger = rifle, left trigger = grenade launcher, A/X = reload, click the right stick = comfort vignette on/off.<br>Desktop: mouse to aim, left click = rifle, right click = launcher, R = reload.</small>
+    <div class="row playrow"><button id="vr" class="go" disabled>LOADING…</button><button id="play" class="go alt" disabled>LOADING…</button></div>
+    <div class="row opts"><button id="comfort" class="opt"></button>${fullscreenUseful() ? '<button id="fs" class="opt"></button>' : ''}<a class="xg" href="${gameUrl(other, null, false)}">${other === 2 ? 'BAYHEM 2: ABROAD →' : '← BAYHEM: HAVEN CITY'}</a></div>
+    <small>${lv.help}<br>VR: right trigger = rifle, left trigger = grenade launcher, A/X = reload, click the right stick = comfort vignette on/off.<br>${TOUCH ? 'Touch: drag to aim, hold FIRE (slide your thumb on it to aim while firing), NADE = grenade launcher. On foot, your left thumb moves you: push past the ring to sprint.' : 'Desktop: mouse to aim, left click = rifle, right click = launcher, R = reload, F = full screen.'}</small>
   </div>`;
   document.body.appendChild(d);
   const cb = d.querySelector('#comfort');
   const drawComfort = () => { cb.textContent = `COMFORT VIGNETTE: ${settings.comfortVignette ? 'ON' : 'OFF'}`; cb.classList.toggle('on', settings.comfortVignette); };
   drawComfort(); cb.onclick = () => { setSetting('comfortVignette', !settings.comfortVignette); drawComfort(); };
   cb.title = 'Darkens the edges of your view while you move on foot in VR (reduces motion sickness)';
+  if (TOUCH) cb.style.display = 'none'; // a VR setting; it comes back if this device turns out to do VR
+  const fsb = d.querySelector('#fs');
+  if (fsb) {
+    const drawFs = () => { const on = isFullscreen(); fsb.textContent = on ? 'EXIT FULL SCREEN' : 'FULL SCREEN'; fsb.classList.toggle('on', on); };
+    drawFs(); onFullscreenChange(drawFs); fsb.onclick = () => fullscreenAction(GAME);
+  }
   for (const b of d.querySelectorAll('.lv')) b.onclick = () => {
     if (b.dataset.id === lv.id) return;
     safeSet(G.store, b.dataset.id);
@@ -277,15 +322,17 @@ function buildStartScreen() {
   };
   d.ready = (go) => {
     const play = d.querySelector('#play'), vrBtn = d.querySelector('#vr');
-    play.disabled = false; play.textContent = 'PLAY ON DESKTOP'; play.onclick = () => go(false);
+    play.disabled = false; play.textContent = TOUCH ? 'PLAY' : 'PLAY ON DESKTOP'; play.onclick = () => go(false);
     vrBtn.textContent = 'VR NOT DETECTED';
-    if (navigator.xr) navigator.xr.isSessionSupported('immersive-vr').then(ok => { if (ok) { vrBtn.disabled = false; vrBtn.textContent = 'ENTER VR'; vrBtn.onclick = () => go(true); } }).catch(() => {});
+    if (TOUCH) vrBtn.style.display = 'none'; // phones: only show ENTER VR if the device can actually do it
+    if (navigator.xr) navigator.xr.isSessionSupported('immersive-vr').then(ok => { if (ok) { vrBtn.disabled = false; vrBtn.textContent = 'ENTER VR'; vrBtn.onclick = () => go(true); vrBtn.style.display = ''; d.querySelector('#comfort').style.display = ''; } }).catch(() => {});
   };
   return d;
 }
 
 function showEndScreen(renderer, hud) {
   hud?.endCard(true); // no score panel / crosshair behind the end menu
+  touchUI?.hide();
   const s = renderer.xr.getSession?.(); if (s) s.end().catch(() => {});
   document.exitPointerLock?.();
   const nx = nextLevel(LEVEL_ID);
