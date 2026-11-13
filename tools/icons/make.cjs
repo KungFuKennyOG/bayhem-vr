@@ -31,10 +31,16 @@ const draw = `async (game, sizes) => {
   x.fillStyle = g; x.fillRect(0, 0, S, S);
 
   // the B: Anton, the title's gradient (bright top, a dark chrome line through the middle), glow + hard drop
-  const fsz = two ? 700 : 760;
+  // BAYHEM 2: B and the molten 2 side by side at the same height, like the menu title; the pair is centred
+  const fsz = two ? 580 : 760;
+  x.font = 'italic 400 ' + fsz + 'px Anton';
+  const w2 = two ? x.measureText('2').width : 0, gap = fsz * 0.05;
   x.font = '400 ' + fsz + 'px Anton'; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
-  const m = x.measureText('B'), capH = m.actualBoundingBoxAscent;
-  const bx = two ? S * 0.43 : S * 0.5, by = S * 0.5 + capH / 2 + (two ? -10 : 0);
+  const m = x.measureText('B'), capH = m.actualBoundingBoxAscent, wB = m.width;
+  // the 2's skew leans its top right: shift the pair left by half that lean so it reads centred
+  const left = (S - (wB + (two ? gap + w2 : 0))) / 2 - (two ? fsz * 0.03 : 0);
+  const bx = two ? left + wB / 2 : S * 0.5, by = S * 0.5 + capH / 2;
+  const tx2 = left + wB + gap + w2 / 2;
   const top = by - capH;
   const lg = x.createLinearGradient(0, top, 0, by);
   const stops = two ? [[0, '#ffffff'], [0.38, '#dfeaf7'], [0.5, '#3b4d63'], [0.56, '#9fb6cf'], [1, '#eef5ff']]
@@ -49,11 +55,10 @@ const draw = `async (game, sizes) => {
   x.lineWidth = 3; x.strokeStyle = 'rgba(255,255,255,0.25)'; x.strokeText('B', bx, by);
 
   if (two) {
-    // the molten italic 2, low right, over the B's shoulder
+    // the molten italic 2, the B's height, skewed like the title's
     x.save();
-    x.font = 'italic 400 470px Anton';
-    const tx = S * 0.73, ty = by + 40;
-    x.translate(tx, ty); x.transform(1, 0, -0.12, 1, 0, 0);
+    x.font = 'italic 400 ' + fsz + 'px Anton';
+    x.translate(tx2, by); x.transform(1, 0, -0.1, 1, 0, 0);
     const m2 = x.measureText('2'), h2 = m2.actualBoundingBoxAscent;
     const mg = x.createLinearGradient(0, -h2, 0, 0);
     for (const [o, col] of [[0, '#fff4d6'], [0.3, '#ffb14a'], [0.55, '#ff5a14'], [0.78, '#9e1606'], [1, '#ff7a2a']]) mg.addColorStop(o, col);
