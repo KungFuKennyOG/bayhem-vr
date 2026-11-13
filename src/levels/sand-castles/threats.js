@@ -6,20 +6,22 @@ import { buildHammer, heliMaterials } from './helimodel.js';
 
 // =====================================================================================
 //  SAND CASTLES — the close threats. The rooftop squads are 100 m below the door; these come to you:
-//   • DRONES: one-way attack drones in swarms of 3–6, out of the haze on the door side, weaving in at
-//     the cabin. A third aim true (shoot them or eat 12 damage), the rest scream past the door at
-//     8–20 m. Three rounds each; a dying drone's blast takes out its neighbours (swarm chains).
+//   • DRONES: one-way attack drones in swarms of 3–6: a tight V out of the haze on the door side that
+//     holds station off the door and sends them in one at a time, each a committed straight run. A third
+//     aim true (shoot them or eat 12 damage), the rest fuse 9–20 m outside the door. Three rounds each;
+//     a dying drone's blast takes out its neighbours in the V (swarm chains).
 //   • VIPERS: enemy attack helicopters (the HAMMER airframe in charcoal) that make strafing passes
 //     across the door at 40–70 m, nose gun + rocket pods, then swing wide and come round again.
-//   • BOOM: fuel depots and parked helicopters on the fight roofs, and a fuel-tanker convoy on the
+//   • BOOM: fuel dumps (big oil drums) and parked helicopters on the fight roofs, and a fuel-tanker convoy on the
 //     street inside the strike loop. Shoot one: it goes up, takes the squad round it with it, and
 //     sets off anything explosive close by (chains, with a beat between links).
-//  Everything is instanced or pooled: drones 1 draw, depots 1 draw, tankers 1 draw; each Viper /
+//  Everything is instanced or pooled: drones 2 draws (body + spinning prop), depots 1 draw, tankers 1 draw; each Viper /
 //  parked heli is a HAMMER (5 draws), never more than 2 Vipers up at once.
 // =====================================================================================
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+const _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _Z = new THREE.Vector3(0, 0, 1), _UP = new THREE.Vector3(0, 1, 0);
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 const MAX_DRONES = 14, MAX_DEPOTS = 24, MAX_TANKERS = 6;
 
@@ -33,27 +35,66 @@ function colorize(g, c) {
 }
 const mat = () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.65, metalness: 0.2 });
 
-// a delta-wing one-way attack drone, ~3.5 m long, nose -z (built 1.5x so it reads against the haze)
+// a one-way attack drone (a generic loitering munition: no real type), ~3.4 m long, nose -z, built 1.45x so it reads
+// against the haze. A turned fuselage with a rounded nose and a yellow ordnance band, a cropped-delta wing with darker
+// elevons along the trailing edge, wingtip fins above and below, the engine hump; the pusher prop is its own mesh (it spins).
 function droneGeo() {
-  const tan = [0.42, 0.4, 0.35], dark = [0.12, 0.12, 0.12], red = [0.5, 0.06, 0.04];
+  // dark charcoal: a light body vanished into the bright Gulf haze; dark reads as a silhouette against it at 300 m
+  const body = [0.055, 0.055, 0.052], nose = [0.022, 0.022, 0.022], elev = [0.035, 0.035, 0.033], fin = [0.028, 0.028, 0.027], band = [0.62, 0.48, 0.08], vent = [0.07, 0.07, 0.07];
   const parts = [];
-  parts.push(colorize(new THREE.CylinderGeometry(0.2, 0.24, 2.6, 8).rotateX(Math.PI / 2), tan));
-  parts.push(colorize(new THREE.ConeGeometry(0.2, 0.7, 8).rotateX(-Math.PI / 2).translate(0, 0, -1.65), dark));
-  const sh = new THREE.Shape(); sh.moveTo(0, -0.6); sh.lineTo(1.7, 1.25); sh.lineTo(-1.7, 1.25); sh.lineTo(0, -0.6);
-  parts.push(colorize(new THREE.ExtrudeGeometry(sh, { depth: 0.06, bevelEnabled: false }).rotateX(Math.PI / 2).translate(0, 0.03, 0), tan));
-  for (const sx of [-1.65, 1.65]) parts.push(colorize(new THREE.BoxGeometry(0.05, 0.55, 0.5).translate(sx, 0.25, 1.05), dark));
-  parts.push(colorize(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 10).rotateX(Math.PI / 2).translate(0, 0, 1.35), dark)); // the pusher prop disc
-  parts.push(colorize(new THREE.BoxGeometry(0.42, 0.04, 0.2).translate(0, 0.21, -0.6), red));
-  return mergeGeometries(parts).scale(1.5, 1.5, 1.5);
+  // fuselage: lathe profile, y = distance forward from the tail (rotated so +y becomes -z)
+  const prof = [[0.001, -1.42], [0.1, -1.38], [0.15, -1.22], [0.2, -0.9], [0.23, -0.3], [0.23, 0.75], [0.2, 1.1], [0.14, 1.32], [0.06, 1.44], [0.001, 1.47]].map(([r, y]) => new THREE.Vector2(r, y));
+  parts.push(colorize(new THREE.LatheGeometry(prof, 12).rotateX(-Math.PI / 2), body));
+  parts.push(colorize(new THREE.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(-Math.PI / 2).translate(0, 0, -1.3), nose)); // seeker / warhead nose
+  parts.push(colorize(new THREE.CylinderGeometry(0.236, 0.236, 0.12, 12).rotateX(Math.PI / 2).translate(0, 0, -0.85), band));
+  parts.push(colorize(new THREE.CylinderGeometry(0.236, 0.236, 0.05, 12).rotateX(Math.PI / 2).translate(0, 0, -0.68), band));
+  // the engine hump + intake on the spine, aft
+  parts.push(colorize(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 10, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(0, 0.2, 0.9), body));
+  parts.push(colorize(new THREE.CircleGeometry(0.085, 10, 0, Math.PI).rotateY(Math.PI).translate(0, 0.205, 0.649), vent)); // its intake
+  // cropped delta: root from just behind the band to the tail, tips cut square; elevons a darker strip on the trailing edge
+  const W = (pts, col, y = 0, depth = 0.05) => { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for (const q of pts.slice(1)) sh.lineTo(q[0], q[1]);
+    parts.push(colorize(new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 1 }).rotateX(Math.PI / 2).translate(0, y + depth * 0.5, 0), col)); };
+  for (const sx of [-1, 1]) {
+    W([[0.18 * sx, -0.42], [1.24 * sx, 0.78], [1.24 * sx, 1.04], [0.18 * sx, 1.08]], body);
+    W([[0.34 * sx, 0.93], [1.18 * sx, 0.96], [1.18 * sx, 1.06], [0.34 * sx, 1.08]], elev, 0.012, 0.04);
+    // wingtip fin: swept, mostly above the wing, a small ventral stub
+    const f = new THREE.Shape(); f.moveTo(0.62, 0); f.lineTo(0.86, 0.42); f.lineTo(1.08, 0.42); f.lineTo(1.08, -0.14); f.lineTo(0.72, -0.14); f.lineTo(0.62, 0);
+    parts.push(colorize(new THREE.ExtrudeGeometry(f, { depth: 0.035, bevelEnabled: false }).rotateY(-Math.PI / 2).translate(1.24 * sx + 0.017, 0.02, 0), fin));
+  }
+  return mergeGeometries(parts).scale(1.45, 1.45, 1.45);
 }
-// a rooftop fuel depot: a white bulk tank on saddles with a red band, a cluster of red drums (1.5x)
+// the pusher prop: two blades and a spinner (its own instanced mesh so it can spin)
+function propGeo() {
+  const dark = [0.06, 0.06, 0.06];
+  return mergeGeometries([
+    colorize(new THREE.BoxGeometry(0.62, 0.075, 0.02), dark), colorize(new THREE.BoxGeometry(0.075, 0.62, 0.02), dark),
+    colorize(new THREE.ConeGeometry(0.09, 0.18, 8).rotateX(Math.PI / 2).translate(0, 0, 0.08), [0.2, 0.2, 0.19]),
+  ]).scale(1.45, 1.45, 1.45);
+}
+// a rooftop fuel dump: a cluster of big oil drums (1.5x: ~2.1 m tall each), red with rolling hoops, two yellow hazard
+// bands and dark lids; one lies on its side on top of the front row, one has tipped over. Reads as "shoot me" without
+// the white bulk tank, which looked like a prop dropped in from another game.
 function depotGeo() {
-  const white = [0.72, 0.71, 0.66], red = [0.52, 0.07, 0.05], grey = [0.22, 0.22, 0.21];
+  const red = [0.5, 0.075, 0.05], hoop = [0.3, 0.05, 0.035], yel = [0.66, 0.5, 0.07], lid = [0.12, 0.12, 0.11], rust = [0.33, 0.16, 0.07];
   const p = [];
-  p.push(colorize(new THREE.CylinderGeometry(1.3, 1.3, 6, 16).rotateZ(Math.PI / 2).translate(0, 1.75, 0), white));
-  p.push(colorize(new THREE.CylinderGeometry(1.34, 1.34, 0.5, 16).rotateZ(Math.PI / 2).translate(0, 1.75, 0), red));
-  for (const sx of [-2, 2]) p.push(colorize(new THREE.BoxGeometry(0.4, 0.8, 2.2).translate(sx, 0.4, 0), grey));
-  for (const [dx, dz] of [[-1.2, 2.3], [-0.4, 2.6], [0.5, 2.25], [1.3, 2.6], [-0.8, 3.2]]) p.push(colorize(new THREE.CylinderGeometry(0.36, 0.36, 0.95, 10).translate(dx, 0.48, dz), red));
+  const drum = (x, y, z, rx = 0, rz = 0, col = red) => {
+    const parts = [
+      colorize(new THREE.CylinderGeometry(0.55, 0.55, 1.4, 16), col),
+      ...[-0.36, 0.36].map(h => colorize(new THREE.CylinderGeometry(0.575, 0.575, 0.06, 16).translate(0, h, 0), hoop)), // rolling hoops
+      ...[-0.58, 0.5].map(h => colorize(new THREE.CylinderGeometry(0.56, 0.56, 0.08, 16).translate(0, h, 0), yel)),     // hazard bands
+      colorize(new THREE.CylinderGeometry(0.5, 0.5, 0.03, 16).translate(0, 0.715, 0), lid),
+      colorize(new THREE.CylinderGeometry(0.07, 0.07, 0.05, 8).translate(0.28, 0.74, 0.1), lid),                        // the bung
+    ];
+    const g = mergeGeometries(parts);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, 0, rz))).translate(x, y, z);
+    p.push(g);
+  };
+  for (const [x, z] of [[-1.2, 0], [0, 0.08], [1.2, -0.05]]) drum(x, 0.7, z);                 // the front row
+  for (const [x, z] of [[-0.6, -1.15], [0.62, -1.1]]) drum(x, 0.7, z, 0, 0, rust);           // the back row, older paint
+  drum(0, 1.95, -0.55, 0, Math.PI / 2);                                                         // one lying on top
+  drum(2.15, 0.55, 0.55, 0, Math.PI / 2 - 0.2);                                                 // one tipped over beside them
+  // a dark spill under the tipped one
+  p.push(colorize(new THREE.CylinderGeometry(1.1, 1.1, 0.02, 14).scale(1, 1, 0.6).translate(2.4, 0.01, 0.9), [0.05, 0.045, 0.04]));
   return mergeGeometries(p).scale(1.5, 1.5, 1.5);
 }
 // a fuel tanker truck (cab + chassis + tank + wheels), nose -z, ~12 m long (1.3x)
@@ -95,64 +136,122 @@ export class Threats {
     this.g = g;
     const scene = g.scene;
     this.drones = []; this.vipers = []; this.depots = []; this.parked = []; this.tankers = [];
+    this.swarms = [];
     this.pending = []; this.dpend = []; // chain links waiting their beat (fuel / drones)
     this.down = { drones: 0, vipers: 0, booms: 0 };
-    this.dMesh = new THREE.InstancedMesh(droneGeo(), mat(), MAX_DRONES); this.dMesh.frustumCulled = false;
+    // no distance haze on the drones: at 300–500 m the fog turned them haze-coloured and the swarm vanished; a crisp dark
+    // silhouette is what tells you what's coming (the same readability call as the rooftop muzzle glints)
+    const dMat = mat(); dMat.fog = false;
+    this.dMesh = new THREE.InstancedMesh(droneGeo(), dMat, MAX_DRONES); this.dMesh.frustumCulled = false;
+    this.prMesh = new THREE.InstancedMesh(propGeo(), mat(), MAX_DRONES); this.prMesh.frustumCulled = false;
     this.pMesh = new THREE.InstancedMesh(depotGeo(), mat(), MAX_DEPOTS); this.pMesh.frustumCulled = false;
     this.tMesh = new THREE.InstancedMesh(tankerGeo(), mat(), MAX_TANKERS); this.tMesh.frustumCulled = false;
-    for (const M of [this.dMesh, this.pMesh, this.tMesh]) { for (let i = 0; i < M.count; i++) M.setMatrixAt(i, ZERO); M.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(M); }
+    for (const M of [this.dMesh, this.prMesh, this.pMesh, this.tMesh]) { for (let i = 0; i < M.count; i++) M.setMatrixAt(i, ZERO); M.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(M); }
     this.enemyMats = heliMaterials({ enemy: true });
     this._id = 0;
   }
   // things main.js should compile before gameplay
-  warmObjects() { const h = buildHammer(this.enemyMats); h.root.position.set(0, -500, 0); return [this.dMesh, this.pMesh, this.tMesh, h.root]; }
+  warmObjects() { const h = buildHammer(this.enemyMats); h.root.position.set(0, -500, 0); return [this.dMesh, this.pMesh, this.tMesh, h.root, this.prMesh]; }
   get active() { return this.drones.length + this.vipers.filter(v => v.phase !== 'gone').length; }
-  clearAir() { for (const d of this.drones) this._dropDrone(d); this.drones = []; for (const v of this.vipers) if (v.phase !== 'gone') this._removeViper(v); }
+  clearAir() { for (const d of this.drones) this._dropDrone(d); this.drones = []; this.swarms = []; for (const v of this.vipers) if (v.phase !== 'gone') this._removeViper(v); }
 
   // ------------------------------------------------------------------ DRONES
-  // a swarm out of the door side, `ahead` m forward, `out` m out, staggered `gap` s apart
-  spawnSwarm(n, { ahead = 300, out = 400, gap = 0.45, trueFrac = 0.34 } = {}) { // ~35° ahead of the door's line: in the opening, clear of the cockpit
+  // A swarm is a formation, not a cloud: it comes out of the haze on the door side (`ahead` m forward, `out` m out) as a
+  // tight V on one straight line, closes to a holding station ~220 m off the door and then sends its drones in ONE AT A
+  // TIME (leader first, `gap` s apart). Each attack run is a committed straight dive with a capped turn rate, no weaving.
+  // A third aim true (shoot it or eat 12 damage); the rest are near misses whose proximity fuse goes off 9–20 m outside
+  // the door, where you see it. A kill in the V can pop the neighbours (they fly ~11 m apart).
+  spawnSwarm(n, { ahead = 180, out = 440, gap = 0.85, trueFrac = 0.34 } = {}) { // ~22° ahead of the door's line: well inside the opening (37° hid it behind the front post once the pilot crabbed)
     const g = this.g, H = g.heliPos, f = this._cabinFrame();
     const free = []; for (let i = 0; i < MAX_DRONES; i++) if (!this.drones.some(d => d.slot === i)) free.push(i);
     n = Math.min(n, free.length);
+    if (!n) return 0;
+    const lead = H.clone().addScaledVector(f.fwd, ahead).addScaledVector(f.left, out).add(_v.set(0, range(25, 45), 0));
+    // the station it closes to: off the door, a little ahead and above (relative to the cabin, so it rides with us)
+    const sw = { id: ++this._id, t: 0, lead, vel: (g.W.rail.vel || _v.set(0, 0, 0)).clone(), st: new THREE.Vector3(range(40, 70), range(18, 30), 220), gap, next: 0, members: [] };
     for (let i = 0; i < n; i++) {
-      const pos = H.clone().addScaledVector(f.fwd, ahead + range(-60, 60) + i * 18).addScaledVector(f.left, out + range(-70, 70)).add(_v.set(0, range(-15, 45), 0));
+      const r = Math.ceil(i / 2), side = i === 0 ? 0 : i % 2 ? 1 : -1;
       const onTarget = rand() < trueFrac * g.enemyAcc;
-      // the miss, in the heli's frame (x = forward, y = up, z = out of the door): always out on the door side
-      // (above / ahead / below the door, never across the cabin), so it screams past where you can see it
-      const miss = onTarget ? new THREE.Vector3(range(-1, 1), range(-0.5, 0.5), range(1, 2)) : new THREE.Vector3(range(-10, 12), range(-6, 12), range(7, 18));
-      this.drones.push({ slot: free[i], id: ++this._id, pos, vel: _v.subVectors(H, pos).normalize().multiplyScalar(30).clone(), hp: 3, t: -i * gap, miss, passed: false, whiz: false, speed: range(46, 56), weave: rand() * 6.28 });
+      // the aim point in the heli's frame (x = forward, y = up, z = out of the door): true ones into the opening, the
+      // misses out on the door side (never across the cabin), where the fuse goes off
+      const miss = onTarget ? new THREE.Vector3(range(-1, 1), range(-0.5, 0.5), range(1, 2)) : new THREE.Vector3(range(-8, 10), range(-5, 8), range(9, 16));
+      const d = { slot: free[i], id: ++this._id, sw, k: i, slot2: new THREE.Vector3(side * r * 8, -r * 1.5, r * 8), pos: lead.clone(), vel: sw.vel.clone(), hp: 3, t: 0, miss, phase: 'form', passed: false, whiz: false, speed: 40, roll: 0, prop: rand() * 6.28, onTarget };
+      this._slotPos(d, d.pos);
+      this.drones.push(d); sw.members.push(d);
     }
-    if (n) g.events.push({ type: 'swarm', n });
+    this.swarms.push(sw);
+    g.events.push({ type: 'swarm', n });
     return n;
   }
-  _dropDrone(d) { this.dMesh.setMatrixAt(d.slot, ZERO); this.dMesh.instanceMatrix.needsUpdate = true; this.g.audio.stopLoop('forklift:d' + d.id); d.dead = true; }
+  // a member's place in the V: behind / beside the leader point, in the swarm's heading frame
+  _slotPos(d, out) {
+    const sw = d.sw, hd = _v3.copy(sw.vel).sub(this.g.W.rail.vel || _v2.set(0, 0, 0));
+    if (sw.dir) hd.copy(sw.dir); hd.y = 0; if (hd.lengthSq() < 1e-4) hd.set(0, 0, -1); hd.normalize();
+    const rt = _v2.set(-hd.z, 0, hd.x);
+    return out.copy(sw.lead).addScaledVector(rt, d.slot2.x).add(_v.set(0, d.slot2.y, 0)).addScaledVector(hd, -d.slot2.z);
+  }
+  _dropDrone(d) { this.dMesh.setMatrixAt(d.slot, ZERO); this.prMesh.setMatrixAt(d.slot, ZERO); this.dMesh.instanceMatrix.needsUpdate = true; this.prMesh.instanceMatrix.needsUpdate = true; this.g.audio.stopLoop('forklift:d' + d.id); d.dead = true; }
   _killDrone(d, how) {
     if (d.dead) return;
     const g = this.g, P = d.pos.clone();
     this._dropDrone(d);
-    g.fx.explosion(P, 0.75, { noRing: true });
-    for (let k = 0; k < 4; k++) g.fx.spawnDebris(P, d.vel.x * 0.4 + range(-8, 8), range(-2, 8), d.vel.z * 0.4 + range(-8, 8), 0.5, k < 2);
-    g.lastExplosionT = g.time; g.lastExplosionShake = Math.min(0.6, 18 / Math.max(10, P.distanceTo(g.headPos)));
+    const near = P.distanceTo(g.headPos);
+    // the warhead goes: a hot orange ball, a dark puff of the fuel, burning bits falling away
+    g.fx.explosion(P, how === 'fuse' ? 1.05 : 0.8, { noRing: true });
+    if (near < 120) g.fx.smoke(P, 3.2, 0.12, 2.6, 0.8, 0.8);
+    for (let k = 0; k < 5; k++) g.fx.spawnDebris(P, d.vel.x * 0.35 + range(-9, 9), range(-3, 7), d.vel.z * 0.35 + range(-9, 9), 0.45, k < 3);
+    g.lastExplosionT = g.time; g.lastExplosionShake = Math.min(0.7, 20 / Math.max(10, near));
     if (how === 'shot') { this.down.drones++; g.addScore(200, 'DRONE DOWN', P.clone().setY(P.y + 3), 'small'); g.events.push({ type: 'droneDown' }); }
     // a swarm flies tight: the blast takes its neighbours
-    this.blast(P, 9, 3, 0.12);
+    this.blast(P, 12, 3, 0.12);
+  }
+  _updateSwarms(dt) {
+    const g = this.g, H = g.heliPos, f = this._cabinFrame(), vH = g.W.rail.vel || _v2.set(0, 0, 0);
+    for (const sw of this.swarms) {
+      sw.t += dt;
+      const left = sw.members.filter(d => !d.dead && d.phase === 'form');
+      if (!left.length) { sw.done = true; continue; }
+      // the leader point flies a straight line to its station off the door, then holds it (riding with the heli)
+      const st = _v.copy(H).addScaledVector(f.fwd, sw.st.x).addScaledVector(f.left, sw.st.z).add(_v3.set(0, sw.st.y, 0));
+      const to = st.sub(sw.lead), d = to.length();
+      const want = to.normalize().multiplyScalar(Math.min(42, d * 0.35)).add(vH);
+      sw.vel.lerp(want, Math.min(1, dt * 0.8));
+      sw.lead.addScaledVector(sw.vel, dt);
+      // the formation's heading: where it's going relative to the air we're in (steady, turns slowly)
+      const rel = _v3.copy(sw.vel).sub(vH); rel.y = 0;
+      if (rel.length() > 6) { rel.normalize(); sw.dir = sw.dir ? sw.dir.lerp(rel, Math.min(1, dt * 0.7)).normalize() : rel.clone(); }
+      else if (!sw.dir) sw.dir = _v3.copy(H).sub(sw.lead).setY(0).normalize().clone();
+      // on station (or after ~7 s): send them in, leader first, one every `gap` s
+      if ((d < 70 || sw.t > 7) && (sw.next -= dt) <= 0) { const m = left.sort((a, b) => a.k - b.k)[0]; m.phase = 'run'; m.runT = 0; sw.next = sw.gap * range(0.85, 1.2); }
+    }
+    this.swarms = this.swarms.filter(s => !s.done);
   }
   _updateDrones(dt) {
     const g = this.g, H = g.headPos, vH = g.W.rail.vel || _v2.set(0, 0, 0);
+    this._updateSwarms(dt);
     for (const d of this.drones) {
       if (d.dead) continue;
       d.t += dt;
-      if (d.t < 0) { this.dMesh.setMatrixAt(d.slot, ZERO); continue; }
       const toH = _v.subVectors(H, d.pos), dist = toH.length();
-      if (!d.passed) {
-        // lead the heli, weave, aim through the miss point
-        const lead = Math.min(4, dist / d.speed);
-        const f = this._cabinFrame();
+      const vPrev = _v3.copy(d.vel);
+      if (d.phase === 'form') {
+        // hold the slot: a stiff spring to it, plus the formation's own velocity
+        const sp = this._slotPos(d, new THREE.Vector3());
+        const want = sp.sub(d.pos).multiplyScalar(1.6).add(d.sw.vel);
+        d.vel.lerp(want, Math.min(1, dt * 3));
+      } else {
+        // the run: lead the heli, aim through the miss point, accelerate; the turn rate is capped so it's one clean arc
+        d.runT += dt;
+        d.speed = Math.min(64, d.speed + dt * 14);
+        const f = this._cabinFrame(), lead = Math.min(3, dist / Math.max(20, d.speed));
         const aim = _v2.copy(H).addScaledVector(vH, lead).addScaledVector(f.fwd, d.miss.x).addScaledVector(f.left, d.miss.z).add(_v3.set(0, d.miss.y, 0));
-        aim.x += Math.sin(d.t * 2.2 + d.weave) * Math.min(14, dist * 0.05); aim.y += Math.cos(d.t * 1.7 + d.weave) * Math.min(8, dist * 0.03);
-        const want = aim.sub(d.pos).normalize().multiplyScalar(d.speed);
-        d.vel.lerp(want, Math.min(1, dt * (dist < 120 ? 3.5 : 1.6)));
+        // in the air we share with the heli: steer the relative velocity, then add the heli's back
+        const rel = _v3.copy(d.vel).sub(vH), want = aim.sub(d.pos).normalize().multiplyScalar(d.speed);
+        const cur = rel.length() > 1 ? rel.clone().normalize() : want.clone().normalize();
+        const ang = cur.angleTo(_v.copy(want).normalize()), maxA = (d.runT < 0.6 ? 1.6 : 1.1) * dt; // rad/s: a hard peel-off, then a committed line
+        const nd = ang > maxA ? cur.lerp(_v.copy(want).normalize(), maxA / ang).normalize() : _v.copy(want).normalize();
+        d.vel.copy(nd.multiplyScalar(d.speed)).add(vH);
+        toH.subVectors(H, d.pos);
         if (dist < 5.5) { // into the door frame: it goes off just outside the opening
           d.pos.copy(H).addScaledVector(toH.normalize(), -4);
           this._killDrone(d, 'hit');
@@ -160,29 +259,41 @@ export class Threats {
           g.W.cabin.U.uWarn.value = 1; g.audio.play('warn_tone', {}); g.fx.later(2.5, () => { g.W.cabin.U.uWarn.value = 0; });
           continue;
         }
-        if (toH.dot(d.vel) < 0 && dist < 60) d.passed = true;
-      } else {
-        // past the door: it pulls up and away on the door side (you watch it go; it never crosses behind the cabin)
-        const f = this._cabinFrame();
-        const want = _v2.copy(f.left).multiplyScalar(0.75).addScaledVector(f.fwd, 0.3).add(_v3.set(0, 0.45, 0)).normalize().multiplyScalar(d.speed);
-        d.vel.lerp(want, Math.min(1, dt * 1.4));
+        // a near miss: the proximity fuse fires at the closest point (it was never going to fly off and come back)
+        // (and anything that's past its closest point at all goes off there: one-way drones don't come round again)
+        const relV = _v3.copy(d.vel).sub(vH), toN = _v2.subVectors(H, d.pos);
+        if (d.runT > 0.8 && toN.dot(relV) <= 0) {
+          d.passed = true; this._killDrone(d, 'fuse');
+          if (dist < 13) { g.hurt(3, d.pos); g.haptic(0.6, 120); }
+          continue;
+        }
       }
       d.pos.addScaledVector(d.vel, dt);
-      if (dist < 28 && !d.whiz) { d.whiz = true; g.audio.play('whiz', { x: d.pos.x, y: d.pos.y, z: d.pos.z, volume: 1, pitch: 0.75 }); }
-      // into a tower / the ground, or gone into the haze behind you
-      const tw = g.towerRay(d.pos, _v3.copy(d.vel).normalize(), d.vel.length() * dt + 0.5);
+      if (dist < 34 && !d.whiz) { d.whiz = true; g.audio.play('whiz', { x: d.pos.x, y: d.pos.y, z: d.pos.z, volume: 1, pitch: 0.75 }); }
+      // into a tower / the ground; never left hanging about
+      const tw = g.towerRay(d.pos, _v.copy(d.vel).normalize(), d.vel.length() * dt + 0.5);
       if (tw || d.pos.y < 1) { this._killDrone(d, 'crash'); continue; }
-      if ((d.passed && dist > 500) || d.t > 30) { this._dropDrone(d); continue; }
-      _q.setFromRotationMatrix(_m.lookAt(d.pos, _v.copy(d.pos).add(d.vel), _v2.set(0, 1, 0))); // -z (the nose) along the velocity
-      _q.multiply(_q.clone().setFromEuler(_e.set(0, 0, Math.sin(d.t * 2.2 + d.weave) * 0.5)));
+      if (d.t > 40 || dist > 1600) { this._dropDrone(d); continue; }
+      // attitude: nose along its course through the air, banked into the turn (from the sideways acceleration)
+      const relV = _v.copy(d.vel).sub(vH);
+      const acc = _v2.subVectors(d.vel, vPrev).divideScalar(Math.max(dt, 1e-3));
+      const side = acc.dot(_v3.crossVectors(relV, _UP).normalize());
+      // (in the V they fly wings-level: the slot-keeping spring's little corrections made them flick knife-edge)
+      d.roll += ((d.phase === 'run' ? clamp(-side * 0.02, -0.75, 0.75) : 0) - d.roll) * Math.min(1, dt * 2.5);
+      _q.setFromRotationMatrix(_m.lookAt(d.pos, _v3.copy(d.pos).add(relV.lengthSq() > 1 ? relV : d.vel), _v2.set(0, 1, 0)));
+      _q.multiply(_q2.setFromAxisAngle(_Z, d.roll));
       this.dMesh.setMatrixAt(d.slot, _m.compose(d.pos, _q, _s.set(1, 1, 1)));
-      // the engine: a hot point at the tail (so a swarm reads at 400 m) and its whine
-      const tail = _v.copy(d.vel).normalize().multiplyScalar(-2.4).add(d.pos);
-      g.fx.main.spawn({ x: tail.x, y: tail.y, z: tail.z, frame: CELL.FLASH, s0: 0.9 + dist * 0.004, s1: 0.5, life: 0.05, r: 2.0, g: 1.1, b: 0.45, a: 1 });
-      g.audio.setLoop('forklift:d' + d.id, { x: d.pos.x, y: d.pos.y, z: d.pos.z, volume: 0.9, intensity: 1 });
+      d.prop += dt * 41;
+      const tail = _v3.set(0, 0, 1.5 * 1.45).applyQuaternion(_q).add(d.pos);
+      this.prMesh.setMatrixAt(d.slot, _m.compose(tail, _q3.copy(_q).multiply(_q2.setFromAxisAngle(_Z, d.prop)), _s.set(1, 1, 1)));
+      // the engine: a hot point at the tail (so a swarm reads at 400 m), a thin exhaust trail, the whine (it screams in on the run)
+      const run = d.phase === 'run';
+      g.fx.main.spawn({ x: tail.x, y: tail.y, z: tail.z, frame: CELL.FLASH, s0: (run ? 1.1 : 0.8) + dist * 0.004, s1: 0.5, life: 0.05, r: 2.0, g: 1.1, b: 0.45, a: 1 });
+      if (dist < 900) g.fx.trailEmit(d, tail, run ? 3.5 : 5, (q) => g.fx.smoke(q, run ? 0.9 : 0.7, 0.42, run ? 1.6 : 1.1, 0.1, run ? 0.3 : 0.2), 0);
+      g.audio.setLoop('forklift:d' + d.id, { x: d.pos.x, y: d.pos.y, z: d.pos.z, volume: run ? 1 : 0.7, intensity: run ? 1 : 0.6 });
     }
     this.drones = this.drones.filter(d => !d.dead);
-    this.dMesh.instanceMatrix.needsUpdate = true;
+    this.dMesh.instanceMatrix.needsUpdate = true; this.prMesh.instanceMatrix.needsUpdate = true;
   }
 
   // ------------------------------------------------------------------ VIPERS
@@ -301,7 +412,7 @@ export class Threats {
       const p = new THREE.Vector3(tower.x + Math.cos(a) * r, tower.h, tower.z + Math.sin(a) * r);
       const yaw = a + Math.PI / 2;
       this.pMesh.setMatrixAt(slot, _m.compose(p, _q.setFromAxisAngle(_v.set(0, 1, 0), -yaw), _s.set(1, 1, 1)));
-      const d = { kind: 'depot', slot, tower, pos: p, center: p.clone().setY(p.y + 2.6), hp: 10, alive: true, r: 5.5, power: 1.6 };
+      const d = { kind: 'depot', slot, tower, pos: p, center: p.clone().setY(p.y + 1.6), hp: 10, alive: true, r: 5.0, power: 1.6 };
       this.depots.push(d); out.push(d);
     }
     this.pMesh.instanceMatrix.needsUpdate = true;
@@ -458,3 +569,7 @@ export class Threats {
     this._updateBoom(dt);
   }
 }
+
+// asset viewer (model-test/shot.cjs): the drone (prop at the tail) and a fuel dump
+export function previewDrone() { const root = new THREE.Group(); root.add(new THREE.Mesh(droneGeo(), mat())); const pr = new THREE.Mesh(propGeo(), mat()); pr.position.z = 1.5 * 1.45; pr.rotation.z = 0.4; root.add(pr); return { root }; }
+export function previewDepot() { const root = new THREE.Group(); root.add(new THREE.Mesh(depotGeo(), mat())); return { root }; }

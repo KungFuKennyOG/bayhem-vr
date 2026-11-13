@@ -67,6 +67,14 @@ export class Director {
         TH.addDepots(t, 2, out);
       }
       TH.addConvoy(V(110, 0, -750), V(735, 0, -750), 4); }
+    // a roof you can't finish isn't a wall: once we're in the hover with men still up, the pilot gives it 12 s, says so and goes
+    // (the leftovers are dropped when the next beat starts)
+    this.dugIn = (key, anyAlive, dt) => {
+      if (!rail.holding || !anyAlive) return false;
+      this.dugT = (this.dugT ?? 0) + dt;
+      if (this.dugT > 12 && first(key)) { say("They're dug in on that roof. We can't sit here all day — moving on!", 3); this.dugT = 0; return true; }
+      return this.once.has(key);
+    };
     this.swarmAt = (t, n, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':sw' + t)) TH.spawnSwarm(n, opts); };
     this.viperAt = (t, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':vp' + t)) { const v = TH.spawnViper(opts); if (v) g.events.push({ type: 'viperUp' }); } };
     // the haboob's look: it starts darkening while the wall is still ~750 m off (its shadow and the dust ahead of it)
@@ -94,6 +102,7 @@ export class Director {
         until: (t) => rail.s > S('coast') - 120 || t > 60 },
       // 2 ---- the marina: three roofs on the canal (pools, a pad, a deck)
       { name: 'marina', music: 0.6, wp: () => roofP(0), enter: () => {
+          this.dugT = 0;
           speed(0.82);
           g.idleLook = null;
           this.squads = [squad(0, 0.5), squad(1, 4), squad(2, 9)];
@@ -101,17 +110,18 @@ export class Director {
           later(0.4, () => say('Pool deck on the left — gunmen. Light them up!', 2.6));
           later(9, () => say('Helipad — RPG! Shoot the rocket if you have to!', 2.8));
           rail.holdAt(S('marina2') + 140);
-        }, update: (t) => {
+        }, update: (t, dt) => {
           // face the nearest live squad's roof
           const cur = [0, 1, 2].find(i => alive(this.squads[i]) > 0);
           rail.face(cur != null ? roofP(cur) : null);
           if (cur != null) hud.setWaypoint(roofP(cur));
           this.swarmAt(16, 4);
           if (cur == null && first('marinaClear')) { say('Marina clear. Moving down the boulevard.', 2.4); rail.release(); }
-        }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && !TH.active && rail.s > S('marina2')) || (rail.holding && t > 70 * T) || t > 110 },
+          if (this.dugIn('marinaDug', cur != null, dt)) this.leaveMarina = true;
+        }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && !TH.active && rail.s > S('marina2')) || (this.leaveMarina && t > 2 + (this.dugAt ??= t)) || t > 110 },
       // 3 ---- the boulevard: the canyon, three more roofs, HAMMER TWO goes down
       { name: 'blvd', music: 0.7, enter: () => {
-          rail.release(); speed(0.9); hud.setWaypoint(roofP(3));
+          rail.release(); speed(0.9); hud.setWaypoint(roofP(3)); this.dugT = 0;
           for (const q of this.squads) g.dropSquad(q);
           this.squads = [squad(3, 1), squad(4, 5), squad(5, 10)];
           later(0.6, () => say('Crescent Boulevard. Every roof on the left is shooting at us.', 3));
@@ -147,7 +157,8 @@ export class Director {
           this.viperAt(9);
           this.swarmAt(34, 3, { trueFrac: 0.4 });
           if (cur == null && first('blvdClear')) { rail.release(); later(0.5, () => say('Boulevard clear. Turning south.', 2)); }
-        }, until: (t) => (t > 8 && this.squads.every(q => alive(q) === 0) && rail.s > S('blvd2') + 200) || (rail.holding && t > 60 * T) || t > 120 },
+          if ((this.wingDown || !g.wing) && this.dugIn('blvdDug', cur != null, dt)) this.leaveBlvd = true;
+        }, until: (t) => (t > 8 && this.squads.every(q => alive(q) === 0) && rail.s > S('blvd2') + 200) || (this.leaveBlvd && t > 2 + (this.dugAtB ??= t)) || t > 120 },
       // 4 ---- the haboob: look south, a 900 m wall of sand rolls over the city
       { name: 'haboob', music: 0.55, enter: () => {
           rail.release(); speed(1.0);
@@ -166,7 +177,7 @@ export class Director {
           // the storm look comes on as the front reaches you
           this.rampStorm(dt);
           // a swarm out of the dust ahead of the wall (something to shoot while it rolls in)
-          this.swarmAt(9, 5, { ahead: 300, out: 420 });
+          this.swarmAt(9, 5, { ahead: 200, out: 440 });
         }, until: (t) => this.sp.storm > 0.7 || t > 40 },
       // 5 ---- WIDOWMAKER 4 in the murk; it ends up in a tower
       { name: 'gunship', music: 0.9, enter: () => {
