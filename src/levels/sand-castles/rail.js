@@ -90,7 +90,7 @@ export class Rail {
       if (_v.lengthSq() > 25) {
         _v.normalize();
         const want = Math.atan2(_v.z, -_v.x);
-        const max = (this.v < 6 ? 115 : this.v < 20 ? 85 : this.v < 32 ? 70 : 50) * Math.PI / 180 * F.crab;
+        const max = (this.v < 4.5 ? 178 : this.v < 6 ? 115 : this.v < 20 ? 85 : this.v < 32 ? 70 : 50) * Math.PI / 180 * F.crab; // in a near-hover the pilot can pedal-turn all the way round (still at the capped yaw rate)
         crabT = clamp(wrap(want - pathYaw), -max, max);
       }
     }
