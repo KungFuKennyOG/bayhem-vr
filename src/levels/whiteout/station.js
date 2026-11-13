@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { YARD, MID, MID_HALL, TRACK_X, LINE, PYLON, HALL, DOCK, lineY, terrainAt, groundAt, SNIPERS } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, driftBox, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
+import { YARD, MID, MID_HALL, TRACK_X, LINE, PYLON, HALL, DOCK, DOCK_SLOTS, lineY, terrainAt, groundAt, SNIPERS } from './layout.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, driftBox, trackDecals, groundPatches, aoStrips, lightCone, lanePatches, slottedSlab } from "./kit.js";
 import { buildGroomer } from './groomer.js';
 import { dressStation } from './interior.js';
 import { signTexture } from './tex.js';
@@ -78,23 +78,24 @@ export function buildStation(ctx) {
     // icicles off the front eave
     for (let i = 0; i < 40; i++) { const il = 0.2 + rng() * rng() * 1.2; B.snow.add(new THREE.ConeGeometry(0.04 + il * 0.025, il, 5).rotateX(PI), M4(x0 - 0.8 + i * (x1 - x0 + 1.6) / 39, Y + H - 0.42 - il / 2, z1 + 1.3), [0.72, 0.8, 0.95]); }
     // platform floor + the dock edges (yellow-black) along each track
-    B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 - 1, 0.3, z1 - z0 - 1), M4((x0 + x1) / 2, Y - 0.13, (z0 + z1) / 2), [0.5, 0.49, 0.48], { uvScale: 3 });
+    slottedSlab(B.concreteIn, B.concreteIn, { x0: x0 + 0.5, x1: x1 - 0.5, z0: z0 + 0.5, z1: z1 - 0.5 }, DOCK_SLOTS.filter(r => r.y === Y), Y, 0.3, [0.5, 0.49, 0.48]);
     for (const tx of TRACK_X) {
-      for (const s of [-1.6, 1.6]) B.paintIn.add(new THREE.BoxGeometry(0.25, 0.02, 12), M4(tx + s, Y + 0.012, -8), (p) => (Math.floor((p.z) / 0.6) % 2 ? [0.75, 0.6, 0.05] : [0.05, 0.05, 0.05]));
-      // overhead guide rails the carriage runs on inside the station
-      for (const s of [-0.4, 0.4]) B.metal.add(new THREE.BoxGeometry(0.16, 0.24, z1 - z0), M4(tx + s, Y + 6.3, (z0 + z1) / 2), [0.32, 0.3, 0.28]);
+      for (const s of [-1.72, 1.72]) B.paintIn.add(new THREE.BoxGeometry(0.25, 0.02, 12), M4(tx + s, Y + 0.012, -13.6), (p) => (Math.floor((p.z) / 0.6) % 2 ? [0.75, 0.6, 0.05] : [0.05, 0.05, 0.05]));
+      // the station's running rails either side of the carriage (at its wheels: the cabins pass between them)
+      for (const s of [-0.66, 0.66]) B.metal.add(new THREE.BoxGeometry(0.14, 0.22, z1 - z0 - 1), M4(tx + s, Y + 6.66, (z0 + z1) / 2 - 0.5), [0.32, 0.3, 0.28]);
+      for (let z = z0 + 2; z < z1 - 2; z += 4) { B.metal.add(new THREE.BoxGeometry(1.6, 0.12, 0.14), M4(tx, Y + 8.0, z), [0.3, 0.29, 0.27]); for (const s of [-0.66, 0.66]) B.metal.add(new THREE.BoxGeometry(0.08, 1.2, 0.08), M4(tx + s, Y + 7.37, z), [0.3, 0.29, 0.27]); }
     }
     // the bull wheel (horizontal, under the roof at the north end) + its frame
     {
-      const wx = 85, wz = z0 + 4, wy = Y + 5.6;
+      const wx = 85, wz = z0 + 4, wy = Y + 8.4;   // over the carriages' grips (they pass under it)
       const ring = new THREE.TorusGeometry(5.0, 0.22, 6, 40).rotateX(PI / 2);
       B.paint.add(ring, M4(wx, wy, wz), [0.55, 0.08, 0.05]);
       for (let k = 0; k < 8; k++) B.paint.add(new THREE.BoxGeometry(10, 0.16, 0.2), M4(wx, wy, wz, 0, k * PI / 8, 0), [0.45, 0.07, 0.05]);
       B.metal.add(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 12), M4(wx, wy, wz), [0.3, 0.3, 0.32]);
-      B.metal.add(new THREE.CylinderGeometry(0.3, 0.3, 5.6, 10), M4(wx, Y + 2.8, wz), [0.25, 0.25, 0.27]);
-      B.paintIn.add(rbox(3.0, 1.8, 2.2, 0.08), M4(wx - 8, Y + 0.9, wz + 1), [0.2, 0.32, 0.22]);   // drive motor housing
-      col(wx - 9.5, Y, wz - 0.1, wx - 6.5, Y + 1.8, wz + 2.1, { mat: 'metal' });
-      col(wx - 0.5, Y, wz - 0.5, wx + 0.5, Y + 5, wz + 0.5, { mat: 'metal' });
+      B.metal.add(new THREE.CylinderGeometry(0.3, 0.3, 8.4, 10), M4(wx, Y + 4.2, wz), [0.25, 0.25, 0.27]);
+      B.paintIn.add(rbox(3.0, 1.8, 2.2, 0.08), M4(wx - 9.6, Y + 0.9, wz + 1), [0.2, 0.32, 0.22]);   // drive motor housing (west of our slot)
+      col(wx - 11.1, Y, wz - 0.1, wx - 8.1, Y + 1.8, wz + 2.1, { mat: 'metal' });
+      col(wx - 0.5, Y, wz - 0.5, wx + 0.5, Y + 8.4, wz + 0.5, { mat: 'metal' });
       named.bullWheel = new THREE.Vector3(wx, wy, wz);
     }
     // sodium lamps over the platform (warm), and the control room (glazed box in the south-east corner, lit)
@@ -334,15 +335,43 @@ export function buildStation(ctx) {
       for (let k = 0; k < 4; k++) beam(c[k], c[(k + 1) % 4], 0.2, steel);
       if (i < N) { const c2 = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => leg((i + 1) / N, sx, sz)); for (let k = 0; k < 4; k++) { beam(c[k], c2[(k + 1) % 4], 0.14, steel); beam(c[(k + 1) % 4], c2[k], 0.14, steel); } }
     }
-    // the head: a cross-arm over both tracks with saddles (sheave trains) + a platform with a rail
-    B.paint.add(rbox(18, 1.0, 2.2, 0.05), M4(px, top + 0.2, pz), steel);
+    // the head. The cabins pass right under it, so nothing may sit in their swept volume (body ±1.45 m round the
+    // track, the hanger bowing ~1.1 m toward the pylon, the carriage under the rope): the cross-arm stops 2 m short
+    // of each rope, a bracket reaches out from its end to a slim saddle shoe under the rope (the carriage rolls over
+    // it), and the sniper's deck hangs off the south face (toward the cabin coming up) between the two lines.
+    const ax0 = px - 3, ax1 = px + 3;
+    B.paint.add(rbox(ax1 - ax0, 1.0, 2.2, 0.05), M4(px, top + 0.2, pz), steel);
+    col(ax0, top - 0.3, pz - 1.1, ax1, top + 0.7, pz + 1.1, { mat: 'metal' });
     for (const tx of TRACK_X) {
-      B.paint.add(rbox(1.2, 0.8, 5.5, 0.1), M4(tx, top + 1.1, pz), [0.5, 0.1, 0.06]);
-      for (let k = -2; k <= 2; k++) B.metal.add(new THREE.CylinderGeometry(0.32, 0.32, 0.25, 12).rotateZ(PI / 2), M4(tx, top + 1.5, pz + k * 1.0), [0.2, 0.2, 0.2]);
+      const sd = Math.sign(px - tx), ry = (z) => lineY(z) - 0.19;
+      // the shoe follows the rope over the saddle (it peaks here)
+      for (let k = -3; k < 3; k++) beam([tx, ry(pz + k), pz + k], [tx, ry(pz + k + 1), pz + k + 1], 0.1, [0.5, 0.1, 0.06]);
+      // the bracket: a post up from the cross-arm's end, an arm across to the shoe (between the carriage's bogies)
+      const ex = sd > 0 ? ax0 + 0.3 : ax1 - 0.3, y0 = top + 0.7, y1 = ry(pz);
+      for (const dz of [-0.5, 0.5]) beam([ex, y0, pz + dz], [ex, y1 + 0.06, pz + dz], 0.18, [0.5, 0.1, 0.06]);
+      beam([ex, y1, pz], [tx + sd * 0.12, y1, pz], 0.12, [0.5, 0.1, 0.06]);
+      for (const dz of [-0.5, 0.5]) beam([ex, y1, pz + dz], [tx + sd * 0.2, y1, pz + dz * 0.2], 0.08, [0.45, 0.09, 0.05]);
     }
-    B.metal.add(new THREE.BoxGeometry(9, 0.12, 3.6), M4(px, top - 1.6, pz + 0.3), [0.3, 0.3, 0.3]);   // the platform (the pylon sniper)
-    for (const s of [-1, 1]) B.metal.add(new THREE.BoxGeometry(9, 0.06, 0.06), M4(px, top - 0.6, pz + 0.3 + s * 1.75), [0.5, 0.45, 0.2]);
-    named.pylonDeck = new THREE.Vector3(px + 2.2, top - 1.55, pz - 1.0);
+    // the sniper's deck: grating on two cantilevers off the south legs, a hand rail, a ladder down the SE leg
+    const dk = { x0: px - 3, x1: px + 3, z0: pz + 0.4, z1: pz + 3.6, y: top - 1.6 };
+    B.metal.add(new THREE.BoxGeometry(dk.x1 - dk.x0, 0.12, dk.z1 - dk.z0), M4(px, dk.y, (dk.z0 + dk.z1) / 2), [0.3, 0.3, 0.3]);
+    for (let x = dk.x0 + 0.25; x < dk.x1; x += 0.5) B.dark.add(new THREE.BoxGeometry(0.03, 0.02, dk.z1 - dk.z0 - 0.1), M4(x, dk.y + 0.065, (dk.z0 + dk.z1) / 2), [0.12, 0.12, 0.13]);
+    col(dk.x0, dk.y - 0.06, dk.z0, dk.x1, dk.y + 0.06, dk.z1, { mat: 'metal' });
+    for (const sx of [-1, 1]) {
+      const lx = px + sx * 2.3;
+      beam([lx, dk.y - 0.1, pz + 1.6], [lx, dk.y - 0.1, dk.z1], 0.22, steel);
+      beam([lx, dk.y - 3.2, pz + 1.7], [lx, dk.y - 0.12, dk.z1 - 0.1], 0.16, steel);
+    }
+    for (const [x, z] of [[dk.x0, dk.z1], [dk.x1, dk.z1], [dk.x0, dk.z0], [dk.x1, dk.z0], [px - 1, dk.z1], [px + 1, dk.z1]]) B.metal.add(new THREE.BoxGeometry(0.06, 1.05, 0.06), M4(x, dk.y + 0.58, z), [0.5, 0.45, 0.2]);
+    for (const yy of [0.55, 1.08]) {
+      B.metal.add(new THREE.BoxGeometry(dk.x1 - dk.x0, 0.05, 0.05), M4(px, dk.y + yy, dk.z1), [0.62, 0.52, 0.12]);
+      for (const x of [dk.x0, dk.x1]) B.metal.add(new THREE.BoxGeometry(0.05, 0.05, dk.z1 - dk.z0), M4(x, dk.y + yy, (dk.z0 + dk.z1) / 2), [0.62, 0.52, 0.12]);
+    }
+    B.metal.add(new THREE.BoxGeometry(dk.x1 - dk.x0, 0.14, 0.03), M4(px, dk.y + 0.13, dk.z1), [0.5, 0.45, 0.2]);   // kick plate
+    { const lx = px + 2.3, lz = pz + 1.75; for (const dx of [-0.22, 0.22]) B.metal.add(new THREE.BoxGeometry(0.04, 9, 0.04), M4(lx + dx, dk.y - 4.5, lz), [0.4, 0.4, 0.42]); for (let k = 0; k < 30; k++) B.metal.add(new THREE.BoxGeometry(0.44, 0.03, 0.03), M4(lx, dk.y - 0.3 - k * 0.3, lz), [0.4, 0.4, 0.42]); }
+    // the lattice top: see-through for bullets and eyes, but a 40 mm round (or a thrown grenade) bursts on it
+    col(px - 2.8, top - 12, pz - 1.9, px + 2.8, top - 0.3, pz + 1.9, { mat: 'metal', kind: 'lattice', noBullet: true, noStand: true, noBlock: true });
+    named.pylonDeck = new THREE.Vector3(SNIPERS.pylon.x, dk.y + 0.06, SNIPERS.pylon.z);
     // aviation lights (red), blinking
     for (const s of [-1, 1]) glows.push({ p: [px + s * 9, top + 0.9, pz], color: [3.4, 0.25, 0.15], size: 1.4, blink: true, rate: 2.2, far: true });
     named.pylonTop = new THREE.Vector3(px, top, pz);

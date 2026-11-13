@@ -232,6 +232,14 @@ Driver VO: all 32 Level 6 lines are voiced (31 new Chatterbox takes, the emergen
 Headset checks needed: the 2.5D sun-shadow march cost on Quest (16 texture taps on every static fragment facing the sun; drop to 10 steps or bake the ground into a map if it's heavy), the deck layering (walking up the open stairs, perch gunmen above you), the crowd at the start, and the fleeing crowd's comfort (none should run through the player).
 
 ### Level 7: WHITEOUT (on foot + cable car, a mountain comes down) — BUILT, in review (branch `level-7-whiteout`)
+**Sweep, Nov 13 (branch `level-7-sweep`, after Kenny's Quest test):** the cable-car doorway is a real opening (the red
+lower wall and glass used to run across it); the cabin no longer clips anything along the line (it came into the summit
+~7 m under the hall floor, through the cliff lip; through the pylon cross-arm and sniper deck, the Mittelstation bull
+wheel, the guide rails; its belly sank into both platforms): level rope runs inside the stations, lined dock slots,
+a rebuilt pylon head. The pylon sniper stands on a deck in the open; grenades burst on the deck / arm / lattice top; the
+moving cabin's shell stops his laser and line of sight. The exit railcar is rebuilt (`railcar.js`) and now sits on its
+track (it was 1 m off it). One independent review of the new assets: railcar exterior 6, interior 5, cabin doorway 5,
+pylon head 6.5 (fixes from it applied in part: the windscreen divider, coupler, ceiling tone, door inner skin).
 Code: `src/levels/whiteout/` — see its `DESIGN.md` (beats, world frame, rendering modules). `layout.js` (every number:
 the road polyline, the switchback legs and hairpins, the stations, the cable line `lineY(z)`, the summit fortress,
 the face; the analytic mountain baked to a 1 m heightfield; `structFloor` + `groundAt` + the walk mask `walkable`),

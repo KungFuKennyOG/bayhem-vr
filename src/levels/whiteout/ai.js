@@ -319,7 +319,9 @@ export class Soldier {
       case 'scan': {
         // a lazy figure-8 sweep across the street around the last known position
         const a = L.phase * 0.55;
-        T.set(L.last.x + Math.sin(a) * 4.5, g.world.fastGround(L.last.x, L.last.z) + 0.05, L.last.z + Math.sin(a * 2) * 2.5 - 1);
+        // (riding the cable car there's no ground near you: it sweeps the cabin instead of the gorge floor 100 m down)
+        const sy = g.setp?.riding ? L.last.y - 0.9 : g.world.fastGround(L.last.x, L.last.z) + 0.05;
+        T.set(L.last.x + Math.sin(a) * (g.setp?.riding ? 2.2 : 4.5), sy, L.last.z + Math.sin(a * 2) * 2.5 - 1);
         k = 1.6;
         if (this.los && this.losT > 0.35) { L.state = 'track'; L.lock = Math.max(L.lock, 0.15); }
         break;

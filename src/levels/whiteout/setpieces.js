@@ -4,6 +4,7 @@ import { BillboardBatch, CELL } from '../../particles.js';
 import { RigidBox } from '../../physics.js';
 import { Driver } from '../../characters.js';
 import { buildCabin } from './cabin.js';
+import { buildRailcar, RC } from './railcar.js';
 import { Avalanche, buildRidge, buildCurtain } from './avalanche.js';
 import { BillowCloud } from './billow.js';
 import { scourU } from './terrain.js';
@@ -31,7 +32,7 @@ function rayOBox(o, d, inv, hx, hy, hz, y0 = 0) {
 // =====================================================================================
 //  WHITEOUT set pieces: everything that moves, burns or comes down.
 // =====================================================================================
-const _inv = new THREE.Matrix4(), _v4 = new THREE.Vector3();
+const _inv = new THREE.Matrix4(), _v4 = new THREE.Vector3(), _cri = new THREE.Matrix4(), _cro = new THREE.Vector3(), _crd = new THREE.Vector3();
 export class SetPieces {
   constructor(game) {
     this.g = game; this.world = game.world; game.setp = this;
@@ -125,9 +126,44 @@ export class SetPieces {
       g.scene.add(this.heaps);
     }
     this.railcar = this._makeRailcar();
-    this.extraWalk = (x, z) => this.ride && this.ride.state === 'arrived' && Math.abs(x - this.cab.root.position.x) < CABIN.w / 2 - 0.25 && Math.abs(z - this.cab.root.position.z) < CABIN.l / 2 - 0.25;
+    // the docked cabin's floor is walkable (it sits in a dock slot, which isn't): inside its walls and across its doorway
+    this.extraWalk = (x, z) => {
+      if (this.ride && this.ride.state !== 'arrived') return false;
+      const R = this.cab.root, lx = x - R.position.x, lz = z - R.position.z, D = this.cab.m.door;
+      if (Math.abs(lx) < CABIN.w / 2 - 0.25 && Math.abs(lz) < CABIN.l / 2 - 0.25) return true;
+      return lx > 0 && lx < CABIN.w / 2 + 0.3 && lz > D.z0 + 0.12 && lz < D.z1 - 0.12;
+    };
+    // while it moves, its shell (floor, lower walls, roof) stops bullets, lasers, grenades and eyes; the window band is open
+    this.cabRayBox = { data: { kind: 'cabin', mat: 'metal' }, enabled: true, min: new THREE.Vector3(), max: new THREE.Vector3() };
+    this.world.dynRays.push((o, d, maxT, skip) => this._cabRay(o, d, maxT, skip));
   }
-  warmMaterials() { return [...this.av.warmMaterials(), this.curtain.mesh.material, this.cab.m.glassM, this.billow.material]; }
+  _cabRay(o, d, maxT, skip) {
+    const R = this.ride; if (!R || !(this.riding || R.state === 'back')) return null;
+    if (skip && skip(this.cabRayBox)) return null;
+    const C = this.cab.root; if (C.position.distanceToSquared(o) > (maxT + 6) * (maxT + 6)) return null;
+    _cri.copy(C.matrixWorld).invert();
+    const lo = _cro.copy(o).applyMatrix4(_cri), ld = _crd.copy(d).transformDirection(_cri);
+    // rays that start inside it (your shots, your 40 mm, your eyes) are never stopped by your own cabin: in VR the
+    // muzzle is half out of the window anyway, and a round into your own roof just feels broken
+    if (Math.abs(lo.x) < CABIN.w / 2 + 0.2 && Math.abs(lo.z) < CABIN.l / 2 + 0.2 && lo.y > -0.4 && lo.y < CABIN.h + 0.3) return null;
+    let best = maxT, ax = -1, sg = 0;
+    for (const b of this.cab.m.shell) {
+      let t0 = 0, t1 = best, a0 = -1, s0 = 0, inside = true;
+      for (let k = 0; k < 3; k++) {
+        const oa = lo.getComponent(k), da = ld.getComponent(k), lo_ = b[k], hi = b[k + 3];
+        if (oa < lo_ || oa > hi) inside = false;
+        if (Math.abs(da) < 1e-9) { if (oa < lo_ || oa > hi) { t0 = 1e9; break; } continue; }
+        let ta = (lo_ - oa) / da, tb = (hi - oa) / da, sgn = -1; if (ta > tb) { const t = ta; ta = tb; tb = t; sgn = 1; }
+        if (ta > t0) { t0 = ta; a0 = k; s0 = sgn; } if (tb < t1) t1 = tb; if (t0 > t1) break;
+      }
+      if (inside || t0 > t1 || t0 <= 0 || t0 >= best) continue;
+      best = t0; ax = a0; sg = s0;
+    }
+    if (ax < 0) return null;
+    const n = new THREE.Vector3(); n.setComponent(ax, sg); n.transformDirection(C.matrixWorld);
+    return { t: best, box: this.cabRayBox, normal: n };
+  }
+  warmMaterials() { return [...this.av.warmMaterials(), this.curtain.mesh.material, this.cab.m.glassM, this.billow.material, ...this.railcar.materials]; }
 
   // ================================================================== explosives
   damageExp(e, d, P, fuse = 0) {
@@ -161,7 +197,7 @@ export class SetPieces {
   }
   _placeCab(C, z, extraY = 0) {
     C.z = z;
-    const y = Math.max(z > LINE.z0 ? MID.y + 0.02 : -1e9, lineY(Math.min(z, LINE.z0)) - HANG) + extraY;
+    const y = lineY(z) - HANG + 0.02 + extraY;   // the rope runs level inside both stations (layout.lineY)
     C.root.position.set(C.tx, y, z);
     C.root.rotation.set(C.sway * 0.4, 0, C.sway, 'YXZ');
     C.m.hanger.rotation.set(-C.sway * 0.4, 0, -C.sway);
@@ -467,23 +503,15 @@ export class SetPieces {
 
   // ================================================================== the railcar in the gallery (the way out)
   _makeRailcar() {
-    const root = new THREE.Group();
-    const b = new Bucket(), l = new Bucket();
-    const red = [0.45, 0.12, 0.08], cream = [0.85, 0.8, 0.68];
-    b.add(rbox(2.6, 1.2, 9, 0.1), M4(0, 0.9, 0), red);
-    b.add(rbox(2.6, 1.2, 9, 0.1), M4(0, 2.4, 0), (p) => (p.y > 2.9 ? red : cream));
-    b.add(rbox(2.7, 0.3, 9.1, 0.12), M4(0, 3.1, 0), [0.25, 0.25, 0.26]);
-    for (let i = 0; i < 6; i++) for (const s of [-1, 1]) l.add(new THREE.PlaneGeometry(1.1, 0.8), M4(s * 1.31, 2.35, -3.4 + i * 1.35, 0, s * Math.PI / 2, 0), [0.9, 0.6, 0.3]);
-    for (const s of [-0.8, 0.8]) l.add(new THREE.CircleGeometry(0.18, 10), M4(s, 1.2, 4.51, 0, 0, 0), [3, 2.7, 2.2]);
-    root.add(b.mesh(mats.paint()), l.mesh(mats.lamp(), { shadow: false }));
+    const car = buildRailcar({ seed: 12 }), root = car.root;
     root.position.set(RAILCAR.x, GALLERY.y + 0.2, RAILCAR.z);
-    root.rotation.y = -Math.PI / 2;        // front (+z local) toward -x (into the gallery)
+    root.rotation.y = -Math.PI / 2;        // +z local (the end with its lights on) toward -x, into the gallery; the driver's cab (-z) leads into the tunnel
     this.g.scene.add(root);
-    const glows = [new THREE.Vector3(-0.8, 1.2, 4.7), new THREE.Vector3(0.8, 1.2, 4.7)].map(p => ({ local: p, g: { p: new THREE.Vector3(), color: [3.0, 2.6, 2.0], size: 2.4 } }));
+    const glows = car.lights.map((p, i) => ({ local: p, g: { p: new THREE.Vector3(), color: [3.0, 2.6, 2.0], size: i === 2 ? 1.1 : 1.6 } }));
     for (const gl of glows) this.world.glowList.push(gl.g);
     let driver = null;
-    try { driver = new Driver({ seed: 3 }); driver.root.position.set(-0.4, 0.4, 3.4); driver.root.rotation.y = 0; root.add(driver.root); } catch (e) { /* no driver */ }
-    const R = { root, glows, driver, state: 'wait', t: 0, x: RAILCAR.x, dst: { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 } };
+    try { driver = new Driver({ seed: 3 }); driver.root.position.copy(RC.driverSeat); driver.root.rotation.y = 0; root.add(driver.root); } catch (e) { /* no driver */ }
+    const R = { root, glows, driver, materials: car.materials, state: 'wait', t: 0, x: RAILCAR.x, dst: { steer: 0, bump: 0, talking: false, lookBack: 0, flinch: 0, time: 0 } };
     return R;
   }
   canBoardRail() { const R = this.railcar, h = this.g.headPos; return R.state === 'wait' && Math.abs(h.x - R.x) < 7.5 && Math.abs(h.z - RAILCAR.z) < 2.8; }
@@ -592,7 +620,7 @@ export class SetPieces {
       (this.cabLast ||= new THREE.Vector3()).copy(g.rig.position);
     } else if (this.onRail) {
       const R = this.railcar;
-      const p = _v.set(0.5, 0.25, -1.5).applyMatrix4(R.root.matrixWorld);
+      const p = _v.copy(RC.stand).applyMatrix4(R.root.matrixWorld);   // standing in the vestibule, by the doors
       g.rig.position.copy(p); g.rig.updateMatrixWorld(true);
     }
   }

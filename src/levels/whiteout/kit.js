@@ -285,3 +285,28 @@ export function lanePatches(paths, y, w = 6) {
   }
   return groundPatches(out);
 }
+
+// a platform slab (top at y + 0.02, `th` thick) with the dock slots cut out of it, plus the slots' dark concrete liners
+// (walls, ends, a floor 0.75 m down with a drain channel). F = { x0, x1, z0, z1 }; slots = [{ x0, x1, z0, z1 }].
+export function slottedSlab(slab, liner, F, slots, y, th, color, { uv = 3, liners = true } = {}) {
+  const S = slots.filter(r => r.x1 > F.x0 && r.x0 < F.x1 && r.z1 > F.z0 && r.z0 < F.z1).sort((a, b) => a.x0 - b.x0);
+  const box = (x0, x1, z0, z1) => { if (x1 - x0 < 0.02 || z1 - z0 < 0.02) return; slab.add(new THREE.BoxGeometry(x1 - x0, th, z1 - z0), M4((x0 + x1) / 2, y + 0.02 - th / 2, (z0 + z1) / 2), color, { uvScale: uv }); };
+  if (!S.length) { box(F.x0, F.x1, F.z0, F.z1); return; }
+  const b0 = Math.max(F.z0, Math.min(...S.map(r => r.z0))), b1 = Math.min(F.z1, Math.max(...S.map(r => r.z1)));
+  box(F.x0, F.x1, F.z0, b0); box(F.x0, F.x1, b1, F.z1);
+  let cur = F.x0;
+  for (const r of S) { box(cur, r.x0, b0, b1); cur = r.x1; }
+  box(cur, F.x1, b0, b1);
+  if (!liners) return;
+  const dk = [0.2, 0.2, 0.21], wall = (x0, x1, z0, z1, y0, y1, c = dk) => liner.add(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), M4((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), c, { uvScale: 2 });
+  for (const r of slots) {
+    const yb = y - (r.depth || 0.75), yt = y - 0.03, T = 0.25;
+    wall(r.x0 - T, r.x0, r.z0 - T, r.z1 + T, yb, yt); wall(r.x1, r.x1 + T, r.z0 - T, r.z1 + T, yb, yt);
+    if (r.open !== 'z0') wall(r.x0, r.x1, r.z0 - T, r.z0, yb, yt);
+    if (r.open !== 'z1') wall(r.x0, r.x1, r.z1, r.z1 + T, yb, yt);
+    wall(r.x0, r.x1, r.z0, r.z1, yb - 0.12, yb, [0.15, 0.15, 0.16]);
+    wall((r.x0 + r.x1) / 2 - 0.15, (r.x0 + r.x1) / 2 + 0.15, r.z0, r.z1, yb, yb + 0.01, [0.06, 0.06, 0.065]);   // drain
+    // a steel nosing along both lips
+    for (const xx of [r.x0 - 0.04, r.x1 + 0.04]) liner.add(new THREE.BoxGeometry(0.08, 0.05, r.z1 - r.z0), M4(xx, y - 0.005, (r.z0 + r.z1) / 2), [0.4, 0.4, 0.42]);
+  }
+}

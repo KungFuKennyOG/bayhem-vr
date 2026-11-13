@@ -99,6 +99,23 @@ low gold sun in the south-south-west, the lit face, a lenticular cap, the cloud 
   beacons with halos), the convoy, the gallery curtain.
 
 ## The cable car
+Its swept volume is kept clear (a sweep of the body / hanger / carriage boxes along the whole line against every static
+mesh found nothing after the Nov 13 pass). The rope runs **level inside both stations** (`LINE.z0` = the Mittelstation's
+north wall, `LINE.z1` = the summit cliff edge, smooth min/max in `lineY`), so the cabin docks flat and never climbs
+through the hall floor or the cliff lip. Its belly rides in **dock slots** (`DOCK_SLOTS`: lined pits cut through the
+platform slabs and the summit apron, `kit.slottedSlab`); the slots aren't walkable, the docked cabin's floor and
+doorway are (`setpieces.extraWalk`). The doorway (+x flank, local z 0.3..1.5) is a real opening in the shell; the door
+slides forward over the flank. While it moves, the shell (floor, lower walls, roof; the window band is open) stops
+enemy rays: lasers, rounds, line of sight (`world.dynRays` → `setpieces._cabRay`); rays that start inside it (your
+shots, your 40 mm) pass. The pylon head leaves the cabins' path open: a short cross-arm, brackets out to slim saddle
+shoes under the ropes, the sniper's deck cantilevered off the south face (colliders on the deck and the arm, a
+grenade-only collider round the lattice top). The Mittelstation bull wheel sits over the carriages; the halls' running
+rails sit either side of the carriage at its wheels.
+
+## The railcar
+`railcar.js`: a lofted Swiss rack railcar (BDhe 4/4 type) on the gallery track's centre line, with a lit interior you
+ride in (`RC.stand`), cabs at both ends (the driver at -z holds the controller handwheel where his seat puts his
+hands), bogies with rack pinions on the centre rack, a single-arm pantograph on the gallery's contact wire.
 You can walk round inside it during the ride: `setpieces.cabFloor` gives the locomotion the cabin floor inside its
 walls and a drop everywhere else, and `afterPlayer` carries your spot in the cabin's own frame (the stick's motion is
 turned into cabin space, clamped to the floor). The roll-back after docking waits until you're out.

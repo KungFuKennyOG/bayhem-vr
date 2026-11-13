@@ -2,8 +2,8 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { dressStation } from './interior.js';
 import * as THREE from 'three';
 import { makeRng } from '../../rng.js';
-import { HALL, HALL_WALK, DOCK, COURT, BLOCK, TOWER, STAIR_A, LAND_A, STAIR_B, LAND_B, STAIR_RAIL, GALLERY, RAILCAR, TRACK_X, SUMMIT_Y, terrainAt, groundAt, lineY } from './layout.js';
-import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, driftBox, floorPools, trackDecals, groundPatches, aoStrips, lightCone, lanePatches } from './kit.js';
+import { HALL, HALL_WALK, DOCK, DOCK_SLOTS, APRON, COURT, BLOCK, TOWER, STAIR_A, LAND_A, STAIR_B, LAND_B, STAIR_RAIL, GALLERY, RAILCAR, TRACK_X, SUMMIT_Y, terrainAt, groundAt, lineY } from './layout.js';
+import { Bucket, M4, mats, rbox, snowCap, footAO, driftWedge, driftBox, floorPools, trackDecals, groundPatches, aoStrips, lightCone, lanePatches, slottedSlab } from './kit.js';
 import { buildGroomer } from './groomer.js';
 import { signTexture } from './tex.js';
 import { makeCanvas, canvasTex } from '../../textures.js';
@@ -61,12 +61,19 @@ export function buildFortress(ctx) {
     B.concrete.add(rbox(x1 - x0 + 1.2, 0.6, z1 - z0 + 1.2, 0.04), M4((x0 + x1) / 2, roofY + 0.3, (z0 + z1) / 2), [0.66, 0.64, 0.62], { uvScale: 4 });
     B.snow.add(snowCap(x1 - x0 + 1, z1 - z0 + 1, 0.6, 7, 10, 8), M4((x0 + x1) / 2, roofY + 0.85, (z0 + z1) / 2), [0.95, 0.97, 1]);
     icicles(x0, z1 + 0.7, x1, z1 + 0.7, roofY, 34); icicles(x0, z0 - 0.7, x1, z0 - 0.7, roofY, 30);
-    B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 - 1, 0.3, z1 - z0 - 1), M4((x0 + x1) / 2, Y - 0.13, (z0 + z1) / 2), [0.5, 0.49, 0.48], { uvScale: 3 });
+    const slots = DOCK_SLOTS.filter(r => r.y === Y);
+    slottedSlab(B.concreteIn, B.concreteIn, { x0: x0 + 0.5, x1: x1 - 0.5, z0: z0 + 0.5, z1: z1 - 0.5 }, slots, Y, 0.3, [0.5, 0.49, 0.48]);
+    // the concrete apron outside the cable opening (the slots run out through it: the cabin's belly comes in low)
+    slottedSlab(B.concrete, B.concrete, { x0: APRON.x0, x1: APRON.x1, z0: z1 - 0.5, z1: APRON.z1 }, slots, Y, 0.9, [0.6, 0.59, 0.57], { liners: false });
+    // drifted snow along its lip, between the slots
+    for (const [a, b] of [[APRON.x0, TRACK_X[0] - 1.9], [TRACK_X[0] + 1.9, TRACK_X[1] - 1.9], [TRACK_X[1] + 1.9, APRON.x1]]) B.snow.add(snowCap(b - a, 0.6, 0.12, 13 + a, 6, 1), M4((a + b) / 2, Y + 0.03, APRON.z1 - 0.35), [0.95, 0.97, 1]);
     roofs.push([x0 - 1, z0 - 1, x1 + 1, z1 + 1, roofY]);
     // the dock edges + the overhead guide rails + the bull wheel at the north end
     for (const tx of TRACK_X) {
-      for (const s of [-1.6, 1.6]) B.paintIn.add(new THREE.BoxGeometry(0.25, 0.02, 16), M4(tx + s, Y + 0.012, DOCK.z), (p) => (Math.floor((p.z) / 0.6) % 2 ? [0.75, 0.6, 0.05] : [0.05, 0.05, 0.05]));
-      for (const s of [-0.4, 0.4]) B.metal.add(new THREE.BoxGeometry(0.16, 0.24, z1 - z0 + 4), M4(tx + s, Y + 6.3, (z0 + z1) / 2 + 2), [0.32, 0.3, 0.28]);
+      for (const s of [-1.72, 1.72]) B.paintIn.add(new THREE.BoxGeometry(0.25, 0.02, 16.6), M4(tx + s, Y + 0.012, -300.8), (p) => (Math.floor((p.z) / 0.6) % 2 ? [0.75, 0.6, 0.05] : [0.05, 0.05, 0.05]));
+      // running rails either side of the carriage, at its wheels (the cabin passes between them)
+      for (const s of [-0.66, 0.66]) B.metal.add(new THREE.BoxGeometry(0.14, 0.22, z1 - z0 - 6), M4(tx + s, Y + 6.66, (z0 + z1) / 2 + 2.6), [0.32, 0.3, 0.28]);
+      for (let z = z0 + 6; z < z1 - 1; z += 4) { B.metal.add(new THREE.BoxGeometry(1.6, 0.12, 0.14), M4(tx, Y + 8.2, z), [0.3, 0.29, 0.27]); for (const s of [-0.66, 0.66]) B.metal.add(new THREE.BoxGeometry(0.08, 1.4, 0.08), M4(tx + s, Y + 7.47, z), [0.3, 0.29, 0.27]); }
       // buffers at the end of each dock (the cabin slams into these)
       B.paintIn.add(rbox(1.6, 1.0, 0.8, 0.1), M4(tx, Y + 6.0, DOCK.z - 5.2), [0.65, 0.5, 0.05]);
     }
@@ -289,7 +296,7 @@ export function buildFortress(ctx) {
     const { x0, x1, z0, z1, roofY } = GALLERY, gy = GALLERY.y;
     // floor slab, the rack railway (two rails + the toothed rack), sleepers
     B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 + 4, 0.4, z1 - z0), M4((x0 + x1) / 2 + 2, gy - 0.2, (z0 + z1) / 2), [0.6, 0.59, 0.57], { uvScale: 3 });
-    const rz = -391.5;
+    const rz = RAILCAR.z;   // the track's centre line
     B.concreteIn.add(new THREE.BoxGeometry(x1 - x0 + 12, 0.08, 3.2), M4((x0 + x1) / 2 + 6, gy + 0.02, rz), [0.3, 0.3, 0.31], { uvScale: 1.2 });   // the ballast bed
     for (let x = x0 + 2; x < x1 + 12; x += 0.7) B.paintIn.add(new THREE.BoxGeometry(0.22, 0.12, 2.4), M4(x, gy + 0.08, rz), () => { const k = 0.1 + rng() * 0.025; return [k * 1.2, k, k * 0.85]; });
     for (const s of [-0.5, 0.5]) B.metal.add(new THREE.BoxGeometry(x1 - x0 + 14, 0.14, 0.08), M4((x0 + x1) / 2 + 6, gy + 0.19, rz + s), [0.35, 0.33, 0.32]);
@@ -308,6 +315,9 @@ export function buildFortress(ctx) {
       B.concrete.add(rbox(5.6, 0.9, 0.35, 0.03), M4(x + 3.25, gy + 0.45, z1 - 0.2), [0.7, 0.69, 0.67], { uvScale: 2.4 });
     }
     col(x0 + 6, gy, z1 - 0.4, x1, gy + 0.9, z1, { kind: 'parapet' });
+    // the contact wire for the railcar's pantograph, hung from the roof slab at every pillar
+    { const wy = gy + 0.2 + 4.92; B.metal.add(new THREE.BoxGeometry(x1 - x0 + 14, 0.025, 0.025), M4((x0 + x1) / 2 + 6, wy, rz), [0.5, 0.35, 0.2]); B.metal.add(new THREE.BoxGeometry(x1 - x0 + 14, 0.02, 0.02), M4((x0 + x1) / 2 + 6, wy + 0.7, rz), [0.3, 0.3, 0.3]);
+      for (let x = x0 + 6; x < x1 + 12; x += 6.5) { B.metal.add(new THREE.BoxGeometry(0.015, 0.7, 0.015), M4(x + 3.25, wy + 0.35, rz), [0.4, 0.4, 0.4]); B.metal.add(new THREE.BoxGeometry(0.05, roofY - wy - 0.7, 0.05), M4(x + 3.25, (wy + 0.7 + roofY) / 2, rz), [0.25, 0.25, 0.26]); } }
     // lamps under the roof (cold fluorescent strips + one warm one at the portal)
     const gp = [];
     for (let x = x0 + 9; x < x1; x += 13) { B.lamp.add(new THREE.BoxGeometry(1.4, 0.06, 0.18), M4(x, roofY - 0.08, -393), [1.7, 1.15, 0.55]); glows.push({ p: [x, roofY - 0.25, -393], color: [2.2, 1.35, 0.5], size: 1.2 }); gp.push({ p: [x, gy, -390], c: [0.45, 0.29, 0.11], r: 6.5 }); }
