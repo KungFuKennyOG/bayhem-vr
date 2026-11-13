@@ -45,7 +45,7 @@ export function towerBlock(B, t, region, glows) {
   if (podH) {
     const P = B.get('tile', region);
     P.set({ col: mul3(col, 0.8), rm: [0.8, 0, 0], em: [0, 0, 0, code], cell: [5, 4, 3.0 + t.seed, 3] });
-    P.box(x0 - 2, y0 - 6, z0 - 2, x1 + 2, y0 + podH, z1 + 2, { faces: 'xXzZ', s: 1, wy0: y0 - 6 });
+    P.box(x0 - 2, y0 - 6, z0 - 2, x1 + 2, y0 + podH, z1 + 2, { faces: 'xXzZ', s: 1, wy0: y0 - 6, emLo: [0.2, 0.12, 0.05, code] });   // street light washing up the podium (it crushed to black from the river)
     const R = B.get('concrete', region); R.set({ col: [0.5, 0.5, 0.5], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
     R.box(x0 - 2, y0 + podH, z0 - 2, x1 + 2, y0 + podH + 0.6, z1 + 2, { faces: 'Y', s: 1 });
   }

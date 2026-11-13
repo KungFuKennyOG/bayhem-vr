@@ -179,7 +179,7 @@ export function buildRoute(ctx = {}) {
         const w = 8 + r() * 9, h = 7 + r() * 9, out = 2.5 + r() * 3.5, y1 = Y - 1.2 - r() * 2.5, code = wx < 250 ? DIST.FAR_W : wx > 800 ? DIST.FAR_E : roadDist(wx + w / 2);
         if (wx + w > BRIDGE.x0 - 6 && wx < BRIDGE.x1 + 6) { wx = BRIDGE.x1 + 6; continue; }
         Tw.set({ col: WALLS[Math.floor(r() * WALLS.length)], rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [2.8, 3.0, 500 + Math.round(wx), 2] });
-        Tw.box(wx, y1 - h, ROAD.rail - 0.4 - out, wx + w, y1, ROAD.rail - 0.3, { faces: 'xXz', s: 1, wy0: y1 - h });
+        Tw.box(wx, y1 - h, ROAD.rail - 0.4 - out, wx + w, y1, ROAD.rail - 0.3, { faces: 'xXz', s: 1, wy0: y1 - h, emHi: [0.18, 0.11, 0.04, DUSK + code], emLo: [0.05, 0.035, 0.02, DUSK + code] });   // (the gold lamp line above washes down the fronts)
         Rw.set({ col: [0.24, 0.23, 0.24], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rw.box(wx - 0.3, y1, ROAD.rail - 0.9 - out, wx + w + 0.3, y1 + 0.35, ROAD.rail - 0.3, { faces: 'xXzY', s: 1 });
         Ww.set({ col: [0.2, 0.17, 0.14], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
         for (let px = wx + 1; px < wx + w; px += 3) Ww.box(px - 0.12, WATER_Y - 2, ROAD.rail - 0.6 - out, px + 0.12, y1 - h, ROAD.rail - 0.36 - out, { faces: 'xXz' });

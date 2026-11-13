@@ -3,7 +3,7 @@ import { rand, range, chance, clamp, lerp, damp } from '../../rng.js';
 import { CELL } from '../../particles.js';
 import { POWER, DIST } from './kit.js';
 import { Searchlights } from './searchlights.js';
-import { buildCanopy, GlideRail, buildGunboat, buildBarge } from './glide.js';
+import { buildCanopy, GlideRail, buildGunboat, buildBarge, buildWreck } from './glide.js';
 import { Landslide } from './slide.js';
 import { Gunship } from './boss.js';
 import { TOWER, LIFT, ROOFTOP, HINGE, FALL_DIR, BOAT, WATER_Y, GLIDE_SPEED, SLIDE, STATE, Y, groundAt } from './layout.js';
@@ -42,7 +42,10 @@ export class SetPieces {
     this.boat = buildGunboat(); this.boat.position.set(BOAT.x0, WATER_Y + 0.15, BOAT.z); this.boat.visible = false; scene.add(this.boat);
     // the two armed barges of the glide (one with containers, one with sand), hidden until the canopy opens
     this.bargeMeshes = [buildBarge({ cargo: 'boxes', seed: 3 }), buildBarge({ cargo: 'sand', seed: 8, len: 32 })];
-    for (const b of this.bargeMeshes) { b.visible = false; scene.add(b); }   // bow upstream (east), coming at you; it swings broadside before you land (see _updateGlide)
+    for (const b of this.bargeMeshes) { b.visible = false; scene.add(b); }
+    // the slide's wreckage, drifting downstream on fire (hidden until the glide)
+    this.wreckMeshes = [0, 1, 2, 3, 2, 0].map((k, i) => { const w = buildWreck(k, i + 1); w.visible = false; scene.add(w); return w; });
+    this.drift = [];   // bow upstream (east), coming at you; it swings broadside before you land (see _updateGlide)
     this.cuts = [];
     this.fadeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 8), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
     this.fadeMesh.renderOrder = 9999; this.fadeMesh.frustumCulled = false; this.fadeMesh.visible = false; g.camera.add(this.fadeMesh);
@@ -59,9 +62,33 @@ export class SetPieces {
   }
   warmMaterials() {
     const out = [];
-    for (const o of [this.canopy, this.boat, ...this.bargeMeshes]) o.traverse(m => { if (m.isMesh || m.isLine) for (const mm of [].concat(m.material)) if (!out.includes(mm)) out.push(mm); });
+    for (const o of [this.canopy, this.boat, ...this.bargeMeshes, ...this.wreckMeshes]) o.traverse(m => { if (m.isMesh || m.isLine) for (const mm of [].concat(m.material)) if (!out.includes(mm)) out.push(mm); });
     out.push(this.search.mesh.material, this.fadeMesh.material, ...this.heron1.warmMaterials(), ...this.heron2.warmMaterials());
     return out;
+  }
+
+  // ================================================================== the wreckage in the river
+  // Placed so that `tLeft` seconds later (when you are on the gunboat's deck) it is drifting past: two pieces abeam within
+  // 25–40 m, one upstream coming down, others further off. The current takes it west at 1.2 m/s; it bobs, turns slowly,
+  // burns (its fires are the two pooled lights' nearest sources, so they light the deck with a flicker).
+  spawnDrift(tLeft = null) {
+    if (this.drift.length) return;
+    if (tLeft === null) tLeft = this.rail ? this.rail.remaining + 1 : 0;
+    const bx = 206, bz = 225, V0 = 1.2;
+    const at = [[bx + 9, bz + 26, 0.4], [bx - 15, bz - 26, 2.6], [bx + 55, bz - 42, 1.2], [bx - 70, bz + 40, 0.2], [bx + 95, bz + 12, 1.9], [bx + 30, bz - 75, 3.0]];
+    this.wreckMeshes.forEach((w, i) => {
+      const [x, z, yaw] = at[i]; w.visible = true; w.position.set(x + V0 * tLeft, WATER_Y, z); w.rotation.set(w.userData.tilt[0], yaw, w.userData.tilt[1]);
+      w.updateMatrixWorld(true);
+      const f = this.addFire(w.userData.fire.clone().applyMatrix4(w.matrixWorld), i < 3 ? 1.5 : 1.2, { life: 1e9 });
+      this.drift.push({ w, f, v: V0 * (0.9 + 0.2 * ((i * 37) % 5) / 5), spin: ((i % 2) ? 1 : -1) * 0.02, ph: i * 1.7 });
+    });
+  }
+  _updateDrift(dt) {
+    for (const D of this.drift) {
+      const w = D.w; w.position.x -= D.v * dt; w.rotation.y += D.spin * dt;
+      w.position.y = WATER_Y + Math.sin(this.g.time * 0.7 + D.ph) * 0.12; w.rotation.x = w.userData.tilt[0] + Math.sin(this.g.time * 0.5 + D.ph) * 0.03;
+      w.updateMatrixWorld(true); D.f.p.copy(w.userData.fire).applyMatrix4(w.matrixWorld);
+    }
   }
 
   // ================================================================== fires (persistent, light the scene)
@@ -545,6 +572,7 @@ export class SetPieces {
 
   // ================================================================== frame
   update(dt) {
+    this._updateDrift(dt);
     this._updatePower(dt);
     this._updateFall(dt);
     this._updateLift(dt);

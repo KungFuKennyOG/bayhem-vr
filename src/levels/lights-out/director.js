@@ -272,6 +272,7 @@ export class Director {
           hud.setWaypoint(null);
           this._pt = 0; this.downT = 0; this.flyT = -1;
           later(1.2, () => say('Canopy\'s open! Good! ...Now look RIGHT!', 2.4, U));
+          later(3, () => sp.spawnDrift());   // the wreckage that will be drifting past the gunboat when you land
           if (A) later(1.6, () => { g.cinematicLook = JIN.clone().setY(ROOFTOP.y - 50); g.cinematicW = 1.3; });
         }, update: (t) => {
           const dt = t - this._pt; this._pt = t; void dt;
@@ -304,6 +305,7 @@ export class Director {
         }, until: () => sp.glide?.state === 'landed' },
       // 11 ---- the deck: Longwu comes back on, district by district; stats
       { name: 'outro', music: 1.0, enter: () => {
+          sp.spawnDrift(0);   // (a ?beat= jump: the glide never ran)
           audio.musicStinger('victory');
           g.bossInfo = null; hud.setWaypoint(null);
           for (const s of g.soldiers) if (s.alive) { s.alive = false; s.root.visible = false; }

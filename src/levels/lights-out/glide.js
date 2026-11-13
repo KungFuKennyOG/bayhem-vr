@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { range, rand, clamp, damp, lerp } from '../../rng.js';
 import { CELL } from '../../particles.js';
+import { makeRng } from '../../rng.js';
 import { Buckets, em, hexc, mix3, mul3, DUSK, DIST } from './kit.js';
 import { materials } from './mats.js';
 import { GLIDE, GLIDE_SPEED, STEER_MAX, BOAT, WATER_Y } from './layout.js';
@@ -114,7 +115,7 @@ export function buildGunboat() {
     const keel = -1.7 + bow * bow * 1.3 + (u < 0.08 ? (0.08 - u) * 6 : 0);
     sec.push([x, hwD, yD, hwC, 0.15 + bow * 0.6, keel]);
   }
-  const HULL = [0.26, 0.29, 0.32], HULL2 = [0.18, 0.2, 0.22], BOOT = [0.7, 0.7, 0.68], PAINT = [0.33, 0.37, 0.35];   // naval grey-green
+  const HULL = [0.26, 0.29, 0.32], HULL2 = [0.18, 0.2, 0.22], BOOT = [0.7, 0.7, 0.68], PAINT = [0.26, 0.29, 0.28];   // naval grey-green
   const St = B.get('steel', 'b'), Dk = B.get('deck', 'b');
   const ALW = DUSK + DIST.ALWAYS;
   // a torus in the plane spanned by unit vectors e1, e2 around centre c (proper shared faces: no sawtooth where colours change)
@@ -178,7 +179,7 @@ export function buildGunboat() {
   // the aft bulkhead as a 0.4 m grid, so the lamp over the door and the floods can lay warm light on it (baked per vertex),
   // with grime toward the deck
   { const lampA = [3.3, -1.28], NZ = 13, NY = 6;
-    const lit = (y, z) => { const dy = (y - lampA[0]) / 1.1, dz = (z - lampA[1]) / 1.0; const k = Math.exp(-(dy * dy + dz * dz)) * 0.9 + Math.exp(-((y - 3.6) * (y - 3.6) / 0.5 + (Math.abs(z) - 2.3) * (Math.abs(z) - 2.3) / 0.8)) * 0.35; const e = 0.16 * k; return [e, e * 0.8, e * 0.55, ALW]; };
+    const lit = (y, z) => { const dy = (y - lampA[0]) / 0.9, dz = (z - lampA[1]) / 0.8; const k = Math.exp(-(dy * dy + dz * dz)) * 0.9 + Math.exp(-((y - 3.6) * (y - 3.6) / 0.4 + (Math.abs(z) - 2.3) * (Math.abs(z) - 2.3) / 0.5)) * 0.3; const e = 0.085 * k; return [e, e * 0.78, e * 0.5, ALW]; };
     const colY = (y) => mul3(PAINT, 0.6 + 0.4 * Math.min(1, (y - 1.25) / 1.0));
     for (let i = 0; i < NZ; i++) for (let j = 0; j < NY; j++) {
       const za = -2.6 + 5.2 * i / NZ, zb = -2.6 + 5.2 * (i + 1) / NZ, ya = 1.25 + 2.35 * j / NY, yb = 1.25 + 2.35 * (j + 1) / NY;
@@ -224,12 +225,12 @@ export function buildGunboat() {
     const gsv = Lt.push(new THREE.Matrix4().makeRotationZ(Math.PI / 2).setPosition(BX - 0.11, 2.72, -1.28)); Lt.set({ col: [0.1, 0.09, 0.08], rm: [0.06, 0.4, 0], em: em([1, 0.7, 0.4], 0.22, ALW) }); Lt.cyl(0, 0, 0, 0.125, 0.125, 0.05, 14); Lt.pop(gsv); }
   // the caged lamp over the door
   Mt.set({ col: [0.16, 0.17, 0.17], rm: [0.4, 0.6, 0] }); Mt.box(BX - 0.12, 3.38, -1.42, BX, 3.46, -1.14, { faces: 'xzZYy' });
-  Lt.set({ col: [0.9, 0.8, 0.6], em: em([1, 0.82, 0.55], 1.3, ALW) }); Lt.tube([BX - 0.1, 3.3, -1.28], [BX - 0.1, 3.38, -1.28], 0.1, 10); Lt.tube([BX - 0.1, 3.22, -1.28], [BX - 0.1, 3.3, -1.28], 0.085, 10);
+  Lt.set({ col: [0.75, 0.62, 0.45], em: em([1, 0.78, 0.5], 0.75, ALW) }); Lt.tube([BX - 0.1, 3.3, -1.28], [BX - 0.1, 3.38, -1.28], 0.1, 10); Lt.tube([BX - 0.1, 3.22, -1.28], [BX - 0.1, 3.3, -1.28], 0.085, 10);
   Mt.set({ col: [0.12, 0.12, 0.12] }); for (const zz of [-1.4, -1.33, -1.23, -1.16]) Mt.tube([BX - 0.21, 3.19, zz], [BX - 0.21, 3.38, zz], 0.009, 4); for (const yy of [3.19, 3.28]) Mt.tube([BX - 0.21, yy, -1.4], [BX - 0.21, yy, -1.16], 0.009, 4);
   // the lifebuoy: an orange ring with four white bands (a real torus), a grab line round it, on a bracket; a coiled line under it
   { const cz = 0.95, cy = 2.35, R = 0.3;
     Mt.set({ col: [0.22, 0.23, 0.23], rm: [0.4, 0.6, 0] }); Mt.box(BX - 0.12, cy + R + 0.02, cz - 0.05, BX, cy + R + 0.1, cz + 0.05); Mt.box(BX - 0.12, cy - 0.04, cz - R - 0.1, BX, cy + 0.04, cz - R + 0.02);
-    torus(Lt, [BX - 0.11, cy, cz], [0, 1, 0], [0, 0, 1], R, 0.065, 24, 8, (i) => (i % 6 === 0 || i % 6 === 1) ? [0.8, 0.79, 0.75] : [0.78, 0.26, 0.06]);
+    torus(Lt, [BX - 0.11, cy, cz], [0, 1, 0], [0, 0, 1], R, 0.065, 32, 10, (i) => (i % 6 === 0 || i % 6 === 1) ? [0.8, 0.79, 0.75] : [0.78, 0.26, 0.06]);
     A.set({ col: [0.55, 0.5, 0.38], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4; torus(A, [BX - 0.11, cy + Math.sin(a) * R, cz + Math.cos(a) * R], [Math.cos(a) * 0, Math.cos(a), -Math.sin(a)].map((v, i) => i === 0 ? 1 : 0), [0, Math.sin(a), Math.cos(a)], 0.075, 0.009, 8, 3, () => [0.55, 0.5, 0.38]); }
     A.set({ col: [0.2, 0.17, 0.12] }); for (let l = 0; l < 3; l++) torus(A, [BX - 0.08, 1.75, cz], [0, 1, 0], [0, 0, 1], 0.15 - l * 0.02, 0.018, 14, 4, () => [0.2, 0.17, 0.12]); }
   // fire extinguisher on a bracket, a red cabinet, a junction box with conduit up to the roof edge, a vent louvre
@@ -237,8 +238,8 @@ export function buildGunboat() {
   // a fire-hose reel: a red drum on a wall bracket, the hose wound on it, a brass nozzle, the valve wheel beside it
   { const hc = [1.92, 2.82];
     Mt.set({ col: [0.22, 0.23, 0.23], rm: [0.4, 0.6, 0] }); Mt.box(BX - 0.3, hc[1] - 0.04, hc[0] - 0.04, BX, hc[1] + 0.04, hc[0] + 0.04);
-    for (const dx of [-0.08, -0.36]) { const rsv = A.push(new THREE.Matrix4().makeRotationZ(Math.PI / 2).setPosition(BX + dx, hc[1], hc[0])); A.set({ col: [0.32, 0.05, 0.03], rm: [0.45, 0.25, 0] }); A.cyl(0, 0, 0, 0.23, 0.23, 0.02, 28); A.set({ col: [0.2, 0.04, 0.03] }); A.cyl(0, 0.02, 0, 0.06, 0.06, 0.05, 12); A.pop(rsv); }
-    for (let l = 0; l < 5; l++) torus(A, [BX - 0.12 - l * 0.045, hc[1], hc[0]], [0, 1, 0], [0, 0, 1], 0.17, 0.022, 24, 6, () => [0.36, 0.1, 0.05]);
+    for (const dx of [-0.08, -0.36]) { const rsv = A.push(new THREE.Matrix4().makeRotationZ(Math.PI / 2).setPosition(BX + dx, hc[1], hc[0])); A.set({ col: [0.2, 0.045, 0.035], rm: [0.5, 0.25, 0] }); A.cyl(0, 0, 0, 0.23, 0.23, 0.02, 28); A.set({ col: [0.2, 0.04, 0.03] }); A.cyl(0, 0.02, 0, 0.06, 0.06, 0.05, 12); A.pop(rsv); }
+    for (let l = 0; l < 5; l++) torus(A, [BX - 0.12 - l * 0.045, hc[1], hc[0]], [0, 1, 0], [0, 0, 1], 0.17, 0.022, 24, 6, () => [0.22, 0.07, 0.04]);
     Mt.set({ col: [0.55, 0.42, 0.15], rm: [0.3, 0.9, 0] }); Mt.tube([BX - 0.25, hc[1] - 0.22, hc[0] + 0.05], [BX - 0.25, hc[1] - 0.48, hc[0] + 0.12], 0.025, 6);
     torus(A, [BX - 0.08, 2.3, 1.45], [0, 1, 0], [0, 0, 1], 0.09, 0.015, 12, 4, () => [0.45, 0.06, 0.04]); }
   Mt.set({ col: [0.32, 0.34, 0.34], rm: [0.4, 0.6, 0] }); Mt.box(BX - 0.14, 2.0, -0.42, BX, 2.36, -0.1, { faces: 'xzZYy' });
@@ -405,6 +406,55 @@ export function buildGunboat() {
     nav: [[new THREE.Vector3(0, 6.25, -2.4), [3, 0.15, 0.1]], [new THREE.Vector3(0, 6.25, 2.4), [0.15, 3, 0.4]], [new THREE.Vector3(0, 13.4, 0), [3, 2.9, 2.6]],
       [new THREE.Vector3(-7.52, 3.74, -2.3), [1.2, 1.0, 0.7]], [new THREE.Vector3(-7.52, 3.74, 2.3), [1.2, 1.0, 0.7]], [new THREE.Vector3(4.84, 3.74, 0), [1.2, 1.0, 0.7]], [new THREE.Vector3(x1 - 1, 2.9, 0), [1.4, 1.2, 0.8]]],
     funnel: new THREE.Vector3(-5.3, 6.7, 0) };
+  return g;
+}
+
+// what the landslide put in the river: burning wreckage drifting downstream past the gunboat (the outro's foreground).
+// kind 0: a tiled roof section riding on its rafters; 1: a city bus on its side, half under; 2: a raft of timbers, a
+// door, a shop sign; 3: a shipping container nose-down. userData.fire = where its fire sits (local), userData.tilt.
+export function buildWreck(kind, seed = 1) {
+  const M = materials();
+  const B = new Buckets(); for (const [k, m] of Object.entries(M)) B.mat(k, m);
+  const g = new THREE.Group(); g.name = 'wreck';
+  const r = makeRng(seed * 131 + kind);
+  const A = B.get('plain', 'w'), Wd = B.get('wood', 'w'), St = B.get('steel', 'w'), Rf = B.get('roof', 'w');
+  const CH = [0.05, 0.045, 0.04];   // charred
+  let fire = [0, 1, 0], tilt = [0, 0];
+  // everything on a burning wreck is lit by its own fire: a warm emissive on every surface (the fire's flicker on top comes
+  // from the pooled point lights), so it reads as burning debris rather than a black box with a flame on it
+  const FL = em([1, 0.4, 0.1], 0.12, DUSK + DIST.ALWAYS);
+  const setF = (Acc) => { const s0 = Acc.set.bind(Acc); Acc.set = (o) => s0({ ...o, em: o.em && o.em[3] === 0 && o.em[0] === 0 ? FL : (o.em ?? FL) }); };
+  for (const Acc of [A, Wd, St, Rf]) setF(Acc);
+  if (kind === 0) {
+    Rf.set({ col: [0.2, 0.12, 0.09], rm: [0.85, 0, 0], em: [0, 0, 0, 0] });
+    Rf.quad([-4.5, 0.2, -3], [4.5, 0.2, -3], [4.5, 2.4, 0], [-4.5, 2.4, 0], [-4.5, 0, 4.5, 3.6]); Rf.quad([4.5, 0.2, 3], [-4.5, 0.2, 3], [-4.5, 2.4, 0], [4.5, 2.4, 0], [-4.5, 0, 4.5, 3.6]);
+    A.set({ col: CH, rm: [0.95, 0, 0], em: [0, 0, 0, 0] }); for (const [x0, z0, x1, z1] of [[-1.5, -2.6, 0.8, -0.6], [1.6, 0.8, 3.5, 2.6]]) A.quad([x0, 0.4 + (z0 + 3) * 0.73 + 0.02, z0], [x1, 0.4 + (z0 + 3) * 0.73 + 0.02, z0], [x1, 0.4 + (z1 + 3) * 0.73 * (z1 < 0 ? 1 : 0) + 0.02, z1], [x0, 0.4 + (z1 + 3) * 0.73 * (z1 < 0 ? 1 : 0) + 0.02, z1]);
+    Wd.set({ col: [0.2, 0.14, 0.09], rm: [0.9, 0, 0] }); for (let x = -4.2; x < 4.4; x += 0.9) Wd.beam([x, 0.1, -3.2], [x + (r() - 0.5) * 0.3, 2.5, 0.1], 0.12, 0.12); Wd.beam([-5, 2.4, 0], [4.8, 2.45, 0], 0.18, 0.18);
+    A.set({ col: [0.6, 0.55, 0.48] }); A.box(-2.5, 0.2, 1.2, -1.4, 1.4, 1.35, { faces: 'zZxXY' });   // a chimney stub
+    fire = [0.5, 2.2, -0.3]; tilt = [0.12, -0.08];
+  } else if (kind === 1) {
+    // the bus, lying on its right side: roof toward the boat, windows a dark row along the top
+    St.set({ col: [0.1, 0.2, 0.18], rm: [0.6, 0.3, 0], em: [0, 0, 0, 0] }); St.box(-5.5, -1.2, -1.25, 5.5, 1.3, 1.25, { faces: 'xXzZY', s: 1, foot: 0.5 });
+    A.set({ col: [0.03, 0.035, 0.04], rm: [0.15, 0.4, 0], em: [0, 0, 0, 0] }); for (let x = -4.8; x < 4.6; x += 1.25) A.box(x, 0.2, 1.25, x + 1.05, 1.05, 1.27, { faces: 'Z' });
+    A.set({ col: [0.36, 0.34, 0.3] }); A.box(-5.2, -0.4, 1.25, 5.2, -0.15, 1.27, { faces: 'Z' });
+    A.set({ col: CH }); A.box(-1.5, 1.3, -1.0, 2.8, 1.32, 1.0, { faces: 'Y' });
+    A.set({ col: [0.02, 0.02, 0.02] }); for (const x of [-3.6, 3.4]) A.cyl(x, 1.3, -1.25, 0.55, 0.55, 1.62, 12);
+    fire = [0.8, 1.6, 0]; tilt = [0.06, 0.1];
+  } else if (kind === 2) {
+    Wd.set({ col: [0.26, 0.18, 0.11], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
+    for (let k = 0; k < 9; k++) { const a = (r() - 0.5) * 0.9, L = 3 + r() * 4, cx = (r() - 0.5) * 3, cz = (r() - 0.5) * 3, y = 0.1 + (k % 3) * 0.22; Wd.beam([cx - Math.cos(a) * L / 2, y, cz - Math.sin(a) * L / 2], [cx + Math.cos(a) * L / 2, y + 0.05, cz + Math.sin(a) * L / 2], 0.22, 0.2); }
+    A.set({ col: [0.45, 0.12, 0.08], rm: [0.7, 0, 0], em: [0, 0, 0, 0] }); A.obox(0.4, 0.55, -0.6, 1.1, 0.04, 0.5, 0.4, { faces: 'yY' });
+    A.set({ col: [0.55, 0.45, 0.2] }); A.obox(-0.9, 0.62, 0.7, 1.0, 0.03, 0.3, -0.3, { faces: 'yY' });
+    fire = [0, 0.8, 0]; tilt = [0.04, 0.05];
+  } else {
+    St.set({ col: [0.26, 0.13, 0.08], rm: [0.7, 0.4, 0], em: [0, 0, 0, 0] }); St.box(-6, -1.3, -1.22, 6, 1.3, 1.22, { faces: 'xXzZY', s: 1, foot: 0.5 });
+    St.set({ col: [0.14, 0.08, 0.05] }); for (let x = -5.6; x < 5.8; x += 0.4) St.box(x, -1.2, 1.22, x + 0.12, 1.2, 1.25, { faces: 'Z', s: 1 });
+    A.set({ col: CH }); A.box(1.2, 0.2, 1.255, 6, 1.3, 1.26, { faces: 'Z' });   // the burnt end
+    A.set({ col: CH, rm: [0.95, 0, 0], em: [0, 0, 0, 0] }); A.box(-1, 1.3, -1.1, 4, 1.32, 1.1, { faces: 'Y' });
+    fire = [2.5, 1.5, 0]; tilt = [0.0, 0.22];
+  }
+  B.finish(g);
+  g.userData = { fire: new THREE.Vector3(...fire), tilt };
   return g;
 }
 

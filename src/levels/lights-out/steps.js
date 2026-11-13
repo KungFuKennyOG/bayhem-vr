@@ -104,7 +104,7 @@ export function buildSteps(ctx = {}) {
   // pools under the two lamps and the cart, sodium under the flyover, shop light spilling a metre or two off both walls.
   // The albedo is kept dark so the pools are what you see (it read as a floor lit at noon).
   const POOLS = [];
-  for (let x = STAIRS.x0 + 6; x < STAIRS.x1 - 4; x += 7.5) { if (x > -98 && x < -76) continue; POOLS.push([x + 2.5, (STAIRS.z0 + STAIRS.z1) / 2, 3.2, [1.0, 0.32, 0.14], 0.55]); }
+  for (let x = STAIRS.x0 + 6; x < STAIRS.x1 - 4; x += 7.5) { if (x > -98 && x < -76) continue; POOLS.push([x + 2.5, (STAIRS.z0 + STAIRS.z1) / 2, 2.2, [1.0, 0.3, 0.12], 1.1]); }   // the lanterns: local red pools (wider ones tinted the whole floor terracotta)
   POOLS.push([-104.5, STAIRS.z0 + 2.4, 3.6, [1.0, 0.68, 0.36], 0.75], [-72, STAIRS.z1 - 2.4, 3.6, [1.0, 0.68, 0.36], 0.75], [-86.2, STAIRS.z1 - 2.2, 2.6, [1.0, 0.72, 0.42], 0.6], [-87, 76, 4.2, [1.0, 0.55, 0.22], 0.7]);
   const floorLight = (x, z) => {
     let r0 = 0, g0 = 0, b0 = 0;
@@ -197,11 +197,11 @@ export function buildSteps(ctx = {}) {
             const kind = Math.floor(r2() * 5), zc = zw + inn * (0.75 + r2() * 0.25);
             if (kind === 0) {       // produce crates, two high, fruit on top
               for (let t = 0; t < 1 + (r2() < 0.6 ? 1 : 0); t++) { Wd.set({ col: [0.36, 0.27, 0.17], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); Wd.obox(x + 0.3, y + 0.17 + t * 0.34, zc, 0.3, 0.17, 0.22, (r2() - 0.5) * 0.3, { faces: 'xXzZY', s: 1 }); }
-              const fc = [[0.55, 0.25, 0.04], [0.35, 0.42, 0.08], [0.5, 0.08, 0.05]][Math.floor(r2() * 3)];
+              const fc = [[0.42, 0.2, 0.05], [0.24, 0.3, 0.08], [0.36, 0.08, 0.05]][Math.floor(r2() * 3)];
               Pd.set({ col: fc, rm: [0.6, 0, 0] }); for (let f = 0; f < 6; f++) Pd.cyl(x + 0.1 + (f % 3) * 0.2, y + 0.68, zc - 0.08 + Math.floor(f / 3) * 0.16, 0.07, 0.05, y + 0.76, 6);
               colliders.push({ min: [x, y, zc - 0.25], max: [x + 0.6, y + 0.72, zc + 0.25], data: { mat: 'wood', kind: 'crate' } }); x += 0.9;
             } else if (kind === 1) {   // a stack of plastic stools
-              const sc = [[0.6, 0.1, 0.07], [0.1, 0.25, 0.55], [0.12, 0.4, 0.2]][Math.floor(r2() * 3)], n = 2 + Math.floor(r2() * 4);
+              const sc = [[0.34, 0.1, 0.08], [0.1, 0.17, 0.3], [0.12, 0.24, 0.15]][Math.floor(r2() * 3)], n = 2 + Math.floor(r2() * 4);
               Pd.set({ col: sc, rm: [0.45, 0, 0] }); for (let t = 0; t < n; t++) Pd.cyl(x + 0.2, y + 0.38 + t * 0.07, zc, 0.17, 0.16, y + 0.42 + t * 0.07, 10);
               for (const [dx, dz] of [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]]) Pd.box(x + 0.2 + dx - 0.02, y, zc + dz - 0.02, x + 0.2 + dx + 0.02, y + 0.38, zc + dz + 0.02, { faces: 'xXzZ' });
               x += 0.7;
@@ -209,12 +209,14 @@ export function buildSteps(ctx = {}) {
               for (let b = 0; b < 2 + Math.floor(r2() * 3); b++) { Pd.set({ col: r2() < 0.7 ? [0.03, 0.03, 0.035] : [0.08, 0.15, 0.3], rm: [0.25, 0, 0] }); Pd.obox(x + 0.25 + b * 0.32, y + 0.2, zc + (r2() - 0.5) * 0.2, 0.2, 0.2 + r2() * 0.06, 0.18, r2() * 3, { faces: 'xXzZY' }); Pd.cyl(x + 0.25 + b * 0.32, y + 0.38, zc, 0.06, 0.02, y + 0.5, 5); }
               x += 1.2;
             } else if (kind === 3) {   // a potted plant
-              Pd.set({ col: [0.32, 0.16, 0.1], rm: [0.8, 0, 0] }); Pd.cyl(x + 0.3, y, zc, 0.2, 0.26, y + 0.42, 10);
+              Pd.set({ col: [0.22, 0.12, 0.08], rm: [0.85, 0, 0] }); Pd.cyl(x + 0.3, y, zc, 0.2, 0.26, y + 0.42, 14); Pd.set({ col: [0.06, 0.05, 0.04] }); Pd.cyl(x + 0.3, y + 0.4, zc, 0.19, 0.19, y + 0.43, 14);
               for (let f = 0; f < 5; f++) { const a = f * 1.26 + x, g2 = 0.7 + (f % 2) * 0.3; Pd.set({ col: [0.05 * g2, 0.1 * g2, 0.04 * g2], rm: [0.8, 0, 0] }); Pd.cyl(x + 0.3 + Math.cos(a) * 0.12, y + 0.42, zc + Math.sin(a) * 0.12, 0.12, 0.2, y + 0.75 + (f % 3) * 0.12, 6); }
               x += 0.8;
             } else {                   // a yellow tub with mops
-              Pd.set({ col: [0.55, 0.42, 0.06], rm: [0.5, 0, 0] }); Pd.cyl(x + 0.25, y, zc, 0.2, 0.24, y + 0.32, 10);
-              Pd.set({ col: [0.4, 0.34, 0.25] }); for (const dz of [-0.06, 0.06]) Pd.beam([x + 0.25, y + 0.1, zc + dz], [x + 0.28, y + 1.35, zc + dz + inn * 0.2], 0.03, 0.03);
+              // a grey mop bucket, two mops leaning on the wall
+              Pd.set({ col: [0.22, 0.24, 0.26], rm: [0.5, 0, 0] }); Pd.cyl(x + 0.25, y, zc, 0.15, 0.17, y + 0.28, 12);
+              Pd.set({ col: [0.3, 0.26, 0.2] }); for (const dz of [-0.05, 0.05]) Pd.beam([x + 0.25, y + 0.12, zc + dz], [x + 0.25, y + 1.3, zc - inn * 0.55 + dz], 0.025, 0.025);
+              Pd.set({ col: [0.35, 0.33, 0.3], rm: [0.9, 0, 0] }); Pd.cyl(x + 0.25, y + 0.02, zc, 0.09, 0.12, y + 0.2, 8);
               x += 0.8;
             }
             x += 0.4 + r2() * 1.6;
@@ -297,7 +299,9 @@ export function buildSteps(ctx = {}) {
       const Aw = B.get('dbl', 'stairs'); for (let k = 0; k < 6; k++) { Aw.set({ col: k % 2 ? [0.6, 0.55, 0.45] : [0.5, 0.1, 0.07], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); const xa2 = -88.3 + k * 0.68; Aw.quad([xa2, 57.4, z0c - 0.4], [xa2 + 0.68, 57.4, z0c - 0.4], [xa2 + 0.68, 57.75, z1c + 0.1], [xa2, 57.75, z1c + 0.1]); }
       Mc.set({ col: [0.18, 0.18, 0.18] }); for (const x of [-88.2, -84.3]) Mc.tube([x, 56, z1c], [x, 57.75, z1c + 0.1], 0.025, 5);
       Pc.set({ col: [0.2, 0.35, 0.55], rm: [0.5, 0.2, 0] }); Pc.cyl(-84.1, 55, z1c - 0.3, 0.16, 0.16, 55.6, 10);
-      Pc.set({ col: [0.55, 0.1, 0.07], rm: [0.45, 0, 0] }); for (const [x, z] of [[-89.2, z0c - 0.6], [-83.4, z0c - 0.3]]) Pc.cyl(x, 55.38, z, 0.17, 0.16, 55.44, 10); }
+      // two folding stools by the cart (seat on four legs)
+      for (const [x, z] of [[-89.2, z0c - 0.6], [-83.4, z0c - 0.3]]) { Pc.set({ col: [0.3, 0.09, 0.07], rm: [0.45, 0, 0] }); Pc.cyl(x, 55.4, z, 0.17, 0.16, 55.45, 12);
+        Pc.set({ col: [0.15, 0.15, 0.15] }); for (const [dx, dz] of [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]]) Pc.box(x + dx - 0.015, 55, z + dz - 0.015, x + dx + 0.015, 55.4, z + dz + 0.015, { faces: 'xXzZ' }); } }
     colliders.push({ min: [-88, 55, STAIRS.z1 - 2.4], max: [-84.5, 56.5, STAIRS.z1 - 0.9], data: { mat: 'metal', kind: 'cart' } });
     glows.push({ p: [-86.2, 56.8, STAIRS.z1 - 1.6], color: [1.8, 1.1, 0.5], size: 2.2, code: DUSK + W0 });
     lights.push({ p: [-86.2, 57.2, STAIRS.z1 - 1.6], color: [1, 0.7, 0.4], r: 5, k: 1, grp: 0 });

@@ -262,17 +262,23 @@ export class Acc {
   }
   // axis-aligned box; faces 'xXyYzZ'; uv: s = metres per uv unit (0 → 0..1 per face). World-aligned uv
   // (u along the face, v = world y) so tiling textures line up across boxes. win: windows (v from y0 - wy0)
-  box(x0, y0, z0, x1, y1, z1, { faces = 'xXyYzZ', s = 0, col = this.col, foot = 0, top = null, wy0 = null } = {}) {
+  // emLo: an emissive at the bottom edge of the side faces fading to the bucket's em at the top (street light washing up a
+  // facade); give it the same power code as the em
+  box(x0, y0, z0, x1, y1, z1, { faces = 'xXyYzZ', s = 0, col = this.col, foot = 0, top = null, wy0 = null, emLo = null, emHi = null } = {}) {
     const U = (a) => s ? a / s : a;
+    const qd = this.quad;
+    const elo = emLo || this.em, ehi = emHi || this.em;
+    const quad = (emLo || emHi) ? (a, b, c, d, uv, cl, cls) => qd.call(this, a, b, c, d, uv, cl, cls, [elo, elo, ehi, ehi]) : (a, b, c, d, uv, cl, cls) => qd.call(this, a, b, c, d, uv, cl, cls);
+    const self = { quad };
     const vb = wy0 ?? 0;
     const lo = foot ? col.map(v => v * (1 - foot)) : col, hi = top || col;
     const cs = (lo2, hi2) => [lo2, lo2, hi2, hi2];
     const S = s || 1;
     const wv = (y) => s ? (y - vb) / S : (y - y0) / (y1 - y0);
-    if (faces.includes('Z')) this.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], s ? [U(x0), wv(y0), U(x1), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
-    if (faces.includes('z')) this.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], s ? [U(-x1), wv(y0), U(-x0), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
-    if (faces.includes('X')) this.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], s ? [U(-z1), wv(y0), U(-z0), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
-    if (faces.includes('x')) this.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], s ? [U(z0), wv(y0), U(z1), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
+    if (faces.includes('Z')) self.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], s ? [U(x0), wv(y0), U(x1), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
+    if (faces.includes('z')) self.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], s ? [U(-x1), wv(y0), U(-x0), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
+    if (faces.includes('X')) self.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], s ? [U(-z1), wv(y0), U(-z0), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
+    if (faces.includes('x')) self.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], s ? [U(z0), wv(y0), U(z1), wv(y1)] : [0, 0, 1, 1], col, cs(lo, hi));
     if (faces.includes('Y')) this.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], s ? [U(x0), U(-z1), U(x1), U(-z0)] : [0, 0, 1, 1], hi);
     if (faces.includes('y')) this.quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], s ? [U(x0), U(z0), U(x1), U(z1)] : [0, 0, 1, 1], lo);
   }

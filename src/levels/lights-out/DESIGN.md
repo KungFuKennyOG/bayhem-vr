@@ -81,7 +81,18 @@ bright: a uniform noon floor; now dark granite with warm spill off the shops and
 lights in the light map at a third), granite flags with joints, striped faded awnings, weathered signs (the atlas is
 desaturated 22 % with soot edges), no AC units / balconies in front of fascia signs, shop interiors with stocked shelves,
 the boat's painted-steel / anti-skid textures, a lit aft bulkhead, a real torus lifebuoy, hose reel, door, porthole.
-Still open (in order): the riverbank and skyline in the outro crush to black boxes (level-wide city facades); shop
+Second pass (Nov 13 evening): the outro surroundings. The river's banks were black slabs from the deck: the stilt houses
+under the road now take the gold lamp line's wash from above (`box({ emHi })`, new in kit.js, with `emLo` for washes
+from below), the north quay houses and the shelf's mid-rises a wash from below, tower podiums a street-level wash
+(level-wide), the north rock face pools of light round the cliff-stair lamps, the south cliff a sodium wash from the
+road; lamp posts with pools along the north quay; burning wreckage from the slide drifting down past the gunboat
+(`buildWreck`, `spawnDrift`: its fires feed the pooled lights, so the deck flickers); searchlight lens glows sized by
+distance. Reviews after it: stairs 6.5 / 6, boat 5.5 / 4.5 (reviewer spread ±1): a plateau around **stairs 6.5,
+boat 5**. Iron Lady is 8.
+Still open (in order): the city reads as boxes (towers are pillars with striped window grids, the riverfront slabs repeat)
+— this is the level-wide city kit, not the boat; the wreckage needs real modelling (hull fragments, broken ribs, foam);
+signs repeat between neighbouring frames; the stair floors are clean (no litter / puddle decals);
+the riverbank and skyline in the outro crush to black boxes (level-wide city facades); shop
 interiors still read as dioramas; stair props read as plastic (desaturate, scale the noodle cups down, cluster into
 stalls); no wet reflections; the boat deck could use more work-light and seams; the outro has no spectacle left
 (smoke columns, fires on the bank).
