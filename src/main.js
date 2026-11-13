@@ -51,7 +51,8 @@ async function boot() {
   const quality = lite ? 'quest' : 'high';
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: CAPTURE });
   renderer.setPixelRatio(CAPTURE ? 1 : Math.min(devicePixelRatio, isQuest ? 1 : TOUCH ? 1.5 : 2));
-  renderer.setSize(innerWidth, innerHeight);
+  // CSS sizes the canvas (100% of the page, see index.html); we only size its drawing buffer (updateStyle = false)
+  renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
@@ -138,19 +139,22 @@ async function boot() {
 
   // ---------------- live loop + start screen ----------------
   let last = performance.now();
-  // fit the canvas to the window. Checked every frame, not only on 'resize': iOS fires resize (and
-  // orientationchange) before innerWidth / innerHeight take their new values, so a phone rotated to landscape
-  // kept a portrait-width canvas in the corner of the screen. Two number compares a frame; never during VR.
-  let fitW = innerWidth, fitH = innerHeight;
+  // fit the drawing buffer to the canvas as CSS lays it out (width / height 100%), checked every frame. Never
+  // trust innerWidth / innerHeight for this: on iPhone (Safari, and home-screen web apps) they can keep the
+  // portrait values after rotating to landscape, which left the game drawn in a portrait-width box on the left
+  // of the screen while the touch overlay (sized by CSS) filled it. Two number compares a frame; never in VR.
+  const cv = renderer.domElement;
+  let fitW = -1, fitH = -1;
   const fit = () => {
     if (renderer.xr.isPresenting) return;
-    const w = innerWidth, h = innerHeight;
+    const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
     if (w === fitW && h === fitH) return;
     fitW = w; fitH = h;
     camera.aspect = w / h; camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
+    renderer.setSize(w, h, false);
     hud.setAspect(camera.aspect);
   };
+  fit();
   renderer.setAnimationLoop(() => {
     const n = performance.now();
     const rdt = Math.min(1 / 20, (n - last) / 1000); last = n;

@@ -168,7 +168,7 @@ export class TouchControls {
     if (b === 'fire') { t.role = 'fire'; this.s.fire = true; }
     else if (b === 'nade') { t.role = 'nade'; this.s.nade = true; }
     else if (b === 'reload') { t.role = 'reload'; this.p.inputs.reload = true; }
-    else if (this.walks && this.stickId == null && e.clientX < innerWidth * 0.42) {
+    else if (this.walks && this.stickId == null && e.clientX < (this.root.clientWidth || innerWidth) * 0.42) {
       t.role = 'stick'; this.stickId = e.pointerId;
       this.stick.style.display = '';
       this.stick.style.left = `${e.clientX}px`; this.stick.style.top = `${e.clientY}px`;
@@ -219,7 +219,7 @@ export class TouchControls {
     const p = this.p;
     if (p.auto || p.mode !== 'desktop') return;
     // a drag the full height of the screen turns ~1.1 vertical fields of view: the world tracks the thumb
-    const s = (this.camera.fov * Math.PI / 180) * 1.1 / Math.max(240, innerHeight);
+    const s = (this.camera.fov * Math.PI / 180) * 1.1 / Math.max(240, this.root.clientHeight || innerHeight);
     p.yaw -= dx * s; p.pitch -= dy * s;
     p.pitch = Math.max(-1.35, Math.min(1.35, p.pitch));
   }
