@@ -99,6 +99,9 @@ export class LightsGame {
     // night glass: see the lit shops through it, only a faint reflection of the street
     this.glass.mat.envMapIntensity = 0.55; this.glass.mat.opacity = 0.26; this.glass.mat.metalness = 0.6; this.glass.mat.color.set(0x3a4850);
     this.traffic = new Traffic(this, world.carMod, world.fallbackCar);
+    // laser sights: a beam ends a few metres past what it is aimed at and stops on the ground, the steps and the banks
+    // (none of those are in the collision world: the beams used to run on through the flights and across the river)
+    this.beamOver = { rifle: 4, sniper: 18 };
     this.lasers = new LaserFX(this);
     this.rifleLasers = new RifleLasers(this);
     this.clouds = new DustClouds(E.scene, E.scene.fog, { max: E.isQuest ? 170 : 320, soft: 0.7 });
@@ -136,6 +139,17 @@ export class LightsGame {
     s.root.traverse((m) => { if (m.isMesh && !m.isSkinnedMesh) m.castShadow = false; });
     this.soldiers.push(s);
     return s;
+  }
+  clipBeam(a, d, len) {
+    const G = this.world.fastGround;
+    const under = (t) => a.y + d.y * t < G(a.x + d.x * t, a.z + d.z * t) - 0.02;
+    let prev = 0;
+    for (let t = 0.8; t < len + 0.8; t += 0.8) {
+      const tt = Math.min(t, len);
+      if (under(tt)) { let lo = prev, hi = tt; for (let i = 0; i < 5; i++) { const m = (lo + hi) / 2; if (under(m)) hi = m; else lo = m; } return lo; }
+      prev = tt;
+    }
+    return len;
   }
   enemiesAlive(filter) { return this.soldiers.filter(s => s.alive && (!filter || filter(s))).length; }
 
@@ -319,8 +333,8 @@ export class LightsGame {
     if (this.hp <= 0 && !this.downed) {
       this.downed = true; this.hp = 1;
       this.slowmo(1.6, 0.25, true);
-      this.audio.play('radio_squelch', {});
-      this.hud.subtitle('DRIVER', pick(['Get up! Last city, last fight — you do not get to quit here!', 'Breathe! Shoot back! In that order!', 'Not in the final level. Not on my watch. Up!']), 3.5);
+      if (this.radio) this.radio.say(pick(['Get up! Last city, last fight — you do not get to quit here!', 'Breathe! Shoot back! In that order!', 'Not in the final level. Not on my watch. Up!']), 3.5, { pri: 'urgent', ttl: 2 });
+      else this.hud.subtitle('DRIVER', pick(['Get up! Last city, last fight — you do not get to quit here!', 'Breathe! Shoot back! In that order!', 'Not in the final level. Not on my watch. Up!']), 3.5);
       this.fx.later(1.5, () => { this.hp = 100; this.downed = false; });
     }
   }

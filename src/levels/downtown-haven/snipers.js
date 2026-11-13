@@ -73,9 +73,11 @@ export class LaserFX {
       s.gm.muzzle.getWorldPosition(_a);
       _d.subVectors(L.aim, _a); const toAim = _d.length(); _d.divideScalar(toAim || 1);
       // the beam runs past the aim point until it hits something (the dot lands on cars, glass, asphalt...)
-      const hit = g.col.raycast(_a, _d, toAim + 60, (b) => b.data.noBullet || b.data.kind === 'glass' || b.data.ref === s);
-      let len = hit ? hit.t : toAim + 60;
+      const over = g.beamOver?.sniper ?? 60;   // (a level can shorten how far the beam runs past its aim)
+      const hit = g.col.raycast(_a, _d, toAim + over, (b) => b.data.noBullet || b.data.kind === 'glass' || b.data.ref === s);
+      let len = hit ? hit.t : toAim + over;
       if (_d.y < -1e-3) { const tg = (g.world.fastGround(L.aim.x, L.aim.z) - _a.y) / _d.y; if (tg > 0 && tg < len) len = tg; }
+      if (g.clipBeam) len = g.clipBeam(_a, _d, len);   // opt-in: stop on ground the collision world doesn't hold (stairs, terrain)
       // does it pass through the player? (VR: the beam stops on you)
       const tp = _b.subVectors(head, _a).dot(_d), cp = _b.copy(_a).addScaledVector(_d, tp);
       const onYou = tp > 0 && tp < len && cp.distanceTo(head) < 0.45 && s.los;

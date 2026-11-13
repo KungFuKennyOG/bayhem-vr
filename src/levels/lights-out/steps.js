@@ -101,33 +101,41 @@ export function buildSteps(ctx = {}) {
 
   // ================================================================== the Hundred Steps
   {
-    // granite steps: a plain worn surface (the paving texture's block joints fought the treads and read as a ramp)
-    const S = B.get('concrete', 'stairs');
-    S.set({ col: [0.66, 0.63, 0.6], rm: [0.6, 0, 0], em: [0, 0, 0, 0] });
-    // flights: individual steps (16 cm risers) with worn, darker nosings; landings as slabs
+    // granite steps (polish pass, Nov 13): flat granite treads (no texture: the board-marked concrete made the
+    // flights read as one brown ramp), a worn pale nosing on every step and a dark riser under it, so from the top
+    // the flight reads as STEPS; a stepped granite cheek down both sides; landings in granite paving.
+    const S = B.get('plain', 'stairs'), Pv = B.get('stone', 'stairs');
+    Pv.set({ col: [0.62, 0.6, 0.57], rm: [0.62, 0, 0], em: [0, 0, 0, 0] });
+    const CHEEK = 0.4;
     for (let i = 1; i < STAIR_PROFILE.length; i++) {
       const [x0, y0] = STAIR_PROFILE[i - 1], [x1, y1] = STAIR_PROFILE[i];
-      if (Math.abs(y1 - y0) < 0.01) { S.box(x0, y0 - 0.8, STAIRS.z0, x1, y0, STAIRS.z1, { faces: 'Y', s: 1 }); continue; }
-      const n = Math.round((y0 - y1) / 0.16), run = (x1 - x0) / n;
+      if (Math.abs(y1 - y0) < 0.01) { Pv.box(x0, y0 - 0.8, STAIRS.z0, x1, y0, STAIRS.z1, { faces: 'Y', s: 1 }); continue; }
+      const n = Math.round((y0 - y1) / 0.16), run = (x1 - x0) / n, rise = (y0 - y1) / n;
       for (let k = 0; k < n; k++) {
-        const xa = x0 + k * run, ya = y0 - k * (y0 - y1) / n, yb = ya - (y0 - y1) / n;
-        const g = 0.92 + ((k * 37) % 7) / 60;
-        S.set({ col: [0.66 * g, 0.63 * g, 0.6 * g] });
-        S.box(xa, yb - 0.6, STAIRS.z0, xa + run, ya - (y0 - y1) / n * 0, STAIRS.z1, { faces: 'Y', s: 1 });
-        S.set({ col: [0.5 * g, 0.48 * g, 0.46 * g] });
-        S.box(xa + run - 0.02, yb, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'X', s: 1 });
-        // the worn nosing: a darker lip along each tread's edge, and the shadow under the step above
-        S.set({ col: [0.26 * g, 0.24 * g, 0.22 * g] }); S.box(xa + run - 0.13, ya, STAIRS.z0, xa + run, ya + 0.004, STAIRS.z1, { faces: 'Y', s: 1 });   // a dark worn nosing: the flight reads as stripes from above
-        S.set({ col: [0.42 * g, 0.4 * g, 0.38 * g] }); S.box(xa, ya, STAIRS.z0, xa + 0.06, ya + 0.004, STAIRS.z1, { faces: 'Y', s: 1 });
+        const xa = x0 + k * run, ya = y0 - k * rise, yb = ya - rise;
+        const g = 0.94 + ((k * 37) % 7) / 70;
+        // the tread (worn darker down the middle where people walk), the riser below its front edge
+        S.set({ col: [0.5 * g, 0.49 * g, 0.47 * g], rm: [0.55, 0, 0], em: [0, 0, 0, 0] });
+        S.box(xa, yb - 0.6, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'Y' });
+        S.set({ col: [0.43 * g, 0.42 * g, 0.4 * g] }); S.box(xa + 0.02, ya, STAIRS.z0 + 3.2, xa + run - 0.06, ya + 0.003, STAIRS.z1 - 3.2, { faces: 'Y' });
+        S.set({ col: [0.27 * g, 0.26 * g, 0.25 * g] }); S.box(xa + run - 0.02, yb, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'X' });
+        // the nosing: a pale, polished lip along each tread's edge
+        S.set({ col: [0.74 * g, 0.72 * g, 0.68 * g], rm: [0.35, 0, 0] }); S.box(xa + run - 0.06, ya, STAIRS.z0 + CHEEK, xa + run, ya + 0.004, STAIRS.z1 - CHEEK, { faces: 'Y' });
+        // the cheeks: a stepped granite kerb 12 cm proud of the treads down both edges
+        S.set({ col: [0.38 * g, 0.37 * g, 0.355 * g], rm: [0.7, 0, 0] });
+        for (const [za, zb] of [[STAIRS.z0, STAIRS.z0 + CHEEK], [STAIRS.z1 - CHEEK, STAIRS.z1]]) S.box(xa, yb, za, xa + run, ya + 0.12, zb, { faces: 'YXzZ' });
       }
     }
-    // the centre handrail (two lanes) and side rails on posts
-    const Mt = B.get('metal', 'stairs'); Mt.set({ col: [0.55, 0.57, 0.6], rm: [0.35, 0.85, 0], em: [0, 0, 0, 0] });
-    const zc = (STAIRS.z0 + STAIRS.z1) / 2;
-    for (let x = STAIRS.x0 + 6; x < STAIRS.x1 - 2; x += 2) {
-      const y = stairY(x), y2 = stairY(x + 2);
-      Mt.box(x - 0.03, y, zc - 0.03, x + 0.03, y + 0.95, zc + 0.03, { faces: 'xXzZ' });
-      Mt.beam([x, y + 0.95, zc], [x + 2, y2 + 0.95, zc], 0.06, 0.06);
+    // wall handrails down both sides (steel tube on brackets off the plinths): the middle of the flight stays open
+    // (the first version's centre rail split the stair into two lanes and was the first thing in your eye line)
+    const Mt = B.get('metal', 'stairs'); Mt.set({ col: [0.6, 0.62, 0.64], rm: [0.3, 0.9, 0], em: [0, 0, 0, 0] });
+    for (const [zw, zr] of [[STAIRS.z0, STAIRS.z0 + 0.16], [STAIRS.z1, STAIRS.z1 - 0.16]]) {
+      for (let i = 1; i < STAIR_PROFILE.length; i++) {
+        const [x0, y0] = STAIR_PROFILE[i - 1], [x1, y1] = STAIR_PROFILE[i];
+        if (Math.abs(y1 - y0) < 0.01) continue;   // flights only (the landings have the planters along their edges)
+        Mt.beam([x0, y0 + 0.95, zr], [x1, y1 + 0.95, zr], 0.05, 0.05);
+        for (let x = x0 + 0.6; x < x1 - 0.3; x += 2.4) { const y = stairY(x) + 0.95; Mt.box(x - 0.025, y - 0.12, Math.min(zw, zr), x + 0.025, y - 0.02, Math.max(zw, zr), { faces: 'xXyY' }); }
+      }
     }
     // stone side kerbs with planters at the landings
     const Pl = B.get('plain', 'stairs');
@@ -142,8 +150,10 @@ export function buildSteps(ctx = {}) {
     const signsN = ['shop0', 'shop13', 'shop1', 'shop5', 'shop2', 'shop8', 'shop15'], signsS = ['shop3', 'shop11', 'shop4', 'shop9', 'shop14', 'shop6'];
     const lots = (face, zf, signs) => {
       let i = 0;
-      const ranges = [[STAIRS.x0 + 0.5, -97], [-77, STAIRS.x1 + 2]];
-      for (const [ua, ub] of ranges) {
+      // the flights get shophouses; the landing under the flyover gets a row of single-storey stalls (it used to be a
+      // gap that showed the shophouses' bare gable walls on both sides)
+      const ranges = [[STAIRS.x0 + 0.5, -97, null], [-97, -77, 0], [-77, STAIRS.x1 + 2, null]];
+      for (const [ua, ub, st] of ranges) {
         let u = ua;
         while (u < ub - 3) {
           const w = Math.min(ub - u, 5.5 + r() * 3);
@@ -151,7 +161,7 @@ export function buildSteps(ctx = {}) {
           const F = new Frame(frontM('x', face, [0, zf]));
           // in the -z facing frame local x runs west: flip the lot range
           const lu0 = face > 0 ? u : -(u + w), lu1 = face > 0 ? u + w : -u;
-          shopRow(B, 'stairs', F, { u0: lu0, u1: lu1, y, seed: 900 + i * 13 + (face > 0 ? 0 : 500), code: W0, depth: 13, storeys: 2 + Math.floor(r() * 3), lotW: w, lotV: 0, lights, glows, panes, colliders, grp: 0, signs: [signs[i % signs.length]], endL: true, endR: true });
+          shopRow(B, 'stairs', F, { u0: lu0, u1: lu1, y, seed: 900 + i * 13 + (face > 0 ? 0 : 500), code: W0, depth: 13, storeys: st ?? (2 + Math.floor(r() * 3)), lotW: w, lotV: 0, lights, glows, panes, colliders, grp: 0, signs: [signs[i % signs.length]], endL: true, endR: true });
           // a plinth from the lowest step at this lot up to its shop floor
           const C = B.get('stone', 'stairs'); C.set({ col: [0.5, 0.48, 0.45], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
           const zz0 = face > 0 ? zf - 13 : zf, zz1 = face > 0 ? zf : zf + 13;

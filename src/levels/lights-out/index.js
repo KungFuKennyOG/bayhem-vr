@@ -94,7 +94,7 @@ export async function create(E) {
       fx.update(dt, 0, ctx);
       if (!fogU || (game.time % 3) < dt) fogU = fogged();
       for (const u of fogU) { u.fogNear.value = scene.fog.near; u.fogFar.value = scene.fog.far; }
-      if (director) director.update(dt);
+      if (director) director.update(dt, sdt);
       else game.events.length = 0;
     },
     frame(rdt, started) {

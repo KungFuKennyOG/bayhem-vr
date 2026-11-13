@@ -13,8 +13,10 @@ the route outwards.
 
 - The on-foot route is wide and outdoors: no interiors, no ramps. It is **one level** (y 20) from the plaza on. The one
   exception is the opening, **the Hundred Steps**: the first version's first flight of stairs, which Kenny liked
-  ("it's only the other stairs that was not well built"). It is back exactly as it was (`steps.js`): a 12 m wide
-  open stair between shophouses, long landings, and from its head you see the plaza at its foot.
+  ("it's only the other stairs that was not well built"). It is back (`steps.js`): a 12 m wide open stair between
+  shophouses, long landings, and from its head you see the plaza at its foot. Polish pass (Nov 13): no centre rail
+  (wall rails on the flights only), flat granite treads with pale nosings and dark risers so a flight reads as steps
+  from the top, stepped cheeks down both edges, paved landings, and single-storey stalls under the flyover.
 - `layout.LANES` are the strips you walk. Nothing taller than 1.2 m stands in them: `node tools/check-lanes.mjs`.
 - Cover is 0.85–1.0 m (under a standing eye). Tall things (buses, shopfronts, lamps, masts, stays, the crown's
   columns) stand **beside** the lane. Nothing spans the lane below ~16 m.
@@ -45,8 +47,12 @@ The route is low on purpose. From a road level with the hill's crest (the first 
 your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" again.
 
 ## Beats (`director.js`) — `?level=lights-out&beat=<name>`
-1. **intro** — the store's roof: title, the tower named. Look-gated (5 s cap): the upstream skyline goes dark.
+1. **intro** — the store's roof: title, the tower named. Look-gated (4 s cap): the upstream skyline goes dark. The roof
+   is yours to leave at any time: reach the head of the steps and the intro ends there (the cut happens at once if it
+   hasn't, the rest of the intro's lines are dropped).
 2. **steps** — down the Hundred Steps: gunmen on the landings below, two on the flyover above, a laser sniper.
+   Nobody spawns behind you: every spawn on the on-foot route is checked against how far along the route you have got
+   (`route()` in `director.js`), and a point you have already reached is skipped.
 3. **road** — the first half of the road: the jam, gunmen in the traffic and on the low shop roofs to your right.
 4. **heron** — NIGHT HERON ONE comes up out of the gorge beside you and holds 35–55 m off the rail. Shot down (or
    burning on its own after 75 s) it holds until you look (4 s cap), then limps across the river into the gold
@@ -67,6 +73,17 @@ your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" 
     drums). The boat swings broadside before you reach it: you land on its aft deck looking west across the beam.
 12. **outro** — the lights come back, district by district, from downstream up. Stats card.
 13. **credits**.
+
+## The radio (`director.js`, `Radio`)
+One line at a time; a clip never cuts off the one before it. Story lines queue in order (12 s shelf life); urgent lines
+(what a gunship / the tower is doing right now) go next; barks (taxi jokes, "sniper down") only play into silence.
+Lines timed inside a beat (`beatLater`) are dropped if you have left that beat. Changing a line's text drops its voice:
+regenerate with `tools/vo` (README there).
+
+## Laser sights
+`game.beamOver` caps how far a beam runs past its aim (rifles 4 m, snipers 18 m) and `game.clipBeam` marches it against
+`groundAt` (the steps, the banks, the water): none of those are in the collision world, and the beams used to run on
+through the flights and across the river. Both hooks are opt-in in the shared laser code.
 
 ## Comfort (VR)
 - Smooth stick + 45° snap turn on foot. Code never moves the head.

@@ -3,7 +3,7 @@ import { rand, range, chance, clamp, lerp, damp } from '../../rng.js';
 import { CELL } from '../../particles.js';
 import { POWER, DIST } from './kit.js';
 import { Searchlights } from './searchlights.js';
-import { buildCanopy, GlideRail, buildGunboat } from './glide.js';
+import { buildCanopy, GlideRail, buildGunboat, buildBarge } from './glide.js';
 import { Landslide } from './slide.js';
 import { Gunship } from './boss.js';
 import { TOWER, LIFT, ROOFTOP, HINGE, FALL_DIR, BOAT, WATER_Y, GLIDE_SPEED, SLIDE, STATE, Y, groundAt } from './layout.js';
@@ -39,7 +39,10 @@ export class SetPieces {
     this.rail = new GlideRail();
     this.canopy = buildCanopy({ top: [0.16, 0.17, 0.15], stripe: [0.85, 0.3, 0.06], lit: true });
     this.canopy.visible = false; scene.add(this.canopy);
-    this.boat = buildGunboat(); this.boat.position.set(BOAT.x0, WATER_Y + 0.15, BOAT.z); this.boat.visible = false; scene.add(this.boat);   // bow upstream (east), coming at you; it swings broadside before you land (see _updateGlide)
+    this.boat = buildGunboat(); this.boat.position.set(BOAT.x0, WATER_Y + 0.15, BOAT.z); this.boat.visible = false; scene.add(this.boat);
+    // the two armed barges of the glide (one with containers, one with sand), hidden until the canopy opens
+    this.bargeMeshes = [buildBarge({ cargo: 'boxes', seed: 3 }), buildBarge({ cargo: 'sand', seed: 8, len: 32 })];
+    for (const b of this.bargeMeshes) { b.visible = false; scene.add(b); }   // bow upstream (east), coming at you; it swings broadside before you land (see _updateGlide)
     this.cuts = [];
     this.fadeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 8), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
     this.fadeMesh.renderOrder = 9999; this.fadeMesh.frustumCulled = false; this.fadeMesh.visible = false; g.camera.add(this.fadeMesh);
@@ -56,7 +59,7 @@ export class SetPieces {
   }
   warmMaterials() {
     const out = [];
-    for (const o of [this.canopy, this.boat]) o.traverse(m => { if (m.isMesh || m.isLine) for (const mm of [].concat(m.material)) if (!out.includes(mm)) out.push(mm); });
+    for (const o of [this.canopy, this.boat, ...this.bargeMeshes]) o.traverse(m => { if (m.isMesh || m.isLine) for (const mm of [].concat(m.material)) if (!out.includes(mm)) out.push(mm); });
     out.push(this.search.mesh.material, this.fadeMesh.material, ...this.heron1.warmMaterials(), ...this.heron2.warmMaterials());
     return out;
   }
@@ -396,15 +399,14 @@ export class SetPieces {
     });
     // two armed barges on the river either side of the line (gunners + a searchlight each): they open up as you come over them
     this.barges = [];
-    for (const [x, z, v, s] of [[372, 254, 0.5, 338], [306, 214, -0.4, 404]]) {
-      const b = new THREE.Group(); b.position.set(x, WATER_Y + 0.2, z); g.scene.add(b);
-      const t0 = Math.max(4, s / GLIDE_SPEED - 15);
-      const crew = [new THREE.Vector3(-4, 2.2, 1.5), new THREE.Vector3(5, 2.2, -1.5)].map((p, i) => g.spawnSoldier({ x: x + p.x, y: p.y, z: z + p.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }));
-      const L = S.add({ p: new THREE.Vector3(x, 6, z), carrier: { obj: b, local: new THREE.Vector3(0, 6.2, 0) }, yaw0: 0, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew, color: [0.4, 0.39, 0.36] });
+    // (built once, in setpieces' constructor: see this.bargeMeshes)
+    for (const [i, [x, z, v, s]] of [[372, 254, 0.5, 338], [306, 214, -0.4, 404]].entries()) {
+      const b = this.bargeMeshes[i]; b.position.set(x, WATER_Y + 0.15, z); b.rotation.y = v < 0 ? Math.PI : 0; b.visible = true; b.updateMatrixWorld(true);
+      const t0 = Math.max(4, s / GLIDE_SPEED - 15), ud = b.userData;
+      const wp = (p) => p.clone().applyMatrix4(b.matrixWorld);
+      const crew = ud.crew.map((p, i) => { const W = wp(p); return g.spawnSoldier({ x: W.x, y: W.y, z: W.z, role: 'deck', carrier: { obj: b, local: p.clone(), vel: new THREE.Vector3(v, 0, 0) }, delay: t0 + i * 2, range: 110, noNade: true }); });
+      const L = S.add({ p: wp(ud.lamp), carrier: { obj: b, local: ud.lamp.clone() }, yaw0: 0, pitch0: 0.7, sweep: [1.0, 0.25, 0.35], len: 130, spread: 0.07, shooters: crew, color: [0.4, 0.39, 0.36] });
       this.barges.push({ g: b, v, crew, L });
-      const m = new THREE.Mesh(new THREE.BoxGeometry(34, 2.6, 10), new THREE.MeshStandardMaterial({ color: 0x24221f, roughness: 0.8, metalness: 0.3 })); m.position.y = 0.6; b.add(m);
-      const h = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 7), new THREE.MeshStandardMaterial({ color: 0x3a3833, roughness: 0.7 })); h.position.set(12, 3.5, 0); b.add(h);
-      const c = new THREE.Mesh(new THREE.BoxGeometry(18, 1.6, 8), new THREE.MeshStandardMaterial({ color: 0x5a3f22, roughness: 0.9 })); c.position.set(-4, 2.6, 0); b.add(c);
     }
     this.jumpers = [];
   }
@@ -492,8 +494,14 @@ export class SetPieces {
     // after the landing the boat throttles back and idles mid-river under the credits
     this.boatV = G.state === 'landed' && G.t > 6 ? damp(this.boatV ?? BOAT.speed, 0.2, 0.4, dt) : BOAT.speed;
     if (this.boat.visible) { this.boat.position.x += this.boatV * dt; this.boat.position.y = WATER_Y + 0.15 + Math.sin(g.time * 0.9) * 0.08; this.boat.rotation.z = Math.sin(g.time * 0.7) * 0.012; if (G.state === 'fly') { const k = clamp((80 - this.rail.remaining) / 62, 0, 1); this.boat.rotation.y = k * k * (3 - 2 * k) * Math.PI / 2; } else if (G.state === 'landed') this.boat.rotation.y = Math.PI / 2; this.boat.updateMatrixWorld(true); }
-    for (const B of this.barges || []) B.g.position.x += B.v * dt;
-    if (this.boat.visible) for (const [lp, c] of this.boat.userData.nav || []) { _v.copy(lp).applyMatrix4(this.boat.matrixWorld); g.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, frame: CELL.GLOW, s0: clamp(_v.distanceTo(g.headPos) * 0.03, 0.3, 2.2), life: 0.04, r: c[0] * 0.8, g: c[1] * 0.8, b: c[2] * 0.8, a: 1, anchored: false }); }
+    for (const B of this.barges || []) { B.g.position.x += B.v * dt; B.g.position.y = WATER_Y + 0.15 + Math.sin(g.time * 0.8 + B.v * 9) * 0.06; B.g.updateMatrixWorld(true); }
+    // nav lights and deck floods: small points of light (they used to be 2 m blobs from the air)
+    const navGlow = (obj, list) => { for (const [lp, c] of list || []) { _v.copy(lp).applyMatrix4(obj.matrixWorld); const d = _v.distanceTo(g.headPos); g.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, frame: CELL.GLOW, s0: clamp(d * 0.011, 0.18, 0.9), life: 0.04, r: c[0] * 0.7, g: c[1] * 0.7, b: c[2] * 0.7, a: 1, anchored: false }); } };
+    if (this.boat.visible) navGlow(this.boat, this.boat.userData.nav);
+    for (const B of this.barges || []) navGlow(B.g, B.g.userData.nav);
+    // the funnel's exhaust: a thin grey wisp trailing aft
+    if (this.boat.visible && (this._smokeT = (this._smokeT || 0) - dt) <= 0) { this._smokeT = 0.12; _v.copy(this.boat.userData.funnel).applyMatrix4(this.boat.matrixWorld);
+      g.fx.main.spawn({ x: _v.x, y: _v.y, z: _v.z, vx: -0.8 + range(-0.2, 0.2), vy: 1.4, vz: range(-0.2, 0.2), drag: 0.3, frame: CELL.WISP, s0: 0.6, s1: 3.2, life: 4, rot: rand() * 6, r: 0.14, g: 0.14, b: 0.15, a: 0.35, fadeOut: 0.6 }); }
     if (this.boat.visible) { const gun = this.boat.userData.gun; gun.lookAt(_v.copy(g.headPos)); gun.rotateY(-Math.PI / 2); gun.rotation.x = 0; gun.rotation.z = 0; }
     if (G.state === 'jump') {
       // off the edge: out and a little down, in slow-mo

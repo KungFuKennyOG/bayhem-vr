@@ -958,8 +958,8 @@
   ]
  },
  {
-  "key": "d2e3159d",
-  "text": "The BANK — the whole riverside's going with it!",
+  "key": "f19f8c10",
+  "text": "She landed on the hill — the whole hillside's going into the river!",
   "levels": [
    "lights-out"
   ],
@@ -978,8 +978,8 @@
   ]
  },
  {
-  "key": "a805c266",
-  "text": "The gold tower past the bridge — Jinlong. Their whole crew is in it. Down the Hundred Steps.",
+  "key": "30cbc343",
+  "text": "The gold tower across the river — Jinlong. Their whole crew is up there.",
   "levels": [
    "lights-out"
   ],
@@ -998,8 +998,8 @@
   ]
  },
  {
-  "key": "21966d75",
-  "text": "That was a whole district. ...They're pulling the plug on the city. Move.",
+  "key": "c0d4ae91",
+  "text": "That was a whole district. ...They're switching the city off. Down the Hundred Steps — move.",
   "levels": [
    "lights-out"
   ],
@@ -1010,6 +1010,16 @@
  {
   "key": "5a24b389",
   "text": "They're on the landings below you — and up on the flyover. Look up, look down.",
+  "levels": [
+   "lights-out"
+  ],
+  "files": [
+   "src/levels/lights-out/director.js"
+  ]
+ },
+ {
+  "key": "43ddcd8a",
+  "text": "East along the river road — the bridge is at the far end.",
   "levels": [
    "lights-out"
   ],
@@ -1038,8 +1048,8 @@
   ]
  },
  {
-  "key": "eb0fe0b3",
-  "text": "Bridges. The river. The whole south bank. ...Every light in Longwu.",
+  "key": "fac85f6d",
+  "text": "Downstream. The river road. The whole south bank. ...They're shutting Longwu down.",
   "levels": [
    "lights-out"
   ],
@@ -1068,8 +1078,8 @@
   ]
  },
  {
-  "key": "db2551d9",
-  "text": "Jinlong. Last light in the city. Clear the forecourt — the lift's on the tower's face, dead ahead.",
+  "key": "1e1b6c02",
+  "text": "Jinlong. Clear the forecourt — the lift's on the tower's face, dead ahead.",
   "levels": [
    "lights-out"
   ],
@@ -1088,8 +1098,8 @@
   ]
  },
  {
-  "key": "ecc76bec",
-  "text": "Look at that. The whole city, dark. ...You did not do that. Mostly.",
+  "key": "3dd0aebf",
+  "text": "Look at that. Just the hill and this tower left lit. ...You did not do that. Mostly.",
   "levels": [
    "lights-out"
   ],
@@ -1108,8 +1118,8 @@
   ]
  },
  {
-  "key": "0f10c51b",
-  "text": "That's it — she's coming off the cliff! The locker by the edge — grab the rig!",
+  "key": "822e8121",
+  "text": "She's breaking up — she's going over! The orange locker — grab the rig!",
   "levels": [
    "lights-out"
   ],
@@ -1128,8 +1138,8 @@
   ]
  },
  {
-  "key": "a5f2a3a7",
-  "text": "Canopy's open! Good! ...Now LOOK BACK!",
+  "key": "d4b17c62",
+  "text": "Canopy's open! Good! ...Now look RIGHT!",
   "levels": [
    "lights-out"
   ],
@@ -1178,8 +1188,8 @@
   ]
  },
  {
-  "key": "e8221749",
-  "text": "The gas mains under the hill — it's all going up! Stay off the bank!",
+  "key": "714fcf0d",
+  "text": "The gas mains under the hill — it's all going up!",
   "levels": [
    "lights-out"
   ],
