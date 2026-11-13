@@ -74,6 +74,18 @@ your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" 
 12. **outro** — the lights come back, district by district, from downstream up. Stats card.
 13. **credits**.
 
+## Art pass on the stairs and the gunboat (Nov 13, after Kenny: "to the same level as the other levels")
+Independent reviews (fresh reviewer each round, calibrated on Iron Lady ≈ 8, Tokyo ≈ 6.5), stairs / boat:
+5 / 4 → 5.5 / 4.5 → 5.5 / 4.5 → **6.5 / 5**. What moved it: the floor light (the stair floor's baked pools were far too
+bright: a uniform noon floor; now dark granite with warm spill off the shops and pools under the lanterns, the shop
+lights in the light map at a third), granite flags with joints, striped faded awnings, weathered signs (the atlas is
+desaturated 22 % with soot edges), no AC units / balconies in front of fascia signs, shop interiors with stocked shelves,
+the boat's painted-steel / anti-skid textures, a lit aft bulkhead, a real torus lifebuoy, hose reel, door, porthole.
+Still open (in order): the riverbank and skyline in the outro crush to black boxes (level-wide city facades); shop
+interiors still read as dioramas; stair props read as plastic (desaturate, scale the noodle cups down, cluster into
+stalls); no wet reflections; the boat deck could use more work-light and seams; the outro has no spectacle left
+(smoke columns, fires on the bank).
+
 ## The radio (`director.js`, `Radio`)
 One line at a time; a clip never cuts off the one before it. Story lines queue in order (12 s shelf life); urgent lines
 (what a gunship / the tower is doing right now) go next; barks (taxi jokes, "sniper down") only play into silence.

@@ -69,6 +69,15 @@ export function signTexture() {
     SIGN[s.name] = [s.x / W, 1 - (s.y + s.h) / HH, (s.x + s.w) / W, 1 - s.y / HH];
     if (s.y + s.h > HH) console.warn('sign atlas overflow', s.name);
   }
+  // weather every sign (reviews: "saturated primaries, spotless"): pull the colours 22 % toward grey and darken a soot band
+  // round each panel's edge, heavier along the bottom where the rain runs off
+  { const img = x.getImageData(0, 0, W, HH), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const L = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; d[i] += (L - d[i]) * 0.22; d[i + 1] += (L - d[i + 1]) * 0.22; d[i + 2] += (L - d[i + 2]) * 0.22; }
+    for (const sp of SPECS) { if (sp.x === undefined) continue;
+      for (let yy = 0; yy < sp.h; yy++) for (let xx = 0; xx < sp.w; xx++) {
+        const ex = Math.min(xx, sp.w - 1 - xx) / sp.w, ey = yy / sp.h, eb = (sp.h - 1 - yy) / sp.h, e = Math.min(ex * 1.6, ey * 2, eb * 1.2);
+        if (e > 0.07) continue; const k = 1 - (1 - e / 0.07) * (eb < ey ? 0.45 : 0.3), q = ((sp.y + yy) * W + sp.x + xx) * 4; d[q] *= k; d[q + 1] *= k; d[q + 2] *= k; } }
+    x.putImageData(img, 0, 0); }
   _tex = new THREE.CanvasTexture(c);
   _tex.colorSpace = THREE.SRGBColorSpace; _tex.anisotropy = 8; _tex.needsUpdate = true;
   return _tex;
