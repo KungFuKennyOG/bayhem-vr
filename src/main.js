@@ -138,16 +138,26 @@ async function boot() {
 
   // ---------------- live loop + start screen ----------------
   let last = performance.now();
+  // fit the canvas to the window. Checked every frame, not only on 'resize': iOS fires resize (and
+  // orientationchange) before innerWidth / innerHeight take their new values, so a phone rotated to landscape
+  // kept a portrait-width canvas in the corner of the screen. Two number compares a frame; never during VR.
+  let fitW = innerWidth, fitH = innerHeight;
+  const fit = () => {
+    if (renderer.xr.isPresenting) return;
+    const w = innerWidth, h = innerHeight;
+    if (w === fitW && h === fitH) return;
+    fitW = w; fitH = h;
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    hud.setAspect(camera.aspect);
+  };
   renderer.setAnimationLoop(() => {
     const n = performance.now();
     const rdt = Math.min(1 / 20, (n - last) / 1000); last = n;
+    fit();
     frame(rdt);
   });
-  addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-    hud.setAspect(camera.aspect);
-  });
+  addEventListener('resize', fit);
   // desktop: F toggles full screen (the menu has a button too)
   addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && !renderer.xr.isPresenting && !TOUCH) toggleFullscreen(); });
   if (TOUCH && !AUTO) touchUI = new TouchControls(player, camera, { game: GAME });
