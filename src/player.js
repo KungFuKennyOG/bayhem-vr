@@ -15,6 +15,7 @@ export class Player {
     this.rifle = new Gun(buildRifle({ supportHand: false }), { rpm: 690, mag: 45, reload: 1.5, auto: true });
     this.launcher = new Gun(buildLauncher(), { rpm: 110, mag: 6, reload: 2.4, auto: false });
     this.inputs = { fireR: false, fireL: false, reload: false };
+    this.touch = null; // phones / tablets: { mx, my, sprint, fire, nade } from src/touch.js (folds into the desktop inputs)
     this.mode = 'desktop';
     this.shake = 0;
     // desktop viewmodels
@@ -50,11 +51,15 @@ export class Player {
     if (this.auto) { w.copy(this.autoMove); return w; }
     if (this.mode === 'desktop') {
       const k = this.keys;
-      const f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), r = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
+      let f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), r = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
+      let sprint = k.ShiftLeft || k.ShiftRight;
+      // touch stick: analog (screen up = forward), pushed past its rim = sprint
+      const t = this.touch;
+      if (t && (t.mx || t.my)) { f -= t.my; r += t.mx; sprint ||= t.sprint; }
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       w.set(-sy * f + cy * r, 0, -cy * f - sy * r);
       if (w.lengthSq() > 1) w.normalize();
-      if (k.ShiftLeft || k.ShiftRight) w.multiplyScalar(1.5);
+      if (sprint) w.multiplyScalar(1.5);
       return w;
     }
     // VR: left stick moves relative to where the head looks, right stick snaps 45°
@@ -185,7 +190,7 @@ export class Player {
   update(rdt, dt) {
     const g = this.g;
     if (this.auto) this.autopilot(rdt, dt);
-    else if (this.mode === 'desktop') { this.inputs.fireR = this.mouseDown[0]; this.inputs.fireL = this.mouseDown[2]; }
+    else if (this.mode === 'desktop') { this.inputs.fireR = this.mouseDown[0] || !!this.touch?.fire; this.inputs.fireL = this.mouseDown[2] || !!this.touch?.nade; }
     let bobY = 0, bobX = 0;
     if (this.loco) {
       // movement runs on sim time (slow-mo slows the player too, like everything else)
