@@ -10,6 +10,7 @@ import { Rail } from './rail.js';
 import { DoorGun } from './doorgun.js';
 import { SetPieces } from './setpieces.js';
 import { Director } from './director.js';
+import { buildRocketPod } from '../../weapons.js';
 import { PerfPanel } from '../dubai-proto/debug.js';
 import { Player } from '../../player.js';
 import { warmupGunmen, Gunman, setGunmanLook } from '../../characters.js';
@@ -63,6 +64,8 @@ export async function create(E) {
   const player = new Player(game, camera, rig, renderer, { auto: flags.AUTO, yaw: 0 });
   player.yaw = 0; player.pitch = -0.2;
   game.player = player;
+  // the left hand carries a six-tube rocket pod here (it fires rockets, not grenades: see game.launchGrenade)
+  { const L = player.launcher; L.holder.remove(L.model.group); L.model = buildRocketPod(); L.holder.add(L.model.group); game.podBack = L.model.back; }
   game.onHaptic = (i, ms) => player.pulse(i, ms);
   if (flags.AUTO) player.autoState.idleW = 2.6;
   const gun = new DoorGun(game, player, cabin.seat, camera);
