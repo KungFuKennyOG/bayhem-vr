@@ -75,7 +75,8 @@ function bakeWindows(seed, cluster, frac) {
   const d = new Uint8Array(WN * WN * 4);
   const floorOn = new Float32Array(WN).map(() => r() < 0.72 ? 1 : 0);
   const cl = {};
-  const col = (h) => h < 0.58 ? [1.0, 0.60, 0.28] : h < 0.84 ? [1.0, 0.78, 0.52] : h < 0.97 ? [0.78, 0.88, 1.0] : [0.55, 0.62, 1.0];
+  // warm incandescent flats, pale warm, cool office fluorescent, a few TV-blue rooms (the skyline was all one cream)
+  const col = (h) => h < 0.44 ? [1.0, 0.58, 0.26] : h < 0.68 ? [1.0, 0.8, 0.55] : h < 0.91 ? [0.74, 0.86, 1.0] : [0.42, 0.55, 1.0];
   for (let j = 0; j < WN; j++) for (let i = 0; i < WN; i++) {
     const ck = j * 1000 + Math.floor(i / cluster);
     const c = cl[ck] ||= { h: r(), hc: r(), b: r(), e: r() };
@@ -92,7 +93,7 @@ function bakeWindows(seed, cluster, frac) {
   t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
   return t;
 }
-export const WINTEX = { a: { value: bakeWindows(9157, 3, 0.5) }, b: { value: bakeWindows(4421, 10, 0.42) } };
+export const WINTEX = { a: { value: bakeWindows(9157, 3, 0.36) }, b: { value: bakeWindows(4421, 10, 0.34) } };   // fewer lit: contrast and sparkle (half lit read as lit sheets)
 
 // procedural windows: uv in metres (u along the face, v up from the building's base), aCell = (bay, floor, seed, style)
 //  style 0 residential slab (punched windows, balcony rails, AC boxes), 1 office ribbon glazing, 2 old block,
@@ -113,7 +114,7 @@ vec3 windows(vec2 uv, vec4 cell, float k, float wy, float code, out float glassM
   vec2 m2 = smoothstep(lo - aa, lo + aa, f) * (1.0 - smoothstep(hi - aa, hi + aa, f));
   float wm = m2.x * m2.y;
   float h3 = lh21(id * 0.31 + 2.0 + sd);
-  float far = clamp(max(aa.x, aa.y) * 7.0 - 0.7, 0.0, 1.0);       // windows under ~12 px fade to their average (frames, bars, AC boxes), fully by ~4 px
+  float far = clamp(max(aa.x, aa.y) * 4.5 - 0.6, 0.0, 1.0);       // windows under ~9 px fade to their average (frames, bars, AC boxes), fully by ~3 px (earlier, mid-distance towers smeared into blobs)
   detM = 0.0;
   if (st > 0.5 && st < 1.5) wm *= 1.0 - (1.0 - smoothstep(0.0, aa.x * 2.0, abs(fract(f.x * 2.0) - 0.5) - 0.012)) * 0.9 * (1.0 - smoothstep(0.04, 0.12, aa.x));   // the mullion: only up close
   if (st < 0.5 || (st > 1.5 && st < 2.5)) {
@@ -135,7 +136,7 @@ vec3 windows(vec2 uv, vec4 cell, float k, float wy, float code, out float glassM
   // the lights: one texel per window, mip-filtered by the window grid's own footprint
   vec2 tu = (mix(id + 0.5, cu, far) + vec2(mod(sd * 37.0, 256.0), mod(sd * 91.0, 256.0))) / 256.0;   // near: the window's own texel; far: filtered smoothly
   // far off, blur over more windows than the pixel covers: clusters of lit flats otherwise read as blotches / static
-  float lb = 1.0 + 5.0 * far;
+  float lb = 1.0 + 2.5 * far;   // (was 5: the far towers smeared into orange blotches)
   vec4 W = (st > 0.5 && st < 1.5) || st > 3.5 ? textureGrad(uWinB, tu, dx * lb / 256.0, dy * lb / 256.0) : textureGrad(uWinA, tu, dx * lb / 256.0, dy * lb / 256.0);
   float full = smoothstep(0.3, 0.85, k);
   vec3 c = W.rgb * full + W.a * vec3(0.55, 0.36, 0.18) * (1.0 - full) * clamp(k / 0.22, 0.0, 1.0);
@@ -173,8 +174,16 @@ export function litMat(key, o = {}) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvInfo = aInfo; vRM = rm;' + (win ? ' vCell = aCell; vWin = uv;' : ''))
       .replace('#include <project_vertex>', '#include <project_vertex>\n{ vec4 wp4 = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp4 = instanceMatrix * wp4;\n#endif\n vWP = (modelMatrix * wp4).xyz; }');
     s.fragmentShader = s.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec4 vInfo;\nvarying vec3 vRM;\nvarying vec3 vWP;\n' + HFOG_GLSL + POW_GLSL + (o.noLM ? '' : LM_GLSL) + (win ? 'varying vec4 vCell;\nvarying vec2 vWin;\nuniform float uFDim;\n' + WIN_GLSL : ''))
-      .replace('#include <fog_fragment>', '#include <fog_fragment>\n  gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFC, hfogK(vWP));')
+      .replace('#include <common>', '#include <common>\nvarying vec4 vInfo;\nvarying vec3 vRM;\nvarying vec3 vWP;\n' + HFOG_GLSL + POW_GLSL + (o.noLM ? '' : LM_GLSL) + 'vec3 gWinEm = vec3(0.0);\n' + (win ? 'varying vec4 vCell;\nvarying vec2 vWin;\nuniform float uFDim;\n' + WIN_GLSL : ''))
+      .replace('#include <fog_fragment>', '#include <fog_fragment>\n  gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFC, hfogK(vWP));' + `
+  // lights pierce the haze better than the walls around them: give back part of what the fog took from every lit
+  // thing (windows, signs, LED bands): the far skylines read as flat fog-grey silhouettes with no lights
+  #ifdef USE_FOG
+  // the haze thins with height like the sky darkens with it: a tall far tower faded to the horizon's fog value stood
+  // out pale against the darker sky behind its upper floors ('cardboard ghosts'). Take part of the fog back up high.
+  gl_FragColor.rgb -= fogColor * fogFactor * 0.38 * smoothstep(45.0, 230.0, vWP.y);
+  { float fk = 1.0 - (1.0 - fogFactor) * (1.0 - hfogK(vWP)); gl_FragColor.rgb += min(gWinEm, vec3(1.2)) * fk * 0.45; }
+  #endif`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRM.x;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vRM.y;')
       .replace('#include <emissivemap_fragment>', `
@@ -194,6 +203,7 @@ export function litMat(key, o = {}) {
     metalnessFactor = mix(metalnessFactor, 0.0, gm);
     em = we * 0.9 + vInfo.rgb * pk * (1.0 - gm * 0.75);
   }` : ''}
+  gWinEm = em;   // (the lights' own glow, before the baked ground light: that one stays in the fog)
   ${o.noLM ? '' : '{ vec3 wn = normalize((vec4(normal, 0.0) * viewMatrix).xyz); diffuseColor.rgb *= baseAO(vWP, wn); em += diffuseColor.rgb * groundLight(vWP, wn); }'}
   totalEmissiveRadiance = em;`);
     if (o.patch) o.patch(s);

@@ -556,7 +556,12 @@ export class SetPieces {
     if (G.state === 'landed') {
       G.pos = this.boat.userData.deck.clone().applyMatrix4(this.boat.matrixWorld);
       // the canopy is cut away: it blows back up the river behind you (never down through your view)
-      this.canopy.position.x += rdt * 5.5; this.canopy.position.y -= rdt * 1.1; this.canopy.rotation.z = Math.min(1.2, this.canopy.rotation.z + rdt * 0.5); if (G.t > 5) this.canopy.visible = false;
+      // it loses its shape as it goes (no longer a rigid fan hanging in the sky): it folds, sags and settles on the water
+      { const C = this.canopy, k = Math.min(1, G.t / 4.5), sag = k * k;
+        C.position.x += rdt * (5 - 3 * k); C.position.y = Math.max(WATER_Y + 0.25 - Math.max(0, G.t - 5.5) * 0.5, C.position.y - rdt * (1.2 + 3.2 * sag));   // settles on the water, then, soaked through, goes under
+        C.scale.set(1 - 0.45 * k, Math.max(0.12, 1 - 0.95 * sag), 1 - 0.35 * k);
+        C.rotation.z = Math.min(1.0, C.rotation.z + rdt * 0.35); C.rotation.x = Math.sin(G.t * 2.1) * 0.12 * (1 - k);
+        if (G.t > 10) C.visible = false; }
       g.rigVel = new THREE.Vector3(this.boatV, 0, 0);
     }
   }

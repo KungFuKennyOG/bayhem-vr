@@ -79,7 +79,7 @@ export function buildRoute(ctx = {}) {
         Rf.set({ col: [0.44, 0.43, 0.41] }); Rf.box(x, top, ROAD.front, x1, top + 0.45, ROAD.front + 0.25, { faces: 'zZY', s: 1 });
         if (storeys === 2 && xc > ROAD.x0 + 60 && xc < BLOCK_X - 26 && x1 - x > 7) perches.push({ x: xc, y: top, z: ROAD.front + 1.3, x0: x + 0.8, x1: x1 - 0.8 });
       } else {
-        const h = 18 + r() * r() * 30, col = WALLS[Math.floor(r() * WALLS.length)];
+        const h = 18 + r() * r() * 30, col = mul3(WALLS[Math.floor(r() * WALLS.length)], 0.7);   // (0.7: from the river they read as flat-lit beige cards against the night towers)
         T.set({ col, rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [3.0, 3.1, 11 + Math.round(x), r() < 0.3 ? 2 : 0] });
         T.box(x, Y, ROAD.front, x1, Y + h, ROAD.front + depth + 6, { faces: 'xXz', s: 1, wy0: Y, foot: 0.25 });
         Rf.set({ col: [0.32, 0.32, 0.33], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.2, Y + h, ROAD.front - 0.2, x1 + 0.2, Y + h + 0.5, ROAD.front + depth + 6.2, { faces: 'xXzZY', s: 1 });
@@ -98,7 +98,7 @@ export function buildRoute(ctx = {}) {
         if (x2 < 540) { x2 = 540; continue; }   // the steps, the flyover and the block it drives into stand behind here (steps.js)
         const st = r() < 0.25 ? 1 : r() < 0.3 ? 2 : 0;
         const A2 = B.get(st === 1 ? 'win' : 'tile', 's2');
-        A2.set({ col: st === 1 ? hexc(0x4a5560) : WALLS[Math.floor(r() * WALLS.length)], rm: [st === 1 ? 0.35 : 0.85, st === 1 ? 0.2 : 0, 0], em: [0, 0, 0, code], cell: [st === 1 ? 1.6 : 3.0, st === 1 ? 3.9 : 3.0, 60 + Math.round(x2), st] });
+        A2.set({ col: st === 1 ? hexc(0x4a5560) : mul3(WALLS[Math.floor(r() * WALLS.length)], 0.78), rm: [st === 1 ? 0.35 : 0.85, st === 1 ? 0.2 : 0, 0], em: [0, 0, 0, code], cell: [st === 1 ? 1.6 : 3.0, st === 1 ? 3.9 : 3.0, 60 + Math.round(x2), st] });
         A2.box(x2, base, z0, x1, base + h, z0 + d, { faces: 'xXz', s: 1, wy0: base });
         Cw.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Cw.box(x2 - 0.2, base + h, z0 - 0.2, x1 + 0.2, base + h + 0.6, z0 + d + 0.2, { faces: 'xXzY', s: 1 });
         Cw.set({ col: [0.36, 0.35, 0.33], em: em(SODIUM, 0.03, DUSK + code) }); Cw.box(x2 - 2, Y, z0 - 1.5, x1 + 2, base, z0 - 1.0, { faces: 'z', s: 1, foot: 0.3 });
@@ -178,8 +178,8 @@ export function buildRoute(ctx = {}) {
       while (wx < X1 + 220) {
         const w = 8 + r() * 9, h = 7 + r() * 9, out = 2.5 + r() * 3.5, y1 = Y - 1.2 - r() * 2.5, code = wx < 250 ? DIST.FAR_W : wx > 800 ? DIST.FAR_E : roadDist(wx + w / 2);
         if (wx + w > BRIDGE.x0 - 6 && wx < BRIDGE.x1 + 6) { wx = BRIDGE.x1 + 6; continue; }
-        Tw.set({ col: WALLS[Math.floor(r() * WALLS.length)], rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [2.8, 3.0, 500 + Math.round(wx), 2] });
-        Tw.box(wx, y1 - h, ROAD.rail - 0.4 - out, wx + w, y1, ROAD.rail - 0.3, { faces: 'xXz', s: 1, wy0: y1 - h, emHi: [0.18, 0.11, 0.04, DUSK + code], emLo: [0.05, 0.035, 0.02, DUSK + code] });   // (the gold lamp line above washes down the fronts)
+        Tw.set({ col: mul3(WALLS[Math.floor(r() * WALLS.length)], 0.62 + 0.2 * Math.abs(Math.sin(wx * 3.17))), rm: [0.85, 0, 0], em: [0, 0, 0, code], cell: [2.8, 3.0, 500 + Math.round(wx), 2] });   // (darker, varied: from the river the row read as one flat-lit tan strip in front of the night towers)
+        Tw.box(wx, y1 - h, ROAD.rail - 0.4 - out, wx + w, y1, ROAD.rail - 0.3, { faces: 'xXz', s: 1, wy0: y1 - h, emHi: [0.11, 0.068, 0.025, DUSK + code], emLo: [0.04, 0.028, 0.016, DUSK + code] });   // (the gold lamp line above washes down the fronts)
         Rw.set({ col: [0.24, 0.23, 0.24], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rw.box(wx - 0.3, y1, ROAD.rail - 0.9 - out, wx + w + 0.3, y1 + 0.35, ROAD.rail - 0.3, { faces: 'xXzY', s: 1 });
         Ww.set({ col: [0.2, 0.17, 0.14], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
         for (let px = wx + 1; px < wx + w; px += 3) Ww.box(px - 0.12, WATER_Y - 2, ROAD.rail - 0.6 - out, px + 0.12, y1 - h, ROAD.rail - 0.36 - out, { faces: 'xXz' });

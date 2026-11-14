@@ -103,7 +103,20 @@ export function buildTerrain(ctx = {}) {
   // ---------------------------------------------------------------- housing on the north bank either side of the play space: rows of
   // old blocks on every terrace east of the tower (seen from the bridge, the lift, the glide), mid-rises on the shelf west of the slide
   {
-    const r = makeRng(8088), W = [hexc(0xc9bba3), hexc(0xd8c7b6), hexc(0xb8b0a4), hexc(0xc7a99a), hexc(0xa89e94), hexc(0xd2c19d)];
+    // (walls at 0.7: at full value the rows read as flat-lit beige cards against the night towers behind)
+    const r = makeRng(8088), W = [hexc(0xc9bba3), hexc(0xd8c7b6), hexc(0xb8b0a4), hexc(0xc7a99a), hexc(0xa89e94), hexc(0xd2c19d)].map(c => mul3(c, 0.7));
+    const r2 = makeRng(9191);   // roof clutter: its own stream (the layout's stream stays as it was)
+    const clutter = (x0, y, z0, x1, z1) => {   // water tanks, a plant room, an AC unit or two on a flat roof
+      const C = B.get('concrete', 'hse'), M2 = B.get('metal', 'hse');
+      C.set({ col: [0.24, 0.24, 0.25], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+      if (r2() < 0.6) { const w = 2 + r2() * 3, d = 2 + r2() * 2.5, px = x0 + 0.8 + r2() * Math.max(0.1, x1 - x0 - w - 1.6), pz = z0 + 0.8 + r2() * Math.max(0.1, z1 - z0 - d - 1.6); C.box(px, y, pz, px + w, y + 1.8 + r2() * 1.2, pz + d, { faces: 'xXzZY', s: 1 }); }
+      M2.set({ col: [0.32, 0.33, 0.35], rm: [0.5, 0.6, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+      const nt = r2() < 0.55 ? 1 + Math.floor(r2() * 2) : 0;
+      for (let k = 0; k < nt; k++) { const tx = x0 + 1.5 + r2() * Math.max(0.1, x1 - x0 - 3), tz = z0 + 1.5 + r2() * Math.max(0.1, z1 - z0 - 3), tr = 0.7 + r2() * 0.5;
+        for (const [ox, oz] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) M2.box(tx + ox * tr - 0.06, y, tz + oz * tr - 0.06, tx + ox * tr + 0.06, y + 1.4, tz + oz * tr + 0.06, { faces: 'xXzZ' });
+        M2.cyl(tx, y + 1.4, tz, tr, tr, y + 2.9 + r2(), 10); }
+      if (r2() < 0.5) { const ax = x0 + 1 + r2() * Math.max(0.1, x1 - x0 - 2.2); M2.box(ax, y, z1 - 1.6, ax + 1.0, y + 0.75, z1 - 0.9, { faces: 'xXzZY' }); }
+    };
     const T = B.get('tile', 'hse'), Rf = B.get('concrete', 'hse'), L = B.get('plain', 'hse');
     for (let k = 0; k < TERR.n; k++) {
       const z0 = TERR.z0 + k * TERR.d, y = hillY(z0 + 0.1);
@@ -113,6 +126,7 @@ export function buildTerrain(ctx = {}) {
         T.set({ col: W[Math.floor(r() * W.length)], rm: [0.85, 0, 0], em: [0, 0, 0, DIST.EAST], cell: [3.0, 3.1, 200 + Math.round(x) + k * 7, r() < 0.4 ? 2 : 0] });
         T.box(x, y, z0 + 2, x + w, y + h, z0 + 2 + d, { faces: 'xXZ', s: 1, wy0: y, foot: 0.25 });
         Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.15, y + h, z0 + 1.85, x + w + 0.15, y + h + 0.4, z0 + 2.15 + d, { faces: 'xXZY', s: 1 });
+        clutter(x, y + h + 0.4, z0 + 2, x + w, z0 + 2 + d);
         if (r() < 0.5) glows.push({ p: [x + w / 2, y + 5.4, z0 + d + 4.5], color: [2.0, 1.1, 0.45], size: 2.4, code: DUSK + DIST.EAST, far: true });
         x += w + (r() < 0.25 ? 4 + r() * 6 : 0.6);
       }
@@ -126,6 +140,7 @@ export function buildTerrain(ctx = {}) {
       A2.set({ col: st ? hexc(0x4a5560) : W[Math.floor(r() * W.length)], rm: [st ? 0.35 : 0.85, st ? 0.2 : 0, 0], em: [0, 0, 0, dist], cell: [st ? 1.6 : 3.0, st ? 3.9 : 3.0, 300 + Math.round(x), st] });
       A2.box(x, 56, z0, x + w, 56 + h, z0 + d, { faces: 'xXzZ', s: 1, wy0: 56, emLo: [0.14, 0.09, 0.035, DUSK + dist] });
       Rf.set({ col: [0.3, 0.3, 0.31], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Rf.box(x - 0.2, 56 + h, z0 - 0.2, x + w + 0.2, 56 + h + 0.5, z0 + d + 0.2, { faces: 'xXzZY', s: 1 });
+      clutter(x, 56 + h + 0.5, z0, x + w, z0 + d);
       if (r() < 0.6) glows.push({ p: [x + w / 2, 61.5, PLAZA.z1 - 2], color: [2.0, 1.1, 0.45], size: 2.6, code: DUSK + dist, far: true });
       x += w + 3 + r() * 9;
     }

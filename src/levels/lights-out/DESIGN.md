@@ -144,3 +144,20 @@ fires (`city.js` glows) and red beacons in it.
 - `tools/run-level.cjs "level=lights-out" 700 10 [prefix]` — a fast headless autopilot run, state every 10 s.
 - `tools/check-lanes.mjs` — the lanes are clear.
 - `tools/beat-sweep.cjs lights-out <beats>` — every beat boots and runs with and without the autopilot.
+
+## Skyline pass (city.js / kit.js / route.js / terrain.js)
+Blind A/B reviews: skyline 4.5–5 → 6 (Iron Lady calibration ≈ 8).
+- Towers: setbacks, cruciform (notched) plans, notched roof slabs, antenna masts + red lights, LED roof outlines, helipads,
+  tower cranes (one tall roof in eleven), two hero "skybridge" clusters (ne/sw). LED corner strips and floor bands follow
+  each stage's real outline (they used to run round the bounding box and stood off notched/set-back facades like a cage).
+- The south hill has a ground now: a dark heightfield on `southBase` with a sodium street grid (out with each district),
+  retaining walls of windowed cliff-houses round the store's hole and along the hill's foot, and 140 low old-town blocks
+  packed up the hill round the store. (The towers used to stand on 30 m plinths over the flat road-level plane: stilts
+  over a void from the roof, the lift and the glide.)
+- Fog: far 1450; lit things get part of what the fog took back (`gWinEm`, ×0.45); the haze thins with height in the
+  lit-kit shader (fog × (1 − 0.38·smoothstep(45, 230, y))) so tall far towers no longer stand out pale against the
+  darker sky ('cardboard ghosts').
+- Darker, varied walls on the river-facing rows (the stilt houses under the road, the far frontage blocks, the north
+  terraces) + roof clutter (tanks, plant rooms, AC) on the north terraces.
+Left: blackout views (roof/lift) are one dark value plane; the north ridge reads as a smooth dome; LED trims can still
+alias at distance on Quest; mid-ground window grids are uniform.

@@ -3,6 +3,7 @@ import { makeRng } from '../../rng.js';
 import { Buckets, hexc, mix3, mul3, em, GOLD, DIST, DUSK, hipRoof, signQuad } from './kit.js';
 import { SIGN, SIGN_LIST } from './signs.js';
 import { materials, SHADOW_KEYS } from './mats.js';
+import { gridFace } from './terrain.js';
 import { RIVER, ROAD, PODIUM, SLIDE, HILLE, TOWER, TERR, Y } from './layout.js';
 
 // =====================================================================================
@@ -49,9 +50,12 @@ export function towerBlock(B, t, region, glows) {
     const R = B.get('concrete', region); R.set({ col: [0.5, 0.5, 0.5], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
     R.box(x0 - 2, y0 + podH, z0 - 2, x1 + 2, y0 + podH + 0.6, z1 + 2, { faces: 'Y', s: 1 });
   }
-  const sets = h > 130 && r() < 0.18 ? [0.7, 0.9] : h > 90 && r() < 0.12 ? [0.82] : [];   // few setbacks: Chinese towers go straight up
+  const sets = h > 130 && r() < 0.45 ? [0.7, 0.9] : h > 90 && r() < 0.3 ? [0.82] : [];   // setbacks on the tall ones (reviews: "the towers are pillars")
+  // the plan: residential towers are cruciform (notched corners: the re-entrant balconies of a Chinese point tower), some
+  // office towers too (smaller notches): the notches catch shadow and break the silhouette of every edge
+  const notch = style === 0 || style === 2 ? 0.2 : (t.seed % 3 === 0 ? 0.1 : 0);
   let bx0 = x0, bz0 = z0, bx1 = x1, bz1 = z1, ya = y0 + podH;
-  const levels = [...sets, 1];
+  const levels = [...sets, 1], stages = [];
   for (let i = 0; i < levels.length; i++) {
     const yb = y0 + h * levels[i];
     // uplight: a warm wash fading up the face's lower band (gold on the landmarks)
@@ -61,10 +65,20 @@ export function towerBlock(B, t, region, glows) {
     if (t.flood && i === 0) {
       A.set({ em: flood }); A.box(bx0, ya, bz0, bx1, fy, bz1, { faces: 'xXzZ', s: 1, wy0: y0, top: col });
       A.set({ em: [0, 0, 0, code] }); if (yb > fy) A.box(bx0, fy, bz0, bx1, yb, bz1, { faces: 'xXzZ', s: 1, wy0: y0 });
-    } else { A.set({ em: [0, 0, 0, code] }); A.box(bx0, ya, bz0, bx1, yb, bz1, { faces: 'xXzZ', s: 1, wy0: y0 }); }
-    // the roof slab of this stage
+    } else {
+      // the shaft: a faint street-glow at its foot, a touch lighter toward the sky (it read as one flat dark prism)
+      A.set({ em: [0, 0, 0, code] }); const lo = i === 0 ? [0.05, 0.032, 0.015, code] : null, topc = mul3(col, 1.12);
+      if (notch) { const nx = (bx1 - bx0) * notch, nz = (bz1 - bz0) * notch;
+        A.box(bx0, ya, bz0 + nz, bx1, yb, bz1 - nz, { faces: 'xXzZ', s: 1, wy0: y0, emLo: lo, top: topc });
+        A.box(bx0 + nx, ya, bz0, bx1 - nx, yb, bz1, { faces: 'xXzZ', s: 1, wy0: y0, emLo: lo, top: topc });
+      } else A.box(bx0, ya, bz0, bx1, yb, bz1, { faces: 'xXzZ', s: 1, wy0: y0, emLo: lo, top: topc });
+    }
+    // the roof slab of this stage (following the notches), a dark parapet coping
     const R = B.get('concrete', region); R.set({ col: [0.42, 0.42, 0.43], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
-    R.box(bx0 - 0.3, yb, bz0 - 0.3, bx1 + 0.3, yb + 0.9, bz1 + 0.3, { faces: 'xXzZY', s: 1 });
+    if (notch && (!t.flood || i > 0)) { const nx = (bx1 - bx0) * notch, nz = (bz1 - bz0) * notch;
+      R.box(bx0 - 0.3, yb, bz0 + nz - 0.3, bx1 + 0.3, yb + 0.9, bz1 - nz + 0.3, { faces: 'xXzZY', s: 1 }); R.box(bx0 + nx - 0.3, yb, bz0 - 0.3, bx1 - nx + 0.3, yb + 0.9, bz1 + 0.3, { faces: 'xXzZY', s: 1 });
+    } else R.box(bx0 - 0.3, yb, bz0 - 0.3, bx1 + 0.3, yb + 0.9, bz1 + 0.3, { faces: 'xXzZY', s: 1 });
+    stages.push({ x0: bx0, z0: bz0, x1: bx1, z1: bz1, ya, yb, n: t.flood && i === 0 ? 0 : notch });
     ya = yb + 0.9;
     if (i < levels.length - 1) { const ix = (bx1 - bx0) * 0.12, iz = (bz1 - bz0) * 0.12; bx0 += ix; bx1 -= ix; bz0 += iz; bz1 -= iz; }
   }
@@ -73,6 +87,34 @@ export function towerBlock(B, t, region, glows) {
   const Rf = B.get('concrete', region); Rf.set({ col: [0.38, 0.38, 0.4], rm: [0.9, 0, 0] });
   const nb = 1 + Math.floor(r() * 3);
   for (let k = 0; k < nb; k++) { const w = 2 + r() * 5, d = 2 + r() * 4, px = bx0 + 1 + r() * Math.max(0.1, bx1 - bx0 - 2 - w), pz = bz0 + 1 + r() * Math.max(0.1, bz1 - bz0 - 2 - d); Rf.box(px, top, pz, px + w, top + 2 + r() * 3, pz + d, { faces: 'xXzZY', s: 1 }); }
+  // antenna masts and a lift overrun on the tall ones, a red light on each mast
+  if (h > 95 && t.crown !== 'spire') { const Mm = B.get('metal', region); Mm.set({ col: [0.2, 0.2, 0.22], rm: [0.4, 0.8, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    const nm = 1 + Math.floor(r() * 2);
+    for (let k = 0; k < nm; k++) { const mx = bx0 + 2 + r() * Math.max(0.5, bx1 - bx0 - 4), mz = bz0 + 2 + r() * Math.max(0.5, bz1 - bz0 - 4), mh = 6 + r() * 16;
+      Mm.cyl(mx, top, mz, 0.35, 0.12, top + mh, 5, { cap: false }); glows.push({ p: [mx, top + mh + 0.3, mz], color: [2.6, 0.12, 0.06], size: 2.2, blink: true, rate: 1.6 + r(), code: DUSK + code, far: true }); } }
+  // one tower in six: its roof edge outlined in LED (the Chongqing waterfront's outlined tops); a few helipads
+  if (h > 80 && t.seed % 6 === 1 && !t.crown) { const L = B.get('plain', region), c = t.ledCol || GOLD; L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(c, 1.4, code), cell: [0, 0, 0, 0] });
+    const e = 0.6, yy = top - 0.2; L.box(bx0 - 0.4, yy, bz0 - 0.4, bx1 + 0.4, yy + e, bz0 - 0.1, { faces: 'xXzZY' }); L.box(bx0 - 0.4, yy, bz1 + 0.1, bx1 + 0.4, yy + e, bz1 + 0.4, { faces: 'xXzZY' }); L.box(bx0 - 0.4, yy, bz0 - 0.1, bx0 - 0.1, yy + e, bz1 + 0.1, { faces: 'xXzZY' }); L.box(bx1 + 0.1, yy, bz0 - 0.1, bx1 + 0.4, yy + e, bz1 + 0.1, { faces: 'xXzZY' }); }
+  if (h > 110 && t.seed % 7 === 3 && !t.crown && bx1 - bx0 > 16 && bz1 - bz0 > 16) { const Hp = B.get('concrete', region), L = B.get('plain', region), R2 = Math.min(bx1 - bx0, bz1 - bz0) * 0.38;
+    Hp.set({ col: [0.32, 0.33, 0.3], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] }); Hp.cyl(cx, top, cz, R2, R2, top + 1.2, 16);
+    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0, 0], em: em([0.4, 1.0, 0.5], 1.6, code), cell: [0, 0, 0, 0] }); for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; L.box(cx + Math.cos(a) * R2 - 0.2, top + 1.2, cz + Math.sin(a) * R2 - 0.2, cx + Math.cos(a) * R2 + 0.2, top + 1.45, cz + Math.sin(a) * R2 + 0.2); } }
+  // a tower crane on one tall roof in eleven (the city is never finished): mast, jib and counter-jib against the sky, a
+  // red light on the jib tip and the mast top. Breaks the skyline's run of flat tops with a silhouette that reads at 1 km
+  if (h > 75 && t.seed % 11 === 5 && !t.crown && !t.roofSign) {
+    const Cr = B.get('metal', region); Cr.set({ col: [0.55, 0.42, 0.12], rm: [0.6, 0.5, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    const mx = cx + (r() - 0.5) * (bx1 - bx0) * 0.4, mz = cz + (r() - 0.5) * (bz1 - bz0) * 0.4, mh = 24 + r() * 14, a = r() * Math.PI * 2;
+    const ca = Math.cos(a), sa = Math.sin(a), jy = top + mh, jl = 34 + r() * 14, cl = 12;
+    for (const [ox, oz] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) Cr.box(mx + ox - 0.15, top, mz + oz - 0.15, mx + ox + 0.15, jy + 4, mz + oz + 0.15, { faces: 'xXzZ' });
+    for (let y = top + 3; y < jy; y += 3) { Cr.beam([mx - 0.7, y, mz - 0.7], [mx + 0.7, y + 3, mz + 0.7], 0.08, 0.08); Cr.beam([mx + 0.7, y, mz - 0.7], [mx - 0.7, y + 3, mz + 0.7], 0.08, 0.08); }
+    Cr.beam([mx - ca * cl, jy, mz - sa * cl], [mx + ca * jl, jy, mz + sa * jl], 0.9, 0.7);              // jib + counter-jib
+    Cr.beam([mx, jy + 4, mz], [mx + ca * jl * 0.6, jy + 0.7, mz + sa * jl * 0.6], 0.12, 0.12);         // tie rods
+    Cr.beam([mx, jy + 4, mz], [mx - ca * cl, jy + 0.7, mz - sa * cl], 0.12, 0.12);
+    const Cw = B.get('concrete', region); Cw.set({ col: [0.35, 0.35, 0.36], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    Cw.box(mx - ca * cl - 1.6, jy - 2.4, mz - sa * cl - 1.6, mx - ca * cl + 1.6, jy - 0.4, mz - sa * cl + 1.6, { faces: 'xXzZY' });   // counterweight
+    Cw.box(mx - 1.1, jy - 2.6, mz - 1.1, mx + 1.1, jy - 0.5, mz + 1.1, { faces: 'xXzZY' });                                          // cab
+    glows.push({ p: [mx + ca * jl, jy + 0.6, mz + sa * jl], color: [2.6, 0.12, 0.06], size: 2.4, blink: true, rate: 1.3 + r(), code: DUSK + code, far: true });
+    glows.push({ p: [mx, jy + 4.6, mz], color: [2.6, 0.12, 0.06], size: 2.2, code: DUSK + code, far: true });
+  }
   // crowns
   const crown = t.crown;
   if (crown === 'led' || crown === 'lantern') {
@@ -90,18 +132,32 @@ export function towerBlock(B, t, region, glows) {
     }
     glows.push({ p: [cx, y1 + 1, cz], color: mul3(c, 0.6), size: Math.max(bx1 - bx0, bz1 - bz0) * 0.45, code, far: true });
   }
+  // the stage's plan outline (the cruciform notches included): LED trims follow the walls, not the bounding box
+  // (they used to run round the box: on a notched or set-back tower they stood off the facade like a cage)
+  const outline = (S) => {
+    if (!S.n) return [[S.x0, S.z0], [S.x1, S.z0], [S.x1, S.z1], [S.x0, S.z1]];
+    const nx = (S.x1 - S.x0) * S.n, nz = (S.z1 - S.z0) * S.n;
+    return [[S.x0 + nx, S.z0], [S.x1 - nx, S.z0], [S.x1 - nx, S.z0 + nz], [S.x1, S.z0 + nz], [S.x1, S.z1 - nz], [S.x1 - nx, S.z1 - nz], [S.x1 - nx, S.z1], [S.x0 + nx, S.z1], [S.x0 + nx, S.z1 - nz], [S.x0, S.z1 - nz], [S.x0, S.z0 + nz], [S.x0 + nx, S.z0 + nz]];
+  };
+  const outer = (S) => { const P = outline(S); return S.n ? [P[0], P[1], P[3], P[4], P[6], P[7], P[9], P[10]] : P; };
   if (t.corners) {
-    // LED corner strips up the whole height (Chongqing's outlined skyline)
-    const L = B.get('plain', region); const c = t.ledCol || GOLD; const w = Math.max(0.35, h / 260);
-    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(c, 1.1, code) });
-    for (const [px, pz] of [[x0 - w, z0 - w], [x1, z0 - w], [x0 - w, z1], [x1, z1]]) L.box(px, y0 + podH, pz, px + w, top, pz + w, { faces: 'xXzZ' });
+    // LED strips up the outer corners of each stage (Chongqing's outlined skyline)
+    const L = B.get('plain', region); const c = t.ledCol || GOLD; const w = Math.max(0.3, h / 300) / 2;
+    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em(c, 0.75, code) });   // (dimmer: bright thin edges read as a wireframe)
+    for (const S of stages) for (const [px, pz] of outer(S)) L.box(px - w, S.ya, pz - w, px + w, S.yb, pz + w, { faces: 'xXzZ' });
   }
   if (t.bands) {
-    // horizontal LED bands every few floors (the Chongqing waterfront look); a thin line, not a laser
+    // horizontal LED bands every few floors (the Chongqing waterfront look); a thin line, not a laser, on the wall
     const L = B.get('plain', region); const c = t.bandCol || [0.6, 0.85, 1.0];
-    L.set({ col: [0.15, 0.15, 0.16], rm: [0.5, 0.5, 0], em: em(c, 1.0, code + 32), cell: [0, 0, 0, 0] });   // animated (kit.js: codes >= 32)
+    L.set({ col: [0.15, 0.15, 0.16], rm: [0.5, 0.5, 0], em: em(c, t.bandEm || 1.0, code + 32), cell: [0, 0, 0, 0] });   // animated (kit.js: codes >= 32)
     const step = floor * (t.bands | 0 || 4);
-    for (let y = y0 + podH + step; y < top - 2; y += step) { L.box(x0 - 0.12, y, z0 - 0.12, x1 + 0.12, y + 0.22, z0); L.box(x0 - 0.12, y, z1, x1 + 0.12, y + 0.22, z1 + 0.12); L.box(x0 - 0.12, y, z0, x0, y + 0.22, z1); L.box(x1, y, z0, x1 + 0.12, y + 0.22, z1); }
+    const bh = Math.max(0.3, Math.min(0.6, h / 220)), o = 0.1;
+    for (let y = y0 + podH + step; y < top - 2; y += step) {
+      const S = stages.find(S => y >= S.ya && y + bh <= S.yb - 1); if (!S) continue;
+      const P = outline(S);
+      for (let k = 0; k < P.length; k++) { const a = P[k], b = P[(k + 1) % P.length];
+        L.box(Math.min(a[0], b[0]) - o, y, Math.min(a[1], b[1]) - o, Math.max(a[0], b[0]) + o, y + bh, Math.max(a[1], b[1]) + o); }
+    }
   }
   if (crown === 'diamond') {
     // a faceted glass pyramid cap with lit edges
@@ -183,7 +239,7 @@ export function buildCity(ctx = {}) {
     const big = h > 120;
     return { x0: x - W / 2, z0: z - D / 2, x1: x + W / 2, z1: z + D / 2, y0: base, h, style, podium: r() < 0.35, plinth: o.plinth ?? 14,
       crown: big && r() < 0.75 ? (r() < 0.3 ? 'led' : r() < 0.3 ? 'diamond' : r() < 0.35 ? 'lantern' : r() < 0.5 ? 'pagoda' : 'spire') : h > 70 && r() < 0.35 ? (r() < 0.3 ? 'pagoda' : r() < 0.5 ? 'frame' : r() < 0.5 ? 'diamond' : 'led') : null,
-      bands: (style === 1 && r() < 0.45) || (h > 90 && r() < 0.25) ? 3 + Math.floor(r() * 3) : 0, bandCol: r() < 0.5 ? [0.55, 0.85, 1.0] : r() < 0.6 ? GOLD : [1.0, 0.95, 0.85],
+      bands: (style === 1 && r() < 0.5) || (h > 90 && r() < 0.42) ? 3 + Math.floor(r() * 3) : 0, bandCol: (() => { if (r() < 0.4) return [0.55, 0.85, 1.0]; const c2 = r(); return c2 < 0.5 ? GOLD : [1.0, 0.32, 0.78]; })(),
       roofSign: h > 60 && r() < 0.42 ? SIGN_LIST.roofs[Math.floor(r() * SIGN_LIST.roofs.length)] : null, signN: o.signN,
       corners: h > 90 && r() < 0.3, flood: h > 70 && r() < 0.3 ? GOLD : null, ledCol: r() < 0.75 ? GOLD : r() < 0.5 ? [0.85, 0.92, 1.0] : [1.0, 0.3, 0.12], dist: o.dist };
   };
@@ -199,6 +255,24 @@ export function buildCity(ctx = {}) {
       towerBlock(B, t, region, glows);
     }
   };
+  // two landmark clusters (one each side of the river, both on the way's sightlines): three glass towers in a row joined
+  // across their tops by a lit horizontal skybridge (a Raffles City), LED-outlined. Silhouettes no other city has.
+  const hero = (region, cx, cz, base, dist, signN) => {
+    const hs = [205, 232, 214], W = 26, D = 24, gap = 34, tops = [];
+    for (let i = 0; i < 3; i++) { const x = cx + (i - 1) * (W + gap), t = { x0: x - W / 2, z0: cz - D / 2, x1: x + W / 2, z1: cz + D / 2, y0: base(x, cz), h: hs[i], style: 1, podium: true, plinth: 24, crown: null, corners: false, ledCol: [0.6, 0.85, 1.0], bands: 4, bandEm: 1.7, bandCol: [0.45, 0.8, 1.0], roofSign: i === 1 ? SIGN_LIST.roofs[0] : null, signN, dist };
+      KEEP.push([t.x0 - 3, t.z0 - 3, t.x1 + 3, t.z1 + 3]); t.seed = seed++; tops.push(towerBlock(B, t, region, glows).top); }
+    const by = Math.min(...tops) - 26, bx0 = cx - 1.5 * W - gap + W, bx1 = cx + 1.5 * W + gap - W, G2 = B.get('win', region), L = B.get('plain', region);
+    G2.set({ col: GLASSY[1], rm: [0.3, 0.3, 0], em: [0, 0, 0, dist], cell: [1.6, 3.9, 77, 1] });
+    G2.box(cx - 1.5 * W - gap * 0.5, by, cz - D * 0.35, cx + 1.5 * W + gap * 0.5, by + 16, cz + D * 0.35, { faces: 'xXzZ', s: 1, wy0: by });
+    const Rc = B.get('concrete', region); Rc.set({ col: [0.4, 0.4, 0.42], rm: [0.9, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    Rc.box(cx - 1.5 * W - gap * 0.5, by + 16, cz - D * 0.35, cx + 1.5 * W + gap * 0.5, by + 17, cz + D * 0.35, { faces: 'xXzZY', s: 1 }); Rc.box(cx - 1.5 * W - gap * 0.5, by - 1, cz - D * 0.35, cx + 1.5 * W + gap * 0.5, by, cz + D * 0.35, { faces: 'xXzZy', s: 1 });
+    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0.5, 0], em: em([0.6, 0.85, 1.0], 1.5, dist + 32), cell: [0, 0, 0, 0] });
+    for (const yy of [by - 1.6, by + 17.2]) for (const zz of [cz - D * 0.35 - 0.3, cz + D * 0.35]) L.box(cx - 1.5 * W - gap * 0.5, yy, zz, cx + 1.5 * W + gap * 0.5, yy + 0.8, zz + 0.3);
+    glows.push({ p: [cx, by + 8, cz], color: [0.3, 0.5, 0.8], size: 30, code: dist, far: true });   // (size 70 washed the whole cluster milky)
+    void bx0; void bx1;
+  };
+  hero('ne', 960, -230, northBase, DIST.FAR_E, [0, 0, 1]);
+  hero('sw', 60, ROAD.z1 + 240, southBase, DIST.FAR_W, [0, 0, -1]);
   const nearJin = (x, z) => Math.hypot(x - (TOWER.x0 + TOWER.x1) / 2, z - (TOWER.z0 + TOWER.z1) / 2) < 320;
   const distN = (x) => x < 250 ? DIST.FAR_W : x > 800 ? DIST.FAR_E : DIST.FAR_N;
   const distS = (x) => x < 250 ? DIST.FAR_W : x > 800 ? DIST.FAR_E : DIST.FAR_S;
@@ -212,6 +286,39 @@ export function buildCity(ctx = {}) {
   place('sc', 120, () => { const x = 250 + r() * 550, z = ROAD.z1 + 44 + Math.pow(r(), 0.8) * 560; const h = 34 + Math.pow(r(), 1.5) * (z < ROAD.z1 + 120 ? 70 : 190); return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_S, signN: [0, 0, -1], plinth: 24 }); });
   place('sw', 120, () => { const x = -1100 + r() * 1350, z = RIVER.z1 + 30 + Math.pow(r(), 0.8) * 620; const h = 34 + Math.pow(r(), 1.4) * 180; return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_W, signN: [0, 0, -1], plinth: 30 }); });
   place('se', 120, () => { const x = 800 + r() * 800, z = RIVER.z1 + 30 + Math.pow(r(), 0.8) * 620; const h = 34 + Math.pow(r(), 1.4) * 180; return slab(x, z, southBase(x, z), h, { dist: DIST.FAR_E, signN: [0, 0, -1], plinth: 30 }); });
+  // the old town packed up the hill round the store (low tiled blocks between the towers): the hill read as a bare ramp
+  // from the start roof once it had a surface
+  place('sc', 140, () => { const x = 120 + r() * 600, z = ROAD.z1 + 40 + Math.pow(r(), 1.3) * 380; const h = 10 + Math.pow(r(), 1.3) * 26;
+    const t = slab(x, z, southBase(x, z), h, { dist: distS(x), signN: [0, 0, -1], plinth: 10, w: 9 + r() * 9, d: 8 + r() * 7, style: r() < 0.6 ? 0 : 2 }); t.podium = r() < 0.5; return t; });
+  // the south bank's hill itself: the towers climb it on plinths, but the ground between them was the flat plain at road
+  // level 150 m below, so from the roof, the lift and the glide the skyline stood on stilts over a grey void. A dark
+  // heightfield on southBase, its street grid washed in sodium (the lamps between the blocks), out with each district.
+  {
+    const Gd = B.get('concrete', 'shill'); Gd.set({ col: [0.15, 0.15, 0.16], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
+    const hole = [235, 330, 500, 485];   // the department store, the Hundred Steps, the plaza (steps.js builds its own ground)
+    const street = (v, p) => Math.pow(Math.max(0, Math.cos(v * Math.PI / p)), 6);
+    const emFn = (q) => { const x = q[0], z = q[2], k = Math.max(street(x + 17, 60), street(z - 360, 45) * 0.8) * (0.6 + 0.4 * Math.sin(x * 0.013 + z * 0.021) ** 2);
+      return [1.0 * 0.09 * k, 0.58 * 0.09 * k, 0.26 * 0.09 * k, DUSK + distS(x)]; };
+    const colFn = (q) => { const k = 0.8 + 0.2 * Math.sin(q[0] * 0.031) * Math.sin(q[2] * 0.027); return [0.15 * k, 0.15 * k, 0.16 * k]; };
+    const T = 30, Z0 = 360, gy = (X, Z) => southBase(X, Z) - 0.6;
+    let hx0 = 1e9, hx1 = -1e9, hz1 = -1e9;
+    for (let x = -1200; x < 1800; x += T) for (let z = Z0; z < 1080; z += T) {
+      if (x + T > hole[0] && x < hole[2] && z + T > hole[1] && z < hole[3]) { hx0 = Math.min(hx0, x); hx1 = Math.max(hx1, x + T); hz1 = Math.max(hz1, z + T); continue; }
+      gridFace(Gd, (u, v) => { const X = x + T * u, Z = z + T * (1 - v); return [X, gy(X, Z), Z]; }, 2, 2, { colFn, emFn });
+    }
+    // retaining walls where the hill is cut: round the store's hole and along the hill's foot behind the frontage
+    // (Chongqing's walls: wet concrete, lamps along the top washing down it)
+    // the walls are built into: tiled cliff-houses stacked against them, windows lit like the rest of the city
+    const W = B.get('tile', 'shill');
+    const wall = (ax, az, bx, bz, n) => {   // a vertical face from the flat ground to the hill along a→b (normal = dir × up)
+      const code = distS((ax + bx) / 2);
+      W.set({ col: WALLS[(ax * 7 + az) & 7], rm: [0.88, 0, 0], em: [0, 0, 0, code], cell: [3.2, 3.0, Math.abs(ax * 0.37 + az * 0.11) % 50, 0] });
+      const wemFn = (q, u, v) => { const k = Math.pow(v, 3) * (0.55 + 0.45 * Math.cos(q[0] * 0.21 + q[2] * 0.21) ** 8); return [0.08 * k, 0.05 * k, 0.025 * k, code]; };
+      gridFace(W, (u, v) => { const X = ax + (bx - ax) * u, Z = az + (bz - az) * u, top = gy(X, Z); return [X, Y - 1 + (top + 0.4 - Y + 1) * v, Z]; }, n, 4, { emFn: wemFn, colFn: (q) => { const k = 0.6 + 0.2 * Math.sin(q[0] * 0.07 + q[2] * 0.07); return mul3(W.col, k); } });
+    };
+    wall(hx0, hz1, hx0, Z0, 10); wall(hx1, hz1, hx0, hz1, 14); wall(hx1, Z0, hx1, hz1, 10);
+    wall(hx0, Z0, -1200, Z0, 40); wall(1800, Z0, hx1, Z0, 40);
+  }
   // the ridges behind both banks: dark mountain silhouettes, a broadcast tower blinking on the southern one
   {
     const Rg = B.get('rock', 'ridge'); Rg.set({ col: [0.045, 0.05, 0.055], rm: [0.95, 0, 0], em: [0, 0, 0, 0], cell: [0, 0, 0, 0] });
