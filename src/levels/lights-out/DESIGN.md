@@ -13,8 +13,10 @@ the route outwards.
 
 - The on-foot route is wide and outdoors: no interiors, no ramps. It is **one level** (y 20) from the plaza on. The one
   exception is the opening, **the Hundred Steps**: the first version's first flight of stairs, which Kenny liked
-  ("it's only the other stairs that was not well built"). It is back exactly as it was (`steps.js`): a 12 m wide
-  open stair between shophouses, long landings, and from its head you see the plaza at its foot.
+  ("it's only the other stairs that was not well built"). It is back (`steps.js`): a 12 m wide open stair between
+  shophouses, long landings, and from its head you see the plaza at its foot. Polish pass (Nov 13): no centre rail
+  (wall rails on the flights only), flat granite treads with pale nosings and dark risers so a flight reads as steps
+  from the top, stepped cheeks down both edges, paved landings, and single-storey stalls under the flyover.
 - `layout.LANES` are the strips you walk. Nothing taller than 1.2 m stands in them: `node tools/check-lanes.mjs`.
 - Cover is 0.85–1.0 m (under a standing eye). Tall things (buses, shopfronts, lamps, masts, stays, the crown's
   columns) stand **beside** the lane. Nothing spans the lane below ~16 m.
@@ -45,8 +47,12 @@ The route is low on purpose. From a road level with the hill's crest (the first 
 your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" again.
 
 ## Beats (`director.js`) — `?level=lights-out&beat=<name>`
-1. **intro** — the store's roof: title, the tower named. Look-gated (5 s cap): the upstream skyline goes dark.
+1. **intro** — the store's roof: title, the tower named. Look-gated (4 s cap): the upstream skyline goes dark. The roof
+   is yours to leave at any time: reach the head of the steps and the intro ends there (the cut happens at once if it
+   hasn't, the rest of the intro's lines are dropped).
 2. **steps** — down the Hundred Steps: gunmen on the landings below, two on the flyover above, a laser sniper.
+   Nobody spawns behind you: every spawn on the on-foot route is checked against how far along the route you have got
+   (`route()` in `director.js`), and a point you have already reached is skipped.
 3. **road** — the first half of the road: the jam, gunmen in the traffic and on the low shop roofs to your right.
 4. **heron** — NIGHT HERON ONE comes up out of the gorge beside you and holds 35–55 m off the rail. Shot down (or
    burning on its own after 75 s) it holds until you look (4 s cap), then limps across the river into the gold
@@ -67,6 +73,40 @@ your own cliff edge and sat 300 m off: the old level's "the slide doesn't read" 
     drums). The boat swings broadside before you reach it: you land on its aft deck looking west across the beam.
 12. **outro** — the lights come back, district by district, from downstream up. Stats card.
 13. **credits**.
+
+## Art pass on the stairs and the gunboat (Nov 13, after Kenny: "to the same level as the other levels")
+Independent reviews (fresh reviewer each round, calibrated on Iron Lady ≈ 8, Tokyo ≈ 6.5), stairs / boat:
+5 / 4 → 5.5 / 4.5 → 5.5 / 4.5 → **6.5 / 5**. What moved it: the floor light (the stair floor's baked pools were far too
+bright: a uniform noon floor; now dark granite with warm spill off the shops and pools under the lanterns, the shop
+lights in the light map at a third), granite flags with joints, striped faded awnings, weathered signs (the atlas is
+desaturated 22 % with soot edges), no AC units / balconies in front of fascia signs, shop interiors with stocked shelves,
+the boat's painted-steel / anti-skid textures, a lit aft bulkhead, a real torus lifebuoy, hose reel, door, porthole.
+Second pass (Nov 13 evening): the outro surroundings. The river's banks were black slabs from the deck: the stilt houses
+under the road now take the gold lamp line's wash from above (`box({ emHi })`, new in kit.js, with `emLo` for washes
+from below), the north quay houses and the shelf's mid-rises a wash from below, tower podiums a street-level wash
+(level-wide), the north rock face pools of light round the cliff-stair lamps, the south cliff a sodium wash from the
+road; lamp posts with pools along the north quay; burning wreckage from the slide drifting down past the gunboat
+(`buildWreck`, `spawnDrift`: its fires feed the pooled lights, so the deck flickers); searchlight lens glows sized by
+distance. Reviews after it: stairs 6.5 / 6, boat 5.5 / 4.5 (reviewer spread ±1): a plateau around **stairs 6.5,
+boat 5**. Iron Lady is 8.
+Still open (in order): the city reads as boxes (towers are pillars with striped window grids, the riverfront slabs repeat)
+— this is the level-wide city kit, not the boat; the wreckage needs real modelling (hull fragments, broken ribs, foam);
+signs repeat between neighbouring frames; the stair floors are clean (no litter / puddle decals);
+the riverbank and skyline in the outro crush to black boxes (level-wide city facades); shop
+interiors still read as dioramas; stair props read as plastic (desaturate, scale the noodle cups down, cluster into
+stalls); no wet reflections; the boat deck could use more work-light and seams; the outro has no spectacle left
+(smoke columns, fires on the bank).
+
+## The radio (`director.js`, `Radio`)
+One line at a time; a clip never cuts off the one before it. Story lines queue in order (12 s shelf life); urgent lines
+(what a gunship / the tower is doing right now) go next; barks (taxi jokes, "sniper down") only play into silence.
+Lines timed inside a beat (`beatLater`) are dropped if you have left that beat. Changing a line's text drops its voice:
+regenerate with `tools/vo` (README there).
+
+## Laser sights
+`game.beamOver` caps how far a beam runs past its aim (rifles 4 m, snipers 18 m) and `game.clipBeam` marches it against
+`groundAt` (the steps, the banks, the water): none of those are in the collision world, and the beams used to run on
+through the flights and across the river. Both hooks are opt-in in the shared laser code.
 
 ## Comfort (VR)
 - Smooth stick + 45° snap turn on foot. Code never moves the head.
@@ -104,3 +144,20 @@ fires (`city.js` glows) and red beacons in it.
 - `tools/run-level.cjs "level=lights-out" 700 10 [prefix]` — a fast headless autopilot run, state every 10 s.
 - `tools/check-lanes.mjs` — the lanes are clear.
 - `tools/beat-sweep.cjs lights-out <beats>` — every beat boots and runs with and without the autopilot.
+
+## Skyline pass (city.js / kit.js / route.js / terrain.js)
+Blind A/B reviews: skyline 4.5–5 → 6 (Iron Lady calibration ≈ 8).
+- Towers: setbacks, cruciform (notched) plans, notched roof slabs, antenna masts + red lights, LED roof outlines, helipads,
+  tower cranes (one tall roof in eleven), two hero "skybridge" clusters (ne/sw). LED corner strips and floor bands follow
+  each stage's real outline (they used to run round the bounding box and stood off notched/set-back facades like a cage).
+- The south hill has a ground now: a dark heightfield on `southBase` with a sodium street grid (out with each district),
+  retaining walls of windowed cliff-houses round the store's hole and along the hill's foot, and 140 low old-town blocks
+  packed up the hill round the store. (The towers used to stand on 30 m plinths over the flat road-level plane: stilts
+  over a void from the roof, the lift and the glide.)
+- Fog: far 1450; lit things get part of what the fog took back (`gWinEm`, ×0.45); the haze thins with height in the
+  lit-kit shader (fog × (1 − 0.38·smoothstep(45, 230, y))) so tall far towers no longer stand out pale against the
+  darker sky ('cardboard ghosts').
+- Darker, varied walls on the river-facing rows (the stilt houses under the road, the far frontage blocks, the north
+  terraces) + roof clutter (tanks, plant rooms, AC) on the north terraces.
+Left: blackout views (roof/lift) are one dark value plane; the north ridge reads as a smooth dome; LED trims can still
+alias at distance on Quest; mid-ground window grids are uniform.

@@ -5,6 +5,7 @@ import { makeRng } from '../../rng.js';
 import { Reflections } from '../iron-lady/reflections.js';
 import { Buckets, em, mul3, GOLD, DIST, DUSK, POWER, powK, HFOG, HFOG_GLSL } from './kit.js';
 import { materials } from './mats.js';
+import { buildBarge } from './glide.js';
 import { SKY } from './sky.js';
 import { RIVER, WATER_Y, FARBANK, QUAY, groundAt } from './layout.js';
 import { LMR } from './lightmap.js';
@@ -147,7 +148,7 @@ export function buildRiver(ctx = {}) {
     const B = new Buckets(); for (const [k, mm] of Object.entries(M)) B.mat(k, mm);
     const g = new THREE.Group();
     if (lit) cruiser(B, 0, 0, len, seed, code);
-    else { const A = B.get('plain', 'boats'); A.set({ col: [0.16, 0.15, 0.14], rm: [0.7, 0.3, 0], em: [0, 0, 0, 0] }); A.box(-len / 2, -1.4, -6, len / 2, 1.2, 6, { faces: 'xXzZY' }); A.box(len / 2 - 8, 1.2, -4, len / 2 - 2, 6, 4, { faces: 'xXzZY' }); A.set({ col: [0.3, 0.22, 0.12] }); A.box(-len / 2 + 4, 1.2, -5, len / 2 - 12, 3.2, 5, { faces: 'xXzZY' }); }
+    else { const b = buildBarge({ len, beam: 12, cargo: seed % 2 ? 'sand' : 'boxes', seed, lit: true }); b.position.y = -0.2; g.add(b); }
     B.finish(g);
     root.add(g); return g;
   };

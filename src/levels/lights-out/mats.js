@@ -21,6 +21,9 @@ export function materials() {
     rock: tm('rock', { nScale: 1.1 }),
     tile: tm('tile', { win: true }),
     metal: tm('metal'),
+    steel: tm('steel', { nScale: 0.75 }),
+    deck: tm('deck', { nScale: 0.7 }),
+    granite: tm('granite', { nScale: 0.45 }),
     plain: litMat('plain'),
     win: litMat('win', { win: true }),
     sign: litMat('sign', { map: signTexture(), emMap: 1 }),
@@ -30,4 +33,4 @@ export function materials() {
   _M.sign.map.wrapS = _M.sign.map.wrapT = THREE.ClampToEdgeWrapping;
   return _M;
 }
-export const SHADOW_KEYS = ['concrete', 'plaster', 'wood', 'metal', 'plain', 'dbl'];
+export const SHADOW_KEYS = ['concrete', 'plaster', 'wood', 'metal', 'plain', 'dbl', 'steel'];

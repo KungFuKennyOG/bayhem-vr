@@ -127,7 +127,8 @@ export class Searchlights {
       this.aCol.setXYZW(n, L.color[0] * k, L.color[1] * k, L.color[2] * k, len);
       n++;
       // the lamp face
-      g.fx.main.spawn({ x: L.p.x + L.dir.x * 0.6, y: L.p.y + L.dir.y * 0.6, z: L.p.z + L.dir.z * 0.6, frame: CELL.GLOW, s0: 3.2 * L.k, life: 0.04, r: 3 * k, g: 2.9 * k, b: 2.6 * k, a: 1, anchored: false });
+      g.fx.main.spawn({ x: L.p.x + L.dir.x * 0.6, y: L.p.y + L.dir.y * 0.6, z: L.p.z + L.dir.z * 0.6, frame: CELL.GLOW, s0: clamp(L.p.distanceTo(g.headPos) * 0.025, 0.35, 3.2) * L.k, life: 0.04,   // sized by distance: up close a 3 m disc read as a second moon
+      r: 3 * k, g: 2.9 * k, b: 2.6 * k, a: 1, anchored: false });
     }
     this.mesh.count = n; this.mesh.instanceMatrix.needsUpdate = true; this.aCol.needsUpdate = true;
   }

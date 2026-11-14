@@ -58,15 +58,23 @@ export function shopLot(B, reg, F, A, o) {
   {
     const P = B.get('plain', reg), s = save('plain');
     const warm = r() < 0.7 ? [1.0, 0.72, 0.42] : [0.8, 0.9, 1.0];
-    P.set({ col: mul3(wall, 0.4), rm: [0.9, 0, 0], em: em(warm, shut ? 0.0 : 0.16, DUSK + code) });
-    P.room(inner.u0, y, -4.5, inner.u1, y + gh - 0.5, -0.6, { faces: 'zxXYy' });
+    // the room: darker toward the floor, lit toward the ceiling (it used to be one flat cream box)
+    P.set({ col: mul3(wall, 0.3), rm: [0.9, 0, 0], em: em(warm, shut ? 0.0 : 0.07, DUSK + code) });
+    P.room(inner.u0, y, -4.5, inner.u1, y + gh - 0.5, -0.6, { faces: 'zxXY' });
+    P.set({ col: [0.07, 0.06, 0.05], em: em(warm, shut ? 0 : 0.02, DUSK + code) }); P.room(inner.u0, y, -4.5, inner.u1, y + gh - 0.5, -0.6, { faces: 'y' });
+    P.set({ col: mul3(wall, 0.18), em: [0, 0, 0, 0] }); P.box(inner.u0, y, -4.49, inner.u1, y + 0.9, -4.47, { faces: 'Z' });
+    // shelves on the back wall, stocked with goods (seeded colours, gaps), and a few on the side walls
+    { const GOODS = [[0.5, 0.12, 0.08], [0.55, 0.45, 0.12], [0.12, 0.25, 0.45], [0.45, 0.45, 0.42], [0.15, 0.35, 0.18], [0.5, 0.25, 0.1], [0.6, 0.55, 0.5]];
+      for (let k = 0; k < 3; k++) { const sy = y + 0.75 + k * 0.85;
+        P.set({ col: [0.2, 0.17, 0.14], em: [0, 0, 0, 0] }); P.box(inner.u0 + 0.15, sy, -4.48, inner.u1 - 0.15, sy + 0.04, -4.1, { faces: 'YyZ' });
+        for (let gx = inner.u0 + 0.2; gx < inner.u1 - 0.35; gx += 0.16 + r() * 0.22) { if (r() < 0.18) continue; const gw = 0.1 + r() * 0.16, gh2 = 0.14 + r() * 0.32, c = GOODS[Math.floor(r() * GOODS.length)];
+          P.set({ col: mul3(c, 0.7 + r() * 0.4), em: em(warm, shut ? 0 : 0.04, DUSK + code) }); P.box(gx, sy + 0.04, -4.44, gx + gw, sy + 0.04 + gh2, -4.16 - r() * 0.1, { faces: 'ZY' }); } } }
     // a bright ceiling tube row
     P.set({ col: [1, 1, 1], em: em(warm, shut ? 0 : 3.5, DUSK + code) });
     P.box(inner.u0 + 0.6, y + gh - 0.62, -2.6, inner.u1 - 0.6, y + gh - 0.56, -2.45, { faces: 'y' });
     P.set({ col: [1, 1, 1], em: em(warm, shut ? 0 : 3.5, DUSK + code) });
     // counters / shelves: dark slabs catching the light
     P.set({ col: [0.25, 0.2, 0.16], em: [0, 0, 0, 0] });
-    P.box(inner.u0 + 0.3, y, -4.4, inner.u1 - 0.3, y + 2.0, -3.9, { faces: 'Zy' });
     P.box(inner.u0 + 0.5, y, -2.2, inner.u0 + 0.5 + Math.min(2.4, w * 0.35), y + 1.0, -1.4, { faces: 'xXzZY' });
     done('plain', s);
     const S = B.get('sign', reg), s2 = S.push(F.M);
@@ -134,8 +142,13 @@ export function shopLot(B, reg, F, A, o) {
   // awning (some lots)
   if (r() < 0.35) {
     const D = B.get('dbl', reg), s = save('dbl');
-    D.set({ col: AWN[Math.floor(r() * AWN.length)], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
-    D.quad([u0 + 0.2, y + 3.4, 1.5], [u1 - 0.2, y + 3.4, 1.5], [u1 - 0.2, y + 3.95, 0.1], [u0 + 0.2, y + 3.95, 0.1]);
+    // faded canvas in stripes, darker toward the wall (the fold) and dirty along the hem (it used to be one flat primary)
+    const base = mul3(AWN[Math.floor(r() * AWN.length)], 0.62), pale = [0.42, 0.4, 0.36], striped = r() < 0.6;
+    const ns = Math.max(2, Math.round((u1 - u0 - 0.4) / 0.45));
+    for (let k = 0; k < ns; k++) { const ua = u0 + 0.2 + (u1 - u0 - 0.4) * k / ns, ub = u0 + 0.2 + (u1 - u0 - 0.4) * (k + 1) / ns, c = striped && k % 2 ? pale : base;
+      D.set({ col: c, rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); const hem = mul3(c, 0.72), fold = mul3(c, 0.55);
+      D.quad([ua, y + 3.4, 1.5], [ub, y + 3.4, 1.5], [ub, y + 3.95, 0.1], [ua, y + 3.95, 0.1], [0, 0, 1, 1], c, [hem, hem, fold, fold]);
+      D.quad([ua, y + 3.15, 1.52], [ub, y + 3.15, 1.52], [ub, y + 3.4, 1.5], [ua, y + 3.4, 1.5], [0, 0, 1, 1], hem); }
     done('dbl', s);
   }
   // ---- the floors above: old tiled walls with procedural windows, cages, AC units, laundry, balconies
@@ -153,7 +166,7 @@ export function shopLot(B, reg, F, A, o) {
     for (let f = 0; f < storeys; f++) {
       const fy = y + gh + f * fh;
       // a balcony slab across part of the front on some floors
-      if (r() < 0.35) { const C = B.get('concrete', reg), sc = save('concrete'); C.set({ col: mul3(wall, 0.85), rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); C.box(u0 + 0.3, fy - 0.15, 0, u1 - 0.3, fy + 0.08, 1.1, { faces: 'xXyYZ', s: 1 }); C.box(u0 + 0.3, fy + 0.08, 1.0, u1 - 0.3, fy + 1.0, 1.1, { faces: 'zZY', s: 1 }); done('concrete', sc); }
+      if (r() < 0.35 && f > 0) { const C = B.get('concrete', reg), sc = save('concrete'); C.set({ col: mul3(wall, 0.85), rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); C.box(u0 + 0.3, fy - 0.15, 0, u1 - 0.3, fy + 0.08, 1.1, { faces: 'xXyYZ', s: 1 }); C.box(u0 + 0.3, fy + 0.08, 1.0, u1 - 0.3, fy + 1.0, 1.1, { faces: 'zZY', s: 1 }); done('concrete', sc); }
       for (let u = u0 + 0.6; u < u1 - 1.2; u += 2.9) {
         const k = r();
         if (k < 0.3) {
@@ -167,7 +180,7 @@ export function shopLot(B, reg, F, A, o) {
         } else if (k < 0.62) {
           // an AC condenser on a bracket with its drip stain
           P.set({ col: [0.82, 0.82, 0.8], rm: [0.6, 0.1, 0], em: [0, 0, 0, 0] });
-          const ax = u + r() * 1.2, ay = fy + 0.3 + r() * 0.4;
+          const ax = u + r() * 1.2, ay = Math.max(fy + 0.3 + r() * 0.4, y + gh + 1.4);   // (never in front of the shop's fascia sign)
           P.box(ax, ay, 0.05, ax + 0.8, ay + 0.55, 0.38, { faces: 'xXzZyY' });
           P.set({ col: [0.2, 0.2, 0.22] }); P.box(ax + 0.12, ay + 0.1, 0.38, ax + 0.5, ay + 0.47, 0.39, { faces: 'Z' });
         } else if (k < 0.78) {

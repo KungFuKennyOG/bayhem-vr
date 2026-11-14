@@ -46,10 +46,11 @@ export class RifleLasers {
       _b.copy(s.aim.lengthSq() > 0 ? s.aim : head).add(_s.set(Math.sin(g.time * 1.3 + ph) * 0.7, Math.sin(g.time * 0.9 + ph * 2) * 0.35 - 0.2, Math.cos(g.time * 1.1 + ph) * 0.7));
       _d.subVectors(_b, _a);
       let len = _d.length(); _d.divideScalar(len || 1);
-      len = Math.min(len + 25, 70);
+      len = Math.min(len + (g.beamOver?.rifle ?? 25), 70);   // (a level can shorten how far the beam runs past its aim)
       const hit = g.col.raycast(_a, _d, len, (b) => b.data.noBullet || b.data.kind === 'glass' || b.data.ref === s);
       if (hit) len = hit.t;
       if (_d.y < -1e-3) { const tg = (g.world.fastGround(_a.x + _d.x * len, _a.z + _d.z * len) - _a.y) / _d.y; if (tg > 0 && tg < len) len = tg; }
+      if (g.clipBeam) len = g.clipBeam(_a, _d, len);   // opt-in: a level whose ground isn't in the collision world (stairs, terrain) stops the beam on it
       // stops on you (the beam must not run through your face)
       const tp = _b.subVectors(head, _a).dot(_d);
       if (tp > 0 && tp < len && _b.copy(_a).addScaledVector(_d, tp).distanceTo(head) < 0.45) len = Math.max(0.5, tp - 0.7);

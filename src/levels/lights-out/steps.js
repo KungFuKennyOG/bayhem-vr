@@ -100,50 +100,147 @@ export function buildSteps(ctx = {}) {
   }
 
   // ================================================================== the Hundred Steps
+  // The light on the stair floor, baked into its vertices (emissive, old frame): red pools under the lantern strings, warm
+  // pools under the two lamps and the cart, sodium under the flyover, shop light spilling a metre or two off both walls.
+  // The albedo is kept dark so the pools are what you see (it read as a floor lit at noon).
+  const POOLS = [];
+  for (let x = STAIRS.x0 + 6; x < STAIRS.x1 - 4; x += 7.5) { if (x > -98 && x < -76) continue; POOLS.push([x + 2.5, (STAIRS.z0 + STAIRS.z1) / 2, 2.2, [1.0, 0.3, 0.12], 1.1]); }   // the lanterns: local red pools (wider ones tinted the whole floor terracotta)
+  POOLS.push([-104.5, STAIRS.z0 + 2.4, 3.6, [1.0, 0.68, 0.36], 0.75], [-72, STAIRS.z1 - 2.4, 3.6, [1.0, 0.68, 0.36], 0.75], [-86.2, STAIRS.z1 - 2.2, 2.6, [1.0, 0.72, 0.42], 0.6], [-87, 76, 4.2, [1.0, 0.55, 0.22], 0.7]);
+  const floorLight = (x, z) => {
+    let r0 = 0, g0 = 0, b0 = 0;
+    for (const [px, pz, rad, c, k] of POOLS) { const d2 = ((x - px) ** 2 + (z - pz) ** 2) / (rad * rad); if (d2 < 6) { const w = Math.exp(-d2) * k; r0 += c[0] * w; g0 += c[1] * w; b0 += c[2] * w; } }
+    if (x > STAIRS.x0 + 0.5) { const dw = Math.min(z - STAIRS.z0, STAIRS.z1 - z), w = Math.exp(-dw / 1.0) * 0.5; r0 += w; g0 += 0.74 * w; b0 += 0.48 * w; }
+    const e = 0.035; return [r0 * e, g0 * e, b0 * e, DUSK + W0];
+  };
+  const dimF = 0.62;   // albedo scale for the stair floor
   {
-    // granite steps: a plain worn surface (the paving texture's block joints fought the treads and read as a ramp)
-    const S = B.get('concrete', 'stairs');
-    S.set({ col: [0.66, 0.63, 0.6], rm: [0.6, 0, 0], em: [0, 0, 0, 0] });
-    // flights: individual steps (16 cm risers) with worn, darker nosings; landings as slabs
+    // granite steps (polish pass, Nov 13): flat granite treads (no texture: the board-marked concrete made the
+    // flights read as one brown ramp), a worn pale nosing on every step and a dark riser under it, so from the top
+    // the flight reads as STEPS; a stepped granite cheek down both sides; landings in granite paving.
+    const S = B.get('granite', 'stairs'), Pv = B.get('granite', 'stairs'), Jt = B.get('plain', 'stairs');
+    Pv.set({ col: [0.62, 0.6, 0.57], rm: [0.62, 0, 0], em: [0, 0, 0, 0] });
+    const CHEEK = 0.4;
     for (let i = 1; i < STAIR_PROFILE.length; i++) {
       const [x0, y0] = STAIR_PROFILE[i - 1], [x1, y1] = STAIR_PROFILE[i];
-      if (Math.abs(y1 - y0) < 0.01) { S.box(x0, y0 - 0.8, STAIRS.z0, x1, y0, STAIRS.z1, { faces: 'Y', s: 1 }); continue; }
-      const n = Math.round((y0 - y1) / 0.16), run = (x1 - x0) / n;
+      if (Math.abs(y1 - y0) < 0.01) {
+        // landings: 1 m flags (the paving texture at half scale), each a slightly different stone, darker toward the walls
+        Pv.set({ col: [0.3, 0.29, 0.28], rm: [0.6, 0, 0], em: [0, 0, 0, 0] }); Pv.box(x0, y0 - 0.8, STAIRS.z0, x1, y0 - 0.01, STAIRS.z1, { faces: 'Y', s: 1 });
+        for (let xx = x0; xx < x1 - 0.01; xx += 1) for (let zz = STAIRS.z0; zz < STAIRS.z1 - 0.01; zz += 1) {
+          const h = Math.sin(xx * 12.9898 + zz * 78.233) * 43758.5453, v = h - Math.floor(h), edge = Math.min(zz - STAIRS.z0, STAIRS.z1 - zz - 1);
+          const k = (0.82 + v * 0.3) * (edge < 0.5 ? 0.72 : edge < 1.5 ? 0.88 : 1), tint = (v - 0.5) * 0.06;
+          const c = [(0.47 * k + tint) * dimF, 0.45 * k * dimF, (0.43 * k - tint) * dimF], xb2 = Math.min(x1, xx + 1), zb2 = Math.min(STAIRS.z1, zz + 1);
+          const P = [[xx, y0, zb2], [xb2, y0, zb2], [xb2, y0, zz], [xx, y0, zz]];
+          Pv.set({ col: c }); Pv.quad(P[0], P[1], P[2], P[3], [xx, -zb2, xb2, -zz], c, null, P.map(p => floorLight(p[0], p[2])));
+        }
+        // the joints between the flags: dark, mossy toward the walls
+        Jt.set({ col: [0.08, 0.075, 0.07], rm: [0.9, 0, 0], em: [0, 0, 0, 0] });
+        for (let xx = x0 + 1; xx < x1 - 0.05; xx += 1) Jt.box(xx - 0.012, y0, STAIRS.z0, xx + 0.012, y0 + 0.003, STAIRS.z1, { faces: 'Y' });
+        for (let zz = STAIRS.z0 + 1; zz < STAIRS.z1 - 0.05; zz += 1) { const mz = Math.min(zz - STAIRS.z0, STAIRS.z1 - zz) < 1.5; Jt.set({ col: mz ? [0.04, 0.06, 0.035] : [0.08, 0.075, 0.07] }); Jt.box(x0, y0, zz - 0.012, x1, y0 + 0.003, zz + 0.012, { faces: 'Y' }); }
+        continue;
+      }
+      const n = Math.round((y0 - y1) / 0.16), run = (x1 - x0) / n, rise = (y0 - y1) / n;
       for (let k = 0; k < n; k++) {
-        const xa = x0 + k * run, ya = y0 - k * (y0 - y1) / n, yb = ya - (y0 - y1) / n;
-        const g = 0.92 + ((k * 37) % 7) / 60;
-        S.set({ col: [0.66 * g, 0.63 * g, 0.6 * g] });
-        S.box(xa, yb - 0.6, STAIRS.z0, xa + run, ya - (y0 - y1) / n * 0, STAIRS.z1, { faces: 'Y', s: 1 });
-        S.set({ col: [0.5 * g, 0.48 * g, 0.46 * g] });
-        S.box(xa + run - 0.02, yb, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'X', s: 1 });
-        // the worn nosing: a darker lip along each tread's edge, and the shadow under the step above
-        S.set({ col: [0.26 * g, 0.24 * g, 0.22 * g] }); S.box(xa + run - 0.13, ya, STAIRS.z0, xa + run, ya + 0.004, STAIRS.z1, { faces: 'Y', s: 1 });   // a dark worn nosing: the flight reads as stripes from above
-        S.set({ col: [0.42 * g, 0.4 * g, 0.38 * g] }); S.box(xa, ya, STAIRS.z0, xa + 0.06, ya + 0.004, STAIRS.z1, { faces: 'Y', s: 1 });
+        const xa = x0 + k * run, ya = y0 - k * rise, yb = ya - rise;
+        const g = 0.94 + ((k * 37) % 7) / 70;
+        // the tread (worn darker down the middle where people walk), the riser below its front edge
+        S.set({ col: [0.44 * g, 0.43 * g, 0.41 * g], rm: [0.55, 0, 0], em: [0, 0, 0, 0] });
+        // (the tread darkens toward both cheeks: grime and wet where nobody walks)
+        { const ZS = [STAIRS.z0, STAIRS.z0 + 0.8, STAIRS.z0 + 2, 74, 76, 78, STAIRS.z1 - 2, STAIRS.z1 - 0.8, STAIRS.z1];
+          const cAt = (z) => { const dw = Math.min(z - STAIRS.z0, STAIRS.z1 - z), k = (0.55 + 0.45 * Math.min(1, dw / 1.6)) * g * dimF; return [0.44 * k, 0.43 * k, 0.41 * k]; };
+          for (let q = 0; q < ZS.length - 1; q++) { const za = ZS[q], zb = ZS[q + 1];
+            const P = [[xa, ya, zb], [xa + run, ya, zb], [xa + run, ya, za], [xa, ya, za]];
+            S.quad(P[0], P[1], P[2], P[3], [xa, -zb, xa + run, -za], cAt(za), P.map(p => cAt(p[2])), P.map(p => floorLight(p[0], p[2]))); } }
+        S.set({ col: [0.2 * g, 0.195 * g, 0.19 * g] }); S.box(xa + run - 0.02, yb, STAIRS.z0, xa + run, ya, STAIRS.z1, { faces: 'X', s: 1, foot: 0.55 });
+        // the nosing: a pale, polished lip along each tread's edge
+        S.set({ col: [0.13 * g, 0.13 * g, 0.13 * g], rm: [0.35, 0.6, 0] }); S.box(xa + run - 0.05, ya - 0.012, STAIRS.z0 + CHEEK, xa + run + 0.004, ya + 0.008, STAIRS.z1 - CHEEK, { faces: 'YX', s: 1 });
+        // the cheeks: a stepped granite kerb 12 cm proud of the treads down both edges
+        S.set({ col: [0.38 * g, 0.37 * g, 0.355 * g], rm: [0.7, 0, 0] });
+        for (const [za, zb] of [[STAIRS.z0, STAIRS.z0 + CHEEK], [STAIRS.z1 - CHEEK, STAIRS.z1]]) S.box(xa, yb, za, xa + run, ya + 0.12, zb, { faces: 'YXzZ', s: 1, foot: 0.35 });
       }
     }
-    // the centre handrail (two lanes) and side rails on posts
-    const Mt = B.get('metal', 'stairs'); Mt.set({ col: [0.55, 0.57, 0.6], rm: [0.35, 0.85, 0], em: [0, 0, 0, 0] });
-    const zc = (STAIRS.z0 + STAIRS.z1) / 2;
-    for (let x = STAIRS.x0 + 6; x < STAIRS.x1 - 2; x += 2) {
-      const y = stairY(x), y2 = stairY(x + 2);
-      Mt.box(x - 0.03, y, zc - 0.03, x + 0.03, y + 0.95, zc + 0.03, { faces: 'xXzZ' });
-      Mt.beam([x, y + 0.95, zc], [x + 2, y2 + 0.95, zc], 0.06, 0.06);
+    // wall handrails down both sides (steel tube on brackets off the plinths): the middle of the flight stays open
+    // (the first version's centre rail split the stair into two lanes and was the first thing in your eye line)
+    const Mt = B.get('metal', 'stairs'); Mt.set({ col: [0.16, 0.17, 0.18], rm: [0.35, 0.8, 0], em: [0, 0, 0, 0] });   // dark steel: pale rails read as laser lines at night
+    for (const [zw, zr] of [[STAIRS.z0, STAIRS.z0 + 0.16], [STAIRS.z1, STAIRS.z1 - 0.16]]) {
+      for (let i = 1; i < STAIR_PROFILE.length; i++) {
+        const [x0, y0] = STAIR_PROFILE[i - 1], [x1, y1] = STAIR_PROFILE[i];
+        if (Math.abs(y1 - y0) < 0.01) continue;   // flights only (the landings have the planters along their edges)
+        Mt.tube([x0, y0 + 0.95, zr], [x1, y1 + 0.95, zr], 0.032, 8);
+        for (let x = x0 + 0.6; x < x1 - 0.3; x += 2.4) { const y = stairY(x) + 0.95; Mt.box(x - 0.025, y - 0.12, Math.min(zw, zr), x + 0.025, y - 0.02, Math.max(zw, zr), { faces: 'xXyY' }); }
+      }
     }
     // stone side kerbs with planters at the landings
     const Pl = B.get('plain', 'stairs');
     for (const [x0, x1, y] of [[-110, -102, 59.5], [-89, -80, 55]]) for (const z of [STAIRS.z0 + 0.6, STAIRS.z1 - 0.6]) {
       S.set({ col: [0.55, 0.52, 0.5] }); S.box(x0 + 1, y, z - 0.5, x0 + 3, y + 0.7, z + 0.5, { faces: 'xXzZY', s: 1 });
-      // a clipped shrub: a few leafy clumps, dark inside, lighter on top
+      // a shrub of leaf cards (crossed double-sided quads), dark at the heart, lighter at the tips
       Pl.set({ col: [0.07, 0.06, 0.05], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); Pl.box(x0 + 1.05, y + 0.68, z - 0.45, x0 + 2.95, y + 0.72, z + 0.45, { faces: 'Y' });
-      for (let k = 0; k < 6; k++) { const a = k * 1.9 + x0, d = k ? 0.45 : 0, cx = x0 + 2 + Math.cos(a) * d * 1.6, cz = z + Math.sin(a) * d * 0.6, rr = 0.42 + ((k * 37) % 5) * 0.05, g = 0.6 + (k % 3) * 0.15;
-        Pl.set({ col: [0.045 * g, 0.07 * g, 0.04 * g] }); Pl.cyl(cx, y + 0.7, cz, rr * 0.7, rr, y + 0.7 + rr * 0.8, 8, { cap: false }); Pl.cyl(cx, y + 0.7 + rr * 0.8, cz, rr, rr * 0.3, y + 0.7 + rr * 1.5, 8); }
+      { const Lf = B.get('dbl', 'stairs'); for (let k = 0; k < 22; k++) { const a = k * 2.399 + x0, rr = 0.15 + ((k * 37) % 11) / 11 * 0.75, cx = x0 + 2 + Math.cos(a) * rr * 0.9, cz = z + Math.sin(a) * rr * 0.4, yy = y + 0.72 + ((k * 53) % 7) / 7 * 0.7, L = 0.28 + ((k * 29) % 5) * 0.05, yw = a * 1.7;
+        const dx = Math.cos(yw) * L, dz = Math.sin(yw) * L, g0 = [0.02, 0.035, 0.018], g1 = [0.07 + (k % 3) * 0.015, 0.12 + (k % 4) * 0.012, 0.05];
+        Lf.set({ col: g1, rm: [0.75, 0, 0], em: [0, 0, 0, 0] }); Lf.quad([cx - dx, yy, cz - dz], [cx + dx, yy, cz + dz], [cx + dx * 0.6, yy + L * 0.9, cz + dz * 0.6], [cx - dx * 0.6, yy + L * 0.9, cz - dz * 0.6], [0, 0, 1, 1], g1, [g0, g0, g1, g1]); } }
+    }
+    // ---- street life along the edges (polish, Nov 13): never in the middle of the flight. Wet patches and a drain gutter on
+    // every landing; outside the stalls: produce crates, stacked plastic stools, a tub of mops, bagged rubbish, potted
+    // plants by the doors; laundry on poles out of the upper windows (high over the edges, never across the stair)
+    {
+      const r2 = makeRng(4421), Pd = B.get('plain', 'stairs'), Wd = B.get('wood', 'stairs');
+      const LAND = [[-127.5, -119.5, 64], [-111.5, -99.5, 59.5], [-91.5, -77.5, 55], [-68.8, -64.2, 50]];
+      for (const [la, lb, y] of LAND) {
+        // gutters: a dark slot with a grate along both edges
+        for (const z of [STAIRS.z0 + 0.25, STAIRS.z1 - 0.25]) { Pd.set({ col: [0.05, 0.05, 0.05], rm: [0.5, 0.2, 0], em: [0, 0, 0, 0] }); Pd.box(la, y + 0.002, z - 0.12, lb, y + 0.006, z + 0.12, { faces: 'Y' });
+          Pd.set({ col: [0.16, 0.16, 0.16], rm: [0.4, 0.8, 0] }); for (let x = la + 0.1; x < lb - 0.1; x += 0.12) Pd.box(x, y + 0.006, z - 0.12, x + 0.04, y + 0.012, z + 0.12, { faces: 'Y' }); }
+        // props against both walls
+        for (const side of [0, 1]) {
+          const zw = side ? STAIRS.z1 : STAIRS.z0, inn = side ? -1 : 1;
+          let x = la + 0.6 + r2() * 1.2;
+          while (x < lb - 1.2) {
+            const kind = Math.floor(r2() * 5), zc = zw + inn * (0.75 + r2() * 0.25);
+            if (kind === 0) {       // produce crates, two high, fruit on top
+              for (let t = 0; t < 1 + (r2() < 0.6 ? 1 : 0); t++) { Wd.set({ col: [0.36, 0.27, 0.17], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); Wd.obox(x + 0.3, y + 0.17 + t * 0.34, zc, 0.3, 0.17, 0.22, (r2() - 0.5) * 0.3, { faces: 'xXzZY', s: 1 }); }
+              const fc = [[0.42, 0.2, 0.05], [0.24, 0.3, 0.08], [0.36, 0.08, 0.05]][Math.floor(r2() * 3)];
+              Pd.set({ col: fc, rm: [0.6, 0, 0] }); for (let f = 0; f < 6; f++) Pd.cyl(x + 0.1 + (f % 3) * 0.2, y + 0.68, zc - 0.08 + Math.floor(f / 3) * 0.16, 0.07, 0.05, y + 0.76, 6);
+              colliders.push({ min: [x, y, zc - 0.25], max: [x + 0.6, y + 0.72, zc + 0.25], data: { mat: 'wood', kind: 'crate' } }); x += 0.9;
+            } else if (kind === 1) {   // a stack of plastic stools
+              const sc = [[0.34, 0.1, 0.08], [0.1, 0.17, 0.3], [0.12, 0.24, 0.15]][Math.floor(r2() * 3)], n = 2 + Math.floor(r2() * 4);
+              Pd.set({ col: sc, rm: [0.45, 0, 0] }); for (let t = 0; t < n; t++) Pd.cyl(x + 0.2, y + 0.38 + t * 0.07, zc, 0.17, 0.16, y + 0.42 + t * 0.07, 10);
+              for (const [dx, dz] of [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]]) Pd.box(x + 0.2 + dx - 0.02, y, zc + dz - 0.02, x + 0.2 + dx + 0.02, y + 0.38, zc + dz + 0.02, { faces: 'xXzZ' });
+              x += 0.7;
+            } else if (kind === 2) {   // bagged rubbish
+              for (let b = 0; b < 2 + Math.floor(r2() * 3); b++) { Pd.set({ col: r2() < 0.7 ? [0.03, 0.03, 0.035] : [0.08, 0.15, 0.3], rm: [0.25, 0, 0] }); Pd.obox(x + 0.25 + b * 0.32, y + 0.2, zc + (r2() - 0.5) * 0.2, 0.2, 0.2 + r2() * 0.06, 0.18, r2() * 3, { faces: 'xXzZY' }); Pd.cyl(x + 0.25 + b * 0.32, y + 0.38, zc, 0.06, 0.02, y + 0.5, 5); }
+              x += 1.2;
+            } else if (kind === 3) {   // a potted plant
+              Pd.set({ col: [0.22, 0.12, 0.08], rm: [0.85, 0, 0] }); Pd.cyl(x + 0.3, y, zc, 0.2, 0.26, y + 0.42, 14); Pd.set({ col: [0.06, 0.05, 0.04] }); Pd.cyl(x + 0.3, y + 0.4, zc, 0.19, 0.19, y + 0.43, 14);
+              for (let f = 0; f < 5; f++) { const a = f * 1.26 + x, g2 = 0.7 + (f % 2) * 0.3; Pd.set({ col: [0.05 * g2, 0.1 * g2, 0.04 * g2], rm: [0.8, 0, 0] }); Pd.cyl(x + 0.3 + Math.cos(a) * 0.12, y + 0.42, zc + Math.sin(a) * 0.12, 0.12, 0.2, y + 0.75 + (f % 3) * 0.12, 6); }
+              x += 0.8;
+            } else {                   // a yellow tub with mops
+              // a grey mop bucket, two mops leaning on the wall
+              Pd.set({ col: [0.22, 0.24, 0.26], rm: [0.5, 0, 0] }); Pd.cyl(x + 0.25, y, zc, 0.15, 0.17, y + 0.28, 12);
+              Pd.set({ col: [0.3, 0.26, 0.2] }); for (const dz of [-0.05, 0.05]) Pd.beam([x + 0.25, y + 0.12, zc + dz], [x + 0.25, y + 1.3, zc - inn * 0.55 + dz], 0.025, 0.025);
+              Pd.set({ col: [0.35, 0.33, 0.3], rm: [0.9, 0, 0] }); Pd.cyl(x + 0.25, y + 0.02, zc, 0.09, 0.12, y + 0.2, 8);
+              x += 0.8;
+            }
+            x += 0.4 + r2() * 1.6;
+          }
+        }
+      }
+      // laundry: a pole out of a third-floor window every few lots, shirts and towels pegged along it (over the edge, high)
+      const Lw = B.get('dbl', 'stairs');
+      for (const side of [0, 1]) for (let x = -124; x < -66; x += 6 + r2() * 5) {
+        const zw = side ? STAIRS.z1 : STAIRS.z0, inn = side ? -1 : 1, y = stairY(x) + 8.6 + r2() * 1.6, len = 1.4 + r2() * 0.6;
+        Mt.set({ col: [0.3, 0.3, 0.3], rm: [0.4, 0.7, 0] }); Mt.tube([x, y, zw], [x, y + 0.05, zw + inn * len], 0.02, 4);
+        for (let c = 0; c < 3; c++) { const z = zw + inn * (0.35 + c * 0.42), h = 0.5 + r2() * 0.35, w = 0.32 + r2() * 0.1;
+          const lc = [[0.6, 0.6, 0.62], [0.55, 0.15, 0.12], [0.15, 0.25, 0.45], [0.5, 0.45, 0.3], [0.25, 0.35, 0.25]][Math.floor(r2() * 5)];
+          Lw.set({ col: lc, rm: [0.95, 0, 0], em: [0, 0, 0, 0] }); Lw.quad([x - w, y - h, z], [x + w, y - h, z], [x + w, y, z], [x - w, y, z]); }
+      }
     }
     // the shophouses on both sides (shops on every landing and along the flights, stepping down with them)
     const signsN = ['shop0', 'shop13', 'shop1', 'shop5', 'shop2', 'shop8', 'shop15'], signsS = ['shop3', 'shop11', 'shop4', 'shop9', 'shop14', 'shop6'];
     const lots = (face, zf, signs) => {
       let i = 0;
-      const ranges = [[STAIRS.x0 + 0.5, -97], [-77, STAIRS.x1 + 2]];
-      for (const [ua, ub] of ranges) {
+      // the flights get shophouses; the landing under the flyover gets a row of single-storey stalls (it used to be a
+      // gap that showed the shophouses' bare gable walls on both sides)
+      const ranges = [[STAIRS.x0 + 0.5, -97, null], [-97, -77, 0], [-77, STAIRS.x1 + 2, null]];
+      for (const [ua, ub, st] of ranges) {
         let u = ua;
         while (u < ub - 3) {
           const w = Math.min(ub - u, 5.5 + r() * 3);
@@ -151,7 +248,7 @@ export function buildSteps(ctx = {}) {
           const F = new Frame(frontM('x', face, [0, zf]));
           // in the -z facing frame local x runs west: flip the lot range
           const lu0 = face > 0 ? u : -(u + w), lu1 = face > 0 ? u + w : -u;
-          shopRow(B, 'stairs', F, { u0: lu0, u1: lu1, y, seed: 900 + i * 13 + (face > 0 ? 0 : 500), code: W0, depth: 13, storeys: 2 + Math.floor(r() * 3), lotW: w, lotV: 0, lights, glows, panes, colliders, grp: 0, signs: [signs[i % signs.length]], endL: true, endR: true });
+          shopRow(B, 'stairs', F, { u0: lu0, u1: lu1, y, seed: 900 + i * 13 + (face > 0 ? 0 : 500), code: W0, depth: 13, storeys: st ?? (2 + Math.floor(r() * 3)), lotW: w, lotV: 0, lights, glows, panes, colliders, grp: 0, signs: [signs[i % signs.length]], endL: true, endR: true });
           // a plinth from the lowest step at this lot up to its shop floor
           const C = B.get('stone', 'stairs'); C.set({ col: [0.5, 0.48, 0.45], rm: [0.8, 0, 0], em: [0, 0, 0, 0] });
           const zz0 = face > 0 ? zf - 13 : zf, zz1 = face > 0 ? zf : zf + 13;
@@ -192,8 +289,19 @@ export function buildSteps(ctx = {}) {
     lampPost(B, 'stairs', -72, stairY(-72), STAIRS.z1 - 0.9, { dir: [0, 0, -1], h: 5.6, code: W0, lights, glows, grp: 0 });
     // the noodle cart and scooters under the flyover
     const Pc = B.get('plain', 'stairs');
-    Pc.set({ col: [0.75, 0.74, 0.7], rm: [0.4, 0.6, 0], em: [0, 0, 0, 0] }); Pc.box(-88, 55, STAIRS.z1 - 2.4, -84.5, 56.0, STAIRS.z1 - 0.9, { faces: 'xXzZY' });
-    Pc.set({ col: [1, 0.9, 0.7], em: em([1, 0.7, 0.4], 1.2, DUSK + W0) }); Pc.box(-88, 56.0, STAIRS.z1 - 2.4, -84.5, 56.5, STAIRS.z1 - 0.9, { faces: 'xXzZ' });
+    // (a stainless cart on wheels: a lit glass hood over the pots, a striped awning on poles, a gas bottle, stools)
+    { const z0c = STAIRS.z1 - 2.4, z1c = STAIRS.z1 - 0.9, Mc = B.get('metal', 'stairs');
+      Mc.set({ col: [0.38, 0.38, 0.37], rm: [0.3, 0.85, 0], em: [0, 0, 0, 0] }); Mc.box(-88, 55.25, z0c, -84.5, 56.0, z1c, { faces: 'xXzZY' });
+      Mc.set({ col: [0.2, 0.2, 0.2] }); Mc.box(-88.05, 55.95, z0c - 0.05, -84.45, 56.02, z1c + 0.05, { faces: 'xXzZY' });
+      Pc.set({ col: [0.03, 0.03, 0.03], rm: [0.8, 0, 0], em: [0, 0, 0, 0] }); for (const x of [-87.6, -84.9]) for (const z of [z0c + 0.1, z1c - 0.1]) Pc.cyl(x, 55, z, 0.13, 0.13, 55.25, 8);
+      Pc.set({ col: [0.7, 0.62, 0.45], rm: [0.15, 0, 0], em: em([1, 0.7, 0.4], 0.5, DUSK + W0) }); Pc.box(-87.7, 56.02, z0c + 0.15, -84.8, 56.45, z1c - 0.15, { faces: 'xXzZY' });
+      Pc.set({ col: [0.25, 0.24, 0.22], rm: [0.4, 0.7, 0], em: [0, 0, 0, 0] }); for (const x of [-87.2, -86.2, -85.3]) Pc.cyl(x, 56.02, (z0c + z1c) / 2, 0.22, 0.24, 56.28, 10);
+      const Aw = B.get('dbl', 'stairs'); for (let k = 0; k < 6; k++) { Aw.set({ col: k % 2 ? [0.6, 0.55, 0.45] : [0.5, 0.1, 0.07], rm: [0.9, 0, 0], em: [0, 0, 0, 0] }); const xa2 = -88.3 + k * 0.68; Aw.quad([xa2, 57.4, z0c - 0.4], [xa2 + 0.68, 57.4, z0c - 0.4], [xa2 + 0.68, 57.75, z1c + 0.1], [xa2, 57.75, z1c + 0.1]); }
+      Mc.set({ col: [0.18, 0.18, 0.18] }); for (const x of [-88.2, -84.3]) Mc.tube([x, 56, z1c], [x, 57.75, z1c + 0.1], 0.025, 5);
+      Pc.set({ col: [0.2, 0.35, 0.55], rm: [0.5, 0.2, 0] }); Pc.cyl(-84.1, 55, z1c - 0.3, 0.16, 0.16, 55.6, 10);
+      // two folding stools by the cart (seat on four legs)
+      for (const [x, z] of [[-89.2, z0c - 0.6], [-83.4, z0c - 0.3]]) { Pc.set({ col: [0.3, 0.09, 0.07], rm: [0.45, 0, 0] }); Pc.cyl(x, 55.4, z, 0.17, 0.16, 55.45, 12);
+        Pc.set({ col: [0.15, 0.15, 0.15] }); for (const [dx, dz] of [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]]) Pc.box(x + dx - 0.015, 55, z + dz - 0.015, x + dx + 0.015, 55.4, z + dz + 0.015, { faces: 'xXzZ' }); } }
     colliders.push({ min: [-88, 55, STAIRS.z1 - 2.4], max: [-84.5, 56.5, STAIRS.z1 - 0.9], data: { mat: 'metal', kind: 'cart' } });
     glows.push({ p: [-86.2, 56.8, STAIRS.z1 - 1.6], color: [1.8, 1.1, 0.5], size: 2.2, code: DUSK + W0 });
     lights.push({ p: [-86.2, 57.2, STAIRS.z1 - 1.6], color: [1, 0.7, 0.4], r: 5, k: 1, grp: 0 });
@@ -212,12 +320,20 @@ export function buildSteps(ctx = {}) {
     // piers either side of the stairs (in the gaps between the shophouses)
     for (const z of [-6, 26, 60, 92]) { C.box(F.x0 + 3, 40, z - 1.8, F.x1 - 3, F.y - F.t, z + 1.8, { faces: 'xXzZ', s: 1 }); colliders.push({ min: [F.x0 + 3, 40, z - 1.8], max: [F.x1 - 3, F.y - F.t, z + 1.8], data: { mat: 'concrete', kind: 'pier' } }); }
     // the LED line along both fascias (Chongqing outlines its flyovers in light)
-    L.set({ col: [0.2, 0.2, 0.2], rm: [0.5, 0, 0], em: em([0.55, 0.75, 1.0], 0.35, DUSK + W0) });
-    L.box(F.x0 - 0.06, F.y - 0.55, zA, F.x0, F.y - 0.4, zB); L.box(F.x1, F.y - 0.55, zA, F.x1 + 0.06, F.y - 0.4, zB);
+    L.set({ col: [0.12, 0.13, 0.15], rm: [0.5, 0, 0], em: em([0.55, 0.75, 1.0], 0.12, DUSK + W0) });   // a soft LED band, not a laser line
+    L.box(F.x0 - 0.08, F.y - 0.7, zA, F.x0, F.y - 0.4, zB); L.box(F.x1, F.y - 0.7, zA, F.x1 + 0.08, F.y - 0.4, zB);
     for (let z = zA + 4; z < zB; z += 10) { glows.push({ p: [F.x0 - 0.3, F.y - 0.5, z], color: [0.8, 1.1, 1.6], size: 1.5, code: DUSK + W0 }); glows.push({ p: [F.x1 + 0.3, F.y - 0.5, z], color: [0.8, 1.1, 1.6], size: 1.5, code: DUSK + W0 }); }
     for (const z of [50, 74]) lampPost(B, 'fly', F.x0 + 0.6, F.y, z, { dir: [1, 0, 0], h: 8, code: W0, lights: null, glows, grp: 0, col: SODIUM });
     // under-deck: a sodium light over landing B
-    L.set({ col: [1, 1, 1], em: em(SODIUM, 3, DUSK + W0) }); L.box(-88.5, F.y - F.t - 0.08, 75, -85.5, F.y - F.t, 77, { faces: 'y' });
+    // under the deck: four steel girders with drip stains, cross-bracing, a pipe run on brackets, and a caged sodium fitting
+    { const Gd = B.get('steel', 'fly'); Gd.set({ col: [0.34, 0.34, 0.33], rm: [0.65, 0.4, 0], em: [0, 0, 0, 0] });
+      for (let k = 0; k < 4; k++) { const xg = F.x0 + 1.4 + k * (F.x1 - F.x0 - 2.8) / 3; Gd.box(xg - 0.25, F.y - F.t - 0.9, zA, xg + 0.25, F.y - F.t, zB, { faces: 'xXy', s: 1, foot: 0.4 }); }
+      for (let z = 60; z < 94; z += 4.5) Gd.box(F.x0 + 1.2, F.y - F.t - 0.7, z, F.x1 - 1.2, F.y - F.t - 0.5, z + 0.25, { faces: 'zZy', s: 1 });
+      const Mp = B.get('metal', 'fly'); Mp.set({ col: [0.15, 0.15, 0.15], rm: [0.4, 0.7, 0], em: [0, 0, 0, 0] }); Mp.tube([F.x0 + 0.8, F.y - F.t - 0.4, zA], [F.x0 + 0.8, F.y - F.t - 0.4, zB], 0.12, 8);
+      for (let z = zA + 2; z < zB; z += 3) Mp.box(F.x0 + 0.65, F.y - F.t - 0.55, z, F.x0 + 0.95, F.y - F.t, z + 0.08); 
+      Mp.set({ col: [0.12, 0.12, 0.12] }); Mp.box(-88.7, F.y - F.t - 0.35, 75.3, -85.3, F.y - F.t, 76.7, { faces: 'xXzZy' });
+      for (let x = -88.4; x < -85.4; x += 0.5) Mp.box(x, F.y - F.t - 0.42, 75.3, x + 0.03, F.y - F.t - 0.35, 76.7, { faces: 'y' }); }
+    L.set({ col: [1, 1, 1], em: em(SODIUM, 1.6, DUSK + W0) }); L.box(-88.4, F.y - F.t - 0.36, 75.5, -85.6, F.y - F.t - 0.34, 76.5, { faces: 'y' });
     lights.push({ p: [-87, F.y - F.t - 0.2, 76], color: [1, 0.55, 0.22], r: 9, k: 1.4, grp: 0 });
     glows.push({ p: [-87, F.y - F.t - 0.3, 76], color: [2.2, 1.1, 0.4], size: 2.4, code: DUSK + W0 });
     // the tower it drives into on the cliff edge (the road goes in at its 21st floor)
@@ -235,7 +351,9 @@ export function buildSteps(ctx = {}) {
   root.rotation.y = Math.PI / 2; root.position.set(dx, dy, dz); root.updateMatrixWorld(true);
   const P = (p) => [dx + p[2], dy + p[1], dz - p[0]];
   for (const gl of glows) gl.p = P(gl.p);
-  for (const li of lights) li.p = P(li.p);
+  // the stairs are walled in by lit shops on both sides: at full strength their baked pools added up to a floor lit like
+  // noon (reviews). Half strength leaves pools with dark between them; the lanterns' red pools are baked into the floor.
+  for (const li of lights) { li.p = P(li.p); li.k = (li.k ?? 1) * 0.35; li.r = (li.r ?? 8) * 0.6; }
   for (const c of colliders) { const a = P(c.min), b = P(c.max); c.min = [Math.min(a[0], b[0]), a[1], Math.min(a[2], b[2])]; c.max = [Math.max(a[0], b[0]), b[1], Math.max(a[2], b[2])]; }
   root.userData.tris = tris;
   return { root, colliders, anchors: { glows, lights, named: {} }, tris };
