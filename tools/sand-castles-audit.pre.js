@@ -62,7 +62,7 @@
     // gunship
     const G = g.gunship; if (G && G.phase === 'fight') rec('gunship fight', G.pos); if (G && G.phase === 'dying') rec('gunship dying', G.pos);
     // vipers
-    for (const v of g.threats.vipers) { if (v.phase === 'pass') rec('viper' + v.id + ' pass', v.pos); if (v.phase === 'dying') rec('viper' + v.id + ' dying', v.pos); }
+    for (const v of g.threats.vipers) { if (v.phase === 'pass' || v.phase === 'enter' || v.phase === 'wide') rec('viper' + v.id + ' up', v.pos); if (v.phase === 'dying') rec('viper' + v.id + ' dying', v.pos); }
     // drones (centroid of each swarm still inbound)
     const dr = g.threats.drones.filter(x => !x.dead && x.t >= 0); if (dr.length) { const c = V(0, 0, 0); dr.forEach(x => c.add(x.pos)); c.divideScalar(dr.length); rec('drones@' + d.cur.name, c); }
     // missiles in flight

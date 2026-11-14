@@ -302,8 +302,11 @@ export class Threats {
     const g = this.g, H = g.heliPos, f = this._cabinFrame();
     const m = buildHammer(this.enemyMats);
     g.scene.add(m.root);
+    // it comes out of the haze off the door (~30° ahead, 750 m) already moving with us (it used to start at a fixed
+    // 30 m/s, so it spent its whole first gun run catching up ~300 m out), runs in to the start of its pass, then strafes
     const pos = H.clone().addScaledVector(f.fwd, 650).addScaledVector(f.left, 380 * side).add(_v.set(0, 50, 0));
-    const v = { m, id: ++this._id, pos, vel: f.fwd.clone().multiplyScalar(-30), yaw: 0, hp: 70, maxHp: 70, phase: delay > 0 ? 'wait' : 'pass', t: -delay, passX: 100, lat: range(45, 70), up: range(-6, 18), gunT: 1.5, burst: 0, rocketT: range(2, 4), hit: 0, spin: 0, side };
+    const vel = (g.W.rail.vel || _v.set(0, 0, 0)).clone().addScaledVector(_v2.subVectors(H, pos).setY(0).normalize(), 35);
+    const v = { m, id: ++this._id, pos, vel, yaw: Math.atan2(-vel.x, -vel.z), hp: 70, maxHp: 70, phase: delay > 0 ? 'wait' : 'enter', t: -delay, passX: 100, lat: range(45, 70), up: range(-6, 18), gunT: 1.5, burst: 0, rocketT: range(2, 4), hit: 0, spin: 0, side };
     m.root.visible = delay <= 0; m.root.position.copy(pos);
     this.vipers.push(v);
     return v;
@@ -326,28 +329,39 @@ export class Threats {
   _viperMatrix(v) { v.m.root.updateMatrixWorld(); return _m.copy(v.m.root.matrixWorld).multiply(new THREE.Matrix4().makeTranslation(0, 1.6, 1.8)); }
   // the cabin's own frame (rail yaw, crab included): the door is where the pilot has turned it, not the path's left
   _cabinFrame() { const y = this.g.W.rail.yaw; return { fwd: new THREE.Vector3(-Math.sin(y), 0, -Math.cos(y)), left: new THREE.Vector3(-Math.cos(y), 0, Math.sin(y)) }; }
+  _flying(v) { return v.phase === 'pass' || v.phase === 'wide' || v.phase === 'enter' || v.phase === 'leave'; }
+  // the set piece is about to own the view: any Viper still up breaks off and flies away (no pop-out)
+  vipersLeave() { for (const v of this.vipers) if (v.phase === 'pass' || v.phase === 'wide' || v.phase === 'wait' || v.phase === 'enter') { if (v.phase === 'wait') { v.phase = 'gone'; continue; } v.phase = 'leave'; v.leaveT = 0; } }
   _updateVipers(dt) {
     const g = this.g, H = g.heliPos, f = this._cabinFrame();
     for (const v of this.vipers) {
       if (v.phase === 'gone') continue;
       v.t += dt;
       const m = v.m;
-      if (v.phase === 'wait') { if (v.t >= 0) { v.phase = 'pass'; m.root.visible = true; } else continue; }
-      if (v.phase === 'pass' || v.phase === 'wide') {
+      if (v.phase === 'wait') { if (v.t >= 0) { v.phase = 'enter'; m.root.visible = true; } else continue; }
+      if (v.phase === 'leave' && (v.leaveT = (v.leaveT || 0) + dt) > 9) { v.phase = 'gone'; m.root.visible = false; g.audio.stopLoop('heli:v' + v.id); continue; }
+      if (v.phase === 'pass' || v.phase === 'wide' || v.phase === 'leave' || v.phase === 'enter') {
+        // run-in: to a point ahead and out from the door; it starts the pass once it's there (or after 12 s)
+        if (v.phase === 'enter') { v.passX = 90; if (v.t > 12 || _v.copy(H).addScaledVector(f.fwd, 90).addScaledVector(f.left, 120 * v.side).distanceTo(v.pos) < 45) { v.phase = 'pass'; v.passX = 75; } } // 37° ahead: inside the frame (150 sat on the post)
         // a strafing run: a station that slides across the door at ~20 m/s relative, 45–70 m out, from ~45°
         // ahead to ~45° behind (the door frame cuts the view at ~54°: the old ±75° sweep spent most of the run
-        // behind the posts); then swing wide (260 m out, still in the door) and come round ahead for the next pass
-        if (v.phase === 'pass') { v.passX -= dt * 20; if (v.passX < -75) { v.phase = 'wide'; v.wideT = 0; } }
-        else { v.wideT += dt; v.passX = 220; if (v.wideT > 6) { v.phase = 'pass'; v.passX = 100; v.lat = range(48, 70); v.up = range(-8, 20); } }
-        const lat = v.phase === 'wide' ? 260 : v.lat;
-        const want = _v.copy(H).addScaledVector(f.fwd, v.passX).addScaledVector(f.left, lat * v.side).add(_v2.set(0, v.phase === 'wide' ? 40 : v.up, 0));
+        // behind the posts); then swing round (150 ahead, 160 out, still in the door) for the next pass
+        if (v.phase === 'pass') { v.passX -= dt * 20; if (v.passX < -45) { v.phase = 'wide'; v.wideT = 0; } } // +75..-45 m at 48–70 m out: inside the ±54° frame (it overshoots ~15 m at the end)
+        else if (v.phase === 'wide') { v.wideT += dt; v.passX = 150; if (v.wideT > 6) { v.phase = 'pass'; v.passX = 75; v.lat = range(48, 70); v.up = range(-8, 20); } }
+        if (v.phase === 'leave') v.passX = 160; // breaking off: out and away, ahead of the door (never across the cabin)
+        // the swing round between runs: 150 ahead, 160 out (43°, in the door); the old 220 / 260 was 360 m off and it never got
+        // there before the next run, so it strafed from ~250 m behind its line
+        const lat = v.phase === 'wide' ? 160 : v.phase === 'leave' ? 260 + v.leaveT * 90 : v.phase === 'enter' ? 120 : v.lat;
+        const want = _v.copy(H).addScaledVector(f.fwd, v.passX).addScaledVector(f.left, lat * v.side).add(_v2.set(0, v.phase === 'wide' ? 30 : v.up, 0));
         // track the station's own velocity too (the heli's, plus the slide), or it lags ~60 m and swings across the cabin
-        const wantVel = _v3.copy(g.W.rail.vel || _v3.set(0, 0, 0)).addScaledVector(f.fwd, v.phase === 'pass' ? -30 : 0);
-        const acc = _v2.subVectors(want, v.pos).multiplyScalar(0.55).add(wantVel.sub(v.vel).multiplyScalar(1.1));
+        const wantVel = _v3.copy(g.W.rail.vel || _v3.set(0, 0, 0)).addScaledVector(f.fwd, v.phase === 'pass' ? -20 : 0); // the pass slides at 20 m/s (it said 30: a constant drag aft)
+        // (a stiff, near-critically-damped follow: the old 0.55 / 1.1 spring with an 18 m/s² cap trailed its station by
+        // 100–200 m and overshot past the rear door post at the end of every run)
+        const acc = _v2.subVectors(want, v.pos).multiplyScalar(1.3).add(wantVel.sub(v.vel).multiplyScalar(2.3));
         // and never across: inside 30 m of the cabin's door-side plane, push it back out
         const outD = _v3.subVectors(v.pos, H).dot(f.left) * v.side;
         if (outD < 30) acc.addScaledVector(f.left, (30 - outD) * 1.5 * v.side);
-        if (acc.length() > 18) acc.setLength(18);
+        if (acc.length() > 30) acc.setLength(30);
         v.vel.addScaledVector(acc, dt); v.pos.addScaledVector(v.vel, dt);
         const toH = _v.subVectors(H, v.pos), dist = toH.length();
         const strafing = v.phase === 'pass' && v.passX > -60 && dist < 260;
@@ -489,7 +503,7 @@ export class Threats {
     for (const m of g.men) if (m.alive && m.delay <= 0) { const d = m.pos.distanceTo(P); if (d < R * 0.8) g.killMan(m, _v.subVectors(m.pos, P).setY(Math.max(2, d * 0.3)).normalize(), false); }
     for (const a of g.aas) if (a.alive && a.center.distanceTo(P) < R * 0.7) { a.hp -= 60; if (a.hp <= 0) g.killAA(a, 'boom'); }
     for (const d of this.drones) if (!d.dead && d.t >= 0 && d.pos.distanceTo(P) < R && d.pos.distanceTo(P) > 0.5) { d.hp -= dmg; if (d.hp <= 0 && !d.queued) { d.queued = true; this.dpend.push({ t: chainDelay * 0.5, d }); } }
-    for (const v of this.vipers) if ((v.phase === 'pass' || v.phase === 'wide') && v.pos.distanceTo(P) < R + 6) { v.hp -= dmg * 0.5; if (v.hp <= 0) this._killViper(v); }
+    for (const v of this.vipers) if (this._flying(v) && v.pos.distanceTo(P) < R + 6) { v.hp -= dmg * 0.5; if (v.hp <= 0) this._killViper(v); }
     for (const o of [...this.depots, ...this.parked, ...this.tankers]) {
       if (!o.alive || o.queued) continue;
       const d = o.center.distanceTo(P);
@@ -528,22 +542,22 @@ export class Threats {
   }
   nade(P) {
     for (const d of this.drones) if (!d.dead && d.t >= 0 && d.pos.distanceTo(P) < 10) this._killDrone(d, 'shot');
-    for (const v of this.vipers) if ((v.phase === 'pass' || v.phase === 'wide') && v.pos.distanceTo(P) < 14) { v.hp -= 45; v.hit = 1; if (v.hp <= 0) this._killViper(v); }
+    for (const v of this.vipers) if (this._flying(v) && v.pos.distanceTo(P) < 14) { v.hp -= 45; v.hit = 1; if (v.hp <= 0) this._killViper(v); }
     for (const o of [...this.depots, ...this.parked, ...this.tankers]) if (o.alive && o.center.distanceTo(P) < 8 + o.r) this._detonate(o);
   }
   // a rocket's proximity fuse on fuel dumps / parked helos / tankers
   fuelNear(P, pad) { for (const o of [...this.depots, ...this.parked, ...this.tankers]) if (o.alive && o.center.distanceTo(P) < o.r + pad) return true; return false; }
   // a grenade stops on a drone / Viper it flies into
-  nadeHits(P) { return this.drones.some(d => !d.dead && d.t >= 0 && d.pos.distanceTo(P) < 4) || this.vipers.some(v => (v.phase === 'pass' || v.phase === 'wide') && v.pos.distanceTo(P) < 9); }
+  nadeHits(P) { return this.drones.some(d => !d.dead && d.t >= 0 && d.pos.distanceTo(P) < 4) || this.vipers.some(v => this._flying(v) && v.pos.distanceTo(P) < 9); }
 
   // ------------------------------------------------------------------ autopilot / aim assist
   aimPoints(tryP) {
     for (const d of this.drones) if (!d.dead && d.t >= 0) tryP(d.pos);
-    for (const v of this.vipers) if (v.phase === 'pass' || v.phase === 'wide') tryP(v.pos);
+    for (const v of this.vipers) if (this._flying(v)) tryP(v.pos);
   }
   autoTargets(c, A, head) {
     for (const d of this.drones) { if (d.dead || d.t < 0 || d.passed) continue; const dd = d.pos.distanceTo(head); if (dd < 420 && dd > 10) c.push({ kind: 'drone', p: d.pos, score: 130 - dd * 0.2 + (d.miss.z < 3 ? 30 : 0) + (A.target?.ref === d ? 25 : 0), ref: d, tol: 0.04 }); }
-    for (const v of this.vipers) if (v.phase === 'pass' || v.phase === 'wide') { const dd = v.pos.distanceTo(head); if (dd < 450) c.push({ kind: 'viper', p: v.pos, score: 95 - dd * 0.05 + (A.target?.ref === v ? 25 : 0), ref: v, tol: 0.07 }); }
+    for (const v of this.vipers) if (this._flying(v)) { const dd = v.pos.distanceTo(head); if (dd < 450) c.push({ kind: 'viper', p: v.pos, score: 95 - dd * 0.05 + (A.target?.ref === v ? 25 : 0), ref: v, tol: 0.07 }); }
     // fuel next to a live squad first (that's the fun), any fuel in range after the men; only what the door
     // opening can see (not a roof the heli has already passed over, behind the cabin wall)
     const L = this._cabinFrame().left;

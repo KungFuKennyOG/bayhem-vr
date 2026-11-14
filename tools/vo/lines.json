@@ -1778,6 +1778,16 @@
   ]
  },
  {
+  "key": "c565ceeb",
+  "text": "They're throwing everything they've got at us. Keep that gun hot!",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
   "key": "250e94e1",
   "text": "Bombers are on her. Watch the Spire!",
   "levels": [
@@ -1820,6 +1830,16 @@
  {
   "key": "18c33d0e",
   "text": "Master caution's lit. Number two engine's eating sand. We're going home slow.",
+  "levels": [
+   "sand-castles"
+  ],
+  "files": [
+   "src/levels/sand-castles/director.js"
+  ]
+ },
+ {
+  "key": "6f4eced0",
+  "text": "One more on our left — he wants the last word. Don't let him have it!",
   "levels": [
    "sand-castles"
   ],
