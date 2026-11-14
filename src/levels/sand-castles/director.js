@@ -69,10 +69,12 @@ export class Director {
       TH.addConvoy(V(110, 0, -750), V(735, 0, -750), 4); }
     // a roof you can't finish isn't a wall: once we're in the hover with men still up, the pilot gives it 12 s, says so and goes
     // (the leftovers are dropped when the next beat starts)
-    this.dugIn = (key, anyAlive, dt) => {
-      if (!rail.holding || !anyAlive) return false;
-      this.dugT = (this.dugT ?? 0) + dt;
-      if (this.dugT > 12 && first(key)) { say("They're dug in on that roof. We can't sit here all day — moving on!", 3); this.dugT = 0; return true; }
+    // (`t`/`cap`: the beat's own clock and timeout. The boulevard only reaches its hover ~110 s in, after HAMMER TWO, so the
+    // 120 s cap used to end it silently before the 12 s ran out: the call now also comes 3 s before the cap.)
+    this.dugIn = (key, anyAlive, dt, t, cap) => {
+      if (!anyAlive) return false;
+      if (rail.holding) this.dugT = (this.dugT ?? 0) + dt;
+      if ((this.dugT > 12 || t > cap - 3) && first(key)) { say("They're dug in on that roof. We can't sit here all day — moving on!", 3); this.dugT = 0; return true; }
       return this.once.has(key);
     };
     this.swarmAt = (t, n, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':sw' + t)) TH.spawnSwarm(n, opts); };
@@ -117,7 +119,7 @@ export class Director {
           if (cur != null) hud.setWaypoint(roofP(cur));
           this.swarmAt(16, 4);
           if (cur == null && first('marinaClear')) { say('Marina clear. Moving down the boulevard.', 2.4); rail.release(); }
-          if (this.dugIn('marinaDug', cur != null, dt)) this.leaveMarina = true;
+          if (this.dugIn('marinaDug', cur != null, dt, t, 110)) this.leaveMarina = true;
         }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && !TH.active && rail.s > S('marina2')) || (this.leaveMarina && t > 2 + (this.dugAt ??= t)) || t > 110 },
       // 3 ---- the boulevard: the canyon, three more roofs, HAMMER TWO goes down
       { name: 'blvd', music: 0.7, enter: () => {
@@ -157,7 +159,7 @@ export class Director {
           this.viperAt(9);
           this.swarmAt(34, 3, { trueFrac: 0.4 });
           if (cur == null && first('blvdClear')) { rail.release(); later(0.5, () => say('Boulevard clear. Turning south.', 2)); }
-          if ((this.wingDown || !g.wing) && this.dugIn('blvdDug', cur != null, dt)) this.leaveBlvd = true;
+          if ((this.wingDown || !g.wing) && this.dugIn('blvdDug', cur != null, dt, t, 120)) this.leaveBlvd = true;
         }, until: (t) => (t > 8 && this.squads.every(q => alive(q) === 0) && rail.s > S('blvd2') + 200) || (this.leaveBlvd && t > 2 + (this.dugAtB ??= t)) || t > 120 },
       // 4 ---- the haboob: look south, a 900 m wall of sand rolls over the city
       { name: 'haboob', music: 0.55, enter: () => {
