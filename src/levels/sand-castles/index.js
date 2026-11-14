@@ -175,7 +175,7 @@ export async function create(E) {
       }
       simMs = 0;
     },
-    ammoText() { return `${gun.ammoText()}   ${setp.strikes.on ? (setp.strikes.lockFrac > 0 ? `LOCK ${Math.round(setp.strikes.lockFrac * 100)}%` : 'LASER') : (player.launcher.reloading > 0 ? '--' : player.launcher.ammo + ' GL')}`; },
+    ammoText() { return `${gun.ammoText()}   ${setp.strikes.on ? (setp.strikes.lockFrac > 0 ? `LOCK ${Math.round(setp.strikes.lockFrac * 100)}%` : 'LASER') : (player.launcher.reloading > 0 ? '--' : player.launcher.ammo + ' RKT')}`; },
     state() {
       return { step: director?.cur?.name, done: director?.done, t: +(director?.total || 0).toFixed(1), s: Math.round(rail.s), L: Math.round(rail.L), v: +rail.speed.toFixed(1), y: Math.round(rail.pos.y), hp: Math.round(game.hp), score: game.score, kills: game.kills, alive: game.enemiesAlive(), air: game.threats.active, down: { ...game.threats.down }, storm: +setp.storm.toFixed(2), sunset: +game.sunset.toFixed(2), falling: setp.mids.falling(), hero: setp.hero.S?.phase ?? null, gunship: game.gunship?.phase ?? null, wing: game.wing?.phase ?? null, clouds: setp.dust.alive, ruined: city.ruined, far: city.far.count, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, maxYaw: +rail.st.maxYawRate.toFixed(1), maxLat: +rail.st.maxLat.toFixed(2), maxJerk: +rail.st.maxJerk.toFixed(2), clear: Math.round(clearance()) };
     },

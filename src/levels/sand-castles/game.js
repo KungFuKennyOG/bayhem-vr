@@ -112,9 +112,11 @@ export class SandGame {
       const h = T.hNow ?? T.h;
       // quick reject: distance from the ray to the tower axis in xz
       const ox = T.x - o.x, oz = T.z - o.z, dl = Math.hypot(d.x, d.z) || 1e-6;
-      const along = (ox * d.x + oz * d.z) / (dl * dl);
-      if (along < -60 || along > maxT) continue;
-      const px = o.x + d.x * along - T.x, pz = o.z + d.z * along - T.z, R = Math.hypot(T.w, T.d) * 0.5;
+      const along = (ox * d.x + oz * d.z) / (dl * dl), R = Math.hypot(T.w, T.d) * 0.5;
+      // (the facade is up to R from the axis: a short ray that ends at the wall has `along` past maxT. Comparing against
+      // maxT alone threw those out, so anything stepping a frame at a time (rockets, drones) flew through towers.)
+      if (along < -60 - R / dl || along > maxT + R / dl) continue;
+      const px = o.x + d.x * along - T.x, pz = o.z + d.z * along - T.z;
       if (px * px + pz * pz > R * R * 1.1) continue;
       // slab test in the tower's frame
       const c = Math.cos(-(T.rot || 0)), s = Math.sin(-(T.rot || 0));
@@ -200,9 +202,16 @@ export class SandGame {
     }
     return hit;
   }
-  // the grenade leaves your launcher with the heli's own velocity (it used to start at rest in the air and fall
-  // behind the cabin at 34 m/s, so it looked like it came out of the helicopter, not your hand)
-  launchGrenade(origin, dir) { const v = dir.clone().multiplyScalar(80); if (this.rigVel) v.add(this.rigVel); this.nades.push({ pos: origin.clone(), vel: v, t: 0 }); }
+  // The left hand fires ROCKETS here, not lobbed grenades (Kenny: arcing grenades from a moving door at 150–400 m were
+  // "hella hard"). It flies the line you point it down, in the world: it does NOT keep the heli's forward speed (at
+  // 30 m/s that drifted it ~25 m sideways on the way to a roof 130 m out, the same drift that made the grenades hard).
+  // It leaves at 140 m/s, the motor takes it to 240 m/s within half a second, no drop, and a proximity fuse sets it
+  // off when it passes close to a man, drone, Viper, the gunship, AA or fuel.
+  straightLauncher = true;
+  launchGrenade(origin, dir) {
+    const d = dir.clone().normalize();
+    this.nades.push({ pos: origin.clone().addScaledVector(d, 0.6), vel: d.clone().multiplyScalar(140), dir: d, sp: 140, t: 0, id: (this._nadeId = (this._nadeId || 0) + 1) });
+  }
 
   killMan(m, dir, head) {
     if (!m.alive) return;
@@ -350,18 +359,35 @@ export class SandGame {
     }
     this.rockets = this.rockets.filter(r => !r.dead);
   }
+  // what a rocket at P is close enough to set its fuse off on
+  _rocketFuse(P) {
+    const g = this.gunship;
+    if (g && g.phase === 'fight' && P.distanceTo(g.pos) < 11) return true;
+    if (this.threats.nadeHits(P) || this.threats.fuelNear(P, 2.5)) return true;
+    if (this.men.some(m => m.alive && m.delay <= 0 && _v3.copy(m.pos).setY(m.pos.y + 1).distanceTo(P) < 3.5)) return true;
+    return this.aas.some(a => a.alive && a.center.distanceTo(P) < 5);
+  }
   _updateNades(dt) {
     for (const n of this.nades) {
-      n.vel.y -= 9.8 * dt; const step = n.vel.length() * dt;
-      const dir = _v.copy(n.vel).normalize();
+      // the motor: accelerate along the line you fired it on
+      n.sp = Math.min(240, n.sp + dt * (n.t < 0.08 ? 0 : 400));
+      n.vel.copy(n.dir).multiplyScalar(n.sp);
+      const step = n.vel.length() * dt, dir = _v.copy(n.vel).normalize();
+      // sub-steps of ~3 m so a 240 m/s rocket can't skip past a man or a drone between frames
+      const k = Math.max(1, Math.ceil(step / 3)); let hitP = null;
       const tw = this.towerRay(n.pos, dir, step + 0.3);
+      for (let i = 1; i <= k && !hitP; i++) { const P = _v2.copy(n.pos).addScaledVector(n.vel, dt * i / k); if ((tw && tw.t < step * i / k) || P.y < 0.3 || this._rocketFuse(P)) hitP = P.clone(); }
+      const prev = _v3.copy(n.pos);
       n.pos.addScaledVector(n.vel, dt); n.t += dt;
-      this.fx.trailEmit(n, n.pos, 0.8, (q) => this.fx.smoke(q, 0.6, 0.6, 1.4, 0.4, 0.45), 0);
-      const g = this.gunship;
-      const nearG = g && g.phase === 'fight' && n.pos.distanceTo(g.pos) < 9;
-      if (tw || n.pos.y < 0.3 || n.t > 9 || nearG || this.threats.nadeHits(n.pos) || this.men.some(m => m.alive && m.delay <= 0 && m.pos.distanceTo(n.pos) < 2.5)) {
-        n.dead = true;
-        const P = n.pos.clone(); if (P.y < 0.5) P.y = 0.5;
+      // the trail: a bright motor at the tail and a dense white-grey smoke line you can follow to where it lands
+      if (n.t > 0.1) this.fx.main.spawn({ x: n.pos.x, y: n.pos.y, z: n.pos.z, frame: CELL.FLASH, s0: 1.3, s1: 0.4, life: 0.05, r: 2.2, g: 1.4, b: 0.6, a: 1 });
+      this.fx.trailEmit(n, n.pos, 2.2, (q) => this.fx.smoke(q, 1.8, 0.5, 2.4, 0.25, 0.8), 0); // thick and mid-grey: thin pale smoke vanished against the sunlit towers
+      this.audio.setLoop('myrocket:' + n.id, { x: n.pos.x, y: n.pos.y, z: n.pos.z, volume: 0.7 });
+      if (tw && !hitP) hitP = prev.addScaledVector(dir, Math.max(0, tw.t - 0.3)).clone();
+      if (hitP || n.t > 6) {
+        n.dead = true; this.audio.stopLoop('myrocket:' + n.id);
+        if (hitP) n.pos.copy(hitP);
+        const P = n.pos.clone(), g = this.gunship; if (P.y < 0.5) P.y = 0.5;
         this.fx.explosion(P, 1.25);
         this.lastExplosionT = this.time; this.lastExplosionShake = 0.2;
         for (const m of this.men) if (m.alive && m.delay <= 0 && m.pos.distanceTo(P) < 9) this.killMan(m, _v2.subVectors(m.pos, P).setY(2).normalize(), false);

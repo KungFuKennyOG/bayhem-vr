@@ -30,7 +30,7 @@ The grey-box tech test stays at `?level=dubai-proto` (URL only). This level reus
 | `cabin.js` | The cabin interior (quilted lining, ribs, troop seats fore and aft of the right door, cargo net, extinguisher, red light, cockpit with pilots and lit displays). **Both doors are open**: the gunner's on the left, and the right one so you can turn round and see what's behind you. The lining is lit only where a ray to the sun leaves through a door opening. |
 | `doorgun.js` | The minigun in your right hand (the model is `buildMinigun()` in `src/weapons.js`, the same kit as the rifle / launcher): replaces the right-hand rifle (the shared `Gun` state machine drives it), spins up, heats, cools down; the belt hangs to an ammo can at your right hip; brass piles on the floor. |
 | `rail.js` | The open-path rail (see comfort below). |
-| `game.js` | Combat: rooftop squads (rifles, RPG teams), rockets, grenades, AA guns + flak, WIDOWMAKER 4, HAMMER TWO, hit tests (generous spheres for men at range, towers as boxes in their own frame), the autopilot hooks. |
+| `game.js` | Combat: rooftop squads (rifles, RPG teams), enemy rockets, your rockets (the left hand fires straight, fast rockets with a proximity fuse: no drop, no heli drift), AA guns + flak, WIDOWMAKER 4, HAMMER TWO, hit tests (generous spheres for men at range, towers as boxes in their own frame), the autopilot hooks. |
 | `midrig.js` | The fallers: kit towers in one draw on the prototype's vertex rig (tilt / lean / pancake + crush mound). |
 | `hero.js` | SARAB SPIRE: the prototype's chunked hero with facades on every chunk. |
 | `storm.js` | `HorizonWallC` (the far dust ring), `Haboob`, `SandStreaks`. |

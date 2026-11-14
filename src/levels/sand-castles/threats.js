@@ -531,6 +531,8 @@ export class Threats {
     for (const v of this.vipers) if ((v.phase === 'pass' || v.phase === 'wide') && v.pos.distanceTo(P) < 14) { v.hp -= 45; v.hit = 1; if (v.hp <= 0) this._killViper(v); }
     for (const o of [...this.depots, ...this.parked, ...this.tankers]) if (o.alive && o.center.distanceTo(P) < 8 + o.r) this._detonate(o);
   }
+  // a rocket's proximity fuse on fuel dumps / parked helos / tankers
+  fuelNear(P, pad) { for (const o of [...this.depots, ...this.parked, ...this.tankers]) if (o.alive && o.center.distanceTo(P) < o.r + pad) return true; return false; }
   // a grenade stops on a drone / Viper it flies into
   nadeHits(P) { return this.drones.some(d => !d.dead && d.t >= 0 && d.pos.distanceTo(P) < 4) || this.vipers.some(v => (v.phase === 'pass' || v.phase === 'wide') && v.pos.distanceTo(P) < 9); }
 

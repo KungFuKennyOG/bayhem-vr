@@ -43,7 +43,7 @@ const ALL = [
   {
     id: 'sand-castles', game: 2, num: '04', code: 'SRB', loc: 'AL-SARAB, GULF', time: '16:50', title: 'SAND CASTLES', tagline: 'SUPERTALLS. SANDSTORM. ONE MINIGUN.',
     blurb: 'A minigun out of a helicopter door. Duel a gunship inside a sandstorm, paint targets with a laser. Then an 830-metre tower comes down.',
-    help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: grenade launcher, and later the laser designator (hold on a target).',
+    help: 'Seated or standing, the helicopter flies itself. Right hand: the door gun (hold the trigger). Left hand: rockets that fly straight where you point, and later the laser designator (hold on a target).',
   },
   {
     id: 'lights-out', game: 2, num: '05', code: 'LWU', loc: 'LONGWU', time: '18:40', title: 'LIGHTS OUT', final: true,
