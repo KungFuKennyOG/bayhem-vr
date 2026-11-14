@@ -80,9 +80,12 @@ export class WhiteWorld {
     const col = this.col, rc = col.raycast.bind(col);
     const terr = { data: { kind: 'terrain', mat: 'snow' }, enabled: true, min: new THREE.Vector3(), max: new THREE.Vector3() };
     this.terrainBox = terr;
+    // moving things the AABB grid can't hold (the cable car's shell while it rides): fn(o, d, maxT, skip) -> hit | null
+    this.dynRays = [];
     col.raycast = (o, d, maxT = 300, skip = null) => {
-      const hit = rc(o, d, maxT, skip);
-      const lim = hit ? hit.t : maxT;
+      let hit = rc(o, d, maxT, skip);
+      let lim = hit ? hit.t : maxT;
+      for (const fn of this.dynRays) { const h = fn(o, d, lim, skip); if (h) { hit = h; lim = h.t; } }
       if (skip && skip(terr)) return hit;
       const t = terrainRay(o, d, lim);
       if (t < 0) return hit;

@@ -42,7 +42,9 @@ export const MID_HALL = { x0: 66, x1: 106, z0: -16, z1: 7 };                    
 export const TRACK_X = [80, 90];       // our line (west), their line (east)
 // cable geometry: track rope heights at the stations / pylon (carriage wheels ride on it)
 export const HANG = 6.6;               // rope height above the cabin floor
-export const LINE = { z0: -9, y0: 30 + HANG, zP: -150, yP: 93.5, z1: -307, y1: 140 + HANG, sag0: 5.5, sag1: 6.5 };
+// z0 / z1 are the station saddles (the Mittelstation's north wall, the summit's cliff edge): the rope runs level
+// inside the stations, so the cabin docks flat and never climbs through a hall floor or the cliff lip
+export const LINE = { z0: -20, y0: 30 + HANG, zP: -150, yP: 93.5, z1: -284, y1: 140 + HANG, sag0: 5.5, sag1: 6.5 };
 export const PYLON = { x: 85, z: -150, base: 22 };   // lattice pylon on the rock rib; saddle at LINE.yP
 export const CABIN = { w: 2.9, l: 4.3, h: 2.55 };    // outer box (x, z, y)
 
@@ -51,6 +53,14 @@ export const SUMMIT_Y = 140;
 export const HALL = { x0: 64, x1: 108, z0: -324, z1: -292, y: 140, roofY: 152 };  // arrival hall (cabin dock inside)
 export const HALL_WALK = { x0: 67, x1: 105, z0: -321, z1: -298.5 };   // stops short of the cable opening (the ropes dip to head height there)
 export const DOCK = { x: 80, z: -307 };                 // our cabin stops here (centre)
+// dock slots: the cabin's belly rides below the platform, so each track runs in a lined slot through the floors
+// (not walkable: the cabin's own floor is, while it's docked); `open` = the end the cabin runs in / out through
+export const SLOT_HW = 1.55;
+export const DOCK_SLOTS = [
+  ...TRACK_X.map((tx) => ({ x0: tx - SLOT_HW, x1: tx + SLOT_HW, z0: -20.6, z1: -7.6, y: 30, open: 'z0' })),
+  ...TRACK_X.map((tx) => ({ x0: tx - SLOT_HW, x1: tx + SLOT_HW, z0: -309.6, z1: -286.4, y: 140, open: 'z1', depth: 1.3 })),
+];
+export const APRON = { x0: 72, x1: 98, z0: -292, z1: -286.4 };   // the concrete deck outside the summit hall's cable opening
 export const COURT = { x0: 54, x1: 152, z0: -378, z1: -324, y: 140 };
 export const BLOCK = { x0: 70, x1: 140, z0: -398, z1: -382, y: 140, roofY: 148 };  // north block: roof walk
 export const TOWER = { x0: 50, x1: 70, z0: -400, z1: -380, roofY: 156, dome: [54.8, -384.8], domeR: 4.6 };
@@ -66,7 +76,7 @@ export const LAND_B = { x0: 69.8, x1: 73.8, z0: -399.5, z1: -396 };    // top la
 // the rack-railway avalanche gallery: cut into the slope east of the block, floor at the roof walk height;
 // open (pillars) to the south, rock to the north, tunnel portal at the east end
 export const GALLERY = { x0: 140, x1: 232, z0: -398, z1: -383, y: 148, roofY: 154.5, portal: 232 };
-export const RAILCAR = { x: 222, z: -390.5 };          // the driver waits here with the rack railcar
+export const RAILCAR = { x: 222, z: -391.5 };          // the driver waits here with the rack railcar (on the track: its centre line)
 
 // ---------------------------------------------------------------- the face + the avalanche
 export const FACE = { z0: -414, zTop: -740, yTop: 440, x0: -260, x1: 420 };
@@ -79,7 +89,7 @@ export const START = { x: -93, y: 0, z: 110.6, yaw: -Math.PI / 2 + 0.08 };   // 
 export const SNIPERS = {
   rib: { x: -24, y: 0, z: 30, face: [0.15, 1] },        // rock ledge above leg 3 (laser down onto leg 2)
   shed: { x: 118, y: 0, z: 30, face: [-1, 0.4] },       // the yard: on the snow-groomer shed roof
-  pylon: { x: PYLON.x + 2.2, y: 0, z: PYLON.z - 1.5, face: [0, 1] },
+  pylon: { x: PYLON.x + 2.0, y: 0, z: PYLON.z + 2.4, face: [0, 1] },   // on the deck off the pylon head's south face (in the open, toward the cabin)
   cliff: { x: 44, y: 0, z: -284, face: [0.4, 1] },      // summit cliff ledge west of the hall
   radar: { x: 132, y: 0, z: -392, face: [-0.3, 1] },
 };
@@ -237,6 +247,14 @@ function terrainRaw(x, z) {
     const d = rectDist(x, z, F);
     if (d < F.b * 4) { const k = 1 - sst(0, F.b, d); const lim = d * 1.1; y = lerp(F.y + Math.max(-lim, Math.min(lim, y - F.y)), F.y, k); }
   }
+  // under the cable line: the cabin's belly never touches the snow (a groove where the ground comes close), and the
+  // dock slots in the station floors drop well under their liners
+  if (z < -4 && z > -314) for (const tx of TRACK_X) {
+    const dx = Math.abs(x - tx); if (dx > 7) continue;
+    const floor = lineY(z) - HANG;
+    const slot = DOCK_SLOTS.some(r => inR(x, z, r, 0.3));
+    y = Math.min(y, slot && dx < SLOT_HW + 0.3 ? floor - 2 : floor - 0.85 + Math.max(0, dx - 1.9) * 1.2);
+  }
   return y;
 }
 const _rq = { d: 0, y: 0, i: 0, t: 0, along: 0, sx: 0, sz: 0 }, _rFar = { d: 1e9 };
@@ -284,6 +302,7 @@ export function groundAt(x, z) { const s = structFloor(x, z); return s ?? terrai
 
 // where the PLAYER (and the soldiers' nav) may walk
 export function walkable(x, z) {
+  for (const r of DOCK_SLOTS) if (inR(x, z, r)) return false;
   const R = roadNearest(x, z, _rw);
   if (R.d < ROAD_W + 1.15 && z < 124) {
     if (R.d < ROAD_W + 0.3 || inR(x, z, PULL_WALK)) return true;
@@ -314,10 +333,13 @@ export function walkable(x, z) {
 const _rw = { d: 0, y: 0, i: 0, t: 0, along: 0, sx: 0, sz: 0 };
 
 // ---------------------------------------------------------------- the cable line
+// polynomial smooth min / max (k = blend width in metres of rope height)
+const smin = (a, b, k) => { const h = Math.min(1, Math.max(0, 0.5 + 0.5 * (b - a) / k)); return b + (a - b) * h - k * h * (1 - h); };
+const smax = (a, b, k) => -smin(-a, -b, k);
 export function lineY(z) {
-  // two catenary-ish spans meeting on the pylon saddle
-  if (z >= LINE.zP) { const s = (LINE.z0 - z) / (LINE.z0 - LINE.zP); return lerp(LINE.y0, LINE.yP, s) - LINE.sag0 * 4 * s * (1 - s); }
-  const s = (LINE.zP - z) / (LINE.zP - LINE.z1); return lerp(LINE.yP, LINE.y1, s) - LINE.sag1 * 4 * s * (1 - s);
+  // two catenary-ish spans meeting on the pylon saddle; level inside the stations (rounded over the station saddles)
+  if (z >= LINE.zP) { const s = (LINE.z0 - z) / (LINE.z0 - LINE.zP); return smax(lerp(LINE.y0, LINE.yP, s) - LINE.sag0 * 4 * s * (1 - s), LINE.y0, 1.6); }
+  const s = (LINE.zP - z) / (LINE.zP - LINE.z1); return smin(lerp(LINE.yP, LINE.y1, s) - LINE.sag1 * 4 * s * (1 - s), LINE.y1, 3);
 }
 export function lineSlope(z) { return (lineY(z - 0.5) - lineY(z + 0.5)); }   // dy per metre travelled north
 

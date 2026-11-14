@@ -67,6 +67,14 @@ export class Director {
         TH.addDepots(t, 2, out);
       }
       TH.addConvoy(V(110, 0, -750), V(735, 0, -750), 4); }
+    // a roof you can't finish isn't a wall: once we're in the hover with men still up, the pilot gives it 12 s, says so and goes
+    // (the leftovers are dropped when the next beat starts)
+    this.dugIn = (key, anyAlive, dt) => {
+      if (!rail.holding || !anyAlive) return false;
+      this.dugT = (this.dugT ?? 0) + dt;
+      if (this.dugT > 12 && first(key)) { say("They're dug in on that roof. We can't sit here all day — moving on!", 3); this.dugT = 0; return true; }
+      return this.once.has(key);
+    };
     this.swarmAt = (t, n, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':sw' + t)) TH.spawnSwarm(n, opts); };
     this.viperAt = (t, opts) => { if (this.cur && this.t >= t && first(this.cur.name + ':vp' + t)) { const v = TH.spawnViper(opts); if (v) g.events.push({ type: 'viperUp' }); } };
     // the haboob's look: it starts darkening while the wall is still ~750 m off (its shadow and the dust ahead of it)
@@ -94,6 +102,7 @@ export class Director {
         until: (t) => rail.s > S('coast') - 120 || t > 60 },
       // 2 ---- the marina: three roofs on the canal (pools, a pad, a deck)
       { name: 'marina', music: 0.6, wp: () => roofP(0), enter: () => {
+          this.dugT = 0;
           speed(0.82);
           g.idleLook = null;
           this.squads = [squad(0, 0.5), squad(1, 4), squad(2, 9)];
@@ -101,25 +110,30 @@ export class Director {
           later(0.4, () => say('Pool deck on the left — gunmen. Light them up!', 2.6));
           later(9, () => say('Helipad — RPG! Shoot the rocket if you have to!', 2.8));
           rail.holdAt(S('marina2') + 140);
-        }, update: (t) => {
+        }, update: (t, dt) => {
           // face the nearest live squad's roof
           const cur = [0, 1, 2].find(i => alive(this.squads[i]) > 0);
           rail.face(cur != null ? roofP(cur) : null);
           if (cur != null) hud.setWaypoint(roofP(cur));
           this.swarmAt(16, 4);
           if (cur == null && first('marinaClear')) { say('Marina clear. Moving down the boulevard.', 2.4); rail.release(); }
-        }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && !TH.active && rail.s > S('marina2')) || (rail.holding && t > 70 * T) || t > 110 },
+          if (this.dugIn('marinaDug', cur != null, dt)) this.leaveMarina = true;
+        }, until: (t) => (t > 6 && this.squads.every(q => alive(q) === 0) && !TH.active && rail.s > S('marina2')) || (this.leaveMarina && t > 2 + (this.dugAt ??= t)) || t > 110 },
       // 3 ---- the boulevard: the canyon, three more roofs, HAMMER TWO goes down
       { name: 'blvd', music: 0.7, enter: () => {
-          rail.release(); speed(0.9); hud.setWaypoint(roofP(3));
+          rail.release(); speed(0.9); hud.setWaypoint(roofP(3)); this.dugT = 0;
           for (const q of this.squads) g.dropSquad(q);
           this.squads = [squad(3, 1), squad(4, 5), squad(5, 10)];
           later(0.6, () => say('Crescent Boulevard. Every roof on the left is shooting at us.', 3));
           rail.holdAt(S('blvd2') + 470);
         }, update: (t, dt) => {
           const cur = [0, 1, 2].find(i => alive(this.squads[i]) > 0);
-          rail.face(cur != null ? roofP(3 + cur) : null);
-          if (cur != null) hud.setWaypoint(roofP(3 + cur));
+          // HAMMER TWO's moment owns the door: from the call until a couple of seconds after he hits the street
+          const wingWatch = this.wingArmed && !(this.wingCrashT != null && this.total - this.wingCrashT > 2.5);
+          if (wingWatch && g.wing && g.wing.phase !== 'gone') { this.wingLook = (this.wingLook || V(0, 0, 0)).copy(g.wing.pos); }
+          rail.face(wingWatch && this.wingLook ? this.wingLook : cur != null ? roofP(3 + cur) : null);
+          if (wingWatch) speed(this.wingShot ? 0.45 : 0.6); else if (this.wingArmed && first('wingResume')) speed(0.9);
+          if (cur != null && !wingWatch) hud.setWaypoint(roofP(3 + cur));
           // HAMMER TWO: an RPG from the far roof, when you can see it happen
           const w = g.wing;
           if (w && w.phase === 'fly' && rail.s > S('blvd2') - 120 && !this.wingArmed) {
@@ -128,7 +142,7 @@ export class Director {
           }
           if (this.wingArmed && !this.wingShot) {
             this.wingT += dt;
-            if ((looking(w.pos, 0.82) && this.wingT > 2.5) || this.wingT > 7) {
+            if ((looking(w.pos, 0.82) && this._doorAng(w.pos) < 35 && this.wingT > 2.5) || (this.wingT > 7 && this._doorAng(w.pos) < 45) || this.wingT > 12) {
               this.wingShot = true;
               const f = fight(5).tower, from = V(f.x, f.h + 2, f.z);
               const r = g.fireRocket(from, 'rpg', 0);
@@ -143,7 +157,8 @@ export class Director {
           this.viperAt(9);
           this.swarmAt(34, 3, { trueFrac: 0.4 });
           if (cur == null && first('blvdClear')) { rail.release(); later(0.5, () => say('Boulevard clear. Turning south.', 2)); }
-        }, until: (t) => (t > 8 && this.squads.every(q => alive(q) === 0) && rail.s > S('blvd2') + 200) || (rail.holding && t > 60 * T) || t > 120 },
+          if ((this.wingDown || !g.wing) && this.dugIn('blvdDug', cur != null, dt)) this.leaveBlvd = true;
+        }, until: (t) => (t > 8 && this.squads.every(q => alive(q) === 0) && rail.s > S('blvd2') + 200) || (this.leaveBlvd && t > 2 + (this.dugAtB ??= t)) || t > 120 },
       // 4 ---- the haboob: look south, a 900 m wall of sand rolls over the city
       { name: 'haboob', music: 0.55, enter: () => {
           rail.release(); speed(1.0);
@@ -162,7 +177,7 @@ export class Director {
           // the storm look comes on as the front reaches you
           this.rampStorm(dt);
           // a swarm out of the dust ahead of the wall (something to shoot while it rolls in)
-          this.swarmAt(9, 5, { ahead: 300, out: 420 });
+          this.swarmAt(9, 5, { ahead: 200, out: 440 });
         }, until: (t) => this.sp.storm > 0.7 || t > 40 },
       // 5 ---- WIDOWMAKER 4 in the murk; it ends up in a tower
       { name: 'gunship', music: 0.9, enter: () => {
@@ -209,36 +224,45 @@ export class Director {
           // all at once wore a full-health player down to nothing in ~25 s on the autopilot)
           this.accWas = g.enemyAcc; g.enemyAcc *= 0.6;
           // the strike towers fall only in front of the door
-          this.sp.fallGate = (T_) => this._inDoor(T_, 70, 3200);
+          // (35°: the door frame cuts the view off at ~54° from the seat)
+          // (after 20 s it settles for 45° and stops insisting on a clear line: a neighbour in front beats it falling behind you)
+          this.sp.fallGate = (T_, waited) => waited > 20 ? this._doorAng(V(T_.x, T_.h * 0.5, T_.z)) < 45 : this._inDoor(T_, 35, 3200);
         }, update: (t, dt) => {
           const left = ['T1', 'T2', 'T3', 'T4'].map(id => this.sp.tower(id)).filter(T_ => !this.sp.strikes.targets.get(T_)?.called);
           // the nearest unpainted target: door toward it, waypoint on it, the autopilot paints it
           let best = null, bd = 1e9; for (const T_ of left) { const d = Math.hypot(T_.x - g.headPos.x, T_.z - g.headPos.z); if (d < bd) { bd = d; best = T_; } }
           // a called strike in flight wins the door: you see the missiles hit and the tower go, then the next target
-          this.watch = this.watch.filter(w => (w.fallT == null ? this.total - w.t < 20 : this.total - w.fallT < 6));
-          const W_ = this.watch[0]?.T;
-          if (W_) { const P = V(W_.x, W_.h * 0.6, W_.z); rail.face(P); speed(this._inDoor(W_, 60, 1e9) ? 0.45 : 0.2); /* brake hard if it's off to one side: the crab swings further */ g.paintTarget = null; if (best) hud.setWaypoint(V(best.x, best.h * 0.86, best.z)); }
+          // (a watched tower is let go 2 s after it lands, or 60 s after the call if it never fell)
+          this.watch = this.watch.filter(w => (w.landT != null ? this.total - w.landT < 2 : w.fallT != null ? this.total - w.fallT < 20 : this.total - w.t < 60));
+          // a tower that is actually coming down beats one still waiting for its missiles; while one falls we all but hover
+          const wF = this.watch.find(w => w.fallT != null && w.landT == null), W_ = (wF || this.watch[0])?.T;
+          if (W_) { const P = V(W_.x, W_.h * 0.45, W_.z); rail.face(P); speed(wF ? 0.1 : this._doorAng(P) < 30 ? 0.3 : 0.08); /* off to one side: down to a hover so the crab can swing the door all the way round */ g.paintTarget = null; if (best) hud.setWaypoint(V(best.x, best.h * 0.86, best.z)); }
           else { speed(0.72); if (best) { const P = V(best.x, best.h * 0.86, best.z); rail.face(P); hud.setWaypoint(P); g.paintTarget = this.auto ? P : null; } else { g.paintTarget = null; rail.face(null); } }
           // escalation: the enemy blows its own towers — one at a time, only when it is out of the door with a clear
           // line to it (never behind you or behind another building), and never more than two towers falling at once
-          this.escT -= dt;
+          this.escT -= dt * (this.watch.length ? 1.6 : 1);
           if (this.escT <= 0 && this.sp.falling() < 2) {
-            const id = ['E1', 'E2', 'E3'].find(i => { const T_ = this.sp.tower(i); return !this.sp.mids.isDown(T_.rigIdx) && this._inDoor(T_, 60, 2800); });
-            if (id) { this.escT = 16; this.sp.fallTower(id, g.headPos); if (first('esc')) later(1, () => say("They're blowing their own buildings now. Scorched earth.", 3)); }
+            // (alongside a watched tower once it is already falling: the pilot is all but hovering on it, so both stay in the door)
+            const id = this.watch.every(w => w.fallT != null) && this.watch.length < 2 && ['E1', 'E2', 'E3'].find(i => { const T_ = this.sp.tower(i); return !this.sp.mids.isDown(T_.rigIdx) && this._inDoor(T_, 40, 2800); });
+            if (id) { this.escT = 16; this.sp.fallTower(id, g.headPos); this.watch.push({ T: this.sp.tower(id), t: this.total, fallT: this.total, landT: null }); if (first('esc')) later(1, () => say("They're blowing their own buildings now. Scorched earth.", 3)); }
           }
-          if (!left.length && first('strikeDone')) { rail.release(); later(1.5, () => say("That's all four. Now the big one.", 2.4)); }
+          // (once the last tower is down the beat ends: no flying out the rest of the loop with nothing happening)
+          if (!left.length && first('strikeDone')) { rail.release(); this.strikeDoneT = t; later(1.5, () => say("That's all four. Now the big one.", 2.4)); }
           // pacing: whatever is left gets bombed for you
           // (one at a time, and only while fewer than two towers are falling: the staggered finale rule)
           this.autoCallT = (this.autoCallT ?? 0) - dt;
-          if (t > 95 * T && left.length && this.autoCallT <= 0 && this.sp.falling() < 2) {
+          // (one at a time, after the last one has landed; its strikeCalled event is pushed after this frame's events were
+          // read and would be cleared unseen, so it goes on the watch list here: the pilot turns the door to it like any other)
+          if (t > 80 * T && left.length && this.autoCallT <= 0 && this.sp.falling() < 2 && !this.watch.length) {
             this.autoCallT = 7;
             const T_ = best || left[0], tg = this.sp.strikes.targets.get(T_); tg.called = true; this.sp.strikes.call(T_, tg, V(T_.x, T_.h * 0.8, T_.z));
+            this.watch.push({ T: T_, t: this.total, fallT: null, landT: null });
             if (first('bombers')) say('Bombers have the rest. Come about — the Spire.', 2.6);
           }
           g.sunsetTarget = clamp(0.25 + t / 120, 0, 0.8);
           this.viperAt(7); this.swarmAt(16, 4, { trueFrac: 0.22 }); this.viperAt(38); this.swarmAt(52, 5, { trueFrac: 0.22 }); this.swarmAt(78, 4, { trueFrac: 0.22 }); this.viperAt(92); this.swarmAt(108, 5, { trueFrac: 0.22 });
           if (t > 4 && first('convoy')) later(0.5, () => say('Fuel tankers on the street below — light them up!', 2.6));
-        }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && !this.watch.length && ['E1', 'E2', 'E3'].every(i => this.sp.mids.isDown(this.sp.tower(i).rigIdx)) && rail.s > S('strike3') - 200) || t > 140 },
+        }, until: (t) => (t > 10 && this.sp.strikes.remaining() === 0 && this.sp.falling() === 0 && !this.watch.length && ['E1', 'E2', 'E3'].every(i => this.sp.mids.isDown(this.sp.tower(i).rigIdx)) && t > 8 + (this.strikeDoneT ?? 1e9)) || (t > 170 && !this.watch.length) || t > 215 },
       // 7 ---- the Spire: hover, paint the base, the money shot
       { name: 'spire', music: 1.0, enter: () => {
           g.paintTarget = null;
@@ -255,10 +279,14 @@ export class Director {
         }, update: (t, dt) => {
           rail.face(this.heroP);
           hud.setWaypoint(this.heroP);
-          if (this.auto) g.paintTarget = rail.holding ? V(HERO.x, 360, HERO.z) : null;
-          // the marker always moves the level on: after a while in the hover the bombers take the shot
-          if (rail.holding) this.holdT = (this.holdT ?? 0) + dt;
-          if (this.holdT > 22 && !this.heroStruck && !this.heroCalled) { this.heroCalled = true; const tg = this.sp.strikes.targets.get(this.sp.heroTarget); if (tg && !tg.called) { tg.called = true; this.sp.strikes.call(this.sp.heroTarget, tg, V(HERO.x, 360, HERO.z)); } say('Bombers are on her. Watch the Spire!', 2.4); }
+          // the transit to the Spire is just flying: make it quick, then slow for the run-in (the hold brakes us in time)
+          speed(S('spire') - rail.s > 1700 ? 1.3 : 0.7);
+          // the run-in counts: you can paint her (and the bombers start their clock) from ~700 m out, while we brake
+          const near = rail.holding || S('spire') - rail.s < 700;
+          if (this.auto) g.paintTarget = near ? V(HERO.x, 360, HERO.z) : null;
+          // the marker always moves the level on: after a while the bombers take the shot
+          if (near) this.holdT = (this.holdT ?? 0) + dt;
+          if (this.holdT > 18 && !this.heroStruck && !this.heroCalled) { this.heroCalled = true; const tg = this.sp.strikes.targets.get(this.sp.heroTarget); if (tg && !tg.called) { tg.called = true; this.sp.strikes.call(this.sp.heroTarget, tg, V(HERO.x, 360, HERO.z)); } say('Bombers are on her. Watch the Spire!', 2.4); }
           g.sunsetTarget = Math.max(g.sunsetTarget ?? 0, 0.85);
           if (this.heroStruck && !this.heroGo && (looking(V(HERO.x, 330, HERO.z), 0.8) || t - this.heroStruck > 5)) {
             this.heroGo = true; g.paintTarget = null; hud.setWaypoint(null);
@@ -329,6 +357,11 @@ export class Director {
     if ((dx * -Math.cos(y) + dz * Math.sin(y)) / d < Math.cos(deg * Math.PI / 180)) return false;
     return !this._blocked(H, V(T.x, T.h * 0.85, T.z), T);
   }
+  // how far P is off the open door's line, in degrees (0 = straight out of the door)
+  _doorAng(P) {
+    const H = this.g.headPos, y = this.W.rail.yaw, dx = P.x - H.x, dz = P.z - H.z, d = Math.hypot(dx, dz) || 1;
+    return Math.acos(clamp((dx * -Math.cos(y) + dz * Math.sin(y)) / d, -1, 1)) * 180 / Math.PI;
+  }
   // does any tower stand in the way between the eye and P?
   _blocked(H, P, skip) {
     const ax = H.x, az = H.z, bx = P.x - ax, bz = P.z - az, L2 = bx * bx + bz * bz;
@@ -381,11 +414,12 @@ export class Director {
         this.sp.column(e.p.x, e.p.z, 120, 1);
         g.fx.later(5, () => { this.crashDone = true; g.cinematicLook = null; });
       }
-      if (e.type === 'wingCrash') this.sp.column(e.p.x, e.p.z, 100, 0.9);
+      if (e.type === 'wingCrash') { this.sp.column(e.p.x, e.p.z, 100, 0.9); this.wingCrashT = this.total; }
       if (e.type === 'heroStruck') this.heroStruck = this.t;
       // strikes in flight: the pilot keeps the door on each called tower until it has hit the ground
-      if (e.type === 'strikeCalled' && e.tower !== this.sp.heroTarget) this.watch.push({ T: e.tower, t: this.total, fallT: null });
+      if (e.type === 'strikeCalled' && e.tower !== this.sp.heroTarget && !this.watch.some(w => w.T === e.tower)) this.watch.push({ T: e.tower, t: this.total, fallT: null, landT: null });
       if (e.type === 'towerFall') for (const w of this.watch) if (w.T === e.T && w.fallT == null) w.fallT = this.total;
+      if (e.type === 'towerLanded') for (const w of this.watch) if (w.T === e.T && w.landT == null) w.landT = this.total;
     }
     if (!this.done) {
       this.t += dt; this.total += dt;
