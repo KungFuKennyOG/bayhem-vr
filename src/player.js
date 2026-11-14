@@ -279,7 +279,7 @@ export class Player {
       if (this.mode === 'vr') this.launcher.model.muzzle.getWorldDirection(dir).negate();
       else {
         this.camera.getWorldDirection(dir);
-        if (this.auto && this.autoGrenade) { const t = this.autoGrenade.dist / 58; dir.y += 0.5 * 9.8 * t * t / this.autoGrenade.dist; dir.normalize(); }
+        if (this.auto && this.autoGrenade && !g.straightLauncher) { const t = this.autoGrenade.dist / 58; dir.y += 0.5 * 9.8 * t * t / this.autoGrenade.dist; dir.normalize(); }
       }
       g.launchGrenade(mz.clone().addScaledVector(dir, 0.3), dir);
       g.fx.muzzle(mz, dir, 'launcher', true);
