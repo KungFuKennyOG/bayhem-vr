@@ -210,6 +210,13 @@ export class SandGame {
   straightLauncher = true;
   launchGrenade(origin, dir) {
     const d = dir.clone().normalize();
+    // back-blast out of the rear of the tube that fired: a hot flash and a puff of grey smoke behind your hand
+    if (this.podBack) {
+      const B = this.podBack.getWorldPosition(_v3);
+      this.fx.main.spawn({ x: B.x, y: B.y, z: B.z, vx: -d.x * 6, vy: -d.y * 6, vz: -d.z * 6, frame: CELL.FLASH, s0: 0.35, s1: 0.8, life: 0.07, r: 2.0, g: 1.3, b: 0.6, a: 1 });
+      for (let i = 0; i < 4; i++) this.fx.main.spawn({ x: B.x - d.x * 0.3 * i, y: B.y - d.y * 0.3 * i, z: B.z - d.z * 0.3 * i, vx: -d.x * range(4, 9) + range(-0.6, 0.6), vy: -d.y * range(4, 9) + range(0, 0.8), vz: -d.z * range(4, 9) + range(-0.6, 0.6), drag: 2.2,
+        frameKind: 2, frame: rand() * 40, frames: 16, s0: 0.25, s1: 1.4, ease: 0.6, life: range(0.9, 1.4), rot: rand() * 6.28, vrot: range(-0.6, 0.6), r: 0.5, g: 0.46, b: 0.4, a: 0.55, fadeIn: 0.03, fadeOut: 0.5 });
+    }
     this.nades.push({ pos: origin.clone().addScaledVector(d, 0.6), vel: d.clone().multiplyScalar(140), dir: d, sp: 140, t: 0, id: (this._nadeId = (this._nadeId || 0) + 1) });
   }
 

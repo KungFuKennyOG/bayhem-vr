@@ -1041,6 +1041,152 @@ export function buildLauncher(opts = {}) {
 // back of the receiver, carry handle on top, motor on the right, feeder on the left, barrel
 // cluster on its own bone (the level spins it). Same kit, bake and materials as the others.
 // =====================================================================================
+// =====================================================================================
+// Rocket pod (Level 8's left hand): six short rocket tubes in a hex cluster on the
+// launcher's pistol grip. Each tube shows its rocket's nose; the nose goes when that tube
+// fires (in a cross-pattern order, so the pod stays balanced) and the reload pops them back.
+// Seen mostly from behind, so the rear gets the detail: venturi nozzles, a vented blast plate.
+// =====================================================================================
+export function buildRocketPod(opts = {}) {
+  const k = new Kit();
+  const PY = 0.122, RC = 0.05, RT = 0.0235, RB = 0.0196; // pod axis height, tube ring radius, tube outer / bore radius
+  const U0 = 0.045, U1 = 0.5;                             // tube span (forward)
+  const ORDER = [0, 3, 1, 4, 2, 5];                       // firing order: across the cluster each time
+  const chAng = (j) => PI / 2 + j * PI / 3;
+  const TX = (j) => Math.cos(chAng(j)) * RC, TY = (j) => PY + Math.sin(chAng(j)) * RC;
+  const LB = { root: 0, trigger: 1, finger: 2 };
+  const idxPivot = IDX_LOCAL[1].clone().applyMatrix4(gripFrame(true));
+  const boneDefs = [
+    { name: 'root', pos: [0, 0, 0] },
+    { name: 'trigger', pos: [0, 0.05, -0.0525], parent: 0 },
+    { name: 'finger', pos: idxPivot.toArray(), parent: 0 },
+  ];
+  for (let j = 0; j < 6; j++) boneDefs.push({ name: 'nose' + j, pos: [TX(j), TY(j), -(U1 - 0.004)], parent: 0 });
+  const ANO = { cls: C.ANO, col: COL.ano };
+  const ODC = [0.085, 0.094, 0.05], OD = { cls: C.PAINT, col: ODC, wear: 1.0 }; // a touch lighter than the grenades' OD: dark tubes read as black in the haze
+  const PARK = { cls: C.PARK, col: COL.park };
+
+  // ---------------- lower receiver: grip housing, the saddle the pod sits in, the front lug down to the guard
+  k.add(side(ext(rp([[-0.062, 0.036, 0.006], [0.128, 0.036, 0.004], [0.128, 0.068, 0.004], [0.104, 0.082, 0.006], [-0.04, 0.082, 0.008], [-0.062, 0.066, 0.008]]), 0.038, { bev: 0.0026 })),
+    { ...ANO, tint: (x, y, z, nx) => (Math.abs(nx) > 0.6 && y > 0.046 && y < 0.07 && -z > 0.0 && -z < 0.1 ? 0.55 : 1) });
+  k.add(side(ext(rp([[0.088, -0.008, 0.004], [0.106, -0.008, 0.004], [0.112, 0.04, 0.003], [0.092, 0.04, 0.003]]), 0.03, { bev: 0.002 })), { ...ANO, wear: 1.1 });
+  for (const s of [-1, 1]) for (const [u, v] of [[-0.03, 0.058], [0.04, 0.06], [0.1, 0.058], [0.098, 0.012]]) k.add(cylAB(v3(s * 0.0185, v, -u), v3(s * 0.0205, v, -u), 0.0034, 0.0034, 10), { cls: C.PARK, col: COL.pin, wear: 1.4 });
+  // safety lever (left side, by the thumb) + its arc
+  k.add(at(rbox(0.004, 0.009, 0.026, 0.0018), 0.021, 0.064, 0.012, -0.35, 0, 0), { ...PARK, wear: 1.5 });
+  k.add(at(new THREE.BoxGeometry(0.0006, 0.002, 0.012), 0.0202, 0.072, 0.002), { cls: C.PAINT, col: COL.white, wear: 0, dust: 0.2 });
+  addGrip(k, false);
+  addTriggerGuard(k, LB.trigger);
+
+  // ---------------- the six tubes: OD paint over a thin wall, bore dark, a yellow band + stencil strip near the front
+  for (let j = 0; j < 6; j++) {
+    const x = TX(j), y = TY(j);
+    k.add(lathe([[RB, U0 + 0.012], [RT - 0.0012, U0 + 0.012], [RT, U0 + 0.015], [RT, U1 - 0.016], [RT - 0.0012, U1 - 0.013], [RB + 0.0008, U1 - 0.013], [RB, U1 - 0.016], [RB, U0 + 0.05], [0, U0 + 0.05]], 18, y, x),
+      { ...OD, crease: 45, lw: true, tint: (px, py, pz) => (Math.hypot(px - x, py - y) < RB + 0.0004 ? 0.12 : 1) });
+    k.add(lathe([[RT + 0.0003, 0.4], [RT + 0.0003, 0.414]], 18, y, x), { cls: C.PAINT, col: COL.yellow, wear: 0.9, dust: 0.5 });
+    // muzzle ring (anodized, chamfered) and the rear coupling ring
+    k.add(lathe([[RB, U1 - 0.016], [RB + 0.0004, U1 - 0.002], [RT - 0.0006, U1], [RT + 0.0014, U1 - 0.003], [RT + 0.0014, U1 - 0.02], [RT, U1 - 0.022]], 18, y, x), { ...ANO, wear: 1.4, crease: 50 });
+    k.add(lathe([[RT, U0 + 0.034], [RT + 0.0016, U0 + 0.032], [RT + 0.0016, U0 + 0.014], [RT, U0 + 0.012]], 18, y, x), { ...PARK, wear: 1.2, crease: 50 });
+    // venturi nozzle out of the back: throat narrows then flares, dark soot inside
+    k.add(lathe([[RT - 0.002, U0 + 0.012], [0.0165, U0 - 0.004], [0.0158, U0 - 0.016], [0.0205, U0 - 0.036], [0.0218, U0 - 0.037], [0.0196, U0 - 0.039], [0.0142, U0 - 0.018], [0.0148, U0 - 0.004], [RB - 0.002, U0 + 0.012]], 18, y, x),
+      { ...PARK, wear: 0.7, dust: 0.3, crease: 55, tint: (px, py, pz) => (Math.hypot(px - x, py - y) < 0.0153 || -pz < U0 - 0.03 ? 0.25 : 1) });
+    k.add(rear(ext(circle(x, y, 0.0146, 14), 0.002, { bev: 0 }), -(U0 - 0.004)), { cls: C.POLY, col: [0.008, 0.007, 0.007], wear: 0, dust: 0 });
+    // the stencil strip on the outward face (white text block, as a few dashes)
+    const a = chAng(j), ox = Math.cos(a) * (RC + RT + 0.0002), oy = PY + Math.sin(a) * (RC + RT + 0.0002);
+    if (j !== 0) for (let i = 0; i < 4; i++) k.add(at(new THREE.BoxGeometry(0.0004, 0.003, i === 0 ? 0.03 : 0.012 + (i % 2) * 0.006), ox, oy, -(0.3 + i * 0.016), 0, 0, a), { cls: C.PAINT, col: COL.white, wear: 0.6, dust: 0.3 });
+  }
+  // ---------------- clamp bands: rear blast plate (vented), mid band, front band (all anodized)
+  const holes6 = (r) => [0, 1, 2, 3, 4, 5].map((j) => circle(TX(j), TY(j), r, 14));
+  const rim = RC + RT + 0.006;
+  k.add(rear(ext(circle(0, PY, rim, 30), 0.012, { bev: 0.0016, holes: holes6(RT + 0.0004) }), -(U0 + 0.022)), { ...ANO, wear: 1.2 });
+  for (let i = 0; i < 6; i++) { const a = chAng(i) + PI / 6; k.add(at(new THREE.BoxGeometry(0.009, 0.004, 0.0125), Math.cos(a) * (rim - 0.004), PY + Math.sin(a) * (rim - 0.004), -(U0 + 0.022), 0, 0, a + PI / 2), { cls: C.POLY, col: [0.01, 0.01, 0.01], wear: 0, dust: 0 }); }
+  for (const [u, w] of [[0.235, 0.018], [U1 - 0.03, 0.016]]) {
+    k.add(rear(ext(circle(0, PY, rim - 0.002, 30), w, { bev: 0.0018, holes: holes6(RT + 0.0004) }), -u), { ...ANO, wear: 1.15 });
+    for (const s of [-1, 1]) k.add(cylAB(v3(s * 0.006, PY - rim - 0.006, -u), v3(s * 0.006, PY - rim + 0.004, -u), 0.0032, 0.0032, 8), { ...PARK, wear: 1.5 }); // clamp bolts under the band
+    k.add(at(rbox(0.02, 0.01, w * 0.8, 0.002), 0, PY - rim - 0.003, -u), { ...ANO, wear: 1.2 });
+  }
+  // the spine rod through the middle (seen between the tubes)
+  k.add(cylAB(v3(0, PY, -(U0 + 0.01)), v3(0, PY, -(U1 - 0.02)), 0.0095, 0.0095, 12), { ...PARK, wear: 1.0 });
+  k.add(lathe([[0, U1 - 0.02], [0.012, U1 - 0.02], [0.013, U1 - 0.016], [0.009, U1 - 0.008], [0, U1 - 0.008]], 14, PY), { ...ANO, wear: 1.3 });
+
+  // ---------------- top strap + rail across the bands, and the flip-up ladder sight
+  const TOPY = PY + RC + RT + 0.004;
+  k.add(side(ext(rp([[0.02, TOPY - 0.004, 0.002], [U1 - 0.02, TOPY - 0.004, 0.002], [U1 - 0.02, TOPY + 0.008, 0.002], [0.02, TOPY + 0.008, 0.002]]), 0.024, { bev: 0.0016 })), ANO);
+  addRail(k, TOPY + 0.008, 0.04, U1 - 0.04, (u) => u < 0.07 || (u > 0.205 && u < 0.26));
+  {
+    const hu = 0.15, hv = TOPY + 0.008 + RAIL_H + 0.006;
+    k.add(rear(ext(rp([[-0.0126, TOPY + 0.009, 0.001], [0.0126, TOPY + 0.009, 0.001], [0.0126, hv, 0.002], [-0.0126, hv, 0.002]]), 0.028, { bev: 0.001 }), -(hu + 0.012)), ANO);
+    k.add(cylAB(v3(-0.013, hv, -hu), v3(0.013, hv, -hu), 0.003, 0.003, 10), { cls: C.PARK, col: COL.pin, wear: 1.4 });
+    const lf = new THREE.Matrix4().makeTranslation(0, hv, -hu).multiply(new THREE.Matrix4().makeRotationX(22 * D));
+    const L = (g) => apply(g, lf);
+    for (const s of [-1, 1]) k.add(L(at(rbox(0.0026, 0.058, 0.0045, 0.0009), s * 0.0108, 0.029, 0)), { ...ANO, wear: 1.3 });
+    for (let i = 0; i < 5; i++) {
+      k.add(L(at(new THREE.BoxGeometry(0.0195, 0.0016, 0.0028), 0, 0.012 + i * 0.0105, 0)), { ...ANO, wear: 1.0 });
+      for (const s of [-1, 1]) k.add(L(at(new THREE.BoxGeometry(0.0004, 0.0012, 0.0036), s * 0.0123, 0.0125 + i * 0.0105, 0)), { cls: C.PAINT, col: COL.white, wear: 0, dust: 0.2 });
+    }
+    k.add(L(rear(ext(rp([[-0.0105, -0.005], [0.0105, -0.005], [0.0105, 0.005], [-0.0105, 0.005]], 0.0015), 0.004, { bev: 0.0006, holes: [circle(0, 0, 0.0021, 10)] }), 0).translate(0, 0.036, 0)), { ...ANO, wear: 1.2 });
+    // front post on the front band
+    k.add(at(rbox(0.004, 0.022, 0.004, 0.001), 0, TOPY + 0.021, -(U1 - 0.035)), { ...ANO, wear: 1.3 });
+    k.add(at(new THREE.BoxGeometry(0.0016, 0.004, 0.0044), 0, TOPY + 0.03, -(U1 - 0.035)), { cls: C.PAINT, col: COL.white, wear: 0, dust: 0.2 });
+  }
+  // ---------------- sling loop on the rear plate, and a firing cable from the receiver up into the rear plate
+  k.add(at(new THREE.TorusGeometry(0.008, 0.0018, 6, 12), -rim + 0.002, PY - 0.02, -(U0 + 0.022), 0, PI / 2, 0), { ...PARK, wear: 1.4 });
+  k.add(tube([v3(0.012, 0.074, -0.06), v3(0.02, 0.085, -0.052), v3(0.027, 0.09, -(U0 + 0.012))], [0.0032, 0.0032, 0.0032], 8, false), { cls: C.RUBBER, col: COL.rubber, wear: 0.3 });
+
+  // ---------------- rocket noses (one bone each): OD body, yellow HE band, steel fuze ring, copper tip
+  for (let j = 0; j < 6; j++) {
+    const cx = TX(j), cy = TY(j), u0 = U1 - 0.004;
+    const P = (pts) => pts.map(([r, du]) => [r, u0 + du]);
+    k.add(lathe(P([[0.0188, 0], [0.0188, 0.012], [0.0184, 0.022], [0.0172, 0.031], [0.0148, 0.041], [0.0114, 0.05], [0.0078, 0.0565], [0.0058, 0.0605], [0.0058, 0.066], [0.004, 0.069], [0, 0.0705]]), 12, cy, cx),
+      { cls: C.PAINT, col: ODC, bone: 3 + j, tag: 'nose', dust: 0.25, wear: 0.5, crease: 55,
+        matFn: (x, y, z) => { const du = -z - u0; return du > 0.0605 ? [COL.copper, C.COPPER] : du > 0.056 ? [COL.steel, C.STEEL] : du > 0.022 && du < 0.031 ? [COL.yellow, C.PAINT] : [ODC, C.PAINT]; } });
+  }
+
+  // ---------------- left hand on the grip
+  const hr = addHand(k, gripFrame(true), { sleeveBone: 9, tag: 'hand', bone: LB.root, fingerBone: LB.finger, ax: 0.0155, az: 0.024, fingers: [0.008, -0.0135, -0.034], index: IDX_LOCAL.map((p) => p.toArray()), thumb: 'grip', wristDir: v3(-0.16, -0.42, 1).normalize() });
+  // occluders: the cluster darkens itself between the tubes, the receiver round the grip
+  k.cap(v3(0, PY, -U0), v3(0, PY, -U1), RC, 0.5, 0.02, 'pod', ['gun']);
+  k.box(v3(0, 0.1, -0.02), v3(0.018, 0.065, 0.05), 0.5, 0.016, 'gun', ['grip', 'hand']);
+  k.box(v3(0, 0.06, -0.03), v3(0.019, 0.022, 0.09), 0.4, 0.016, 'gun', ['gun']);
+
+  boneDefs.push({ name: 'sleeve', pos: hr.sleevePivot.toArray(), parent: 0 });
+  const { mesh, B, tris } = rig(k, boneDefs);
+  const group = new THREE.Group(); group.name = 'rocketpod'; group.add(mesh);
+  const muzzle = new THREE.Object3D(); group.add(muzzle);
+  const back = new THREE.Object3D(); group.add(back); // the rear of the tube that just fired (back-blast)
+  const setTube = (o, j, u) => o.position.set(TX(j), TY(j), -u);
+  setTube(muzzle, ORDER[0], U1 + 0.004); setTube(back, ORDER[0], U0 - 0.04);
+  const noses = [0, 1, 2, 3, 4, 5].map((j) => B['nose' + j]);
+  const st = { trig: 0 };
+  return {
+    group, mesh, muzzle, back, kind: 'launcher', bones: B, triangles: tris, drawCalls: 1,
+    setMode(mode) { B.sleeve.scale.setScalar(mode === 'vr' ? 1e-4 : 1); },
+    animate(s) {
+      const dt = s.dt || 0.016;
+      const want = s.trigger || s.sinceShot < 0.06 ? 1 : 0;
+      st.trig += (want - st.trig) * Math.min(1, dt * 30);
+      B.trigger.rotation.x = -0.3 * st.trig;
+      B.finger.rotation.y = -0.22 * st.trig;
+      const sf = s.shotsFired, spent = s.mag - s.ammo, ph = s.reloading ? s.reloadPhase : 0;
+      // the next shot leaves from the next loaded tube; the back-blast comes out of the one that just fired
+      setTube(muzzle, ORDER[((sf % 6) + 6) % 6], U1 + 0.004);
+      setTube(back, ORDER[(((sf - 1) % 6) + 6) % 6], U0 - 0.04);
+      for (let j = 0; j < 6; j++) {
+        let q = 0; // how many shots ago this tube fired (1 = the last one), 0 = loaded
+        for (let i = 1; i <= spent; i++) if (ORDER[(((sf - i) % 6) + 6) % 6] === j) { q = i; break; }
+        let sc = 1;
+        if (q) {
+          sc = 0;
+          // reload: the rockets slide back in one after another, a little overshoot as each seats
+          if (s.reloading) { const order = spent - q; const t0 = 0.22 + 0.6 * (order / Math.max(1, spent)); const t = win(ph, t0, t0 + 0.07); sc = t <= 0 ? 0 : t >= 1 ? 1 : easeOut(t) * (1 + 0.2 * Math.sin(t * PI)); }
+        }
+        noses[j].scale.setScalar(Math.max(1e-4, sc));
+        // a seated nose sits flush; one that's mid-reload slides in from 4 cm out
+        noses[j].position.z = noses[j].userData.rest.z - (sc > 0 && sc < 1 ? (1 - Math.min(1, sc)) * 0.04 : 0);
+      }
+    },
+  };
+}
+
 export function buildMinigun(opts = {}) {
   const k = new Kit();
   const BM = 0.118;                         // bore axis above the hand
