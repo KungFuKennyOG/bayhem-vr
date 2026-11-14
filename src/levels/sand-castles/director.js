@@ -269,7 +269,7 @@ export class Director {
       { name: 'spire', music: 1.0, enter: () => {
           g.paintTarget = null;
           speed(0.7);
-          TH.clearAir(); for (const q of this.squads) g.dropSquad(q);
+          for (const q of this.squads) g.dropSquad(q);
           if (this.accWas != null) g.enemyAcc = this.accWas;
           rail.holdAt(S('spire'));
           for (const a of g.aas) a.active = false;
@@ -281,17 +281,22 @@ export class Director {
         }, update: (t, dt) => {
           rail.face(this.heroP);
           hud.setWaypoint(this.heroP);
-          // the transit to the Spire is just flying: make it quick, then slow for the run-in (the hold brakes us in time)
-          speed(S('spire') - rail.s > 1700 ? 1.3 : 0.7);
-          // the run-in counts: you can paint her (and the bombers start their clock) from ~700 m out, while we brake
-          const near = rail.holding || S('spire') - rail.s < 700;
+          // the transit to the Spire is quick, then slow for the run-in (the hold brakes us in time)
+          const toGo = S('spire') - rail.s;
+          speed(toGo > 1700 ? 1.3 : 0.7);
+          // ...and it's a gauntlet, not ~90 s of empty flying: they throw what they have left at us on the way in.
+          // Spawning stops ~1.2 km out and anything still up breaks off once she's struck, so the money shot is clean.
+          if (toGo > 1200) { this.viperAt(4); this.swarmAt(9, 5, { trueFrac: 0.3 }); this.swarmAt(22, 4, { trueFrac: 0.3 }); this.swarmAt(32, 5, { trueFrac: 0.3 }); this.swarmAt(42, 4, { trueFrac: 0.3 }); } // one Viper early; then drones (a second Viper got swung behind the posts once the pilot starts turning to the Spire)
+          if (t > 4 && first('gauntlet')) later(0.6, () => say("They're throwing everything they've got at us. Keep that gun hot!", 3));
+          // the run-in counts: you can paint her (and the bombers start their clock) from ~1.3 km out, while we brake
+          const near = rail.holding || toGo < 1300;
           if (this.auto) g.paintTarget = near ? V(HERO.x, 360, HERO.z) : null;
           // the marker always moves the level on: after a while the bombers take the shot
           if (near) this.holdT = (this.holdT ?? 0) + dt;
-          if (this.holdT > 18 && !this.heroStruck && !this.heroCalled) { this.heroCalled = true; const tg = this.sp.strikes.targets.get(this.sp.heroTarget); if (tg && !tg.called) { tg.called = true; this.sp.strikes.call(this.sp.heroTarget, tg, V(HERO.x, 360, HERO.z)); } say('Bombers are on her. Watch the Spire!', 2.4); }
+          if (this.holdT > 15 && !this.heroStruck && !this.heroCalled) { this.heroCalled = true; const tg = this.sp.strikes.targets.get(this.sp.heroTarget); if (tg && !tg.called) { tg.called = true; this.sp.strikes.call(this.sp.heroTarget, tg, V(HERO.x, 360, HERO.z)); } say('Bombers are on her. Watch the Spire!', 2.4); }
           g.sunsetTarget = Math.max(g.sunsetTarget ?? 0, 0.85);
           if (this.heroStruck && !this.heroGo && (looking(V(HERO.x, 330, HERO.z), 0.8) || t - this.heroStruck > 5)) {
-            this.heroGo = true; g.paintTarget = null; hud.setWaypoint(null);
+            this.heroGo = true; g.paintTarget = null; hud.setWaypoint(null); TH.vipersLeave();
             this.sp.strikes.on = false;
             this.sp.hero.fallDir = new THREE.Vector3(1, 0, 0.25).normalize();
             this.sp.hero.start(g.headPos);
@@ -309,14 +314,23 @@ export class Director {
       { name: 'escape', music: 0.5, enter: () => {
           rail.release(); speed(0.85);
           // the pilot keeps the door on the wreck as we limp away (crab), you look out over the dust sea
-          this.wreckP = V(HERO.x + 150, 60, HERO.z); rail.face(this.wreckP);
+          this.wreckP = V(HERO.x + 150, 60, HERO.z); rail.face(null);
           g.cinematicLook = null; g.idleLook = null;
           this.W.cabin.U.uWarn.value = 0.6; audio.play('warn_tone', {});
           later(1.2, () => say("Master caution's lit. Number two engine's eating sand. We're going home slow.", 3.6));
-          later(8, () => say('Look at it. Twenty minutes ago that was a city.', 2.8));
+          // one last chopper: the pilot turns the door off the wreck and onto his run until he's down or gone, then
+          // brings it back round for the look at the city
+          later(4, () => { const v = TH.spawnViper(); if (v) { this.lastViper = v; say("One more on our left — he wants the last word. Don't let him have it!", 3); } });
+          later(17, () => TH.vipersLeave());
+          later(19.5, () => say('Look at it. Twenty minutes ago that was a city.', 2.8));
           hud.setWaypoint(null);
-        }, update: (t) => { g.sunsetTarget = 1; this.W.cabin.U.uWarn.value = 0.6 * (1 - clamp(t / 12, 0, 1)); },
-        until: (t) => rail.s > S('sea') - 200 || t > 70 * T },
+        }, update: (t) => {
+          g.sunsetTarget = 1; this.W.cabin.U.uWarn.value = 0.6 * (1 - clamp(t / 12, 0, 1));
+          const lv = this.lastViper, fighting = lv && (TH._flying(lv) && lv.phase !== 'leave' || lv.phase === 'dying');
+          rail.face(t < 4.5 || fighting ? null : this.wreckP); // door forward for the fight (it spawns off the door), back to the wreck after
+        },
+        // (was up to 70 s of limping with nothing to do: now one last chopper, the look back, and out)
+        until: (t) => rail.s > S('sea') - 200 || t > 30 * T },
       { name: 'outro', music: 1.0, enter: () => {
           audio.musicStinger?.('victory');
           later(opts.trailer ? 1 : 1.6, () => {

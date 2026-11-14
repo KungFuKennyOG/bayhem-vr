@@ -101,6 +101,17 @@ export class SandGame {
   }
   // a squad left behind: gone without a body (the heli has moved on)
   dropSquad(list) { for (const m of list) if (m.alive) { m.alive = false; m.gm.dispose(); } this.men = this.men.filter(m => m.alive || !list.includes(m)); }
+  // is P visible from the gunner's seat through the gunner's door (or either door with `both`)? The frame cuts it at ~54°.
+  doorSees(P, both = false) {
+    const cab = this.W.cabin.root; cab.updateMatrixWorld(); _v3.copy(P); cab.worldToLocal(_v3);
+    const hx = -0.42, hy = 1.3, hz = -0.1, dx = _v3.x - hx, dy = _v3.y - hy, dz = _v3.z - hz;
+    for (const X of both ? [-1.25, 1.25] : [-1.25]) {
+      if (Math.sign(dx) !== Math.sign(X - hx) || Math.abs(dx) < 0.01) continue;
+      const t = (X - hx) / dx, zi = hz + dz * t, yi = hy + dy * t;
+      if (zi > -1.25 && zi < 1.05 && yi > -0.05 && yi < 2.12) return true;
+    }
+    return false;
+  }
   enemiesAlive(f = null) { return this.men.filter(m => m.alive && (!f || f(m))).length; }
 
   // ------------------------------------------------------------------ towers as hit boxes
@@ -291,8 +302,12 @@ export class SandGame {
       _v.set(H.x + range(-1, 1), H.y + 1.2, H.z);
       gm.update(dt, _v);
       if (dist > 520) continue;
+      // nobody shoots you from where you can't see them (Kenny's run: half the boulevard's hits came from gunmen
+      // outside the doorway): out of the door's view they hold fire, reload, and open up once you can see them
+      const seen = this.doorSees(m.pos);
       // rifle: bursts
       m.fireT -= dt;
+      if (!seen) { m.fireT = Math.max(m.fireT, 0.6); m.rpgT = Math.max(m.rpgT ?? 0, 1.5); m.burst = 0; continue; }
       if (m.role === 'rifle' && m.fireT <= 0 && m.suppress <= 0 && !this.ceasefire) {
         if (m.burst <= 0) m.burst = 3 + Math.floor(rand() * 4);
         if (gm.fire()) this.enemyShot(m, dist);
