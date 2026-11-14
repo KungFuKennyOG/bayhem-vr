@@ -294,7 +294,8 @@ export class Player {
     // gentle magnetism toward gunmen/rockets within ~3 degrees (VR only)
     let best = null, bestA = 0.05;
     const range = this.g.aimRange ?? 90;
-    const tryP = (p) => { _v.subVectors(p, origin); const d = _v.length(); if (d > range) return; _v.divideScalar(d); const a = Math.acos(Math.min(1, _v.dot(dir))); if (a < bestA) { bestA = a; best = _v.clone(); } };
+    const tryP = (p, far = false) => { _v.subVectors(p, origin); const d = _v.length(); if (d > range && !far) return;   // far: a big set-piece target the level asks to assist at any range
+      _v.divideScalar(d); const a = Math.acos(Math.min(1, _v.dot(dir))); if (a < bestA) { bestA = a; best = _v.clone(); } };
     this.g.aimAssistPoints?.(tryP);
     if (best) dir.lerp(best, 0.6).normalize();
   }

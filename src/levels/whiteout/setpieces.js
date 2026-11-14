@@ -98,12 +98,14 @@ export class SetPieces {
     this.ridge = buildRidge(); g.scene.add(this.ridge.root); this.ridge.root.visible = false;
     for (const gl of this.ridge.glows) W.glowList.push(gl);
     this.gazexTarget = {
+      far: 420,   // past the guns' usual 240 m: they're ~280-340 m from the terrace
       active: () => this.ridge.root.visible && this.ridge.targets.some(t => t.alive) && !this.aval,
       ray: (o, d) => { let best = -1; this.lastGz = null; for (const t of this.ridge.targets) { if (!t.alive) continue; const tt = raySphere(o, d, t.p, t.r); if (tt > 0 && (best < 0 || tt < best)) { best = tt; this.lastGz = t; } } return best; },
       hit: (P) => { const t = this.lastGz; if (!t) return; g.fx.impact(P, UP, 'metal'); t.hp -= 1; g.hitMarker(t.hp <= 0); if (t.hp <= 0) this.gazexBoom(t); },
       near: (p) => this.ridge.targets.some(t => t.alive && t.p.distanceTo(p) < t.r + 2),
       direct: (p) => { for (const t of this.ridge.targets) if (t.alive && t.p.distanceTo(p) < t.r + 3) this.gazexBoom(t); },
       aim: () => this.ridge.targets.find(t => t.alive)?.p,
+      aims: () => this.ridge.targets.filter(t => t.alive).map(t => t.p),   // aim assist pulls toward whichever cannon you're on
       auto: (head) => { const t = this.ridge.targets.find(t => t.alive); if (!t) return null; return { kind: 'target', p: t.p.clone(), score: 90, ref: this.gazexTarget, tol: 0.01, minNade: 999 }; },
     };
     g.targets.push(this.gazexTarget);

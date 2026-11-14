@@ -158,7 +158,8 @@ export class WhiteGame {
     for (const tg of this.targets) {
       if (!tg.active()) continue;
       const t = tg.ray(origin, dir);
-      if (t > 0 && t < best.t) best = { t, kind: 'target', target: tg };
+      // far targets (the Gazex cannons sit ~280-340 m up the face from the terrace) get their own range
+      if (t > 0 && (t < best.t || (tg.far && t < tg.far && best.kind === 'none'))) best = { t, kind: 'target', target: tg };
     }
     const hit = this.col.raycast(origin, dir, best.t, (b) => b.data.noBullet || b.data.kind === 'glass');
     if (hit) {
@@ -562,7 +563,7 @@ export class WhiteGame {
   get boss() { return this.bossInfo; }
   aimAssistPoints(tryP) {
     for (const s of this.soldiers) if (s.alive) tryP(s.gm.chestCenter.getWorldPosition(new THREE.Vector3()));
-    for (const tg of this.targets) if (tg.active() && tg.aim) tryP(tg.aim());
+    for (const tg of this.targets) if (tg.active()) { if (tg.aims) for (const p of tg.aims()) tryP(p, !!tg.far); else if (tg.aim) tryP(tg.aim()); }
   }
   autoTargets(A, head) {
     const out = [];
